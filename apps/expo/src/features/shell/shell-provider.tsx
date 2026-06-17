@@ -1,0 +1,169 @@
+import * as React from "react";
+
+import type { ReportIntent, ShellCopy } from "../../i18n";
+import type {
+  ShellModel,
+  ShellReportAction,
+  ShellSession,
+  ShellState,
+} from "./shell-model";
+import { getShellCopy } from "../../i18n";
+import {
+  chooseReportAction,
+  continueReportActionAsMember,
+  createInitialShellState,
+  createShellModel,
+} from "./shell-model";
+
+interface RastroShellContextValue {
+  copy: ShellCopy;
+  model: ShellModel;
+  session: ShellSession;
+  state: ShellState;
+  openReportActions: () => void;
+  closeReportActions: () => void;
+  chooseReportIntent: (intent: ReportIntent) => void;
+  dismissAuthPrompt: () => void;
+  signInFromPrompt: () => void;
+  createAccountFromPrompt: () => void;
+  continueAsVisitor: () => void;
+}
+
+const RastroShellContext = React.createContext<RastroShellContextValue | null>(
+  null,
+);
+
+function findReportAction(
+  model: ShellModel,
+  intent: ReportIntent,
+): ShellReportAction {
+  const action = model.reportActions.find((item) => item.intent === intent);
+
+  if (!action) {
+    throw new Error(`Unknown report intent: ${intent}`);
+  }
+
+  return action;
+}
+
+export function RastroShellProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const copy = React.useMemo(() => getShellCopy(), []);
+  const [session, setSession] = React.useState<ShellSession>({
+    kind: "visitor",
+  });
+  const [state, setState] = React.useState(createInitialShellState);
+
+  const model = React.useMemo(
+    () => createShellModel({ copy, session }),
+    [copy, session],
+  );
+
+  const openReportActions = React.useCallback(() => {
+    setState((current) => ({
+      ...current,
+      activeSheet: "report-actions",
+      authPrompt: null,
+    }));
+  }, []);
+
+  const closeReportActions = React.useCallback(() => {
+    setState((current) => ({
+      ...current,
+      activeSheet: null,
+    }));
+  }, []);
+
+  const chooseReportIntent = React.useCallback(
+    (intent: ReportIntent) => {
+      const action = findReportAction(model, intent);
+
+      setState((current) =>
+        session.kind === "member"
+          ? continueReportActionAsMember(current, action)
+          : chooseReportAction(current, action, copy),
+      );
+    },
+    [copy, model, session.kind],
+  );
+
+  const dismissAuthPrompt = React.useCallback(() => {
+    setState((current) => ({
+      ...current,
+      authPrompt: null,
+    }));
+  }, []);
+
+  const continueAsVisitor = React.useCallback(() => {
+    setState((current) => ({
+      ...current,
+      authPrompt: null,
+    }));
+  }, []);
+
+  const signInFromPrompt = React.useCallback(() => {
+    setSession({ kind: "member" });
+    setState((current) => ({
+      ...current,
+      authPrompt: null,
+      memberIntent: current.authPrompt
+        ? {
+            intent: current.authPrompt.intent,
+            label: current.authPrompt.selectedIntentLabel,
+          }
+        : current.memberIntent,
+    }));
+  }, []);
+
+  const createAccountFromPrompt = React.useCallback(() => {
+    signInFromPrompt();
+  }, [signInFromPrompt]);
+
+  const value = React.useMemo<RastroShellContextValue>(
+    () => ({
+      copy,
+      model,
+      session,
+      state,
+      openReportActions,
+      closeReportActions,
+      chooseReportIntent,
+      dismissAuthPrompt,
+      signInFromPrompt,
+      createAccountFromPrompt,
+      continueAsVisitor,
+    }),
+    [
+      chooseReportIntent,
+      closeReportActions,
+      continueAsVisitor,
+      copy,
+      createAccountFromPrompt,
+      dismissAuthPrompt,
+      model,
+      openReportActions,
+      session,
+      signInFromPrompt,
+      state,
+    ],
+  );
+
+  return (
+    <RastroShellContext.Provider value={value}>
+      {children}
+    </RastroShellContext.Provider>
+  );
+}
+
+export function useRastroShell() {
+  const value = React.use(RastroShellContext);
+
+  if (!value) {
+    throw new Error("useRastroShell must be used inside RastroShellProvider");
+  }
+
+  return value;
+}

@@ -1,0 +1,448 @@
+import type {
+  ResourceCategoryId,
+  ResourceContactOption,
+  ResourceProviderProfile,
+  ResourceProviderSummary,
+  ResourcesDirectoryMode,
+  ResourcesDirectoryStatus,
+  ResourceSearchLocation,
+} from "./resource-types";
+
+export interface ResourceCategoryOption {
+  id: ResourceCategoryId;
+  label: string;
+}
+
+export const resourceCategoryOptions = [
+  {
+    id: "veterinary",
+    label: "Veterinarias",
+  },
+  {
+    id: "shelter",
+    label: "Refugios",
+  },
+  {
+    id: "groomer",
+    label: "Peluquerías",
+  },
+  {
+    id: "pet_food",
+    label: "Alimentos",
+  },
+  {
+    id: "trainer",
+    label: "Entrenadores",
+  },
+  {
+    id: "pet_store",
+    label: "Tiendas",
+  },
+  {
+    id: "transport",
+    label: "Transporte",
+  },
+  {
+    id: "other",
+    label: "Otros",
+  },
+] satisfies ResourceCategoryOption[];
+
+const categoryLabels = new Map<ResourceCategoryId, string>(
+  resourceCategoryOptions.map((category) => [category.id, category.label]),
+);
+
+export interface ResourcesDirectoryViewModelInput {
+  providers: readonly ResourceProviderSummary[];
+  selectedCategoryIds?: readonly ResourceCategoryId[];
+  location: ResourceSearchLocation;
+  mode: ResourcesDirectoryMode;
+  status: ResourcesDirectoryStatus;
+  isOffline?: boolean;
+  errorMessage?: string;
+}
+
+export interface ResourceProviderSummaryViewModel {
+  id: string;
+  name: string;
+  categoryLabel: string;
+  description: string;
+  locationLabel: string;
+  serviceAreaLabel?: string;
+  distanceLabel?: string;
+  isVerified: boolean;
+  isSponsored: boolean;
+  sponsorLabel?: string;
+  sponsorDisclosure?: string;
+  availabilityLabel?: string;
+  emergencyLabel?: string;
+  logoUrl?: string;
+  photoUrl?: string;
+  contactLabels: string[];
+}
+
+export interface ResourcesDirectoryViewModel {
+  mode: ResourcesDirectoryMode;
+  state:
+    | "loading"
+    | "error"
+    | "location_denied"
+    | "offline"
+    | "empty"
+    | "ready";
+  title: string;
+  location: {
+    kind: ResourceSearchLocation["kind"];
+    label: string;
+    helper: string;
+  };
+  categories: (ResourceCategoryOption & { isSelected: boolean })[];
+  selectedCategoryLabels: string[];
+  results: ResourceProviderSummaryViewModel[];
+  notice?: {
+    title: string;
+    body: string;
+  };
+}
+
+export interface ResourceProviderProfileViewModel {
+  id: string;
+  name: string;
+  subtitle: string;
+  heroImageUrl?: string;
+  logoUrl?: string;
+  badges: {
+    label: string;
+    tone: "category" | "verified" | "sponsor" | "emergency";
+  }[];
+  primaryActions: {
+    kind: ResourceContactOption["kind"];
+    label: string;
+    value: string;
+  }[];
+  sections: {
+    title: string;
+    rows: {
+      label: string;
+      value: string;
+    }[];
+  }[];
+  optionalLinks: {
+    label: string;
+    url: string;
+  }[];
+  sponsorDisclosure?: string;
+  reportAction: {
+    label: string;
+    providerId: string;
+  };
+}
+
+export function buildResourcesDirectoryViewModel(
+  input: ResourcesDirectoryViewModelInput,
+): ResourcesDirectoryViewModel {
+  const selectedCategoryIds = input.selectedCategoryIds ?? [];
+  const selectedCategorySet = new Set(selectedCategoryIds);
+  const categories = resourceCategoryOptions.map((category) => ({
+    ...category,
+    isSelected: selectedCategorySet.has(category.id),
+  }));
+  const selectedCategoryLabels =
+    selectedCategoryIds.length > 0
+      ? selectedCategoryIds.map(getCategoryLabel)
+      : ["Todos"];
+
+  const filteredProviders =
+    selectedCategorySet.size > 0
+      ? input.providers.filter((provider) =>
+          selectedCategorySet.has(provider.categoryId),
+        )
+      : input.providers;
+
+  const results = filteredProviders.map(buildProviderSummaryViewModel);
+  const location = buildLocationViewModel(input.location);
+  const state = getDirectoryState(input, results.length);
+
+  return {
+    mode: input.mode,
+    state,
+    title: input.mode === "map" ? "Recursos en mapa" : "Recursos cerca",
+    location,
+    categories,
+    selectedCategoryLabels,
+    results,
+    notice: buildDirectoryNotice(state, input.errorMessage),
+  };
+}
+
+export function buildResourceProviderProfileViewModel(
+  profile: ResourceProviderProfile,
+): ResourceProviderProfileViewModel {
+  const badges: ResourceProviderProfileViewModel["badges"] = [
+    {
+      label: getCategoryLabel(profile.categoryId),
+      tone: "category",
+    },
+  ];
+
+  if (profile.isVerified === true) {
+    badges.push({
+      label: "Verificado",
+      tone: "verified",
+    });
+  }
+
+  if (profile.sponsorPlacement !== undefined) {
+    badges.push({
+      label: profile.sponsorPlacement.label,
+      tone: "sponsor",
+    });
+  }
+
+  if (profile.emergencyAvailable === true) {
+    badges.push({
+      label: "Urgencias 24h",
+      tone: "emergency",
+    });
+  }
+
+  return {
+    id: profile.id,
+    name: profile.name,
+    subtitle: profile.description,
+    heroImageUrl: profile.photoUrl,
+    logoUrl: profile.logoUrl,
+    badges,
+    primaryActions: profile.contactOptions.map((contact) => ({
+      kind: contact.kind,
+      label: contact.label,
+      value: contact.value,
+    })),
+    sections: buildProfileSections(profile),
+    optionalLinks: buildProfileLinks(profile),
+    sponsorDisclosure: profile.sponsorPlacement?.disclosure,
+    reportAction: {
+      label: "Reportar perfil",
+      providerId: profile.id,
+    },
+  };
+}
+
+function buildProviderSummaryViewModel(
+  provider: ResourceProviderSummary,
+): ResourceProviderSummaryViewModel {
+  return {
+    id: provider.id,
+    name: provider.name,
+    categoryLabel: getCategoryLabel(provider.categoryId),
+    description: provider.description,
+    locationLabel: provider.approximateLocationLabel,
+    serviceAreaLabel: provider.serviceAreaLabel,
+    distanceLabel:
+      provider.distanceMeters === undefined
+        ? undefined
+        : formatDistance(provider.distanceMeters),
+    isVerified: provider.isVerified === true,
+    isSponsored: provider.sponsorPlacement !== undefined,
+    sponsorLabel: provider.sponsorPlacement?.label,
+    sponsorDisclosure: provider.sponsorPlacement?.disclosure,
+    availabilityLabel: provider.isOpenNow === true ? "Abierto" : undefined,
+    emergencyLabel:
+      provider.emergencyAvailable === true ? "Urgencias" : undefined,
+    logoUrl: provider.logoUrl,
+    photoUrl: provider.photoUrl,
+    contactLabels: provider.contactOptions.map((contact) => contact.label),
+  };
+}
+
+function buildProfileSections(profile: ResourceProviderProfile) {
+  const sections: ResourceProviderProfileViewModel["sections"] = [];
+
+  if (profile.shortDescription.trim().length > 0) {
+    sections.push({
+      title: "Sobre",
+      rows: [
+        {
+          label: "Descripción",
+          value: profile.shortDescription,
+        },
+      ],
+    });
+  }
+
+  const locationRows: ResourceProviderProfileViewModel["sections"][number]["rows"] =
+    [
+      {
+        label: "Horario",
+        value: profile.hoursLabel,
+      },
+      {
+        label: "Ubicación",
+        value: profile.approximateLocationLabel,
+      },
+    ];
+
+  if (profile.serviceAreaLabel !== undefined) {
+    locationRows.push({
+      label: "Cobertura",
+      value: profile.serviceAreaLabel,
+    });
+  }
+
+  sections.push({
+    title: "Horario y zona",
+    rows: locationRows,
+  });
+
+  return sections;
+}
+
+function buildProfileLinks(profile: ResourceProviderProfile) {
+  const links: ResourceProviderProfileViewModel["optionalLinks"] = [];
+
+  if (profile.websiteUrl !== undefined) {
+    links.push({
+      label: "Sitio web",
+      url: profile.websiteUrl,
+    });
+  }
+
+  if (profile.socialLinks !== undefined) {
+    for (const link of profile.socialLinks) {
+      links.push(link);
+    }
+  }
+
+  if (profile.externalLinks !== undefined) {
+    for (const link of profile.externalLinks) {
+      links.push(link);
+    }
+  }
+
+  return links;
+}
+
+function buildLocationViewModel(location: ResourceSearchLocation) {
+  if (location.kind === "current") {
+    return {
+      kind: location.kind,
+      label: location.label
+        ? `Cerca de ${location.label}`
+        : "Usando tu ubicación actual",
+      helper: "Búsqueda por radio con ubicación de Rastro.",
+    };
+  }
+
+  if (location.kind === "last") {
+    return {
+      kind: location.kind,
+      label: `Última ubicación: ${location.label}`,
+      helper: "Puedes actualizarla o buscar otra zona de Bolivia.",
+    };
+  }
+
+  if (location.kind === "manual") {
+    return {
+      kind: location.kind,
+      label: `Buscando en ${location.label}`,
+      helper: "Búsqueda manual dentro de Bolivia.",
+    };
+  }
+
+  if (location.kind === "denied") {
+    return {
+      kind: location.kind,
+      label: "Ubicación desactivada",
+      helper: "Busca una ciudad, zona o punto manual en Bolivia.",
+    };
+  }
+
+  return {
+    kind: location.kind,
+    label: "Busca recursos en Bolivia",
+    helper: "Elige ubicación actual, última ubicación o búsqueda manual.",
+  };
+}
+
+function getDirectoryState(
+  input: ResourcesDirectoryViewModelInput,
+  resultCount: number,
+): ResourcesDirectoryViewModel["state"] {
+  if (input.status === "loading") {
+    return "loading";
+  }
+
+  if (input.status === "error") {
+    return "error";
+  }
+
+  if (input.isOffline === true) {
+    return "offline";
+  }
+
+  if (input.location.kind === "denied") {
+    return "location_denied";
+  }
+
+  if (resultCount === 0) {
+    return "empty";
+  }
+
+  return "ready";
+}
+
+function buildDirectoryNotice(
+  state: ResourcesDirectoryViewModel["state"],
+  errorMessage?: string,
+): ResourcesDirectoryViewModel["notice"] {
+  if (state === "loading") {
+    return {
+      title: "Cargando recursos",
+      body: "Buscando proveedores locales cerca de la zona elegida.",
+    };
+  }
+
+  if (state === "error") {
+    return {
+      title: "No pudimos cargar recursos",
+      body: errorMessage ?? "Reintenta en unos segundos.",
+    };
+  }
+
+  if (state === "location_denied") {
+    return {
+      title: "Busca por zona",
+      body: "Sin permiso de ubicación, puedes buscar ciudad, barrio o marcar un punto manual.",
+    };
+  }
+
+  if (state === "offline") {
+    return {
+      title: "Sin conexión",
+      body: "Mostrando recursos guardados. Reintenta cuando vuelvas a tener internet.",
+    };
+  }
+
+  if (state === "empty") {
+    return {
+      title: "No hay servicios cerca",
+      body: "Prueba con otra ubicación o cambia los filtros.",
+    };
+  }
+
+  return undefined;
+}
+
+function getCategoryLabel(categoryId: ResourceCategoryId) {
+  return categoryLabels.get(categoryId) ?? "Otros";
+}
+
+function formatDistance(distanceMeters: number) {
+  if (distanceMeters < 1000) {
+    return `${distanceMeters} m`;
+  }
+
+  return `${(distanceMeters / 1000).toLocaleString("es-BO", {
+    maximumFractionDigits: 1,
+  })} km`;
+}

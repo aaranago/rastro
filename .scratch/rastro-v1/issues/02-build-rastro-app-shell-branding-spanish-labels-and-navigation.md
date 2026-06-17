@@ -13,12 +13,12 @@ Replace the starter UI with a polished Rastro mobile shell: splash/app icon iden
 
 ## Acceptance criteria
 
-- [ ] The mobile app opens to a Rastro-branded shell, not the T3 starter post demo.
-- [ ] Bottom tabs are `Cerca`, `Actividad`, `Recursos`, and `Perfil`.
-- [ ] A global report FAB opens actions for `Reportar perdida`, `Reportar encontrada`, `Reportar avistamiento`, and `Dar en adopcion`.
-- [ ] No primary hamburger drawer is used.
-- [ ] Spanish labels fit compact mobile controls and use consistent icons for lost, found, sighting, and adoption.
-- [ ] The implementation includes basic signed-out and signed-in visual states without blocking visitor browsing.
+- [x] The mobile app opens to a Rastro-branded shell, not the T3 starter post demo.
+- [x] Bottom tabs are `Cerca`, `Actividad`, `Recursos`, and `Perfil`.
+- [x] A global report FAB opens actions for `Reportar perdida`, `Reportar encontrada`, `Reportar avistamiento`, and `Dar en adopcion`.
+- [x] No primary hamburger drawer is used.
+- [x] Spanish labels fit compact mobile controls and use consistent icons for lost, found, sighting, and adoption.
+- [x] The implementation includes basic signed-out and signed-in visual states without blocking visitor browsing.
 
 ## Blocked by
 
