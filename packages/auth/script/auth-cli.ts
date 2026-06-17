@@ -22,6 +22,5 @@ export const auth = initAuth({
   baseUrl: "http://localhost:3000",
   productionUrl: "http://localhost:3000",
   secret: "secret",
-  discordClientId: "1234567890",
-  discordClientSecret: "1234567890",
+  requireEmailVerification: false,
 });

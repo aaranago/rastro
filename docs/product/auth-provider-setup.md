@@ -21,6 +21,7 @@ Target variables to add when implementing auth:
 ```env
 AUTH_SECRET=""
 BETTER_AUTH_URL="https://YOUR_DOMAIN"
+AUTH_REQUIRE_EMAIL_VERIFICATION="false"
 
 AUTH_GOOGLE_ID=""
 AUTH_GOOGLE_SECRET=""
@@ -29,9 +30,7 @@ AUTH_FACEBOOK_ID=""
 AUTH_FACEBOOK_SECRET=""
 
 AUTH_APPLE_CLIENT_ID=""
-AUTH_APPLE_TEAM_ID=""
-AUTH_APPLE_KEY_ID=""
-AUTH_APPLE_PRIVATE_KEY=""
+AUTH_APPLE_CLIENT_SECRET=""
 AUTH_APPLE_APP_BUNDLE_IDENTIFIER=""
 ```
 
@@ -40,6 +39,7 @@ Implementation must update `packages/auth/env.ts`, `packages/auth/src/index.ts`,
 ## Email And Password
 
 - Enable Better Auth `emailAndPassword.enabled`.
+- `AUTH_REQUIRE_EMAIL_VERIFICATION` defaults to `false` for Bolivia v1.
 - Implement password reset before production.
 - Email verification is not required by default.
 - Keep email verification configurable so admins can require verified email for publishing if spam is detected.
@@ -85,8 +85,9 @@ Apple is required on iOS if Rastro offers Google or Facebook as primary sign-in 
 3. Register a Services ID for web OAuth.
 4. Configure domains and the production Apple return URL above.
 5. Create and download the private key.
-6. Store Team ID, Key ID, Client ID, private key, and bundle identifier in env vars.
-7. Generate the Apple client secret JWT in server code, not by pasting a long-lived static secret.
+6. Generate an Apple client secret JWT from the Team ID, Key ID, Client ID, and private key.
+7. Store the Client ID, generated client secret, and bundle identifier in env vars.
+8. Rotate the Apple client secret before it expires; do not commit Apple keys or generated secrets.
 
 Sources:
 
