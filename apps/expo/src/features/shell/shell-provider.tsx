@@ -2,12 +2,19 @@ import * as React from "react";
 
 import type { ReportIntent, ShellCopy } from "../../i18n";
 import type {
+  ShellAuthActionResult,
+  ShellAuthAdapter,
+  ShellAuthCredentials,
+} from "./shell-auth";
+import type {
   ShellModel,
   ShellReportAction,
   ShellSession,
   ShellState,
 } from "./shell-model";
+import { shellAuthAdapter } from "~/utils/auth";
 import { getShellCopy } from "../../i18n";
+import { deriveShellSessionFromAuthState } from "./shell-auth";
 import {
   chooseReportAction,
   continueReportActionAsMember,
@@ -24,8 +31,12 @@ interface RastroShellContextValue {
   closeReportActions: () => void;
   chooseReportIntent: (intent: ReportIntent) => void;
   dismissAuthPrompt: () => void;
-  signInFromPrompt: () => void;
-  createAccountFromPrompt: () => void;
+  signInFromPrompt: (
+    credentials: ShellAuthCredentials,
+  ) => Promise<ShellAuthActionResult>;
+  createAccountFromPrompt: (
+    credentials: ShellAuthCredentials,
+  ) => Promise<ShellAuthActionResult>;
   continueAsVisitor: () => void;
 }
 
@@ -47,14 +58,16 @@ function findReportAction(
 }
 
 export function RastroShellProvider({
+  authAdapter = shellAuthAdapter,
   children,
 }: {
+  authAdapter?: ShellAuthAdapter;
   children: React.ReactNode;
 }) {
   const copy = React.useMemo(() => getShellCopy(), []);
-  const [session, setSession] = React.useState<ShellSession>({
-    kind: "visitor",
-  });
+  const authSession = authAdapter.useSession();
+  const refetchAuthSession = authSession.refetch;
+  const session = deriveShellSessionFromAuthState(authSession);
   const [state, setState] = React.useState(createInitialShellState);
 
   const model = React.useMemo(
@@ -104,8 +117,8 @@ export function RastroShellProvider({
     }));
   }, []);
 
-  const signInFromPrompt = React.useCallback(() => {
-    setSession({ kind: "member" });
+  const completeAuthPrompt = React.useCallback(() => {
+    refetchAuthSession?.();
     setState((current) => ({
       ...current,
       authPrompt: null,
@@ -116,11 +129,33 @@ export function RastroShellProvider({
           }
         : current.memberIntent,
     }));
-  }, []);
+  }, [refetchAuthSession]);
 
-  const createAccountFromPrompt = React.useCallback(() => {
-    signInFromPrompt();
-  }, [signInFromPrompt]);
+  const signInFromPrompt = React.useCallback(
+    async (credentials: ShellAuthCredentials) => {
+      const result = await authAdapter.signInWithEmail(credentials);
+
+      if (result.ok) {
+        completeAuthPrompt();
+      }
+
+      return result;
+    },
+    [authAdapter, completeAuthPrompt],
+  );
+
+  const createAccountFromPrompt = React.useCallback(
+    async (credentials: ShellAuthCredentials) => {
+      const result = await authAdapter.createAccountWithEmail(credentials);
+
+      if (result.ok) {
+        completeAuthPrompt();
+      }
+
+      return result;
+    },
+    [authAdapter, completeAuthPrompt],
+  );
 
   const value = React.useMemo<RastroShellContextValue>(
     () => ({

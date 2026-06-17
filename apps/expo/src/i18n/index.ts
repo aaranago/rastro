@@ -26,9 +26,20 @@ export interface ShellCopy {
   authPrompt: {
     title: string;
     bodyForIntent: (intentLabel: string) => string;
+    emailLabel: string;
+    emailPlaceholder: string;
+    passwordLabel: string;
+    passwordPlaceholder: string;
+    nameLabel: string;
+    namePlaceholder: string;
     signIn: string;
+    signingIn: string;
     createAccount: string;
+    creatingAccount: string;
     continueAsVisitor: string;
+    formHelp: string;
+    missingCredentials: string;
+    authFailed: string;
   };
   appStates: AppStateCatalog;
   screens: {
@@ -111,9 +122,21 @@ const esBO: ShellCopy = {
     title: "Inicia sesion para continuar",
     bodyForIntent: (intentLabel) =>
       `Guardamos tu seleccion: ${intentLabel}. Inicia sesion para reportar o ver tu actividad.`,
+    emailLabel: "Correo",
+    emailPlaceholder: "tu-correo@ejemplo.com",
+    passwordLabel: "Contrasena",
+    passwordPlaceholder: "Tu contrasena",
+    nameLabel: "Nombre publico",
+    namePlaceholder: "Opcional para crear cuenta",
     signIn: "Iniciar sesion",
+    signingIn: "Iniciando sesion",
     createAccount: "Crear cuenta",
+    creatingAccount: "Creando cuenta",
     continueAsVisitor: "Continuar como visitante",
+    formHelp: "Usa correo y contrasena para una cuenta Rastro en Bolivia.",
+    missingCredentials: "Ingresa correo y contrasena para continuar.",
+    authFailed:
+      "No pudimos completar el ingreso. Revisa tus datos e intenta de nuevo.",
   },
   appStates: {
     states: {

@@ -1,9 +1,22 @@
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import * as React from "react";
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 
 import type { ReportIntent } from "../../i18n";
+import type { ShellAuthActionResult, ShellAuthCredentials } from "./shell-auth";
 import type { ShellAuthPrompt, ShellReportAction } from "./shell-model";
+import { prepareShellAuthCredentials } from "./shell-auth";
 import { useRastroShell } from "./shell-provider";
 import { reportIntentColors, shellColors } from "./shell-theme";
 
@@ -69,14 +82,25 @@ export function ShellFabHost() {
 
       <SignInPrompt
         bottomInset={insets.bottom}
+        authFailedLabel={copy.authPrompt.authFailed}
         closeLabel={copy.shell.close}
+        createAccountPendingLabel={copy.authPrompt.creatingAccount}
         createAccountLabel={copy.authPrompt.createAccount}
         continueAsVisitorLabel={copy.authPrompt.continueAsVisitor}
+        emailLabel={copy.authPrompt.emailLabel}
+        emailPlaceholder={copy.authPrompt.emailPlaceholder}
+        formHelp={copy.authPrompt.formHelp}
+        missingCredentialsLabel={copy.authPrompt.missingCredentials}
+        nameLabel={copy.authPrompt.nameLabel}
+        namePlaceholder={copy.authPrompt.namePlaceholder}
         onClose={dismissAuthPrompt}
         onContinueAsVisitor={continueAsVisitor}
         onCreateAccount={createAccountFromPrompt}
         onSignIn={signInFromPrompt}
+        passwordLabel={copy.authPrompt.passwordLabel}
+        passwordPlaceholder={copy.authPrompt.passwordPlaceholder}
         prompt={state.authPrompt}
+        signInPendingLabel={copy.authPrompt.signingIn}
         signInLabel={copy.authPrompt.signIn}
       />
     </>
@@ -195,28 +219,112 @@ export function ReportActionSheet({
 }
 
 export function SignInPrompt({
+  authFailedLabel,
   bottomInset,
   closeLabel,
   createAccountLabel,
+  createAccountPendingLabel,
   continueAsVisitorLabel,
+  emailLabel,
+  emailPlaceholder,
+  formHelp,
+  missingCredentialsLabel,
+  nameLabel,
+  namePlaceholder,
   onClose,
   onContinueAsVisitor,
   onCreateAccount,
   onSignIn,
+  passwordLabel,
+  passwordPlaceholder,
   prompt,
   signInLabel,
+  signInPendingLabel,
 }: {
+  authFailedLabel: string;
   bottomInset: number;
   closeLabel: string;
   createAccountLabel: string;
+  createAccountPendingLabel: string;
   continueAsVisitorLabel: string;
+  emailLabel: string;
+  emailPlaceholder: string;
+  formHelp: string;
+  missingCredentialsLabel: string;
+  nameLabel: string;
+  namePlaceholder: string;
   onClose: () => void;
   onContinueAsVisitor: () => void;
-  onCreateAccount: () => void;
-  onSignIn: () => void;
+  onCreateAccount: (
+    credentials: ShellAuthCredentials,
+  ) => Promise<ShellAuthActionResult>;
+  onSignIn: (
+    credentials: ShellAuthCredentials,
+  ) => Promise<ShellAuthActionResult>;
+  passwordLabel: string;
+  passwordPlaceholder: string;
   prompt: ShellAuthPrompt | null;
   signInLabel: string;
+  signInPendingLabel: string;
 }) {
+  const [email, setEmail] = React.useState("");
+  const [name, setName] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [authError, setAuthError] = React.useState<string | null>(null);
+  const [pendingAction, setPendingAction] = React.useState<
+    "create-account" | "sign-in" | null
+  >(null);
+
+  React.useEffect(() => {
+    if (!prompt) {
+      setAuthError(null);
+      setEmail("");
+      setName("");
+      setPassword("");
+      setPendingAction(null);
+    }
+  }, [prompt]);
+
+  const submitAuthAction = React.useCallback(
+    async (action: "create-account" | "sign-in") => {
+      const prepared = prepareShellAuthCredentials({
+        email,
+        name,
+        password,
+      });
+
+      if (!prepared.ok) {
+        setAuthError(missingCredentialsLabel);
+        return;
+      }
+
+      setAuthError(null);
+      setPendingAction(action);
+
+      const result =
+        action === "sign-in"
+          ? await onSignIn(prepared.credentials)
+          : await onCreateAccount(prepared.credentials);
+
+      setPendingAction(null);
+
+      if (!result.ok) {
+        setAuthError(result.message ?? authFailedLabel);
+      }
+    },
+    [
+      authFailedLabel,
+      email,
+      missingCredentialsLabel,
+      name,
+      onCreateAccount,
+      onSignIn,
+      password,
+    ],
+  );
+
+  const isSubmitting = pendingAction !== null;
+
   return (
     <Modal
       animationType="fade"
@@ -224,86 +332,182 @@ export function SignInPrompt({
       transparent
       visible={Boolean(prompt)}
     >
-      <View style={styles.promptBackdrop}>
-        <View
-          accessibilityViewIsModal
-          style={[
-            styles.promptCard,
-            { marginBottom: Math.max(bottomInset, 16) },
-          ]}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.promptBackdrop}
+      >
+        <ScrollView
+          contentContainerStyle={styles.promptScrollContent}
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
         >
-          <Pressable
-            accessibilityLabel={closeLabel}
-            accessibilityRole="button"
-            onPress={onClose}
-            style={styles.promptCloseButton}
+          <View
+            accessibilityViewIsModal
+            style={[
+              styles.promptCard,
+              { marginBottom: Math.max(bottomInset, 16) },
+            ]}
           >
-            <ShellIcon name="xmark" color={shellColors.muted} size={20} />
-          </Pressable>
-
-          <View style={styles.promptIcon}>
-            <ShellIcon
-              name="person.crop.circle.badge.plus"
-              color={shellColors.primary}
-              size={42}
-            />
-          </View>
-          <Text maxFontSizeMultiplier={1.2} style={styles.promptTitle}>
-            {prompt?.title}
-          </Text>
-          <Text maxFontSizeMultiplier={1.25} style={styles.promptBody}>
-            {prompt?.body}
-          </Text>
-
-          <View style={styles.promptActions}>
             <Pressable
+              accessibilityLabel={closeLabel}
               accessibilityRole="button"
-              onPress={onSignIn}
-              style={({ pressed }) => [
-                styles.primaryPromptButton,
-                { opacity: pressed ? 0.84 : 1 },
-              ]}
+              onPress={onClose}
+              style={styles.promptCloseButton}
             >
-              <ShellIcon
-                name="arrow.right.to.line"
-                color={shellColors.white}
-                size={20}
-              />
-              <Text
-                maxFontSizeMultiplier={1.2}
-                style={styles.primaryPromptButtonText}
-              >
-                {signInLabel}
-              </Text>
+              <ShellIcon name="xmark" color={shellColors.muted} size={20} />
             </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={onCreateAccount}
-              style={({ pressed }) => [
-                styles.secondaryPromptButton,
-                { opacity: pressed ? 0.84 : 1 },
-              ]}
-            >
+
+            <View style={styles.promptIcon}>
               <ShellIcon
-                name="person.badge.plus"
+                name="person.crop.circle.badge.plus"
                 color={shellColors.primary}
-                size={20}
+                size={42}
               />
+            </View>
+            <Text maxFontSizeMultiplier={1.2} style={styles.promptTitle}>
+              {prompt?.title}
+            </Text>
+            <Text maxFontSizeMultiplier={1.25} style={styles.promptBody}>
+              {prompt?.body}
+            </Text>
+            <Text maxFontSizeMultiplier={1.2} style={styles.promptHelp}>
+              {formHelp}
+            </Text>
+
+            <View style={styles.promptFields}>
+              <View style={styles.promptFieldGroup}>
+                <Text maxFontSizeMultiplier={1.15} style={styles.promptLabel}>
+                  {emailLabel}
+                </Text>
+                <TextInput
+                  accessibilityLabel={emailLabel}
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  autoCorrect={false}
+                  editable={!isSubmitting}
+                  keyboardType="email-address"
+                  onChangeText={setEmail}
+                  placeholder={emailPlaceholder}
+                  placeholderTextColor={shellColors.muted}
+                  returnKeyType="next"
+                  style={styles.promptInput}
+                  textContentType="emailAddress"
+                  value={email}
+                />
+              </View>
+
+              <View style={styles.promptFieldGroup}>
+                <Text maxFontSizeMultiplier={1.15} style={styles.promptLabel}>
+                  {passwordLabel}
+                </Text>
+                <TextInput
+                  accessibilityLabel={passwordLabel}
+                  autoCapitalize="none"
+                  autoComplete="password"
+                  autoCorrect={false}
+                  editable={!isSubmitting}
+                  onChangeText={setPassword}
+                  placeholder={passwordPlaceholder}
+                  placeholderTextColor={shellColors.muted}
+                  returnKeyType="done"
+                  secureTextEntry
+                  style={styles.promptInput}
+                  textContentType="password"
+                  value={password}
+                />
+              </View>
+
+              <View style={styles.promptFieldGroup}>
+                <Text maxFontSizeMultiplier={1.15} style={styles.promptLabel}>
+                  {nameLabel}
+                </Text>
+                <TextInput
+                  accessibilityLabel={nameLabel}
+                  autoCapitalize="words"
+                  autoComplete="name"
+                  autoCorrect
+                  editable={!isSubmitting}
+                  onChangeText={setName}
+                  placeholder={namePlaceholder}
+                  placeholderTextColor={shellColors.muted}
+                  returnKeyType="done"
+                  style={styles.promptInput}
+                  textContentType="name"
+                  value={name}
+                />
+              </View>
+            </View>
+
+            {authError ? (
               <Text
+                accessibilityRole="alert"
                 maxFontSizeMultiplier={1.2}
-                style={styles.secondaryPromptButtonText}
+                style={styles.promptError}
               >
-                {createAccountLabel}
+                {authError}
               </Text>
-            </Pressable>
-            <Pressable onPress={onContinueAsVisitor}>
-              <Text maxFontSizeMultiplier={1.2} style={styles.visitorLink}>
-                {continueAsVisitorLabel}
-              </Text>
-            </Pressable>
+            ) : null}
+
+            <View style={styles.promptActions}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={isSubmitting}
+                onPress={() => {
+                  void submitAuthAction("sign-in");
+                }}
+                style={({ pressed }) => [
+                  styles.primaryPromptButton,
+                  { opacity: pressed || isSubmitting ? 0.84 : 1 },
+                ]}
+              >
+                <ShellIcon
+                  name="arrow.right.to.line"
+                  color={shellColors.white}
+                  size={20}
+                />
+                <Text
+                  maxFontSizeMultiplier={1.2}
+                  style={styles.primaryPromptButtonText}
+                >
+                  {pendingAction === "sign-in"
+                    ? signInPendingLabel
+                    : signInLabel}
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                disabled={isSubmitting}
+                onPress={() => {
+                  void submitAuthAction("create-account");
+                }}
+                style={({ pressed }) => [
+                  styles.secondaryPromptButton,
+                  { opacity: pressed || isSubmitting ? 0.84 : 1 },
+                ]}
+              >
+                <ShellIcon
+                  name="person.badge.plus"
+                  color={shellColors.primary}
+                  size={20}
+                />
+                <Text
+                  maxFontSizeMultiplier={1.2}
+                  style={styles.secondaryPromptButtonText}
+                >
+                  {pendingAction === "create-account"
+                    ? createAccountPendingLabel
+                    : createAccountLabel}
+                </Text>
+              </Pressable>
+              <Pressable disabled={isSubmitting} onPress={onContinueAsVisitor}>
+                <Text maxFontSizeMultiplier={1.2} style={styles.visitorLink}>
+                  {continueAsVisitorLabel}
+                </Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -389,9 +593,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   promptBackdrop: {
-    alignItems: "center",
     backgroundColor: "rgba(20, 108, 90, 0.12)",
     flex: 1,
+  },
+  promptScrollContent: {
+    alignItems: "center",
+    flexGrow: 1,
     justifyContent: "center",
     padding: 16,
   },
@@ -428,6 +635,47 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 10,
     width: 84,
+  },
+  promptError: {
+    alignSelf: "stretch",
+    backgroundColor: "#FDECEC",
+    borderColor: "#F3B6B6",
+    borderRadius: 16,
+    borderWidth: 1,
+    color: "#9B1C1C",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
+    padding: 12,
+  },
+  promptFieldGroup: {
+    gap: 6,
+  },
+  promptFields: {
+    alignSelf: "stretch",
+    gap: 10,
+  },
+  promptHelp: {
+    color: shellColors.muted,
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  promptInput: {
+    backgroundColor: shellColors.background,
+    borderColor: shellColors.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    color: shellColors.text,
+    fontSize: 16,
+    minHeight: 52,
+    paddingHorizontal: 14,
+  },
+  promptLabel: {
+    color: shellColors.text,
+    fontSize: 13,
+    fontWeight: "800",
   },
   promptTitle: {
     color: shellColors.text,

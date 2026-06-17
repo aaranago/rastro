@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { getShellCopy } from "../../i18n";
 import {
+  deriveShellSessionFromAuthState,
+  prepareShellAuthCredentials,
+} from "./shell-auth";
+import {
   chooseReportAction,
   createInitialShellState,
   createShellModel,
@@ -25,6 +29,65 @@ describe("Rastro shell", () => {
       "Reportar avistamiento",
       "Dar en adopcion",
     ]);
+  });
+
+  it("derives signed-in shell state from Better Auth session data", () => {
+    const copy = getShellCopy();
+
+    const visitorShell = createShellModel({
+      copy,
+      session: deriveShellSessionFromAuthState({
+        data: null,
+        error: null,
+        isPending: false,
+      }),
+    });
+    const memberShell = createShellModel({
+      copy,
+      session: deriveShellSessionFromAuthState({
+        data: {
+          session: { id: "session_123" },
+          user: {
+            email: "ana@example.com",
+            id: "member_123",
+            name: "Ana",
+          },
+        },
+        error: null,
+        isPending: false,
+      }),
+    });
+
+    expect(visitorShell.session.kind).toBe("visitor");
+    expect(memberShell.session.kind).toBe("member");
+  });
+
+  it("prepares email and password prompt input for Better Auth actions", () => {
+    expect(
+      prepareShellAuthCredentials({
+        email: " ANA@EXAMPLE.COM ",
+        name: " Ana ",
+        password: " rastro123 ",
+      }),
+    ).toEqual({
+      credentials: {
+        email: "ana@example.com",
+        name: "Ana",
+        password: " rastro123 ",
+      },
+      ok: true,
+    });
+
+    expect(
+      prepareShellAuthCredentials({
+        email: "",
+        name: "",
+        password: "rastro123",
+      }),
+    ).toEqual({
+      ok: false,
+      reason: "missing-credentials",
+    });
   });
 
   it("preserves a visitor's selected report intent in the sign-in prompt", () => {
