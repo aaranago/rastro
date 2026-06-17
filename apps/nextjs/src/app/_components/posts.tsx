@@ -36,8 +36,8 @@ export function CreatePostForm() {
       onError: (err) => {
         toast.error(
           err.data?.code === "UNAUTHORIZED"
-            ? "You must be logged in to post"
-            : "Failed to create post",
+            ? "Debes iniciar sesion para publicar"
+            : "No pudimos crear el reporte",
         );
       },
     }),
@@ -71,7 +71,9 @@ export function CreatePostForm() {
             return (
               <Field data-invalid={isInvalid}>
                 <FieldContent>
-                  <FieldLabel htmlFor={field.name}>Bug Title</FieldLabel>
+                  <FieldLabel htmlFor={field.name}>
+                    Titulo del reporte
+                  </FieldLabel>
                 </FieldContent>
                 <Input
                   id={field.name}
@@ -80,7 +82,7 @@ export function CreatePostForm() {
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
                   aria-invalid={isInvalid}
-                  placeholder="Title"
+                  placeholder="Ej. Luna se perdio en Sopocachi"
                 />
                 {isInvalid && <FieldError errors={field.state.meta.errors} />}
               </Field>
@@ -95,7 +97,7 @@ export function CreatePostForm() {
             return (
               <Field data-invalid={isInvalid}>
                 <FieldContent>
-                  <FieldLabel htmlFor={field.name}>Content</FieldLabel>
+                  <FieldLabel htmlFor={field.name}>Descripcion</FieldLabel>
                 </FieldContent>
                 <Input
                   id={field.name}
@@ -104,7 +106,7 @@ export function CreatePostForm() {
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
                   aria-invalid={isInvalid}
-                  placeholder="Content"
+                  placeholder="Describe senas, zona y como contactarte"
                 />
                 {isInvalid && <FieldError errors={field.state.meta.errors} />}
               </Field>
@@ -112,7 +114,7 @@ export function CreatePostForm() {
           }}
         />
       </FieldGroup>
-      <Button type="submit">Create</Button>
+      <Button type="submit">Publicar</Button>
     </form>
   );
 }
@@ -129,7 +131,7 @@ export function PostList() {
         <PostCardSkeleton pulse={false} />
 
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/10">
-          <p className="text-2xl font-bold text-white">No posts yet</p>
+          <p className="text-2xl font-bold text-white">Sin reportes aun</p>
         </div>
       </div>
     );
@@ -157,8 +159,8 @@ export function PostCard(props: {
       onError: (err) => {
         toast.error(
           err.data?.code === "UNAUTHORIZED"
-            ? "You must be logged in to delete a post"
-            : "Failed to delete post",
+            ? "Debes iniciar sesion para eliminar un reporte"
+            : "No pudimos eliminar el reporte",
         );
       },
     }),
@@ -176,7 +178,7 @@ export function PostCard(props: {
           className="text-primary cursor-pointer text-sm font-bold uppercase hover:bg-transparent hover:text-white"
           onClick={() => deletePost.mutate(props.post.id)}
         >
-          Delete
+          Eliminar
         </Button>
       </div>
     </div>

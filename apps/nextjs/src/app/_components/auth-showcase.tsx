@@ -1,58 +1,240 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-
 import { Button } from "@acme/ui/button";
+import { Input } from "@acme/ui/input";
 
-import { auth, getSession } from "~/auth/server";
+import {
+  signInWithEmail,
+  signInWithSocialProvider,
+  signOut,
+  signUpWithEmail,
+} from "~/auth/actions";
+import {
+  getEnabledSocialAuthProviders,
+  getSession,
+  socialAuthProviderLabels,
+} from "~/auth/server";
 
-export async function AuthShowcase() {
+const authMessages = {
+  "email-not-verified": {
+    tone: "error",
+    text: "Verifica tu correo antes de ingresar.",
+  },
+  "signin-error": {
+    tone: "error",
+    text: "No pudimos iniciar sesion con esos datos.",
+  },
+  "signin-invalid": {
+    tone: "error",
+    text: "Ingresa un correo valido y una contrasena de al menos 8 caracteres.",
+  },
+  "signin-success": {
+    tone: "success",
+    text: "Sesion iniciada.",
+  },
+  "signed-out": {
+    tone: "success",
+    text: "Sesion cerrada.",
+  },
+  "signup-email-exists": {
+    tone: "error",
+    text: "Ya existe una cuenta con ese correo.",
+  },
+  "signup-error": {
+    tone: "error",
+    text: "No pudimos crear la cuenta. Intentalo nuevamente.",
+  },
+  "signup-invalid": {
+    tone: "error",
+    text: "Completa nombre, correo y una contrasena de al menos 8 caracteres.",
+  },
+  "signup-success": {
+    tone: "success",
+    text: "Cuenta creada. Ya puedes usar Rastro.",
+  },
+  "signup-verify-email": {
+    tone: "success",
+    text: "Cuenta creada. Revisa tu correo para verificarla antes de ingresar.",
+  },
+  "social-error": {
+    tone: "error",
+    text: "No pudimos iniciar sesion con ese proveedor.",
+  },
+  "social-unavailable": {
+    tone: "error",
+    text: "Ese proveedor de acceso no esta disponible.",
+  },
+} satisfies Record<string, { text: string; tone: "error" | "success" }>;
+
+type AuthStatus = keyof typeof authMessages;
+
+const isAuthStatus = (status: string): status is AuthStatus =>
+  Object.prototype.hasOwnProperty.call(authMessages, status);
+
+const getAuthMessage = (status: string | undefined) => {
+  if (!status) {
+    return null;
+  }
+
+  return isAuthStatus(status) ? authMessages[status] : null;
+};
+
+export async function AuthShowcase(props: { status?: string }) {
   const session = await getSession();
+  const socialProviders = getEnabledSocialAuthProviders();
+  const message = getAuthMessage(props.status);
 
-  if (!session) {
+  if (session) {
+    const displayName = session.user.name || session.user.email;
+
     return (
-      <form>
-        <Button
-          size="lg"
-          formAction={async () => {
-            "use server";
-            const res = await auth.api.signInSocial({
-              body: {
-                provider: "discord",
-                callbackURL: "/",
-              },
-            });
-            if (!res.url) {
-              throw new Error("No URL returned from signInSocial");
-            }
-            redirect(res.url);
-          }}
-        >
-          Sign in with Discord
-        </Button>
-      </form>
+      <section
+        id="auth"
+        className="border-border bg-card text-card-foreground w-full max-w-2xl rounded-lg border p-5 shadow-xs"
+        aria-labelledby="auth-heading"
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-muted-foreground text-sm font-medium">
+              Sesion activa
+            </p>
+            <h2 id="auth-heading" className="truncate text-xl font-semibold">
+              {displayName}
+            </h2>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Puedes publicar y revisar tus reportes como miembro de Rastro.
+            </p>
+          </div>
+          <form>
+            <Button type="submit" formAction={signOut} variant="outline">
+              Cerrar sesion
+            </Button>
+          </form>
+        </div>
+      </section>
     );
   }
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4">
-      <p className="text-center text-2xl">
-        <span>Logged in as {session.user.name}</span>
-      </p>
+    <section
+      id="auth"
+      className="border-border bg-card text-card-foreground w-full max-w-4xl rounded-lg border p-5 shadow-xs"
+      aria-labelledby="auth-heading"
+    >
+      <div className="mb-5">
+        <p className="text-muted-foreground text-sm font-medium">
+          Acceso de miembros
+        </p>
+        <h2 id="auth-heading" className="text-2xl font-semibold">
+          Ingresa o crea tu cuenta
+        </h2>
+      </div>
 
-      <form>
-        <Button
-          size="lg"
-          formAction={async () => {
-            "use server";
-            await auth.api.signOut({
-              headers: await headers(),
-            });
-            redirect("/");
-          }}
+      {message ? (
+        <p
+          className={
+            message.tone === "error"
+              ? "border-destructive/30 bg-destructive/10 text-destructive mb-5 rounded-md border px-3 py-2 text-sm"
+              : "border-primary/30 bg-primary/10 text-primary mb-5 rounded-md border px-3 py-2 text-sm"
+          }
         >
-          Sign out
-        </Button>
-      </form>
-    </div>
+          {message.text}
+        </p>
+      ) : null}
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <form action={signInWithEmail} className="flex flex-col gap-4">
+          <div>
+            <h3 className="text-base font-semibold">Ingresar</h3>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Usa el correo con el que registraste tu cuenta.
+            </p>
+          </div>
+          <label className="flex flex-col gap-2 text-sm font-medium">
+            Correo electronico
+            <Input
+              autoComplete="email"
+              inputMode="email"
+              name="email"
+              placeholder="tu@correo.com"
+              required
+              type="email"
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-medium">
+            Contrasena
+            <Input
+              autoComplete="current-password"
+              minLength={8}
+              name="password"
+              required
+              type="password"
+            />
+          </label>
+          <Button type="submit" className="w-full">
+            Ingresar
+          </Button>
+        </form>
+
+        <form action={signUpWithEmail} className="flex flex-col gap-4">
+          <div>
+            <h3 className="text-base font-semibold">Crear cuenta</h3>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Necesitamos tu nombre para identificar tus reportes.
+            </p>
+          </div>
+          <label className="flex flex-col gap-2 text-sm font-medium">
+            Nombre
+            <Input
+              autoComplete="name"
+              minLength={2}
+              name="name"
+              placeholder="Tu nombre"
+              required
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-medium">
+            Correo electronico
+            <Input
+              autoComplete="email"
+              inputMode="email"
+              name="email"
+              placeholder="tu@correo.com"
+              required
+              type="email"
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-medium">
+            Contrasena
+            <Input
+              autoComplete="new-password"
+              minLength={8}
+              name="password"
+              required
+              type="password"
+            />
+          </label>
+          <Button type="submit" className="w-full">
+            Crear cuenta
+          </Button>
+        </form>
+      </div>
+
+      {socialProviders.length > 0 ? (
+        <div className="border-border mt-6 border-t pt-5">
+          <p className="text-muted-foreground mb-3 text-sm">
+            Tambien puedes acceder con:
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {socialProviders.map((provider) => (
+              <form action={signInWithSocialProvider} key={provider}>
+                <input type="hidden" name="provider" value={provider} />
+                <Button type="submit" variant="outline">
+                  {socialAuthProviderLabels[provider]}
+                </Button>
+              </form>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </section>
   );
 }

@@ -1,6 +1,6 @@
 # Implement Better Auth across Expo and Next.js
 
-Status: ready-for-agent
+Status: complete
 Type: AFK
 
 ## Parent
@@ -13,12 +13,12 @@ Implement Better Auth as the v1 authentication provider for the Expo app and Nex
 
 ## Acceptance criteria
 
-- [ ] Better Auth is configured for email/password login and registration.
-- [ ] Expo persists sessions securely and can show signed-in versus signed-out UI.
-- [ ] Next.js can read the authenticated member in server/API contexts.
-- [ ] Starter Discord auth is removed or replaced with Rastro-required providers.
-- [ ] Email verification is configurable but off by default.
-- [ ] Auth configuration aligns with ADR-0001.
+- [x] Better Auth is configured for email/password login and registration.
+- [x] Expo persists sessions securely and can show signed-in versus signed-out UI.
+- [x] Next.js can read the authenticated member in server/API contexts.
+- [x] Starter Discord auth is removed or replaced with Rastro-required providers.
+- [x] Email verification is configurable but off by default.
+- [x] Auth configuration aligns with ADR-0001.
 
 ## Blocked by
 
