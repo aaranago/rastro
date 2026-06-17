@@ -1,6 +1,6 @@
 # Add contextual onboarding, permission, empty, error, and offline states
 
-Status: ready-for-agent
+Status: complete
 Type: AFK
 
 ## Parent
@@ -13,11 +13,11 @@ Add the app-wide state system that makes the mobile experience resilient and nat
 
 ## Acceptance criteria
 
-- [ ] First launch does not show a long blocking carousel.
-- [ ] Location, notification, photo/camera, and optional background-location prompts are explained contextually before system prompts.
-- [ ] Empty, loading, error, denied-permission, offline, and retry states exist in the shell and can be reused by feature slices.
-- [ ] Offline messaging clearly distinguishes stale cached content from fresh content.
-- [ ] The states are Spanish-first and fit mobile screens.
+- [x] First launch does not show a long blocking carousel.
+- [x] Location, notification, photo/camera, and optional background-location prompts are explained contextually before system prompts.
+- [x] Empty, loading, error, denied-permission, offline, and retry states exist in the shell and can be reused by feature slices.
+- [x] Offline messaging clearly distinguishes stale cached content from fresh content.
+- [x] The states are Spanish-first and fit mobile screens.
 
 ## Blocked by
 

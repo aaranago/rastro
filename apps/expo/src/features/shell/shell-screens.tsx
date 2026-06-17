@@ -1,5 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import type { AppStateDescriptor } from "../app-states";
+import { AppStatePanel } from "../app-states";
 import { ShellIcon } from "./shell-overlays";
 import { useRastroShell } from "./shell-provider";
 import { shellColors } from "./shell-theme";
@@ -110,7 +112,6 @@ export function NearbyScreen() {
       </View>
 
       <EmptyState title={screen.emptyTitle} body={screen.emptyBody} />
-
       <Text maxFontSizeMultiplier={1.25} style={styles.locationHint}>
         {screen.locationHint}
       </Text>
@@ -119,7 +120,7 @@ export function NearbyScreen() {
 }
 
 export function ActivityScreen() {
-  const { copy, session } = useRastroShell();
+  const { copy, model, session } = useRastroShell();
   const screen = copy.screens.activity;
   const isMember = session.kind === "member";
 
@@ -142,12 +143,13 @@ export function ActivityScreen() {
         <QuickTile icon="message.fill" label={screen.messages} />
         <QuickTile icon="arrow.triangle.2.circlepath" label={screen.updates} />
       </View>
+      <ShellAppStateCard compact descriptor={model.appStates.states.empty} />
     </ScrollView>
   );
 }
 
 export function ResourcesScreen() {
-  const { copy } = useRastroShell();
+  const { copy, model } = useRastroShell();
   const screen = copy.screens.resources;
 
   return (
@@ -198,6 +200,7 @@ export function ResourcesScreen() {
         </Text>
       </View>
       <EmptyState title={screen.emptyTitle} />
+      <ShellAppStateCard descriptor={model.appStates.states["offline-stale"]} />
     </ScrollView>
   );
 }
@@ -227,7 +230,16 @@ export function ProfileScreen() {
         <ProfileRow icon="bell.fill" label={screen.alerts} />
         <ProfileRow icon="gearshape.fill" label={screen.settings} />
       </View>
+      <PermissionEducationStack />
     </ScrollView>
+  );
+}
+
+export function NearbyShellStateBridge() {
+  return (
+    <View style={styles.routeBridge}>
+      <NearbyPermissionEducation compact />
+    </View>
   );
 }
 
@@ -323,6 +335,56 @@ function StateCard({
         {body}
       </Text>
     </View>
+  );
+}
+
+function NearbyPermissionEducation({ compact }: { compact: boolean }) {
+  const { model } = useRastroShell();
+
+  return (
+    <ShellAppStateCard
+      compact={compact}
+      descriptor={model.appStates.permissionEducation.location}
+    />
+  );
+}
+
+function PermissionEducationStack() {
+  const { model } = useRastroShell();
+
+  return (
+    <View style={styles.permissionStack}>
+      <Text maxFontSizeMultiplier={1.2} selectable style={styles.sectionTitle}>
+        Permisos sin sorpresa
+      </Text>
+      <ShellAppStateCard
+        compact
+        descriptor={model.appStates.permissionEducation.notifications}
+      />
+      <ShellAppStateCard
+        compact
+        descriptor={model.appStates.permissionEducation["photos-camera"]}
+      />
+      <ShellAppStateCard
+        compact
+        descriptor={model.appStates.permissionEducation["background-location"]}
+      />
+    </View>
+  );
+}
+
+function ShellAppStateCard({
+  compact = false,
+  descriptor,
+}: {
+  compact?: boolean;
+  descriptor: AppStateDescriptor;
+}) {
+  return (
+    <AppStatePanel
+      descriptor={descriptor}
+      layout={compact ? "compact" : "embedded"}
+    />
   );
 }
 
@@ -543,6 +605,9 @@ const styles = StyleSheet.create({
   profileList: {
     gap: 10,
   },
+  permissionStack: {
+    gap: 10,
+  },
   profileRow: {
     alignItems: "center",
     backgroundColor: shellColors.surface,
@@ -623,6 +688,16 @@ const styles = StyleSheet.create({
     gap: 18,
     padding: 18,
     paddingBottom: 32,
+  },
+  routeBridge: {
+    backgroundColor: shellColors.background,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+  },
+  sectionTitle: {
+    color: shellColors.text,
+    fontSize: 18,
+    fontWeight: "900",
   },
   sessionBadge: {
     backgroundColor: shellColors.surface,

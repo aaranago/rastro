@@ -1,3 +1,5 @@
+import type { AppStateCatalog } from "../features/app-states";
+
 export type RastroLocale = "es-BO";
 
 export type ShellTabKey = "nearby" | "activity" | "resources" | "profile";
@@ -28,6 +30,7 @@ export interface ShellCopy {
     createAccount: string;
     continueAsVisitor: string;
   };
+  appStates: AppStateCatalog;
   screens: {
     nearby: {
       title: string;
@@ -111,6 +114,189 @@ const esBO: ShellCopy = {
     signIn: "Iniciar sesion",
     createAccount: "Crear cuenta",
     continueAsVisitor: "Continuar como visitante",
+  },
+  appStates: {
+    states: {
+      loading: {
+        kind: "loading",
+        title: "Cargando Rastro",
+        body: "Preparando la informacion mas reciente.",
+        progressLabel: "Un momento",
+      },
+      empty: {
+        kind: "empty",
+        title: "Nada por aqui todavia",
+        body: "Busca por ciudad, cambia filtros o crea un reporte cuando necesites ayuda.",
+        actions: [
+          {
+            id: "manual-search",
+            label: "Buscar por zona",
+            iconName: "magnifyingglass",
+          },
+        ],
+      },
+      error: {
+        kind: "error",
+        title: "No pudimos cargar esta vista",
+        body: "Conservamos lo que estabas haciendo. Reintenta en unos segundos.",
+        preservesWork: true,
+        actions: [
+          {
+            id: "retry",
+            label: "Reintentar",
+            iconName: "arrow.clockwise",
+          },
+        ],
+      },
+      "permission-denied": {
+        kind: "permission-denied",
+        permission: "location",
+        title: "Permiso desactivado",
+        body: "Puedes cambiarlo en ajustes o usar una alternativa manual.",
+        canOpenSettings: true,
+        hasManualAlternative: true,
+        actions: [
+          {
+            id: "manual-search",
+            label: "Usar busqueda manual",
+            iconName: "magnifyingglass",
+          },
+          {
+            id: "open-settings",
+            label: "Abrir ajustes",
+            iconName: "gearshape.fill",
+            variant: "secondary",
+          },
+        ],
+      },
+      "offline-stale": {
+        kind: "offline",
+        title: "Sin conexion",
+        body: "Mostrando contenido guardado. Puede estar desactualizado.",
+        isStale: true,
+        cachedContentLabel: "contenido guardado",
+        statusLabel: "Datos guardados",
+        actions: [
+          {
+            id: "retry",
+            label: "Reintentar",
+            iconName: "arrow.clockwise",
+          },
+        ],
+      },
+      retry: {
+        kind: "retry",
+        title: "Intentar de nuevo",
+        body: "La accion no se completo. Tu informacion se mantiene.",
+        retryTargetLabel: "accion pendiente",
+        actions: [
+          {
+            id: "retry",
+            label: "Reintentar",
+            iconName: "arrow.clockwise",
+          },
+        ],
+      },
+    },
+    permissionEducation: {
+      location: {
+        kind: "permission-education",
+        permission: "location",
+        context: "nearby",
+        title: "Usa tu ubicacion para ver Cerca",
+        body: "Rastro usa tu ubicacion solo para ordenar reportes cercanos o buscar por radio.",
+        iconName: "location.fill",
+        reasons: [
+          "No pedimos GPS al abrir la app.",
+          "Puedes buscar por ciudad, barrio o pin manual en Bolivia.",
+        ],
+        actions: [
+          {
+            id: "request-permission",
+            label: "Usar mi ubicacion",
+            iconName: "location.fill",
+          },
+          {
+            id: "manual-search",
+            label: "Buscar por zona",
+            iconName: "magnifyingglass",
+            variant: "secondary",
+          },
+        ],
+      },
+      notifications: {
+        kind: "permission-education",
+        permission: "notifications",
+        context: "alert-subscription",
+        title: "Recibe alertas cercanas",
+        body: "Te avisaremos de nuevas mascotas perdidas cerca de tu zona cuando actives alertas.",
+        iconName: "bell.badge.fill",
+        reasons: [
+          "Solo enviamos alertas de recuperacion cercanas.",
+          "No enviamos patrocinadores como notificaciones.",
+        ],
+        actions: [
+          {
+            id: "request-permission",
+            label: "Activar alertas",
+            iconName: "bell.badge.fill",
+          },
+          {
+            id: "continue",
+            label: "Ahora no",
+            variant: "quiet",
+          },
+        ],
+      },
+      "photos-camera": {
+        kind: "permission-education",
+        permission: "photos-camera",
+        context: "report-media",
+        title: "Agrega fotos al reporte",
+        body: "Una foto clara ayuda a reconocer a la mascota y completar el reporte.",
+        iconName: "camera.fill",
+        reasons: [
+          "Usa camara o galeria cuando crees un reporte.",
+          "Quitamos datos EXIF antes de subir imagenes.",
+        ],
+        actions: [
+          {
+            id: "request-permission",
+            label: "Elegir foto o camara",
+            iconName: "camera.fill",
+          },
+          {
+            id: "continue",
+            label: "Ahora no",
+            variant: "quiet",
+          },
+        ],
+      },
+      "background-location": {
+        kind: "permission-education",
+        permission: "background-location",
+        context: "moving-alerts",
+        title: "Alertas mientras me muevo",
+        body: "Opcional: usa ubicacion en segundo plano solo para alertas mientras me muevo.",
+        iconName: "figure.walk.motion",
+        reasons: [
+          "No es necesario para navegar Cerca.",
+          "Puedes mantener actualizaciones solo al abrir la app.",
+        ],
+        actions: [
+          {
+            id: "request-permission",
+            label: "Permitir en segundo plano",
+            iconName: "location.fill.viewfinder",
+          },
+          {
+            id: "continue",
+            label: "Mantener al abrir la app",
+            variant: "secondary",
+          },
+        ],
+      },
+    },
   },
   screens: {
     nearby: {

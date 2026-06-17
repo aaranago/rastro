@@ -48,4 +48,73 @@ describe("Rastro shell", () => {
     expect(nextState.authPrompt?.selectedIntentLabel).toBe("Reportar perdida");
     expect(nextState.authPrompt?.body).toContain("Reportar perdida");
   });
+
+  it("exposes reusable Spanish app states from the shell", () => {
+    const copy = getShellCopy();
+    const shell = createShellModel({ copy, session: { kind: "visitor" } });
+
+    expect(shell.appStates.states.loading).toMatchObject({
+      kind: "loading",
+      title: "Cargando Rastro",
+    });
+    expect(shell.appStates.states.empty).toMatchObject({
+      kind: "empty",
+      title: "Nada por aqui todavia",
+    });
+    expect(shell.appStates.states.empty.actions?.[0]).toMatchObject({
+      id: "manual-search",
+      label: "Buscar por zona",
+    });
+    expect(shell.appStates.states["offline-stale"]).toMatchObject({
+      isStale: true,
+      kind: "offline",
+      title: "Sin conexion",
+    });
+    expect(shell.appStates.states.retry.actions?.[0]).toMatchObject({
+      id: "retry",
+      label: "Reintentar",
+    });
+    expect(shell.appStates.states.error.body).not.toMatch(
+      /error|failed|try again/i,
+    );
+  });
+
+  it("describes contextual permission education before system prompts", () => {
+    const copy = getShellCopy();
+    const shell = createShellModel({ copy, session: { kind: "visitor" } });
+
+    expect(shell.appStates.permissionEducation.location).toMatchObject({
+      context: "nearby",
+      kind: "permission-education",
+      permission: "location",
+    });
+    expect(shell.appStates.permissionEducation.location.actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "request-permission",
+          label: "Usar mi ubicacion",
+        }),
+        expect.objectContaining({
+          id: "manual-search",
+          label: "Buscar por zona",
+        }),
+      ]),
+    );
+    expect(shell.appStates.permissionEducation.notifications).toMatchObject({
+      context: "alert-subscription",
+      permission: "notifications",
+    });
+    expect(shell.appStates.permissionEducation["photos-camera"].body).toContain(
+      "foto",
+    );
+    expect(
+      shell.appStates.permissionEducation["background-location"],
+    ).toMatchObject({
+      context: "moving-alerts",
+      permission: "background-location",
+    });
+    expect(
+      shell.appStates.permissionEducation["background-location"].body,
+    ).toContain("alertas mientras me muevo");
+  });
 });

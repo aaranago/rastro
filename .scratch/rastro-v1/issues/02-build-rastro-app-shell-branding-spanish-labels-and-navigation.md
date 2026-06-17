@@ -1,6 +1,6 @@
 # Build Rastro app shell, branding, Spanish labels, and navigation
 
-Status: ready-for-agent
+Status: complete
 Type: AFK
 
 ## Parent

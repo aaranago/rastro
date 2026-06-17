@@ -1,4 +1,5 @@
 import type { ReportIntent, ShellCopy, ShellTabKey } from "../../i18n";
+import type { AppStateCatalog } from "../app-states";
 
 export interface ShellSession {
   kind: "visitor" | "member";
@@ -24,6 +25,7 @@ export interface ShellReportAction {
 }
 
 export interface ShellModel {
+  appStates: AppStateCatalog;
   brand: ShellCopy["brand"];
   locale: ShellCopy["locale"];
   session: ShellSession;
@@ -130,6 +132,7 @@ export function createShellModel({
   session: ShellSession;
 }): ShellModel {
   return {
+    appStates: copy.appStates,
     brand: copy.brand,
     locale: copy.locale,
     session,
