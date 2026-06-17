@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Reportar Pérdida</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#f080c0",
+                        "tertiary-container": "#40c0ee",
+                        "surface-bright": "#fef7ff",
+                        "on-error-container": "#9b1c1c",
+                        "error": "#e53e3e",
+                        "primary": "#e040a0",
+                        "surface-container-low": "#fbf2fb",
+                        "on-secondary-fixed": "#1a1030",
+                        "tertiary-fixed": "#c8eaff",
+                        "outline": "#907898",
+                        "primary-fixed": "#ffd6ee",
+                        "on-surface-variant": "#604868",
+                        "on-background": "#2e1a28",
+                        "surface-variant": "#f2e8f2",
+                        "secondary-fixed-dim": "#c8a8e8",
+                        "error-container": "#ffe8e8",
+                        "on-secondary-container": "#2e2040",
+                        "outline-variant": "#dcc8e0",
+                        "tertiary-fixed-dim": "#80d0f0",
+                        "on-tertiary-fixed": "#001a33",
+                        "secondary": "#7c52aa",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-tint": "#e040a0",
+                        "on-primary": "#ffffff",
+                        "surface-dim": "#e0d6e0",
+                        "on-tertiary-container": "#00334d",
+                        "tertiary": "#0096cc",
+                        "inverse-on-surface": "#fef7ff",
+                        "on-surface": "#2e1a28",
+                        "secondary-fixed": "#eedcff",
+                        "on-secondary": "#ffffff",
+                        "background": "#fef7ff",
+                        "secondary-container": "#eedcff",
+                        "surface": "#fef7ff",
+                        "surface-container-highest": "#ece2ec",
+                        "on-secondary-fixed-variant": "#4a3068",
+                        "on-primary-fixed-variant": "#a02070",
+                        "on-error": "#ffffff",
+                        "primary-fixed-dim": "#f0a0cc",
+                        "surface-container": "#f8eef8",
+                        "inverse-primary": "#f0a0cc",
+                        "inverse-surface": "#2e1a28",
+                        "on-tertiary-fixed-variant": "#005580",
+                        "on-primary-fixed": "#3d0028",
+                        "surface-container-high": "#f2e8f2",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-container": "#2e1a28"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["DM Sans", "sans-serif"],
+                        "display": ["DM Sans", "sans-serif"],
+                        "body": ["DM Sans", "sans-serif"],
+                        "label": ["DM Sans", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'DM Sans', sans-serif; }
+        .bouncy-hover { transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .bouncy-hover:hover { transform: scale(1.03); }
+        .bouncy-active:active { transform: scale(0.95); transition: transform 0.1s ease; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface antialiased min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center w-full px-6 py-4 bg-surface dark:bg-on-background shadow-[0_4px_16px_rgba(224,64,160,0.15)] docked full-width top-0 z-10 relative">
+<button class="text-primary dark:text-primary-fixed-dim hover:scale-105 transition-transform duration-200 active:scale-95 flex items-center justify-center p-2 rounded-full">
+<span class="material-symbols-outlined text-2xl">arrow_back</span>
+</button>
+<h1 class="font-display text-2xl font-bold tracking-tight text-primary dark:text-primary-fixed-dim tracking-tighter">Rastro</h1>
+<div class="w-10"></div> <!-- Placeholder for balance -->
+</header>
+<!-- Main Content -->
+<main class="flex-grow p-6 pb-24 overflow-y-auto">
+<!-- Progress Steps -->
+<div class="mb-6 flex items-center justify-between relative px-2">
+<div class="absolute top-1/2 left-0 right-0 h-1 bg-surface-variant rounded-full -z-10 transform -translate-y-1/2"></div>
+<div class="w-1/2 absolute top-1/2 left-0 h-1 bg-primary rounded-full -z-10 transform -translate-y-1/2 transition-all duration-500"></div>
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-sm shadow-[0_4px_16px_rgba(224,64,160,0.3)]">1</div>
+<span class="text-xs font-medium text-primary mt-1">Detalles</span>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center font-bold text-sm">2</div>
+<span class="text-xs font-medium text-on-surface-variant mt-1">Ubicación</span>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center font-bold text-sm">3</div>
+<span class="text-xs font-medium text-on-surface-variant mt-1">Revisar</span>
+</div>
+</div>
+<h2 class="text-2xl font-bold mb-2 text-on-surface">Reportar Mascota Perdida</h2>
+<p class="text-on-surface-variant mb-6 text-sm">Paso 1: Añade fotos y detalles de tu mascota para ayudar a otros a identificarla.</p>
+<!-- Photos Section -->
+<section class="bg-secondary-container rounded-lg p-5 mb-6 shadow-[0_4px_16px_rgba(124,82,170,0.15)] bouncy-hover">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">add_a_photo</span>
+<h3 class="font-bold text-on-secondary-container text-lg">Fotos Recientes</h3>
+</div>
+<div class="grid grid-cols-3 gap-3">
+<!-- Filled Slot -->
+<div class="relative aspect-square rounded-xl overflow-hidden shadow-sm border-2 border-primary/20">
+<img class="w-full h-full object-cover" data-alt="A high-quality, close-up photograph of a friendly Golden Retriever looking directly at the camera. The dog has soft, golden fur and a happy expression. The background is slightly blurred but suggests a sunny outdoor setting with green grass. The lighting is bright and cheerful, perfectly matching the vibrant, joyful aesthetic of the app." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMt3bAbLJbJsb7hLb-Tm5cGZE0J8VEIK1s2d1NhUm3sD5hTwOIZUuaKllttldAlpCxIxZv7Aj54EFvWCBjyfIB1vcJ5G964L3yYEz_rS35f8QkBUal5kPuXN9kw4KsNUPsPhtrGxI8KuTCzlhJlRXHfvo2q8poFIFdbq1Jn2iRMOLwbFd7txDhbji7HHVKrMyuK6u5iKOprbpjvK2YXw2vgZcq51qMKcLyxzHDumLA59P5wovxYsAqN9s6MkCh6irTifoGUECSl1w"/>
+<button class="absolute top-1 right-1 w-6 h-6 bg-surface/80 rounded-full flex items-center justify-center text-error hover:bg-surface active:scale-95 transition-all">
+<span class="material-symbols-outlined text-sm">close</span>
+</button>
+</div>
+<!-- Empty Slots -->
+<button class="aspect-square rounded-xl bg-surface-variant border-2 border-dashed border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:border-primary/50 transition-colors active:scale-95">
+<span class="material-symbols-outlined text-2xl mb-1 text-primary-fixed-dim">add</span>
+</button>
+<button class="aspect-square rounded-xl bg-surface-variant border-2 border-dashed border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:border-primary/50 transition-colors active:scale-95">
+<span class="material-symbols-outlined text-2xl mb-1 text-primary-fixed-dim">add</span>
+</button>
+<button class="aspect-square rounded-xl bg-surface-variant border-2 border-dashed border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:border-primary/50 transition-colors active:scale-95">
+<span class="material-symbols-outlined text-2xl mb-1 text-primary-fixed-dim">add</span>
+</button>
+<button class="aspect-square rounded-xl bg-surface-variant border-2 border-dashed border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:border-primary/50 transition-colors active:scale-95">
+<span class="material-symbols-outlined text-2xl mb-1 text-primary-fixed-dim">add</span>
+</button>
+</div>
+<p class="text-xs text-on-surface-variant mt-3 italic">Sube hasta 5 fotos claras. Fotos de cara y cuerpo entero son mejores.</p>
+</section>
+<!-- Form Section -->
+<section class="space-y-5">
+<!-- Pet Name -->
+<div>
+<label class="block text-sm font-medium text-on-surface mb-1 ml-1" for="pet-name">Nombre de la mascota</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-primary-fixed-dim">pets</span>
+</div>
+<input class="block w-full pl-11 pr-4 py-3 bg-surface-container-low border border-outline-variant rounded-full text-on-surface focus:ring-2 focus:ring-primary focus:border-primary transition-all shadow-sm" id="pet-name" placeholder="Ej. Luna" type="text" value="Max"/>
+</div>
+</div>
+<!-- Description -->
+<div>
+<label class="block text-sm font-medium text-on-surface mb-1 ml-1" for="description">¿Cómo fue visto por última vez?</label>
+<textarea class="block w-full p-4 bg-surface-container-low border border-outline-variant rounded-xl text-on-surface focus:ring-2 focus:ring-primary focus:border-primary transition-all shadow-sm resize-none" id="description" placeholder="Describe dónde y cuándo lo viste, qué llevaba puesto (collar, correa), o hacia dónde se dirigía..." rows="3"></textarea>
+</div>
+<!-- Distinctive Markings -->
+<div>
+<label class="block text-sm font-medium text-on-surface mb-1 ml-1" for="markings">Marcas distintivas o características</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-4 pt-3 pointer-events-none">
+<span class="material-symbols-outlined text-secondary">star</span>
+</div>
+<textarea class="block w-full pl-11 pr-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl text-on-surface focus:ring-2 focus:ring-secondary focus:border-secondary transition-all shadow-sm resize-none" id="markings" placeholder="Ej. Mancha blanca en la pata izquierda, cicatriz en la oreja..." rows="2"></textarea>
+</div>
+</div>
+</section>
+<!-- Next Button Container -->
+<div class="mt-10 mb-4">
+<button class="w-full bg-primary text-on-primary py-4 rounded-full font-bold text-lg shadow-[0_4px_16px_rgba(224,64,160,0.3)] bouncy-hover bouncy-active flex items-center justify-center gap-2">
+                Siguiente: Ubicación
+                <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</main>
+<!-- Navigation suppressed because this is a focused, transactional task -->
+</body></html>

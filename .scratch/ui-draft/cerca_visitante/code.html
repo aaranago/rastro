@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Rastro - Cerca</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config: Candy Theme -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "tertiary-fixed": "#c8eaff",
+              "surface-dim": "#e0d6e0",
+              "on-primary-fixed-variant": "#a02070",
+              "surface-container-low": "#fbf2fb",
+              "on-tertiary-container": "#00334d",
+              "on-secondary": "#ffffff",
+              "surface": "#fef7ff",
+              "surface-container-lowest": "#ffffff",
+              "background": "#fef7ff",
+              "secondary": "#7c52aa",
+              "primary-fixed": "#ffd6ee",
+              "surface-container": "#f8eef8",
+              "secondary-container": "#eedcff",
+              "on-primary": "#ffffff",
+              "inverse-surface": "#2e1a28",
+              "on-secondary-container": "#2e2040",
+              "error": "#e53e3e",
+              "on-surface-variant": "#604868",
+              "tertiary": "#0096cc",
+              "tertiary-container": "#40c0ee",
+              "primary-fixed-dim": "#f0a0cc",
+              "on-primary-fixed": "#3d0028",
+              "inverse-primary": "#f0a0cc",
+              "surface-variant": "#f2e8f2",
+              "primary-container": "#f080c0",
+              "on-background": "#2e1a28",
+              "secondary-fixed": "#eedcff",
+              "on-tertiary": "#ffffff",
+              "tertiary-fixed-dim": "#80d0f0",
+              "inverse-on-surface": "#fef7ff",
+              "on-error": "#ffffff",
+              "surface-container-highest": "#ece2ec",
+              "primary": "#e040a0",
+              "outline-variant": "#dcc8e0",
+              "on-primary-container": "#2e1a28",
+              "on-tertiary-fixed-variant": "#005580",
+              "secondary-fixed-dim": "#c8a8e8",
+              "on-tertiary-fixed": "#001a33",
+              "surface-bright": "#fef7ff",
+              "surface-tint": "#e040a0",
+              "outline": "#907898",
+              "on-error-container": "#9b1c1c",
+              "on-secondary-fixed": "#1a1030",
+              "surface-container-high": "#f2e8f2",
+              "on-surface": "#2e1a28",
+              "on-secondary-fixed-variant": "#4a3068",
+              "error-container": "#ffe8e8"
+            },
+            borderRadius: {
+              "DEFAULT": "1rem",
+              "lg": "2rem",
+              "xl": "3rem",
+              "full": "9999px"
+            },
+            fontFamily: {
+              "headline": ["DM Sans", "sans-serif"],
+              "display": ["DM Sans", "sans-serif"],
+              "body": ["DM Sans", "sans-serif"],
+              "label": ["DM Sans", "sans-serif"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body { font-family: 'DM Sans', sans-serif; }
+        .candy-shadow-primary { box-shadow: 0 4px 16px rgba(224, 64, 160, 0.2); }
+        .candy-shadow-secondary { box-shadow: 0 4px 16px rgba(124, 82, 170, 0.15); }
+        .candy-bouncy-hover { transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .candy-bouncy-hover:hover { transform: scale(1.03); }
+        .candy-bouncy-hover:active { transform: scale(0.95); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background antialiased min-h-screen flex flex-col overflow-x-hidden selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- TopAppBar (Shared Component) -->
+<header class="bg-background fixed top-0 w-full z-50 flex justify-between items-center px-4 h-16 transition-all duration-200">
+<div class="flex items-center gap-2 text-primary">
+<span class="material-symbols-outlined text-2xl font-black">pets</span>
+<h1 class="font-headline text-headline-sm font-bold text-2xl tracking-tight">Rastro</h1>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-variant candy-bouncy-hover">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">search</span>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow pt-20 pb-28 px-4 max-w-5xl mx-auto w-full flex flex-col gap-6">
+<!-- Toggle & Filters -->
+<div class="flex flex-col gap-4">
+<div class="flex justify-between items-center">
+<h2 class="font-display text-xl font-bold text-on-surface">Cerca de ti</h2>
+<div class="flex bg-surface-container-high rounded-full p-1">
+<button class="px-4 py-1.5 rounded-full bg-surface shadow-sm text-primary font-medium text-sm candy-bouncy-hover">Mapa</button>
+<button class="px-4 py-1.5 rounded-full text-on-surface-variant font-medium text-sm hover:text-on-surface candy-bouncy-hover">Lista</button>
+</div>
+</div>
+<div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 snap-x">
+<button class="snap-start whitespace-nowrap px-4 py-2 rounded-full bg-primary-fixed text-on-primary-fixed font-bold text-sm flex items-center gap-1 candy-bouncy-hover">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">error</span> Perdidos
+                </button>
+<button class="snap-start whitespace-nowrap px-4 py-2 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-bold text-sm flex items-center gap-1 candy-bouncy-hover">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span> Encontrados
+                </button>
+<button class="snap-start whitespace-nowrap px-4 py-2 rounded-full bg-surface-container-high text-on-surface font-medium text-sm candy-bouncy-hover">Perros</button>
+<button class="snap-start whitespace-nowrap px-4 py-2 rounded-full bg-surface-container-high text-on-surface font-medium text-sm candy-bouncy-hover">Gatos</button>
+</div>
+</div>
+<!-- Interactive Map Container -->
+<section class="relative w-full h-64 rounded-lg overflow-hidden candy-shadow-secondary candy-bouncy-hover group cursor-pointer border-4 border-surface">
+<!-- Map Placeholder Image -->
+<img class="w-full h-full object-cover" data-alt="A stylized, bright, light-mode digital map interface. The map shows a playful, stylized city layout with soft, rounded geometric shapes representing parks and streets. The color palette is joyful and vibrant, utilizing crisp whites, very light pink backgrounds, soft tertiary blues for water, and vibrant primary pink markers indicating locations. The aesthetic is clean, modern, and highly saturated, fitting a cheerful app interface." data-location="Madrid, Spain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBt8kHOEIqanjWARawwAkn_26SS4W3NHgYdCGmDIn5mopvWIedUK6zWEj8eohuBUQdLBaRleqhCpNSI0_4YJeGcM8SgNLq9azdROGWGNm4QOy5OzgWk4BnfYeY3m9Xl62gqbqqdeenv4U5h0XdAGcj56EnpCbhuw-n-McdlBK7H8R-fiXojfsbRAm0brREmclemGVY6rWvldH4SrvCPGy0uCu22QbOs_KDgZkCOnqURiTvYPjDV3_LJN61cPoN768ZSNtCqihRGzjg"/>
+<!-- Map UI Overlay -->
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent flex flex-col justify-end p-4">
+<div class="bg-surface/90 backdrop-blur-md p-3 rounded-lg flex items-center justify-between border border-white/50 candy-shadow-primary">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">location_on</span>
+</div>
+<div>
+<p class="font-bold text-on-surface text-sm">24 Mascotas cerca</p>
+<p class="text-xs text-on-surface-variant">Última actualización: hace 5 min</p>
+</div>
+</div>
+<button class="text-primary font-bold text-sm bg-primary-fixed px-3 py-1.5 rounded-full hover:bg-primary hover:text-on-primary transition-colors">Ver</button>
+</div>
+</div>
+</section>
+<!-- Visitor Teaser Alert -->
+<div class="bg-secondary-container rounded-lg p-4 flex items-start gap-4 candy-shadow-secondary border-2 border-secondary-fixed">
+<div class="w-10 h-10 rounded-full bg-secondary text-on-secondary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">stars</span>
+</div>
+<div class="flex-grow">
+<h3 class="font-bold text-on-secondary-container text-base mb-1">Únete a la comunidad Rastro</h3>
+<p class="text-sm text-on-surface-variant mb-3">Crea una cuenta para reportar avistamientos y guardar búsquedas activas en tu zona.</p>
+<button class="bg-secondary text-on-secondary px-5 py-2 rounded-full font-bold text-sm candy-bouncy-hover">Regístrate gratis</button>
+</div>
+</div>
+<!-- Bento Grid: Nearby Alerts -->
+<h3 class="font-display text-lg font-bold text-on-surface mt-2">Alertas Recientes</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- High Priority Card: Lost Pet -->
+<article class="bg-error-container rounded-lg p-4 flex gap-4 candy-shadow-primary candy-bouncy-hover cursor-pointer border-2 border-error/20 relative overflow-hidden">
+<div class="absolute top-0 right-0 bg-error text-on-error text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider">Perdido</div>
+<div class="w-24 h-24 rounded-full overflow-hidden shrink-0 border-4 border-surface shadow-sm">
+<img class="w-full h-full object-cover" data-alt="A joyful Golden Retriever looking directly at the camera, tongue out, sitting in a vibrant, sunlit park. The lighting is bright and warm, creating a cheerful light-mode aesthetic. The background is soft and slightly blurred, emphasizing the dog. Colors are highly saturated, leaning towards a playful, energetic pop style with bright greens and warm yellow tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDEM7Xy7JLmk1XuVGnri-NIAHCendozyAQtbtJEaoAJNHc5emPSTV8ZJ9BB5GceFOm79jP6FwvABjZOhlLlxySE7-LTINMp_Ib6lK9lk-e4fN9Q5bWISLfmdy3zlfBC17j60X9jUGvCSSteMjyjG2uosj6hA2dzVtt2duK91wpOgLq8rf8ueflZf53Q6XcVw5LSlo4pH8S_POR1Kco_Pylm4fWV4F3kN4dfYOY8fB7wDDRgvPiSurVxtSmbb9hXztBKYEAygju_ht8"/>
+</div>
+<div class="flex flex-col justify-center">
+<h4 class="font-bold text-lg text-on-surface">Bruno</h4>
+<p class="text-sm text-on-surface-variant mb-1">Golden Retriever • Macho</p>
+<div class="flex items-center gap-1 text-xs font-medium text-error">
+<span class="material-symbols-outlined text-[16px]">distance</span>
+                        A 500m • Visto hace 2h
+                    </div>
+</div>
+</article>
+<!-- Secondary Card: Found Pet -->
+<article class="bg-surface rounded-lg p-4 flex gap-4 candy-shadow-secondary candy-bouncy-hover cursor-pointer border border-surface-container-highest">
+<div class="absolute top-0 right-0 bg-tertiary text-on-tertiary text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider">Encontrado</div>
+<div class="w-20 h-20 rounded-full overflow-hidden shrink-0 border-2 border-tertiary-fixed">
+<img class="w-full h-full object-cover" data-alt="A curious orange tabby cat peeking over a bright pastel blue fence. The scene is lit with soft, high-key lighting, maintaining a clean and vibrant light-mode aesthetic. The colors are punchy, featuring the saturated orange of the cat against the cheerful tertiary blue background. The mood is playful and innocent, fitting a joyful pop visual style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBIt33LZuPsgHrI9JPV2XwNnxnnSNOKqurUvt3ZIt77efi7g_yu3Zdr7GEvAsoriRIBA7c09UrX-ssSf8o7krsmCsyZ4VhOxgrHZbRpvDXP5lvl35yHx4IpNO3_IEy1iDAebmiIl2i0jrvYJfge44a6iAkGcj-RGyVZfcSH8HXUzYSMDzeJSQv04S8Ld7h18rdjgofC6yvgXw9R1olC2g_iFCyE21MND37tq8Ywj60yjXmEhgql2kIhr0QkejmTAHJJPAa-J8hkE7o"/>
+</div>
+<div class="flex flex-col justify-center">
+<h4 class="font-bold text-base text-on-surface">Sin Collar</h4>
+<p class="text-xs text-on-surface-variant mb-1">Gato Naranja</p>
+<div class="flex items-center gap-1 text-xs font-medium text-tertiary">
+<span class="material-symbols-outlined text-[14px]">distance</span>
+                        A 1.2km • En refugio
+                    </div>
+</div>
+</article>
+</div>
+</main>
+<!-- Global Floating Action Button (FAB) -->
+<button class="fixed bottom-24 right-4 z-50 bg-primary text-on-primary w-14 h-14 rounded-full flex items-center justify-center shadow-[0_8px_24px_rgba(224,64,160,0.4)] hover:bg-surface-tint candy-bouncy-hover group">
+<span class="material-symbols-outlined text-3xl group-hover:rotate-90 transition-transform duration-300" style="font-variation-settings: 'wght' 600;">add</span>
+</button>
+<!-- BottomNavBar (Shared Component) -->
+<nav class="bg-surface shadow-[0_-4px_16px_rgba(224,64,160,0.15)] fixed bottom-0 left-0 w-full z-40 rounded-t-lg flex justify-around items-center px-2 pb-4 pt-2 md:hidden">
+<!-- Active Tab: Cerca -->
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-5 py-1.5 scale-90 transition-transform duration-150 relative">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">explore</span>
+<span class="font-label text-xs font-bold mt-1">Cerca</span>
+</button>
+<!-- Inactive Tabs -->
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-2 hover:bg-surface-variant transition-colors rounded-full relative group">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">notifications</span>
+<span class="font-label text-xs font-medium mt-1">Actividad</span>
+<!-- Notification Dot (Teaser) -->
+<span class="absolute top-2 right-4 w-2 h-2 bg-secondary rounded-full border border-surface"></span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-2 hover:bg-surface-variant transition-colors rounded-full group">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">menu_book</span>
+<span class="font-label text-xs font-medium mt-1">Recursos</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-2 hover:bg-surface-variant transition-colors rounded-full group">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">person</span>
+<span class="font-label text-xs font-medium mt-1">Perfil</span>
+</button>
+</nav>
+</body></html>

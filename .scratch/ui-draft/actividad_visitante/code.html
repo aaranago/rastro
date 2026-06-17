@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Rastro - Actividad</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline-variant": "#dcc8e0",
+                        "on-error": "#ffffff",
+                        "secondary-fixed-dim": "#c8a8e8",
+                        "on-primary-fixed-variant": "#a02070",
+                        "on-secondary": "#ffffff",
+                        "primary-container": "#f080c0",
+                        "secondary-fixed": "#eedcff",
+                        "on-secondary-fixed-variant": "#4a3068",
+                        "surface-container-high": "#f2e8f2",
+                        "inverse-on-surface": "#fef7ff",
+                        "error-container": "#ffe8e8",
+                        "primary": "#e040a0",
+                        "secondary": "#7c52aa",
+                        "on-secondary-container": "#2e2040",
+                        "surface": "#fef7ff",
+                        "on-primary-fixed": "#3d0028",
+                        "on-primary": "#ffffff",
+                        "tertiary-container": "#40c0ee",
+                        "on-background": "#2e1a28",
+                        "surface-container": "#f8eef8",
+                        "error": "#e53e3e",
+                        "background": "#fef7ff",
+                        "surface-tint": "#e040a0",
+                        "secondary-container": "#eedcff",
+                        "inverse-primary": "#f0a0cc",
+                        "on-surface": "#2e1a28",
+                        "surface-variant": "#f2e8f2",
+                        "tertiary-fixed": "#c8eaff",
+                        "tertiary": "#0096cc",
+                        "on-tertiary-fixed": "#001a33",
+                        "on-secondary-fixed": "#1a1030",
+                        "primary-fixed-dim": "#f0a0cc",
+                        "surface-dim": "#e0d6e0",
+                        "surface-container-highest": "#ece2ec",
+                        "on-tertiary": "#ffffff",
+                        "on-error-container": "#9b1c1c",
+                        "outline": "#907898",
+                        "surface-bright": "#fef7ff",
+                        "on-primary-container": "#2e1a28",
+                        "tertiary-fixed-dim": "#80d0f0",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-surface": "#2e1a28",
+                        "on-surface-variant": "#604868",
+                        "on-tertiary-container": "#00334d",
+                        "surface-container-low": "#fbf2fb",
+                        "primary-fixed": "#ffd6ee",
+                        "on-tertiary-fixed-variant": "#005580"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {},
+                    "fontFamily": {
+                        "headline": ["DM Sans", "sans-serif"],
+                        "display": ["DM Sans", "sans-serif"],
+                        "body": ["DM Sans", "sans-serif"],
+                        "label": ["DM Sans", "sans-serif"]
+                    },
+                    "fontSize": {}
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'DM Sans', sans-serif; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen flex flex-col antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<header class="w-full top-0 z-50 bg-surface dark:bg-surface-dim shadow-[0_4px_16px_rgba(224,64,160,0.15)] flex justify-between items-center px-6 py-4 fixed md:sticky">
+<button class="hover:scale-105 transition-transform duration-200 active:scale-95 text-primary dark:text-primary-fixed-dim flex items-center justify-center p-2 rounded-full hover:bg-surface-variant">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">pets</span>
+</button>
+<h1 class="text-2xl font-black text-primary dark:text-primary-fixed-dim tracking-tight font-headline">Rastro</h1>
+<button class="hover:scale-105 transition-transform duration-200 active:scale-95 text-primary dark:text-primary-fixed-dim flex items-center justify-center p-2 rounded-full hover:bg-surface-variant">
+<span class="material-symbols-outlined text-2xl">notifications</span>
+</button>
+</header>
+<!-- Main Canvas -->
+<main class="flex-1 flex flex-col items-center justify-center px-6 pt-24 pb-32 md:pt-12 md:pb-12 max-w-md mx-auto w-full">
+<!-- Illustration -->
+<div class="w-full aspect-square max-w-[320px] mb-8 relative rounded-full bg-surface-container-low flex items-center justify-center shadow-[0_8px_32px_rgba(124,82,170,0.1)] overflow-hidden">
+<img class="w-full h-full object-cover animate-[bounce_3s_ease-in-out_infinite]" data-alt="A playful, vibrant 3D vector illustration of a happy golden retriever dog and a curious tabby cat looking eagerly at a brightly colored glowing smartphone screen and a cute modern mailbox. The style is modern joyful pop-art with soft rounded pill-like edges, saturated hot pinks, deep purples, and sky blues against a warm light pink surface background. The scene is brightly lit with friendly, energetic mood." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdHbegqQ08WHzQNU8impQa8juEDQoSBnx3gZrceHHIwuqJvjMO-NbBGwsTiUvx0LnOgDjUptf-lRt1hr6C0JmvCup5m5f3k4sw9D_djLcUCCOb9mrrd1dS4NWV8ZiLzT5C_RgnZEfi0z8FygGjxOHUkpuq8SPIBcSzzn1ZMs0wqF-V4nf1kRerQ61OZPuHqHpaNYKEX76aMLfvgejjfePjVGq7GDOO7Ewn_Tb1kyIRxMqKX7_BAKFR8sflYHuNxiYssgaS_H_ckfg" style="animation-duration: 4s;"/>
+</div>
+<!-- Copy -->
+<div class="text-center mb-10 space-y-4">
+<h2 class="font-headline font-bold text-3xl tracking-tight text-on-surface">Tu Actividad te Espera</h2>
+<p class="font-body text-on-surface-variant text-lg leading-relaxed">
+                Inicia sesión para recibir alertas en tiempo real, chatear con otros dueños de mascotas de tu zona y llevar un registro detallado de tus reportes.
+            </p>
+</div>
+<!-- Actions -->
+<div class="w-full flex flex-col gap-4">
+<button class="w-full bg-primary text-on-primary rounded-full px-8 py-4 font-label font-bold text-lg shadow-[0_4px_16px_rgba(224,64,160,0.25)] hover:scale-[1.03] active:scale-95 transition-all duration-200 flex items-center justify-center gap-2">
+<span>Iniciar sesión</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">login</span>
+</button>
+<button class="w-full bg-surface-container-high text-on-surface rounded-full px-8 py-4 font-label font-bold text-lg hover:bg-primary-container hover:text-on-primary-container hover:scale-[1.03] active:scale-95 transition-all duration-200">
+                Crear cuenta
+            </button>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-surface dark:bg-surface-dim shadow-[0_-4px_16px_rgba(124,82,170,0.1)] rounded-t-lg">
+<!-- Cerca -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-5 py-1 hover:scale-110 transition-transform duration-200 active:scale-90 group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:text-secondary transition-colors">explore</span>
+<span class="font-label font-medium text-[10px] mt-1">Cerca</span>
+</a>
+<!-- Actividad (ACTIVE) -->
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-full px-6 py-1.5 transition-all duration-300 ease-out shadow-[0_4px_12px_rgba(240,128,192,0.3)]" href="#">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">notifications_active</span>
+<span class="font-label font-bold text-[10px] mt-1">Actividad</span>
+</a>
+<!-- Recursos -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-5 py-1 hover:scale-110 transition-transform duration-200 active:scale-90 group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:text-secondary transition-colors">menu_book</span>
+<span class="font-label font-medium text-[10px] mt-1">Recursos</span>
+</a>
+<!-- Perfil -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-5 py-1 hover:scale-110 transition-transform duration-200 active:scale-90 group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:text-secondary transition-colors">account_circle</span>
+<span class="font-label font-medium text-[10px] mt-1">Perfil</span>
+</a>
+</nav>
+</body></html>

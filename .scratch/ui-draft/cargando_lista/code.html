@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Rastro - Cargando</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-bright": "#fef7ff",
+                        "surface-tint": "#e040a0",
+                        "outline": "#907898",
+                        "on-error-container": "#9b1c1c",
+                        "surface-container-high": "#f2e8f2",
+                        "on-surface": "#2e1a28",
+                        "on-secondary-fixed-variant": "#4a3068",
+                        "error-container": "#ffe8e8",
+                        "on-secondary-fixed": "#1a1030",
+                        "on-error": "#ffffff",
+                        "inverse-on-surface": "#fef7ff",
+                        "surface-container-highest": "#ece2ec",
+                        "on-tertiary-fixed-variant": "#005580",
+                        "primary": "#e040a0",
+                        "outline-variant": "#dcc8e0",
+                        "on-primary-container": "#2e1a28",
+                        "secondary-fixed-dim": "#c8a8e8",
+                        "on-tertiary-fixed": "#001a33",
+                        "on-surface-variant": "#604868",
+                        "error": "#e53e3e",
+                        "primary-fixed-dim": "#f0a0cc",
+                        "on-primary-fixed": "#3d0028",
+                        "inverse-primary": "#f0a0cc",
+                        "tertiary-container": "#40c0ee",
+                        "tertiary": "#0096cc",
+                        "secondary-fixed": "#eedcff",
+                        "on-background": "#2e1a28",
+                        "surface-variant": "#f2e8f2",
+                        "primary-container": "#f080c0",
+                        "tertiary-fixed-dim": "#80d0f0",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-low": "#fbf2fb",
+                        "on-tertiary-container": "#00334d",
+                        "surface-dim": "#e0d6e0",
+                        "on-primary-fixed-variant": "#a02070",
+                        "tertiary-fixed": "#c8eaff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#fef7ff",
+                        "on-secondary": "#ffffff",
+                        "background": "#fef7ff",
+                        "on-secondary-container": "#2e2040",
+                        "surface-container": "#f8eef8",
+                        "secondary-container": "#eedcff",
+                        "on-primary": "#ffffff",
+                        "inverse-surface": "#2e1a28",
+                        "secondary": "#7c52aa",
+                        "primary-fixed": "#ffd6ee"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {},
+                    "fontFamily": {
+                        "headline": ["DM Sans", "sans-serif"],
+                        "display": ["DM Sans", "sans-serif"],
+                        "body": ["DM Sans", "sans-serif"],
+                        "label": ["DM Sans", "sans-serif"]
+                    },
+                    "fontSize": {}
+                },
+            },
+        }
+    </script>
+<style>
+        @keyframes shimmer {
+            0% {
+                background-position: -200% 0;
+            }
+            100% {
+                background-position: 200% 0;
+            }
+        }
+        
+        .skeleton {
+            background: linear-gradient(90deg, 
+                var(--tw-colors-surface-container-high) 25%, 
+                var(--tw-colors-primary-fixed) 50%, 
+                var(--tw-colors-surface-container-high) 75%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite linear;
+        }
+
+        .skeleton-avatar {
+            background: linear-gradient(90deg, 
+                var(--tw-colors-surface-container-highest) 25%, 
+                var(--tw-colors-primary-fixed-dim) 50%, 
+                var(--tw-colors-surface-container-highest) 75%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite linear;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body min-h-screen flex flex-col antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<header class="bg-background dark:bg-background docked full-width top-0 bg-background dark:bg-background flat no shadows flex justify-between items-center px-4 h-16 w-full z-50 sticky">
+<button aria-label="Menu" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-variant transition-colors text-primary dark:text-primary-fixed-dim">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">pets</span>
+</button>
+<h1 class="font-headline text-headline-sm font-bold text-2xl font-black text-primary dark:text-primary-fixed-dim tracking-tight">Rastro</h1>
+<button aria-label="Search" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-variant transition-colors text-primary dark:text-primary-fixed-dim hover:scale-105 transition-transform duration-200 Active: scale-95 transition-all">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">search</span>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow px-4 pt-6 pb-32">
+<div class="flex items-center justify-center mb-8 animate-pulse">
+<span class="material-symbols-outlined text-primary-fixed-dim mr-2 text-2xl animate-bounce">pets</span>
+<p class="text-on-surface-variant font-medium text-lg">Cargando contenido...</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+<!-- Skeleton Card 1 -->
+<article class="bg-surface-container rounded-[16px] p-4 shadow-[0_4px_16px_rgba(224,64,160,0.1)] flex flex-col gap-4">
+<div class="w-full h-48 rounded-DEFAULT skeleton"></div>
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-full skeleton-avatar shrink-0"></div>
+<div class="flex flex-col gap-2 w-full">
+<div class="h-5 w-3/4 rounded-full skeleton"></div>
+<div class="h-3 w-1/2 rounded-full skeleton"></div>
+</div>
+</div>
+<div class="flex flex-col gap-2 mt-2">
+<div class="h-3 w-full rounded-full skeleton"></div>
+<div class="h-3 w-5/6 rounded-full skeleton"></div>
+<div class="h-3 w-4/6 rounded-full skeleton"></div>
+</div>
+<div class="flex gap-2 mt-auto pt-4">
+<div class="h-8 w-20 rounded-full skeleton"></div>
+<div class="h-8 w-24 rounded-full skeleton"></div>
+</div>
+</article>
+<!-- Skeleton Card 2 -->
+<article class="bg-surface-container rounded-[16px] p-4 shadow-[0_4px_16px_rgba(224,64,160,0.1)] flex flex-col gap-4">
+<div class="w-full h-48 rounded-DEFAULT skeleton"></div>
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-full skeleton-avatar shrink-0"></div>
+<div class="flex flex-col gap-2 w-full">
+<div class="h-5 w-2/3 rounded-full skeleton"></div>
+<div class="h-3 w-1/3 rounded-full skeleton"></div>
+</div>
+</div>
+<div class="flex flex-col gap-2 mt-2">
+<div class="h-3 w-full rounded-full skeleton"></div>
+<div class="h-3 w-[90%] rounded-full skeleton"></div>
+<div class="h-3 w-[70%] rounded-full skeleton"></div>
+</div>
+<div class="flex gap-2 mt-auto pt-4">
+<div class="h-8 w-24 rounded-full skeleton"></div>
+<div class="h-8 w-16 rounded-full skeleton"></div>
+</div>
+</article>
+<!-- Skeleton Card 3 (Hidden on mobile for layout balance) -->
+<article class="bg-surface-container rounded-[16px] p-4 shadow-[0_4px_16px_rgba(224,64,160,0.1)] flex flex-col gap-4 hidden lg:flex">
+<div class="w-full h-48 rounded-DEFAULT skeleton"></div>
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-full skeleton-avatar shrink-0"></div>
+<div class="flex flex-col gap-2 w-full">
+<div class="h-5 w-4/5 rounded-full skeleton"></div>
+<div class="h-3 w-2/5 rounded-full skeleton"></div>
+</div>
+</div>
+<div class="flex flex-col gap-2 mt-2">
+<div class="h-3 w-[95%] rounded-full skeleton"></div>
+<div class="h-3 w-[85%] rounded-full skeleton"></div>
+<div class="h-3 w-[60%] rounded-full skeleton"></div>
+</div>
+<div class="flex gap-2 mt-auto pt-4">
+<div class="h-8 w-16 rounded-full skeleton"></div>
+<div class="h-8 w-28 rounded-full skeleton"></div>
+</div>
+</article>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-surface dark:bg-surface-container-low fixed bottom-0 w-full z-40 rounded-t-lg bg-surface dark:bg-surface-container-low shadow-[0_-4px_16px_rgba(224,64,160,0.15)] shadow-lg fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 pb-4 pt-2 md:hidden">
+<!-- Cerca - Active (Defaulting to Explore as it's a generic loading state for content) -->
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-full px-5 py-1.5 hover:scale-105 transition-transform duration-200 Active: scale-90 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">explore</span>
+<span class="font-label text-xs font-medium">Cerca</span>
+</a>
+<!-- Actividad -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-4 py-2 hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-colors rounded-full hover:scale-105 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">notifications</span>
+<span class="font-label text-xs font-medium">Actividad</span>
+</a>
+<!-- Recursos -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-4 py-2 hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-colors rounded-full hover:scale-105 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">menu_book</span>
+<span class="font-label text-xs font-medium">Recursos</span>
+</a>
+<!-- Perfil -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-4 py-2 hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-colors rounded-full hover:scale-105 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">person</span>
+<span class="font-label text-xs font-medium">Perfil</span>
+</a>
+</nav>
+<!-- SideNav for Web (Matching BottomNav links, hidden on mobile) -->
+<div class="hidden md:flex fixed left-0 top-16 bottom-0 w-64 bg-surface shadow-lg flex-col px-4 py-6 gap-2">
+<a class="flex items-center gap-4 bg-primary-container text-on-primary-container rounded-full px-5 py-3 hover:scale-105 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">explore</span>
+<span class="font-label text-sm font-bold">Cerca</span>
+</a>
+<a class="flex items-center gap-4 text-on-surface-variant px-5 py-3 hover:bg-surface-variant transition-colors rounded-full hover:scale-105 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">notifications</span>
+<span class="font-label text-sm font-medium">Actividad</span>
+</a>
+<a class="flex items-center gap-4 text-on-surface-variant px-5 py-3 hover:bg-surface-variant transition-colors rounded-full hover:scale-105 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">menu_book</span>
+<span class="font-label text-sm font-medium">Recursos</span>
+</a>
+<a class="flex items-center gap-4 text-on-surface-variant px-5 py-3 hover:bg-surface-variant transition-colors rounded-full hover:scale-105 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">person</span>
+<span class="font-label text-sm font-medium">Perfil</span>
+</a>
+</div>
+</body></html>

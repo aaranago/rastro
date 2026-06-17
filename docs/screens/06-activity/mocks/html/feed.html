@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Actividad - Rastro</title>
+<!-- Google Fonts: DM Sans & Material Symbols -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700;0,9..40,900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Theme Configuration (Design System) -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline-variant": "#DCE4DE",
+                        "on-error": "#ffffff",
+                        "secondary-fixed-dim": "#BFE1D8",
+                        "on-primary-fixed-variant": "#0E5145",
+                        "on-secondary": "#ffffff",
+                        "primary-container": "#BFE1D8",
+                        "secondary-fixed": "#DDEFE9",
+                        "on-secondary-fixed-variant": "#39564E",
+                        "surface-container-high": "#E7EEE9",
+                        "inverse-on-surface": "#F7F9F6",
+                        "error-container": "#FDECEC",
+                        "primary": "#146C5A",
+                        "secondary": "#1D7A52",
+                        "on-secondary-container": "#17201C",
+                        "surface": "#F7F9F6",
+                        "on-primary-fixed": "#0B342D",
+                        "on-primary": "#ffffff",
+                        "tertiary-container": "#CFE3EE",
+                        "on-background": "#17201C",
+                        "surface-container": "#EEF3EE",
+                        "error": "#D6453D",
+                        "background": "#F7F9F6",
+                        "surface-tint": "#146C5A",
+                        "secondary-container": "#DDEFE9",
+                        "inverse-primary": "#A9D4C9",
+                        "on-surface": "#17201C",
+                        "surface-variant": "#E7EEE9",
+                        "tertiary-fixed": "#E1EFF5",
+                        "tertiary": "#2E6D9E",
+                        "on-tertiary-fixed": "#102A3A",
+                        "on-secondary-fixed": "#1a1030",
+                        "primary-fixed-dim": "#A9D4C9",
+                        "surface-dim": "#E4EBE6",
+                        "surface-container-highest": "#DCE4DE",
+                        "on-tertiary": "#ffffff",
+                        "on-error-container": "#8A241D",
+                        "outline": "#82908A",
+                        "surface-bright": "#F7F9F6",
+                        "on-primary-container": "#17201C",
+                        "tertiary-fixed-dim": "#B6D4E4",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-surface": "#17201C",
+                        "on-surface-variant": "#66736D",
+                        "on-tertiary-container": "#183F56",
+                        "surface-container-low": "#FFFFFF",
+                        "primary-fixed": "#DDEFE9",
+                        "on-tertiary-fixed-variant": "#2E6D9E"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["DM Sans", "sans-serif"],
+                        "display": ["DM Sans", "sans-serif"],
+                        "body": ["DM Sans", "sans-serif"],
+                        "label": ["DM Sans", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fade-in 0.3s ease-out forwards; }
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  
+<style id="rastro-polish">
+  :root {
+    color-scheme: light;
+    --rastro-bg: #F7F9F6;
+    --rastro-surface: #FFFFFF;
+    --rastro-surface-muted: #EEF3EE;
+    --rastro-text: #17201C;
+    --rastro-muted: #66736D;
+    --rastro-border: #DCE4DE;
+    --rastro-primary: #146C5A;
+    --rastro-primary-dark: #0E5145;
+    --rastro-lost: #D6453D;
+    --rastro-found: #1D7A52;
+    --rastro-sighting: #2E6D9E;
+    --rastro-adoption: #9D4F66;
+  }
+  html, body {
+    width: 100% !important;
+    max-width: 100vw !important;
+    min-height: 100dvh !important;
+    margin: 0 !important;
+    overflow-x: hidden !important;
+    background: var(--rastro-bg) !important;
+    color: var(--rastro-text) !important;
+    font-family: "DM Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+    letter-spacing: 0 !important;
+  }
+  * { letter-spacing: 0 !important; }
+  .candy-shadow-primary { box-shadow: 0 12px 28px rgba(20,108,90,.22) !important; }
+  .candy-shadow-secondary { box-shadow: 0 12px 28px rgba(29,122,82,.16) !important; }
+  .candy-shadow-tertiary { box-shadow: 0 12px 30px rgba(46,109,158,.18) !important; }
+  .text-primary { color: var(--rastro-primary) !important; }
+  .text-secondary { color: var(--rastro-found) !important; }
+  .text-tertiary { color: var(--rastro-sighting) !important; }
+  .text-on-background, .text-on-surface { color: var(--rastro-text) !important; }
+  .text-on-surface-variant { color: var(--rastro-muted) !important; }
+  .bg-background, .bg-surface, .bg-surface-bright { background-color: var(--rastro-bg) !important; }
+  .bg-surface-container-lowest, .bg-white { background-color: var(--rastro-surface) !important; }
+  .bg-surface-container, .bg-surface-container-low, .bg-surface-container-high, .bg-surface-variant { background-color: var(--rastro-surface-muted) !important; }
+  .bg-primary { background-color: var(--rastro-primary) !important; }
+  .bg-secondary { background-color: var(--rastro-found) !important; }
+  .bg-tertiary { background-color: var(--rastro-sighting) !important; }
+  .bg-primary-container, .bg-primary-fixed, .bg-primary-fixed-dim { background-color: #DDEFE9 !important; }
+  .bg-secondary-container, .bg-secondary-fixed { background-color: #E7F3EB !important; }
+  .bg-tertiary-container, .bg-tertiary-fixed { background-color: #E1EFF5 !important; }
+  .border-primary, .border-primary-fixed, .border-secondary-fixed, .border-outline-variant, .border-surface-variant { border-color: var(--rastro-border) !important; }
+  .shadow-\[0_4px_16px_rgba\(224\,64\,160\,0\.15\)\],
+  .shadow-\[0_4px_16px_rgba\(224\,64\,160\,0\.2\)\],
+  .shadow-\[0_4px_16px_rgba\(224\,64\,160\,0\.3\)\] {
+    box-shadow: 0 12px 28px rgba(20,108,90,.18) !important;
+  }
+  img[data-location],
+  [data-alt*="map"],
+  [data-alt*="Map"],
+  [data-alt*="mapa"],
+  [data-alt*="Mapa"] {
+    filter: saturate(.72) hue-rotate(118deg) contrast(.98) brightness(1.02);
+  }
+  nav.fixed.bottom-0 {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: 430px !important;
+    height: 86px !important;
+    margin-inline: auto !important;
+    padding: 8px 10px 14px !important;
+    border-radius: 24px 24px 0 0 !important;
+    border-top: 1px solid var(--rastro-border) !important;
+    background: rgba(255,255,255,.96) !important;
+    box-shadow: 0 -12px 32px rgba(23,32,28,.10) !important;
+  }
+  nav.fixed.bottom-0 a {
+    min-width: 0 !important;
+    flex: 1 1 0 !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+  nav.fixed.bottom-0 :is(a, button) {
+    min-width: 0 !important;
+    width: auto !important;
+    flex: 1 1 0 !important;
+    height: 64px !important;
+    margin: 0 !important;
+    padding: 6px !important;
+    border: 0 !important;
+    border-radius: 18px !important;
+    background: transparent !important;
+    color: var(--rastro-muted) !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+  nav.fixed.bottom-0 :is(a, button)[class~="bg-primary"],
+  nav.fixed.bottom-0 :is(a, button)[class~="bg-primary-container"] {
+    background: #DDEFE9 !important;
+    color: var(--rastro-primary) !important;
+  }
+  nav.fixed.bottom-0 :is(a, button) .material-symbols-outlined {
+    font-size: 24px !important;
+  }
+  nav.fixed.bottom-0 span:last-child {
+    max-width: 78px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  .fixed.bottom-24,
+  .rastro-global-fab {
+    right: 18px !important;
+    bottom: 98px !important;
+    width: 60px !important;
+    height: 60px !important;
+    border-radius: 999px !important;
+    background: var(--rastro-primary) !important;
+    color: white !important;
+    box-shadow: 0 18px 30px rgba(20,108,90,.28) !important;
+  }
+  .rastro-global-fab {
+    position: fixed !important;
+    z-index: 40 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 0 !important;
+  }
+  [class*="rounded-\[2rem\]"],
+  .rounded-lg,
+  .rounded-xl {
+    border-color: rgba(220,228,222,.95) !important;
+  }
+  main, section { scrollbar-width: none; }
+  main::-webkit-scrollbar, section::-webkit-scrollbar, div::-webkit-scrollbar { display: none; }
+</style>
+</head>
+<body class="bg-background text-on-background font-body h-screen w-screen overflow-hidden flex flex-col md:flex-row">
+<!-- Desktop SideNav (Hidden on Mobile, Required by platform layout rules for nav items) -->
+<nav class="hidden md:flex flex-col w-64 h-full bg-surface-container-low p-6 gap-8 shadow-[4px_0_24px_rgba(29,122,82,0.05)] z-40">
+<div class="text-3xl font-black text-primary tracking-tight">Rastro</div>
+<div class="flex flex-col gap-2">
+<a class="flex items-center gap-4 px-4 py-3 rounded-full text-on-surface-variant hover:bg-surface-variant transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-2xl">explore</span>
+<span class="font-label font-medium text-lg">Cerca</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-full bg-primary-container text-on-primary-container shadow-[0_4px_16px_rgba(20,108,90,0.15)] transition-all duration-300 ease-out" href="#">
+<span class="material-symbols-outlined text-2xl">notifications_active</span>
+<span class="font-label font-bold text-lg">Actividad</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-full text-on-surface-variant hover:bg-surface-variant transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-2xl">menu_book</span>
+<span class="font-label font-medium text-lg">Recursos</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-full text-on-surface-variant hover:bg-surface-variant transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-2xl">account_circle</span>
+<span class="font-label font-medium text-lg">Perfil</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-1 h-full relative overflow-hidden flex flex-col">
+<!-- TopAppBar (from JSON) -->
+<header class="bg-surface w-full top-0 z-50 shadow-[0_4px_16px_rgba(20,108,90,0.15)] flex justify-between items-center px-6 py-4">
+<button class="text-primary hover:scale-105 transition-transform duration-200 active:scale-95">
+<span class="material-symbols-outlined text-2xl">pets</span>
+</button>
+<h1 class="font-headline font-bold text-headline-sm text-2xl text-primary tracking-tight">Rastro</h1>
+<button class="text-primary hover:scale-105 transition-transform duration-200 active:scale-95">
+<span class="material-symbols-outlined text-2xl relative">
+                    notifications
+                    <span class="absolute top-0 right-0 w-2.5 h-2.5 bg-error rounded-full border-2 border-surface"></span>
+</span>
+</button>
+</header>
+<!-- Segmented Control for Tabs -->
+<div class="px-6 py-4 shrink-0 z-30 bg-background/80 backdrop-blur-md">
+<div class="flex bg-surface-variant rounded-full p-1 shadow-inner relative">
+<button class="flex-1 py-2.5 rounded-full font-label font-bold text-sm transition-all duration-300 ease-out z-10 bg-primary text-on-primary shadow-[0_4px_12px_rgba(20,108,90,0.25)] scale-[1.02]" id="tab-mensajes" onclick="switchTab('mensajes')">
+                    Mensajes
+                </button>
+<button class="flex-1 py-2.5 rounded-full font-label font-medium text-sm transition-all duration-300 ease-out z-10 text-on-surface-variant hover:bg-surface-container-high" id="tab-alertas" onclick="switchTab('alertas')">
+                    Alertas
+                </button>
+</div>
+</div>
+<!-- Scrollable Content Area -->
+<div class="flex-1 overflow-y-auto hide-scrollbar px-4 pb-24 relative">
+<!-- Tab 1: Mensajes -->
+<div class="tab-content active flex flex-col gap-6 w-full max-w-2xl mx-auto" id="content-mensajes">
+<!-- Activo Report Prompt (Stale) -->
+<div class="bg-secondary-container rounded-[2rem] p-5 flex items-start gap-4 shadow-[0_8px_24px_rgba(29,122,82,0.15)] transform transition-transform duration-300 hover:scale-[1.02] mt-2 border border-outline-variant/30 relative overflow-hidden">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-secondary/10 rounded-full blur-xl"></div>
+<div class="w-12 h-12 rounded-full bg-secondary text-on-secondary flex items-center justify-center shrink-0 shadow-lg z-10">
+<span class="material-symbols-outlined text-2xl">warning</span>
+</div>
+<div class="flex-1 z-10">
+<h3 class="font-headline font-bold text-on-secondary-container text-lg mb-1">Reportes Activos</h3>
+<p class="text-on-secondary-container/80 text-sm mb-4 font-medium">¿Sigue Max perdido? Actualiza su estado.</p>
+<div class="flex gap-3">
+<button class="bg-secondary text-on-secondary px-5 py-2 rounded-full font-label font-bold text-sm shadow-[0_4px_12px_rgba(29,122,82,0.3)] hover:scale-105 active:scale-95 transition-all duration-200">
+                                Actualizar
+                            </button>
+<button class="bg-surface text-secondary px-5 py-2 rounded-full font-label font-bold text-sm shadow-sm hover:bg-surface-variant active:scale-95 transition-all duration-200">
+                                Resuelto
+                            </button>
+</div>
+</div>
+</div>
+<!-- Chat List -->
+<div class="flex flex-col gap-3 mt-2">
+<!-- Chat Item 1 (Unread) -->
+<div class="bg-surface rounded-[1.5rem] p-4 flex items-center gap-4 shadow-[0_4px_16px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(20,108,90,0.1)] transition-all duration-300 hover:scale-[1.01] cursor-pointer border border-transparent hover:border-primary/10">
+<div class="relative shrink-0">
+<img class="w-14 h-14 rounded-full object-cover shadow-sm" data-alt="A close up portrait of a fluffy golden retriever dog. The background is a vibrant, solid pastel pink, fitting a playful Candy user interface design style. The lighting is bright, soft, and high-key, creating a joyful and energetic mood. The image should feel modern, saturated, and highly polished." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCP4deOc6_ijnTdwP1lE9k6foxDActrNG9AKfuf_DkXoytj2oZHbWqZ1ruH6MhkC4ofVDGTGKTjbb0qAfiKRl1F1sWQbregWZ9duDBI6kddEHRsJ_pGUNrk5W5udF9VCs6ERZcwHRwfwh7hTLuUeInfR8NgCL2GvVeG8s2xqgB8xnXD-aqzlowQ8kJ4EPv1GzsNKMrD9jHSBaYJRYYx1X9uv_PT2Jj3aIBp0SIdaVdcgO3_mzkZY51Aitxwr-BRlQg-EwCKTOSc9zQ"/>
+<div class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-400 border-2 border-surface rounded-full"></div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h4 class="font-headline font-bold text-on-surface truncate text-base">Ana &amp; Buster</h4>
+<span class="text-xs font-bold text-primary ml-2 shrink-0">12:45</span>
+</div>
+<p class="text-sm font-medium text-on-surface truncate">¡Creo que lo vi cerca del parque principal!</p>
+</div>
+<div class="w-5 h-5 bg-primary text-on-primary rounded-full flex items-center justify-center text-[10px] font-bold shadow-md shrink-0">
+                            2
+                        </div>
+</div>
+<!-- Chat Item 2 -->
+<div class="bg-surface rounded-[1.5rem] p-4 flex items-center gap-4 shadow-[0_4px_16px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(29,122,82,0.1)] transition-all duration-300 hover:scale-[1.01] cursor-pointer">
+<div class="relative shrink-0">
+<img class="w-14 h-14 rounded-full object-cover shadow-sm" data-alt="A cute, stylized portrait of a small tabby kitten looking directly at the camera. The background is a smooth, vibrant pastel purple, aligning with a joyful Candy app aesthetic. Bright, even lighting highlights the kitten's features, conveying a playful, energetic, and modern vibe suitable for a user avatar." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBielxON6NWwa2JwNpdqA1uUPNPxOtEllekwE4NYhjTpacOL_CF5DrUdcvuOdqxP7dmTQsSbKpVTjqeRt6jHdOPS5kfgi4AC7TIb1ygLIjeEWuZc3Dc0xXQh-FZPOfUjTDdJ3E6lziZoG3uX190u2YuWI2qAHxD5Ms5x9yVQFhBQ-HljYnaaOBy8s36ijUNMepJqG4fyrF8LcTx_VNk2uQ91SWaMS4jtZBrWsUXrfcEN91PXq5H2qL-eXvm8HMU9Hsf9st_TYJC7rU"/>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h4 class="font-headline font-bold text-on-surface truncate text-base">Carlos Gomez</h4>
+<span class="text-xs text-on-surface-variant ml-2 shrink-0">Ayer</span>
+</div>
+<p class="text-sm text-on-surface-variant truncate">Gracias por compartir el cartel.</p>
+</div>
+</div>
+<!-- Chat Item 3 -->
+<div class="bg-surface rounded-[1.5rem] p-4 flex items-center gap-4 shadow-[0_4px_16px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(46,109,158,0.1)] transition-all duration-300 hover:scale-[1.01] cursor-pointer">
+<div class="w-14 h-14 rounded-full bg-tertiary-container text-tertiary flex items-center justify-center shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-3xl">groups</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h4 class="font-headline font-bold text-on-surface truncate text-base">Red Vecinal Zona Norte</h4>
+<span class="text-xs text-on-surface-variant ml-2 shrink-0">Ayer</span>
+</div>
+<p class="text-sm text-on-surface-variant truncate">Marta: Estaremos atentos esta noche.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Tab 2: Alertas -->
+<div class="tab-content flex flex-col gap-4 w-full max-w-2xl mx-auto mt-2" id="content-alertas">
+<!-- Alert Item 1 (High Priority) -->
+<div class="bg-error-container rounded-[1.5rem] p-4 flex gap-4 shadow-[0_4px_16px_rgba(229,62,62,0.1)] items-start">
+<div class="w-12 h-12 rounded-full bg-error text-on-error flex items-center justify-center shrink-0 shadow-md">
+<span class="material-symbols-outlined">location_on</span>
+</div>
+<div class="flex-1 pt-1">
+<h4 class="font-headline font-bold text-on-error-container text-base mb-1">Nuevo avistamiento cerca de ti</h4>
+<p class="text-sm text-on-error-container/80 mb-3 font-medium">Alguien ha reportado un perro similar a Max a 2km de tu ubicación actual.</p>
+<div class="h-32 w-full rounded-xl bg-surface overflow-hidden relative mb-2 shadow-inner border border-error/20">
+<div class="w-full h-full bg-cover bg-center" data-alt="A clean, vibrant digital map interface showing a neighborhood area. A prominent hot pink pin marks a specific location. The map style is modern, using pastel tones that fit a playful Candy user interface aesthetic, with bright, cheerful lighting and soft colors." data-location="La Paz" style="background-image: url('https://www.gstatic.com/labs-code/stitch/stitch-placeholder-300x300.svg')"></div>
+</div>
+<span class="text-xs font-bold text-error">Hace 10 min</span>
+</div>
+</div>
+<!-- Alert Item 2 -->
+<div class="bg-surface rounded-[1.5rem] p-4 flex gap-4 shadow-[0_4px_16px_rgba(0,0,0,0.03)] items-start">
+<div class="w-12 h-12 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined">volunteer_activism</span>
+</div>
+<div class="flex-1 pt-1">
+<h4 class="font-headline font-bold text-on-surface text-base mb-1">Tu cartel ha sido compartido</h4>
+<p class="text-sm text-on-surface-variant mb-2">3 usuarios han compartido el cartel de Max en sus redes sociales.</p>
+<span class="text-xs text-on-surface-variant">Hace 2 horas</span>
+</div>
+</div>
+<!-- Alert Item 3 -->
+<div class="bg-surface rounded-[1.5rem] p-4 flex gap-4 shadow-[0_4px_16px_rgba(0,0,0,0.03)] items-start">
+<div class="w-12 h-12 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined">info</span>
+</div>
+<div class="flex-1 pt-1">
+<h4 class="font-headline font-bold text-on-surface text-base mb-1">Consejo de búsqueda</h4>
+<p class="text-sm text-on-surface-variant mb-2">Las primeras 24 horas son cruciales. Revisa nuestra guía de primeros pasos.</p>
+<span class="text-xs text-on-surface-variant">Ayer</span>
+</div>
+</div>
+</div>
+</div>
+<!-- BottomNavBar (from JSON) - Mobile Only -->
+<button class="rastro-global-fab" aria-label="Crear reporte"><span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">add_alert</span></button>
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-surface shadow-[0_-4px_16px_rgba(29,122,82,0.1)] rounded-t-lg">
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-1 hover:scale-110 transition-transform duration-200 active:scale-90" href="#">
+<span class="material-symbols-outlined mb-1">explore</span>
+<span class="font-label font-medium text-label-sm text-xs">Cerca</span>
+</a>
+<!-- Activo Item based on JSON logic -->
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-5 py-1 transition-all duration-300 ease-out hover:scale-110 active:scale-90" href="#">
+<span class="material-symbols-outlined mb-1 text-primary">notifications_active</span>
+<span class="font-label font-bold text-label-sm text-xs text-primary">Actividad</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-1 hover:scale-110 transition-transform duration-200 active:scale-90" href="#">
+<span class="material-symbols-outlined mb-1">menu_book</span>
+<span class="font-label font-medium text-label-sm text-xs">Recursos</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-1 hover:scale-110 transition-transform duration-200 active:scale-90" href="#">
+<span class="material-symbols-outlined mb-1">account_circle</span>
+<span class="font-label font-medium text-label-sm text-xs">Perfil</span>
+</a>
+</nav>
+</main>
+<script>
+        // Simple tab switching logic for interactive presentation
+        function switchTab(tabId) {
+            // Update buttons
+            const tabMensajes = document.getElementById('tab-mensajes');
+            const tabAlertas = document.getElementById('tab-alertas');
+            
+            const activeClasses = ['bg-primary', 'text-on-primary', 'shadow-[0_4px_12px_rgba(20,108,90,0.25)]', 'scale-[1.02]', 'font-bold'];
+            const inactiveClasses = ['text-on-surface-variant', 'hover:bg-surface-container-high', 'font-medium'];
+
+            if (tabId === 'mensajes') {
+                tabMensajes.classList.add(...activeClasses);
+                tabMensajes.classList.remove(...inactiveClasses);
+                
+                tabAlertas.classList.add(...inactiveClasses);
+                tabAlertas.classList.remove(...activeClasses);
+                
+                document.getElementById('content-mensajes').classList.add('active');
+                document.getElementById('content-alertas').classList.remove('active');
+            } else {
+                tabAlertas.classList.add(...activeClasses);
+                tabAlertas.classList.remove(...inactiveClasses);
+                
+                tabMensajes.classList.add(...inactiveClasses);
+                tabMensajes.classList.remove(...activeClasses);
+                
+                document.getElementById('content-alertas').classList.add('active');
+                document.getElementById('content-mensajes').classList.remove('active');
+            }
+        }
+    </script>
+</body></html>

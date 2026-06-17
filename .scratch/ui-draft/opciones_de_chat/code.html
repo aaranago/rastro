@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Action Sheet - Candy Design System</title>
+<!-- Google Fonts: DM Sans -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Theme Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-primary": "#f0a0cc",
+                    "primary-fixed-dim": "#f0a0cc",
+                    "tertiary-fixed": "#c8eaff",
+                    "tertiary": "#0096cc",
+                    "on-tertiary-fixed": "#001a33",
+                    "on-secondary-fixed": "#1a1030",
+                    "surface-variant": "#f2e8f2",
+                    "on-surface": "#2e1a28",
+                    "surface-bright": "#fef7ff",
+                    "on-primary-container": "#2e1a28",
+                    "surface-dim": "#e0d6e0",
+                    "outline": "#907898",
+                    "surface-container-highest": "#ece2ec",
+                    "on-tertiary": "#ffffff",
+                    "on-error-container": "#9b1c1c",
+                    "on-tertiary-fixed-variant": "#005580",
+                    "surface-container-low": "#fbf2fb",
+                    "primary-fixed": "#ffd6ee",
+                    "inverse-surface": "#2e1a28",
+                    "tertiary-fixed-dim": "#80d0f0",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-container": "#00334d",
+                    "on-surface-variant": "#604868",
+                    "on-secondary": "#ffffff",
+                    "secondary-fixed-dim": "#c8a8e8",
+                    "on-primary-fixed-variant": "#a02070",
+                    "primary-container": "#f080c0",
+                    "outline-variant": "#dcc8e0",
+                    "on-error": "#ffffff",
+                    "error-container": "#ffe8e8",
+                    "inverse-on-surface": "#fef7ff",
+                    "secondary-fixed": "#eedcff",
+                    "on-secondary-fixed-variant": "#4a3068",
+                    "surface-container-high": "#f2e8f2",
+                    "primary": "#e040a0",
+                    "on-secondary-container": "#2e2040",
+                    "secondary": "#7c52aa",
+                    "surface-tint": "#e040a0",
+                    "secondary-container": "#eedcff",
+                    "surface-container": "#f8eef8",
+                    "error": "#e53e3e",
+                    "background": "#fef7ff",
+                    "surface": "#fef7ff",
+                    "tertiary-container": "#40c0ee",
+                    "on-background": "#2e1a28",
+                    "on-primary-fixed": "#3d0028",
+                    "on-primary": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["DM Sans", "sans-serif"],
+                    "display": ["DM Sans", "sans-serif"],
+                    "body": ["DM Sans", "sans-serif"],
+                    "label": ["DM Sans", "sans-serif"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background-color: #e0d6e0; /* surface-dim to contrast the mobile frame */
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* Custom spring animation for the action sheet */
+        @keyframes slideUpSpring {
+            0% { transform: translateY(100%); }
+            60% { transform: translateY(-2%); }
+            80% { transform: translateY(1%); }
+            100% { transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .animate-slide-up {
+            animation: slideUpSpring 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        
+        /* Hide scrollbar for the mock chat */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface-dim">
+<!-- Mock Mobile Screen Container -->
+<div class="relative w-full max-w-[400px] h-[850px] max-h-screen bg-surface-container overflow-hidden sm:rounded-[3rem] sm:border-[12px] border-on-surface-variant sm:shadow-2xl flex flex-col font-body">
+<!-- Faux Content: Chat Background to give context to the action sheet -->
+<div class="flex-1 p-6 flex flex-col gap-6 no-scrollbar overflow-y-auto pb-40">
+<!-- Header mock -->
+<div class="flex items-center gap-4 border-b border-outline-variant/50 pb-4 sticky top-0 bg-surface-container/80 backdrop-blur-md z-10 pt-2">
+<div class="w-12 h-12 rounded-full overflow-hidden border-2 border-surface-bright">
+<img class="w-full h-full object-cover" data-alt="A portrait of a happy Golden Retriever dog outdoors in a sunny park. Warm, vibrant lighting, soft focus background. Candy design system aesthetic with bright colors." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJ9W4_-hFr77hGczBrqKEKNTvVZXBVD3METqJkjd2OIhCIijzqATgseMvOZxmnsZgvmJpLen6B2sck3lcPn357_m8IELP2Lv5T1JPCGjjOB5DX-pREpFyY7u0etZn5QoqXrnpdFD-W6wW5IMmBgc5f5q0ENk9fb61YIPGn-y1Sajda9y2n8WCngBqgK-uNdWbitcu129PtozsfSdbF-nbuX7krKIw-9xcDFBQVbqJ4MtFmj7r5BEHsqGC1x_D9XAQoVx-G5V0s91U"/>
+</div>
+<div>
+<h2 class="font-bold text-on-surface text-lg leading-tight">Milo</h2>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span class="text-xs font-medium text-tertiary">En línea</span>
+</div>
+</div>
+</div>
+<!-- Chat bubbles mock -->
+<div class="w-[85%] p-4 rounded-[1.5rem] rounded-tl-sm bg-surface-bright text-on-surface self-start shadow-sm border border-outline-variant/20">
+<p class="text-sm">¡Hola! Ya estamos en el parque. Milo está jugando con otros perritos. 🐶</p>
+</div>
+<div class="w-[85%] p-4 rounded-[1.5rem] rounded-tr-sm bg-primary text-on-primary self-end shadow-[0_4px_16px_rgba(224,64,160,0.25)]">
+<p class="text-sm">¡Qué bueno! Gracias por avisar. ¿Le diste su premio después del paseo?</p>
+</div>
+<div class="w-[85%] p-4 rounded-[1.5rem] rounded-tl-sm bg-surface-bright text-on-surface self-start shadow-sm border border-outline-variant/20">
+<p class="text-sm">Aún no, en unos 10 minutos empezamos el regreso a casa.</p>
+</div>
+</div>
+<!-- DIMMED OVERLAY -->
+<div class="absolute inset-0 bg-on-secondary-fixed/30 backdrop-blur-[2px] z-40 animate-fade-in"></div>
+<!-- BOTTOM SHEET (ACTION SHEET) -->
+<!-- Fixed to bottom, rounded top corners, shadow, animation -->
+<div class="absolute bottom-0 left-0 w-full bg-surface-bright rounded-t-[2.5rem] z-50 p-6 flex flex-col shadow-[0_-8px_40px_rgba(124,82,170,0.15)] animate-slide-up">
+<!-- Drag Handle indicator -->
+<div class="w-12 h-1.5 bg-outline-variant/60 rounded-full mx-auto mb-6"></div>
+<!-- Contextual Header (Optional, adds premium feel to action sheets) -->
+<div class="flex flex-col items-center mb-6">
+<h3 class="font-bold text-on-surface text-lg">Opciones de chat</h3>
+</div>
+<!-- Actions List -->
+<div class="flex flex-col gap-3">
+<!-- STANDARD OPTION 1: Ver Reporte -->
+<button class="w-full flex items-center gap-4 px-5 py-3.5 rounded-full bg-surface-container-low hover:bg-primary-container/20 border border-outline-variant/20 text-on-surface font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors duration-300">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">assessment</span>
+</div>
+<span class="text-[15px]">Ver Reporte</span>
+</button>
+<!-- STANDARD OPTION 2: Contactar por WhatsApp -->
+<button class="w-full flex items-center gap-4 px-5 py-3.5 rounded-full bg-surface-container-low hover:bg-tertiary-container/20 border border-outline-variant/20 text-on-surface font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-tertiary group-hover:bg-tertiary group-hover:text-on-tertiary transition-colors duration-300">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">forum</span>
+</div>
+<span class="text-[15px]">Contactar por WhatsApp</span>
+</button>
+<!-- Divider -->
+<div class="h-px w-full bg-outline-variant/30 my-2"></div>
+<!-- DESTRUCTIVE OPTION 1: Reportar conversación -->
+<button class="w-full flex items-center gap-4 px-5 py-3.5 rounded-full bg-error-container/40 hover:bg-error-container border border-error/10 text-error font-bold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group shadow-[0_4px_12px_rgba(229,62,62,0.05)] hover:shadow-[0_4px_16px_rgba(229,62,62,0.15)]">
+<div class="w-10 h-10 rounded-full bg-error/10 flex items-center justify-center text-error group-hover:bg-error group-hover:text-on-error transition-colors duration-300">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">flag</span>
+</div>
+<span class="text-[15px]">Reportar conversación</span>
+</button>
+<!-- DESTRUCTIVE OPTION 2: Bloquear usuario -->
+<button class="w-full flex items-center gap-4 px-5 py-3.5 rounded-full bg-error-container/40 hover:bg-error-container border border-error/10 text-error font-bold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group shadow-[0_4px_12px_rgba(229,62,62,0.05)] hover:shadow-[0_4px_16px_rgba(229,62,62,0.15)]">
+<div class="w-10 h-10 rounded-full bg-error/10 flex items-center justify-center text-error group-hover:bg-error group-hover:text-on-error transition-colors duration-300">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">block</span>
+</div>
+<span class="text-[15px]">Bloquear usuario</span>
+</button>
+</div>
+<!-- CANCEL ACTION -->
+<!-- Positioned at the bottom, styled neutrally to not compete with actions -->
+<button class="mt-4 w-full py-4 rounded-full bg-surface-container-highest text-on-surface-variant font-bold text-[15px] text-center transition-all duration-200 hover:bg-surface-dim hover:text-on-surface active:scale-[0.98]">
+                Cancelar
+            </button>
+<!-- Bottom safe area padding for modern phones -->
+<div class="h-4 w-full"></div>
+</div>
+</div>
+</body></html>

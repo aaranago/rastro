@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Huellas &amp; Bigotes - Rastro</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#40c0ee",
+                        "outline-variant": "#dcc8e0",
+                        "tertiary-fixed": "#c8eaff",
+                        "on-tertiary-container": "#00334d",
+                        "on-primary-fixed-variant": "#a02070",
+                        "outline": "#907898",
+                        "on-secondary": "#ffffff",
+                        "surface-bright": "#fef7ff",
+                        "on-tertiary-fixed": "#001a33",
+                        "on-secondary-container": "#2e2040",
+                        "surface-container-highest": "#ece2ec",
+                        "inverse-primary": "#f0a0cc",
+                        "secondary-fixed": "#eedcff",
+                        "on-secondary-fixed": "#1a1030",
+                        "error-container": "#ffe8e8",
+                        "secondary-container": "#eedcff",
+                        "on-surface": "#2e1a28",
+                        "on-secondary-fixed-variant": "#4a3068",
+                        "inverse-surface": "#2e1a28",
+                        "on-background": "#2e1a28",
+                        "surface-container-high": "#f2e8f2",
+                        "secondary-fixed-dim": "#c8a8e8",
+                        "inverse-on-surface": "#fef7ff",
+                        "surface-variant": "#f2e8f2",
+                        "surface-dim": "#e0d6e0",
+                        "on-error": "#ffffff",
+                        "error": "#e53e3e",
+                        "primary-container": "#f080c0",
+                        "on-error-container": "#9b1c1c",
+                        "surface-container-low": "#fbf2fb",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed": "#ffd6ee",
+                        "background": "#fef7ff",
+                        "on-tertiary-fixed-variant": "#005580",
+                        "secondary": "#7c52aa",
+                        "tertiary": "#0096cc",
+                        "primary-fixed-dim": "#f0a0cc",
+                        "surface-tint": "#e040a0",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-container": "#2e1a28",
+                        "surface-container": "#f8eef8",
+                        "surface": "#fef7ff",
+                        "on-primary": "#ffffff",
+                        "primary": "#e040a0",
+                        "on-primary-fixed": "#3d0028",
+                        "on-surface-variant": "#604868",
+                        "tertiary-fixed-dim": "#80d0f0"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["DM Sans", "sans-serif"],
+                        "display": ["DM Sans", "sans-serif"],
+                        "body": ["DM Sans", "sans-serif"],
+                        "label": ["DM Sans", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'DM Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0; }
+        .material-symbols-outlined[data-weight="fill"] { font-variation-settings: 'FILL' 1; }
+        /* Microinteractions */
+        .bouncy-hover { transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .bouncy-hover:hover { transform: scale(1.03); }
+        .bouncy-active:active { transform: scale(0.95); transition: transform 0.1s ease-out; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen pb-24 md:pb-0 font-body">
+<!-- TopAppBar -->
+<header class="docked full-width top-0 bg-background dark:bg-background shadow-[0_4px_16px_rgba(224,64,160,0.15)] z-40 sticky">
+<div class="flex justify-between items-center px-6 py-4 w-full">
+<button class="flex items-center gap-2 hover:scale-105 transition-transform duration-200 active:scale-95 ease-out text-primary dark:text-primary-fixed">
+<span class="material-symbols-outlined text-2xl" data-icon="pets">pets</span>
+<span class="text-2xl font-black text-primary dark:text-primary-fixed tracking-tight font-display">Rastro</span>
+</button>
+<button class="hover:scale-105 transition-transform duration-200 active:scale-95 ease-out rounded-full w-10 h-10 overflow-hidden shadow-sm border-2 border-surface-container">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A small, cheerful avatar portrait of a happy pet owner smiling in a bright, sunny park. The aesthetic is playful and vibrant, featuring warm lighting, colorful casual clothing, and a high-key light-mode style with soft pink and purple background accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAFZYFzeZxLbAntsw6d_rz5nHJXHd3ugmOfnSjAV54gZw6D0wNPydUae25lPajuZ_S_C619Nz2zk8IgqBqSZCxS5wBTeI6-KMBejMEkag0AyMUSJyFNj3eSiuL7zNw2m73gpUlCttdmdWRJGMYG0vYS4iXaE4HK3f8ssm_XDilk5Txm5rx8F-d5jbBPHxUikkr0rPXOnMf4GlOB70fUd5xXJEDZM_8RU5wCIGsZzEOQJdjT8SZvXW9SchF5speq8BRo3qm5vK8yhik"/>
+</button>
+</div>
+</header>
+<main class="max-w-4xl mx-auto px-4 py-6 md:py-10 space-y-8">
+<!-- Back & Sponsored Tag -->
+<div class="flex items-center justify-between">
+<button class="flex items-center gap-2 text-primary hover:bg-primary-fixed/50 px-4 py-2 rounded-full bouncy-hover bouncy-active transition-colors font-medium">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+<span>Volver</span>
+</button>
+<div class="flex items-center gap-1.5 bg-tertiary-fixed text-on-tertiary-fixed px-4 py-1.5 rounded-full font-label font-bold text-sm shadow-[0_2px_8px_rgba(0,150,204,0.15)]">
+<span class="material-symbols-outlined text-sm" data-icon="stars" data-weight="fill">stars</span>
+                Patrocinado
+            </div>
+</div>
+<!-- Header Image & Info Bento -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Main Hero Image -->
+<div class="md:col-span-2 rounded-[2rem] overflow-hidden h-72 md:h-96 relative shadow-[0_8px_24px_rgba(124,82,170,0.15)] group bouncy-hover">
+<div class="bg-cover bg-center w-full h-full transition-transform duration-700 group-hover:scale-105" data-alt="A vibrant, welcoming pet store facade named 'Huellas &amp; Bigotes'. The shop window is filled with colorful toys and premium pet food. The lighting is bright and cheerful, suggesting a sunny afternoon. The overall aesthetic is playful and modern, incorporating subtle pink and purple accent hues in the signage and window display." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDNyyWsLVtsUAMqe7wWTsYVwF0eOR3R74SToMATXkcnYKGay8ViK-VUOiRjaMpwT4EMU7-vZDj9p6qQGkujdnSVQyn2oxqUIFuRkYJadX8Yg0NH72GDZI9vqE3ZZuDZzCi37c3nLY56H23vMzakcvDKcYJQu88DK77FU4RSo2joHdXRhuUul9K7c1kHEUm1wQvjvhWb_rpJ1Qval7F4BduUqrix4Sn0loidmkjSD6HnBVPmoz2IHnOgz10zvh9sshz2LI23u_KNj-E')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+<div class="absolute bottom-0 left-0 p-6 text-white w-full">
+<h1 class="text-3xl md:text-4xl font-headline font-bold mb-2">Huellas &amp; Bigotes</h1>
+<p class="text-white/90 font-medium flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="storefront">storefront</span>
+                        Tienda de Mascotas Premium
+                    </p>
+</div>
+</div>
+<!-- Quick Details Card -->
+<div class="bg-surface-container-lowest rounded-[2rem] p-6 shadow-[0_4px_20px_rgba(224,64,160,0.1)] flex flex-col justify-center space-y-6 bouncy-hover">
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" data-icon="location_on">location_on</span>
+</div>
+<div>
+<h3 class="font-bold text-on-surface mb-1">Ubicación</h3>
+<p class="text-on-surface-variant text-sm">Av. Libertador 1234, Barrio Norte<br/>Buenos Aires</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" data-icon="schedule">schedule</span>
+</div>
+<div>
+<h3 class="font-bold text-on-surface mb-1">Horario</h3>
+<p class="text-on-surface-variant text-sm">Lun - Sáb: 09:00 - 20:00<br/><span class="text-error font-medium">Cerrado ahora</span></p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-full bg-tertiary-fixed text-on-tertiary-fixed-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" data-icon="phone">phone</span>
+</div>
+<div>
+<h3 class="font-bold text-on-surface mb-1">Contacto</h3>
+<p class="text-on-surface-variant text-sm">+54 11 4321-8765<br/>hola@huellasybigotes.com</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Promo Banner -->
+<section class="bg-gradient-to-br from-primary to-secondary rounded-[2rem] p-8 text-white shadow-[0_8px_30px_rgba(224,64,160,0.3)] relative overflow-hidden group bouncy-hover">
+<!-- Decorative Elements -->
+<div class="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+<div class="absolute -bottom-10 -left-10 w-32 h-32 bg-tertiary/30 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700 delay-100"></div>
+<div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+<div class="flex items-center gap-6">
+<div class="w-20 h-20 rounded-[1.5rem] bg-white text-primary flex items-center justify-center rotate-12 shadow-lg">
+<span class="material-symbols-outlined text-4xl" data-icon="redeem" data-weight="fill">redeem</span>
+</div>
+<div>
+<div class="inline-block bg-white/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2 backdrop-blur-sm">
+                            Oferta Exclusiva Rastro
+                        </div>
+<h2 class="text-2xl md:text-3xl font-headline font-bold mb-1">20% de Descuento</h2>
+<p class="text-white/90">En tu primera compra de alimento premium.</p>
+</div>
+</div>
+<button class="w-full md:w-auto bg-white text-primary font-bold py-4 px-8 rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.1)] bouncy-hover bouncy-active hover:bg-surface-bright flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner">qr_code_scanner</span>
+                    Obtener Cupón
+                </button>
+</div>
+</section>
+<!-- Services & About Bento -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- About -->
+<div class="bg-surface-container-lowest rounded-[2rem] p-8 shadow-[0_4px_20px_rgba(124,82,170,0.08)] flex flex-col justify-between h-full bouncy-hover">
+<div>
+<h2 class="text-xl font-headline font-bold text-on-surface mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="info">info</span>
+                        Sobre Nosotros
+                    </h2>
+<p class="text-on-surface-variant leading-relaxed">
+                        En Huellas &amp; Bigotes nos apasiona el bienestar de tu compañero de vida. Ofrecemos una selección curada de alimentos, juguetes interactivos y accesorios de diseño. Nuestro equipo está capacitado para asesorarte en la mejor nutrición para tu mascota.
+                    </p>
+</div>
+<!-- Social Links (Handling sparse data with a clean layout) -->
+<div class="mt-8 pt-6 border-t border-surface-dim flex gap-3">
+<button class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:bg-secondary-container hover:text-on-secondary-container bouncy-hover bouncy-active transition-colors">
+<span class="material-symbols-outlined" data-icon="public">public</span>
+</button>
+<!-- Missing Insta/FB handled by graceful spacing -->
+</div>
+</div>
+<!-- Categories -->
+<div class="bg-surface-container-lowest rounded-[2rem] p-8 shadow-[0_4px_20px_rgba(0,150,204,0.08)] bouncy-hover">
+<h2 class="text-xl font-headline font-bold text-on-surface mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary" data-icon="category">category</span>
+                    Especialidades
+                </h2>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-primary-fixed/30 rounded-2xl p-4 flex flex-col items-center text-center gap-2 border border-primary-fixed bouncy-hover">
+<span class="material-symbols-outlined text-on-primary-fixed-variant text-3xl" data-icon="nutrition">nutrition</span>
+<span class="font-medium text-sm text-on-surface">Nutrición Premium</span>
+</div>
+<div class="bg-secondary-fixed/50 rounded-2xl p-4 flex flex-col items-center text-center gap-2 border border-secondary-fixed bouncy-hover">
+<span class="material-symbols-outlined text-on-secondary-fixed-variant text-3xl" data-icon="toys">toys</span>
+<span class="font-medium text-sm text-on-surface">Juguetes Eco</span>
+</div>
+<div class="bg-tertiary-fixed/50 rounded-2xl p-4 flex flex-col items-center text-center gap-2 border border-tertiary-fixed bouncy-hover">
+<span class="material-symbols-outlined text-on-tertiary-fixed-variant text-3xl" data-icon="checkroom">checkroom</span>
+<span class="font-medium text-sm text-on-surface">Accesorios</span>
+</div>
+<div class="bg-surface-variant rounded-2xl p-4 flex flex-col items-center text-center gap-2 border border-surface-dim bouncy-hover">
+<span class="material-symbols-outlined text-on-surface-variant text-3xl" data-icon="medical_services">medical_services</span>
+<span class="font-medium text-sm text-on-surface">Farmacia Vet</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Call to Action Floating Button (Web visible) -->
+<div class="hidden md:flex justify-center pt-8">
+<button class="bg-primary text-on-primary font-bold py-4 px-12 rounded-full shadow-[0_8px_24px_rgba(224,64,160,0.3)] bouncy-hover bouncy-active text-lg flex items-center gap-3">
+<span class="material-symbols-outlined" data-icon="directions">directions</span>
+                Cómo Llegar
+            </button>
+</div>
+</main>
+<!-- BottomNavBar (Hidden on md, visible on mobile) -->
+<!-- The user is looking at a Resource Profile, which conceptually fits under 'Recursos' -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-surface-container-lowest rounded-t-xl shadow-[0_-4px_20px_rgba(124,82,170,0.1)]">
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline p-2 hover:text-primary dark:hover:text-primary-fixed active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined text-2xl mb-1" data-icon="location_on">location_on</span>
+<span class="font-label font-medium text-xs">Cerca</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline p-2 hover:text-primary dark:hover:text-primary-fixed active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined text-2xl mb-1" data-icon="explore">explore</span>
+<span class="font-label font-medium text-xs">Actividad</span>
+</button>
+<!-- Active Tab: Recursos -->
+<button class="flex flex-col items-center justify-center bg-primary-container dark:bg-on-primary-fixed-variant text-on-primary-container dark:text-primary-fixed rounded-full px-5 py-1 transition-all duration-300 ease-out active:scale-90">
+<span class="material-symbols-outlined text-2xl mb-1" data-icon="auto_stories" data-weight="fill">auto_stories</span>
+<span class="font-label font-medium text-xs">Recursos</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline p-2 hover:text-primary dark:hover:text-primary-fixed active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined text-2xl mb-1" data-icon="person">person</span>
+<span class="font-label font-medium text-xs">Perfil</span>
+</button>
+</nav>
+<!-- Mobile FAB alternative for main CTA -->
+<div class="md:hidden fixed bottom-24 right-4 z-40">
+<button class="w-14 h-14 bg-primary text-on-primary rounded-[1.2rem] shadow-[0_8px_24px_rgba(224,64,160,0.4)] flex items-center justify-center bouncy-active bouncy-hover">
+<span class="material-symbols-outlined text-2xl" data-icon="directions">directions</span>
+</button>
+</div>
+</body></html>

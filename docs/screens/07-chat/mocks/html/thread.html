@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Chat - Rastro</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-primary": "#A9D4C9",
+                    "primary-fixed-dim": "#A9D4C9",
+                    "tertiary-fixed": "#E1EFF5",
+                    "tertiary": "#2E6D9E",
+                    "on-tertiary-fixed": "#102A3A",
+                    "on-secondary-fixed": "#1a1030",
+                    "surface-variant": "#E7EEE9",
+                    "on-surface": "#17201C",
+                    "surface-bright": "#F7F9F6",
+                    "on-primary-container": "#17201C",
+                    "surface-dim": "#E4EBE6",
+                    "outline": "#82908A",
+                    "surface-container-highest": "#DCE4DE",
+                    "on-tertiary": "#ffffff",
+                    "on-error-container": "#8A241D",
+                    "on-tertiary-fixed-variant": "#2E6D9E",
+                    "surface-container-low": "#FFFFFF",
+                    "primary-fixed": "#DDEFE9",
+                    "inverse-surface": "#17201C",
+                    "tertiary-fixed-dim": "#B6D4E4",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-container": "#183F56",
+                    "on-surface-variant": "#66736D",
+                    "on-secondary": "#ffffff",
+                    "secondary-fixed-dim": "#BFE1D8",
+                    "on-primary-fixed-variant": "#0E5145",
+                    "primary-container": "#BFE1D8",
+                    "outline-variant": "#DCE4DE",
+                    "on-error": "#ffffff",
+                    "error-container": "#FDECEC",
+                    "inverse-on-surface": "#F7F9F6",
+                    "secondary-fixed": "#DDEFE9",
+                    "on-secondary-fixed-variant": "#39564E",
+                    "surface-container-high": "#E7EEE9",
+                    "primary": "#146C5A",
+                    "on-secondary-container": "#17201C",
+                    "secondary": "#1D7A52",
+                    "surface-tint": "#146C5A",
+                    "secondary-container": "#DDEFE9",
+                    "surface-container": "#EEF3EE",
+                    "error": "#D6453D",
+                    "background": "#F7F9F6",
+                    "surface": "#F7F9F6",
+                    "tertiary-container": "#CFE3EE",
+                    "on-background": "#17201C",
+                    "on-primary-fixed": "#0B342D",
+                    "on-primary": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["DM Sans", "sans-serif"],
+                    "display": ["DM Sans", "sans-serif"],
+                    "body": ["DM Sans", "sans-serif"],
+                    "label": ["DM Sans", "sans-serif"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body { font-family: 'DM Sans', sans-serif; background-color: #F7F9F6; color: #17201C; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        /* Chat bubble animations */
+        .bubble-in-left { animation: slideInLeft 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; opacity: 0; transform-origin: bottom left; }
+        .bubble-in-right { animation: slideInRight 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; opacity: 0; transform-origin: bottom right; }
+        @keyframes slideInLeft { from { opacity: 0; transform: translateY(10px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes slideInRight { from { opacity: 0; transform: translateY(10px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  
+<style id="rastro-polish">
+  :root {
+    color-scheme: light;
+    --rastro-bg: #F7F9F6;
+    --rastro-surface: #FFFFFF;
+    --rastro-surface-muted: #EEF3EE;
+    --rastro-text: #17201C;
+    --rastro-muted: #66736D;
+    --rastro-border: #DCE4DE;
+    --rastro-primary: #146C5A;
+    --rastro-primary-dark: #0E5145;
+    --rastro-lost: #D6453D;
+    --rastro-found: #1D7A52;
+    --rastro-sighting: #2E6D9E;
+    --rastro-adoption: #9D4F66;
+  }
+  html, body {
+    width: 100% !important;
+    max-width: 100vw !important;
+    min-height: 100dvh !important;
+    margin: 0 !important;
+    overflow-x: hidden !important;
+    background: var(--rastro-bg) !important;
+    color: var(--rastro-text) !important;
+    font-family: "DM Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+    letter-spacing: 0 !important;
+  }
+  * { letter-spacing: 0 !important; }
+  .candy-shadow-primary { box-shadow: 0 12px 28px rgba(20,108,90,.22) !important; }
+  .candy-shadow-secondary { box-shadow: 0 12px 28px rgba(29,122,82,.16) !important; }
+  .candy-shadow-tertiary { box-shadow: 0 12px 30px rgba(46,109,158,.18) !important; }
+  .text-primary { color: var(--rastro-primary) !important; }
+  .text-secondary { color: var(--rastro-found) !important; }
+  .text-tertiary { color: var(--rastro-sighting) !important; }
+  .text-on-background, .text-on-surface { color: var(--rastro-text) !important; }
+  .text-on-surface-variant { color: var(--rastro-muted) !important; }
+  .bg-background, .bg-surface, .bg-surface-bright { background-color: var(--rastro-bg) !important; }
+  .bg-surface-container-lowest, .bg-white { background-color: var(--rastro-surface) !important; }
+  .bg-surface-container, .bg-surface-container-low, .bg-surface-container-high, .bg-surface-variant { background-color: var(--rastro-surface-muted) !important; }
+  .bg-primary { background-color: var(--rastro-primary) !important; }
+  .bg-secondary { background-color: var(--rastro-found) !important; }
+  .bg-tertiary { background-color: var(--rastro-sighting) !important; }
+  .bg-primary-container, .bg-primary-fixed, .bg-primary-fixed-dim { background-color: #DDEFE9 !important; }
+  .bg-secondary-container, .bg-secondary-fixed { background-color: #E7F3EB !important; }
+  .bg-tertiary-container, .bg-tertiary-fixed { background-color: #E1EFF5 !important; }
+  .border-primary, .border-primary-fixed, .border-secondary-fixed, .border-outline-variant, .border-surface-variant { border-color: var(--rastro-border) !important; }
+  .shadow-\[0_4px_16px_rgba\(224\,64\,160\,0\.15\)\],
+  .shadow-\[0_4px_16px_rgba\(224\,64\,160\,0\.2\)\],
+  .shadow-\[0_4px_16px_rgba\(224\,64\,160\,0\.3\)\] {
+    box-shadow: 0 12px 28px rgba(20,108,90,.18) !important;
+  }
+  img[data-location],
+  [data-alt*="map"],
+  [data-alt*="Map"],
+  [data-alt*="mapa"],
+  [data-alt*="Mapa"] {
+    filter: saturate(.72) hue-rotate(118deg) contrast(.98) brightness(1.02);
+  }
+  nav.fixed.bottom-0 {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: 430px !important;
+    height: 86px !important;
+    margin-inline: auto !important;
+    padding: 8px 10px 14px !important;
+    border-radius: 24px 24px 0 0 !important;
+    border-top: 1px solid var(--rastro-border) !important;
+    background: rgba(255,255,255,.96) !important;
+    box-shadow: 0 -12px 32px rgba(23,32,28,.10) !important;
+  }
+  nav.fixed.bottom-0 a {
+    min-width: 0 !important;
+    flex: 1 1 0 !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+  nav.fixed.bottom-0 :is(a, button) {
+    min-width: 0 !important;
+    width: auto !important;
+    flex: 1 1 0 !important;
+    height: 64px !important;
+    margin: 0 !important;
+    padding: 6px !important;
+    border: 0 !important;
+    border-radius: 18px !important;
+    background: transparent !important;
+    color: var(--rastro-muted) !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+  nav.fixed.bottom-0 :is(a, button)[class~="bg-primary"],
+  nav.fixed.bottom-0 :is(a, button)[class~="bg-primary-container"] {
+    background: #DDEFE9 !important;
+    color: var(--rastro-primary) !important;
+  }
+  nav.fixed.bottom-0 :is(a, button) .material-symbols-outlined {
+    font-size: 24px !important;
+  }
+  nav.fixed.bottom-0 span:last-child {
+    max-width: 78px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  .fixed.bottom-24,
+  .rastro-global-fab {
+    right: 18px !important;
+    bottom: 98px !important;
+    width: 60px !important;
+    height: 60px !important;
+    border-radius: 999px !important;
+    background: var(--rastro-primary) !important;
+    color: white !important;
+    box-shadow: 0 18px 30px rgba(20,108,90,.28) !important;
+  }
+  .rastro-global-fab {
+    position: fixed !important;
+    z-index: 40 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 0 !important;
+  }
+  [class*="rounded-\[2rem\]"],
+  .rounded-lg,
+  .rounded-xl {
+    border-color: rgba(220,228,222,.95) !important;
+  }
+  main, section { scrollbar-width: none; }
+  main::-webkit-scrollbar, section::-webkit-scrollbar, div::-webkit-scrollbar { display: none; }
+</style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- Custom Chat Header (Suppressed standard nav as per 'Task-Focused' rule) -->
+<header class="bg-surface-container-lowest shadow-[0_4px_16px_rgba(20,108,90,0.05)] z-20 shrink-0">
+<div class="flex justify-between items-center px-4 py-3 w-full">
+<button aria-label="Volver" class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div class="flex items-center gap-3 flex-1 px-2">
+<div class="relative">
+<img class="w-10 h-10 rounded-full object-cover border-2 border-surface-bright shadow-[0_2px_8px_rgba(20,108,90,0.2)]" data-alt="A small circular profile picture of a cheerful Golden Retriever dog looking directly at the camera, brightly lit outdoors against a soft green park background. Playful and high contrast aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA6rubgtEYVNGwMA6EBkzvBiG9r_NhZ8N_IXRL3rj9fp-baKnvMFQT5KBJiMVHWJQhWOrwvBH8L5vode2kCecbGRTYOcEIklnTaguAUhqqlkk220Dbh4rGLx4LHErLnsDByIX_sKnWvT3bmp_PLV688jR42vVgi3zJPMKwf5uzGuj88Qh-5SooX1jdq-_OxHOdPtMVY-CbvCc2KlkkexUsjz-QN8c54psCchwtRgROy23gqLpPMm1MrKXcK3IVNIUL8sXUEj0VRiyc"/>
+<span class="absolute bottom-0 right-0 w-3 h-3 bg-error rounded-full border-2 border-surface-bright"></span>
+</div>
+<div class="flex flex-col">
+<h1 class="font-display font-bold text-on-surface text-base leading-tight">Ana (Buster)</h1>
+<span class="font-label font-medium text-xs text-error flex items-center gap-1">
+<span class="material-symbols-outlined" style="font-size: 14px;">warning</span>
+                        Buscado: Perdido
+                    </span>
+</div>
+</div>
+<button aria-label="Más opciones" class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</header>
+<!-- Chat Canvas -->
+<main class="flex-1 overflow-y-auto bg-background p-4 flex flex-col gap-4">
+<!-- Context Card -->
+<div class="bg-surface-container-lowest rounded-xl p-3 shadow-[0_4px_16px_rgba(29,122,82,0.1)] flex items-center gap-3 border border-outline-variant/30 mb-2 mx-auto w-full max-w-sm">
+<div class="w-12 h-12 rounded-lg bg-surface-variant flex items-center justify-center shrink-0 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A small thumbnail image of a Golden Retriever standing in a sunny urban park, looking curious. High saturation, playful vibe." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCU9kgKH40yzNXlSx__OfFJtfjlRelvAQdk9SAGEQPTdsRhD5rRM958GobOitT-h8_H5SPXKNO7cAPlzM__xQCVBM2Xi8EkrQqp__ohcfTxuFtyRi8zcqP5q5CoCpabVtCnEn4GE2lg84oXTai1bi3ENEmYBL-RPnc7B47UAjo7IEpcS9o_3GdPGlh2C2BMlNLDD1B5_QnKX7nA_T_pSZPS128NoJ_yOFZwN6qrkjqGELoXg5jP_Cp_6Cp1BcZ16BdiO1WOg0urifM"/>
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-display font-bold text-sm text-on-surface truncate">Buster - Golden Retriever</p>
+<p class="font-body text-xs text-on-surface-variant truncate">Perdido en Parque Urbano</p>
+</div>
+<button class="shrink-0 text-primary p-2 hover:bg-primary-fixed rounded-full transition-colors">
+<span class="material-symbols-outlined">open_in_new</span>
+</button>
+</div>
+<!-- Date Separator -->
+<div class="flex justify-center my-2">
+<span class="bg-surface-container-high text-on-surface-variant text-xs font-medium px-3 py-1 rounded-full shadow-sm">Hoy</span>
+</div>
+<!-- Messages -->
+<!-- Receiver Message (Ana) -->
+<div class="flex w-full mt-2 space-x-2 max-w-xs bubble-in-left">
+<div class="flex-shrink-0 mt-auto">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-bold text-sm">A</div>
+</div>
+<div>
+<div class="bg-surface-container-highest text-on-surface p-3 rounded-2xl rounded-bl-sm shadow-[0_2px_8px_rgba(29,122,82,0.05)] text-sm font-body">
+                    ¡Hola Carlos! Vi tu comentario en el reporte. ¿Crees que viste a Buster?
+                </div>
+<span class="text-[10px] text-on-surface-variant ml-1 mt-1 block font-label">10:42 AM</span>
+</div>
+</div>
+<!-- Sender Message (Carlos) -->
+<div class="flex w-full mt-2 space-x-2 max-w-xs ml-auto justify-end bubble-in-right" style="animation-delay: 0.1s;">
+<div class="flex flex-col items-end">
+<div class="bg-primary text-on-primary p-3 rounded-2xl rounded-br-sm shadow-[0_4px_16px_rgba(20,108,90,0.2)] text-sm font-body">
+                    Hola Ana. Sí, estoy casi seguro. Estaba cerca de la entrada norte del Parque Urbano hace unos 15 minutos.
+                </div>
+<div class="flex items-center gap-1 mt-1 mr-1">
+<span class="text-[10px] text-on-surface-variant font-label">10:45 AM</span>
+<span class="material-symbols-outlined text-primary text-[14px]">done_all</span>
+</div>
+</div>
+</div>
+<!-- Receiver Message (Ana) -->
+<div class="flex w-full mt-2 space-x-2 max-w-xs bubble-in-left" style="animation-delay: 0.2s;">
+<div class="flex-shrink-0 mt-auto">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-bold text-sm">A</div>
+</div>
+<div>
+<div class="bg-surface-container-highest text-on-surface p-3 rounded-2xl rounded-bl-sm shadow-[0_2px_8px_rgba(29,122,82,0.05)] text-sm font-body">
+                    ¡Oh por Dios! ¡Voy para allá ahora mismo! ¿Llevaba su collar rojo?
+                </div>
+<span class="text-[10px] text-on-surface-variant ml-1 mt-1 block font-label">10:46 AM</span>
+</div>
+</div>
+<!-- Sender Message (Carlos) -->
+<div class="flex w-full mt-2 space-x-2 max-w-xs ml-auto justify-end bubble-in-right" style="animation-delay: 0.3s;">
+<div class="flex flex-col items-end">
+<div class="bg-primary text-on-primary p-3 rounded-2xl rounded-br-sm shadow-[0_4px_16px_rgba(20,108,90,0.2)] text-sm font-body">
+                    Sí, tenía un collar rojo. Estaba olfateando cerca de los bebederos. Me quedo por aquí un rato por si vuelve a pasar.
+                </div>
+<div class="flex items-center gap-1 mt-1 mr-1">
+<span class="text-[10px] text-on-surface-variant font-label">10:48 AM</span>
+<span class="material-symbols-outlined text-outline text-[14px]">done</span>
+</div>
+</div>
+</div>
+<div class="h-2" id="bottom-anchor"></div>
+</main>
+<!-- Input Area -->
+<footer class="bg-surface-container-lowest p-3 shadow-[0_-4px_20px_rgba(20,108,90,0.08)] z-20 shrink-0">
+<div class="flex items-center gap-2 max-w-3xl mx-auto">
+<div class="flex-1 bg-surface-container-high rounded-full flex items-center px-4 py-1 shadow-inner focus-within:ring-2 focus-within:ring-primary focus-within:bg-surface-bright transition-all">
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2 px-0 text-on-surface placeholder:text-on-surface-variant font-body" placeholder="Escribe un mensaje..." type="text"/>
+<button class="text-on-surface-variant p-1 hover:text-primary transition-colors hover:scale-110 active:scale-95">
+<span class="material-symbols-outlined">sentiment_satisfied</span>
+</button>
+</div>
+<button class="w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-[0_4px_16px_rgba(20,108,90,0.3)] hover:scale-105 active:scale-95 transition-all shrink-0 group">
+<span class="material-symbols-outlined group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform">send</span>
+</button>
+</div>
+</footer>
+<script>
+        // Scroll to bottom on load
+        window.onload = function() {
+            document.getElementById('bottom-anchor').scrollIntoView();
+        }
+    </script>
+</body></html>

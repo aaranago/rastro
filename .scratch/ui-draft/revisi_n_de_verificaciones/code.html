@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Verification Badge Review | PetRescue Admin</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-dim": "#e0d6e0",
+                    "on-secondary-fixed": "#1a1030",
+                    "on-error": "#ffffff",
+                    "secondary": "#7c52aa",
+                    "on-surface": "#2e1a28",
+                    "surface-variant": "#f2e8f2",
+                    "on-secondary-fixed-variant": "#4a3068",
+                    "primary-fixed": "#ffd6ee",
+                    "error-container": "#ffe8e8",
+                    "tertiary-fixed": "#c8eaff",
+                    "on-tertiary-fixed": "#001a33",
+                    "outline-variant": "#dcc8e0",
+                    "on-error-container": "#9b1c1c",
+                    "error": "#e53e3e",
+                    "surface-bright": "#fef7ff",
+                    "on-primary-container": "#2e1a28",
+                    "on-tertiary-container": "#00334d",
+                    "on-background": "#2e1a28",
+                    "tertiary-fixed-dim": "#80d0f0",
+                    "outline": "#907898",
+                    "surface-container-high": "#f2e8f2",
+                    "tertiary-container": "#40c0ee",
+                    "inverse-on-surface": "#fef7ff",
+                    "tertiary": "#0096cc",
+                    "on-secondary": "#ffffff",
+                    "surface-tint": "#e040a0",
+                    "on-tertiary": "#ffffff",
+                    "secondary-fixed": "#eedcff",
+                    "background": "#fef7ff",
+                    "surface": "#fef7ff",
+                    "inverse-surface": "#2e1a28",
+                    "primary-fixed-dim": "#f0a0cc",
+                    "surface-container": "#f8eef8",
+                    "surface-container-low": "#fbf2fb",
+                    "on-primary-fixed-variant": "#a02070",
+                    "secondary-container": "#eedcff",
+                    "primary-container": "#f080c0",
+                    "inverse-primary": "#f0a0cc",
+                    "secondary-fixed-dim": "#c8a8e8",
+                    "primary": "#e040a0",
+                    "on-tertiary-fixed-variant": "#005580",
+                    "on-secondary-container": "#2e2040",
+                    "on-primary": "#ffffff",
+                    "on-surface-variant": "#604868",
+                    "on-primary-fixed": "#3d0028",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-highest": "#ece2ec"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["DM Sans", "sans-serif"],
+                    "display": ["DM Sans", "sans-serif"],
+                    "body": ["DM Sans", "sans-serif"],
+                    "label": ["DM Sans", "sans-serif"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        /* Base typography & colors */
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background-color: #fef7ff; /* background */
+            color: #2e1a28; /* on-background */
+            font-size: 16px;
+        }
+
+        /* Material Icons setup */
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        /* Microinteractions & Shadows */
+        .bouncy-hover {
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+        }
+        .bouncy-hover:hover {
+            transform: scale(1.03);
+        }
+        
+        .shadow-pink {
+            box-shadow: 0 4px 16px rgba(224, 64, 160, 0.2);
+        }
+        .shadow-pink-hover:hover {
+            box-shadow: 0 6px 20px rgba(224, 64, 160, 0.3);
+        }
+        
+        .shadow-purple {
+            box-shadow: 0 4px 16px rgba(124, 82, 170, 0.2);
+        }
+        
+        .shadow-blue {
+            box-shadow: 0 4px 16px rgba(0, 150, 204, 0.2);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #fbf2fb;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #f0a0cc;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #e040a0;
+        }
+    </style>
+</head>
+<body class="flex bg-background min-h-screen text-on-background">
+<!-- SideNavBar (from JSON) -->
+<nav class="h-screen w-72 flex flex-col border-r border-outline-variant shadow-md fixed left-0 top-0 h-full z-40 bg-surface-container-lowest dark:bg-surface-container-high hidden md:flex">
+<!-- Header -->
+<div class="p-6 flex items-center gap-4 border-b border-outline-variant/30">
+<div class="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 shadow-purple">
+<img alt="Organization Logo" class="w-full h-full object-cover" data-alt="A stylized, modern, flat vector logo of a cute animal paw print combined with a subtle medical cross, rendered in vibrant hot pink and deep purple colors against a clean white background. High quality, crisp vector style graphic for an admin dashboard." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBW7kEZLxD-pDqTlWaeaUKzgc1Q8J-o_famFJmis_RqtjxkcP0gBWDrG1owOVeQra0FGiHW1YyNudk-WMIRMlC-9wU7aYakOsCIwfXuCGSld5ZieG3p08_sdAorVe8XX81bxUwQIaI0wNTBK_95--coy-r7xJX7oq-Nj0i4Ty5ylrqZRE9uv8Sf-pIBZEV8z9xBrug23e3BVTi3EriquDFnJEkRzpXP_-qWFN7QIuIQY0FLj05VViY7Ilw_m8g4UAY9di5mRKX3rmI"/>
+</div>
+<div>
+<h1 class="text-xl font-black text-secondary dark:text-secondary-fixed-dim leading-tight">Pet Recovery Ops</h1>
+<p class="text-xs text-on-surface-variant font-medium">Global Command</p>
+</div>
+</div>
+<!-- Primary Actions -->
+<div class="px-4 py-6">
+<button class="w-full bg-primary text-on-primary font-bold py-3 px-6 rounded-full shadow-pink shadow-pink-hover bouncy-hover flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+                Post New Alert
+            </button>
+</div>
+<!-- Navigation Tabs -->
+<div class="flex-1 overflow-y-auto py-2">
+<!-- Dashboard -->
+<a class="flex items-center gap-3 text-on-surface-variant hover:text-primary rounded-full px-4 py-3 mx-2 hover:bg-primary-fixed-dim/20 transition-all duration-300 hover:translate-x-1 font-headline text-sm font-bold uppercase tracking-wider group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">dashboard</span>
+                Dashboard
+            </a>
+<!-- Active Alerts -->
+<a class="flex items-center gap-3 text-on-surface-variant hover:text-primary rounded-full px-4 py-3 mx-2 hover:bg-primary-fixed-dim/20 transition-all duration-300 hover:translate-x-1 font-headline text-sm font-bold uppercase tracking-wider group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">emergency</span>
+                Active Alerts
+            </a>
+<!-- Pet Database -->
+<a class="flex items-center gap-3 text-on-surface-variant hover:text-primary rounded-full px-4 py-3 mx-2 hover:bg-primary-fixed-dim/20 transition-all duration-300 hover:translate-x-1 font-headline text-sm font-bold uppercase tracking-wider group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">pets</span>
+                Pet Database
+            </a>
+<!-- Found Reports -->
+<a class="flex items-center gap-3 text-on-surface-variant hover:text-primary rounded-full px-4 py-3 mx-2 hover:bg-primary-fixed-dim/20 transition-all duration-300 hover:translate-x-1 font-headline text-sm font-bold uppercase tracking-wider group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">location_on</span>
+                Found Reports
+            </a>
+<!-- User Management (ACTIVE due to verification badge review intent) -->
+<a class="flex items-center gap-3 bg-primary-container text-on-primary-container rounded-full px-4 py-3 mx-2 hover:translate-x-1 transition-transform font-headline text-sm font-bold uppercase tracking-wider shadow-pink" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">group</span>
+                User Management
+            </a>
+<!-- Analytics -->
+<a class="flex items-center gap-3 text-on-surface-variant hover:text-primary rounded-full px-4 py-3 mx-2 hover:bg-primary-fixed-dim/20 transition-all duration-300 hover:translate-x-1 font-headline text-sm font-bold uppercase tracking-wider group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">analytics</span>
+                Analytics
+            </a>
+</div>
+<!-- Footer Tabs -->
+<div class="p-4 border-t border-outline-variant/30 mt-auto">
+<a class="flex items-center gap-3 text-on-surface-variant hover:text-primary rounded-full px-4 py-2 mx-2 hover:bg-primary-fixed-dim/20 transition-all duration-300 font-headline text-sm font-bold uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined">help</span>
+                Help Center
+            </a>
+<a class="flex items-center gap-3 text-on-surface-variant hover:text-error rounded-full px-4 py-2 mx-2 hover:bg-error-container/50 transition-all duration-300 font-headline text-sm font-bold uppercase tracking-wider mt-1" href="#">
+<span class="material-symbols-outlined">logout</span>
+                Logout
+            </a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col md:ml-72 min-h-screen">
+<!-- TopAppBar (from JSON) -->
+<header class="bg-surface-bright dark:bg-surface-container-low font-body text-base font-medium full-width top-0 sticky border-b border-outline-variant dark:border-outline-variant shadow-sm flex justify-between items-center px-6 py-3 w-full z-30">
+<!-- Mobile Menu Button & Brand -->
+<div class="flex items-center gap-4">
+<button class="md:hidden text-on-surface-variant hover:bg-surface-variant transition-transform hover:scale-[1.02] duration-200 cursor-pointer active:scale-95 p-2 rounded-full">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<!-- Search Bar on Left -->
+<div class="hidden sm:flex items-center bg-surface-container-low rounded-full px-4 py-2 border border-outline-variant/50 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all shadow-sm">
+<span class="material-symbols-outlined text-on-surface-variant mr-2">search</span>
+<input class="bg-transparent border-none outline-none text-sm text-on-surface w-48 lg:w-64 focus:ring-0 placeholder-on-surface-variant/70" placeholder="Search providers..." type="text"/>
+</div>
+</div>
+<!-- Trailing Actions & Profile -->
+<div class="flex items-center gap-2 sm:gap-4">
+<button class="text-on-surface-variant hover:bg-surface-variant transition-transform hover:scale-[1.02] duration-200 cursor-pointer active:scale-95 p-2 rounded-full relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1 right-1 w-2.5 h-2.5 bg-primary rounded-full border-2 border-surface-bright"></span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-variant transition-transform hover:scale-[1.02] duration-200 cursor-pointer active:scale-95 p-2 rounded-full">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-px bg-outline-variant mx-1 sm:mx-2 hidden sm:block"></div>
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary-container cursor-pointer active:scale-95 transition-all shadow-sm">
+<img alt="Admin Avatar" class="w-full h-full object-cover" data-alt="A bright, high-quality photographic portrait of a smiling female professional in her 30s. She is wearing a colorful, vibrant hot pink blazer over a white shirt. The background is a clean, well-lit modern office space. The lighting is soft and flattering, creating a friendly and approachable mood." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBU7saQobNg7VesYuDatXNv04TMGcRu-NdbOrf0cBIkv7s0ciyfcmcJWH6YjvCLnIGa6GZoh4viOIUqu3cAjfbXSzOYw5f1vJZeD3I9OMoBRZBvwfkypjRcor7fFFsYTfaGSxTI9lY1qXHzGJr-8QLA_DSXBFWsQojnV0WXVkz10fLNZVpQeq_NziM_TBSEMvgTx_IYjr4UfzkJ2aQRpFzUl1nagrl4n7xukr23knijZX3wBUD1ld6mRpN_3tG4YaMzr9QRhkgbcA0"/>
+</div>
+</div>
+</header>
+<!-- Page Content Canvas -->
+<div class="p-6 lg:p-8 max-w-7xl mx-auto w-full flex-1">
+<!-- Page Header & Settings Toggle -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 bg-surface-container-low p-6 rounded-[2rem] shadow-sm border border-outline-variant/30 relative overflow-hidden">
+<!-- Decorative background shape -->
+<div class="absolute -right-10 -top-10 w-40 h-40 bg-primary-fixed rounded-full blur-3xl opacity-40 pointer-events-none"></div>
+<div class="relative z-10">
+<div class="flex items-center gap-3 mb-1">
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">verified</span>
+<h2 class="text-3xl font-bold text-on-surface">Verification Review</h2>
+</div>
+<p class="text-on-surface-variant">Review and manage trusted resource providers.</p>
+</div>
+<!-- Global Toggle Setting -->
+<div class="relative z-10 bg-white p-4 rounded-xl shadow-purple border border-secondary-fixed flex items-center justify-between gap-6 md:min-w-[320px] bouncy-hover">
+<div class="flex flex-col">
+<span class="font-bold text-secondary text-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">gpp_maybe</span>
+                            Strict Mode
+                        </span>
+<span class="text-xs text-on-surface-variant font-medium">Verified email required to publish</span>
+</div>
+<!-- Toggle Switch -->
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-surface-dim peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary shadow-inner"></div>
+</label>
+</div>
+</div>
+<!-- Filters Area -->
+<div class="flex gap-3 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+<button class="bg-primary text-white px-5 py-2 rounded-full text-sm font-bold shadow-pink whitespace-nowrap bouncy-hover">All Pending (12)</button>
+<button class="bg-surface-container-highest text-on-surface-variant hover:bg-surface-variant px-5 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors">Shelters</button>
+<button class="bg-surface-container-highest text-on-surface-variant hover:bg-surface-variant px-5 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors">Veterinarians</button>
+<button class="bg-surface-container-highest text-on-surface-variant hover:bg-surface-variant px-5 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors">Transports</button>
+</div>
+<!-- Bento Grid layout for review cards -->
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+<!-- Review Card 1 (Shelter) -->
+<div class="bg-white rounded-[2rem] p-6 shadow-sm hover:shadow-lg transition-shadow border border-outline-variant/30 flex flex-col relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-2 h-full bg-primary-container"></div>
+<div class="flex justify-between items-start mb-4">
+<div class="flex gap-4 items-center">
+<div class="w-14 h-14 rounded-full overflow-hidden bg-surface-variant flex items-center justify-center text-primary border-2 border-primary-container shadow-sm">
+<img alt="Provider Avatar" class="w-full h-full object-cover" data-alt="A bright, cheerful photo of the exterior of an animal shelter building named 'Happy Tails Rescue'. The building is painted in light pastel colors with a cute dog and cat silhouette logo. The sky is clear blue and there are green plants around the entrance." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDTk7N2WhIAvvSmnyT2ewDgeNGdnmROFBSh4n0ND17KF-Zj3ZlHbPKvDeaabchxhCLJkm2RnA_MshjwC1lXEVvRvKVQ_VILYC3M74hENE9Ro_8OP-LqOSw0YnexvMwg0rOgZKr08AwbiWiSKJ27dFlA2OO2VjFkJweliqVZKI5GypWT3XyVlhJjAfZwLK2ZT7SiG_RTGYBqeVRft2MSeKIi3olVNbdDik7i3NnIIBr-4iFVT5MOnr_dVLbfW7VY2kOg73r9piLZMgU"/>
+</div>
+<div>
+<h3 class="text-xl font-bold text-on-surface group-hover:text-primary transition-colors">Happy Tails Rescue</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="bg-secondary-container text-on-secondary-container text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">home</span>
+                                        Shelter
+                                    </span>
+<span class="text-xs text-on-surface-variant font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">schedule</span>
+                                        Applied 2h ago
+                                    </span>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-bright rounded-2xl p-4 mb-6 border border-outline-variant/50">
+<h4 class="text-sm font-bold text-on-surface mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary">folder_open</span>
+                            Proof Documents
+                        </h4>
+<div class="flex gap-3 overflow-x-auto pb-2">
+<!-- Doc Thumbnail -->
+<div class="min-w-[100px] h-20 bg-white rounded-xl border border-outline-variant/50 p-2 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-tertiary hover:bg-tertiary-fixed/30 transition-colors bouncy-hover shadow-sm group/doc">
+<span class="material-symbols-outlined text-tertiary group-hover/doc:scale-110 transition-transform">description</span>
+<span class="text-[10px] font-medium text-center text-on-surface-variant truncate w-full">501c3_status.pdf</span>
+</div>
+<!-- Doc Thumbnail -->
+<div class="min-w-[100px] h-20 bg-white rounded-xl border border-outline-variant/50 p-2 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-tertiary hover:bg-tertiary-fixed/30 transition-colors bouncy-hover shadow-sm group/doc relative overflow-hidden">
+<img alt="License photo" class="absolute inset-0 w-full h-full object-cover opacity-30 group-hover/doc:opacity-50 transition-opacity" data-alt="A clear, bright photograph of a physical state licensing document for an animal rescue organization. The paper has an official seal and signature. The photo is well-lit, taken straight on, against a clean white desk background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAvBmxyOyR-zvuLTjAkpG1Ps62sZfEVNGFOTqiHNSc5K5yhOtscWiKSJsWDfGu2Kyin5TVxHEqXCY4tZtBpX9A8VEUESh94GOncqTuP-9obXFcSuYRuQuivB_bXPlssqn1ATx4weqIDKKk2Hz56Da9PsApkMBRAZdzydoza7J3b5jAZ0M6Kc6aU3_owmVLo_FF9FCQ1H8dfiuhPR9-II-OPT9lMPRk-sjBkLmjvzNgaOagsQeFOt0mKt3Dts2TKQIDeVc7la2HUT3A"/>
+<span class="material-symbols-outlined text-tertiary relative z-10 drop-shadow-md">image</span>
+<span class="text-[10px] font-medium text-center text-on-surface-variant truncate w-full relative z-10 bg-white/80 px-1 rounded">state_license.jpg</span>
+</div>
+</div>
+</div>
+<div class="mt-auto flex gap-3">
+<button class="flex-1 bg-primary text-white font-bold py-3 px-4 rounded-full shadow-pink shadow-pink-hover bouncy-hover flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                            Grant Badge
+                        </button>
+<button class="flex-1 bg-surface-container-high text-on-surface font-bold py-3 px-4 rounded-full hover:bg-error hover:text-white transition-colors duration-300 flex items-center justify-center gap-2 border border-outline-variant/50 hover:border-error">
+<span class="material-symbols-outlined">cancel</span>
+                            Deny Request
+                        </button>
+</div>
+</div>
+<!-- Review Card 2 (Vet) -->
+<div class="bg-white rounded-[2rem] p-6 shadow-sm hover:shadow-lg transition-shadow border border-outline-variant/30 flex flex-col relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-2 h-full bg-secondary-container"></div>
+<div class="flex justify-between items-start mb-4">
+<div class="flex gap-4 items-center">
+<div class="w-14 h-14 rounded-full overflow-hidden bg-surface-variant flex items-center justify-center text-secondary border-2 border-secondary-container shadow-sm">
+<span class="material-symbols-outlined text-3xl">medical_services</span>
+</div>
+<div>
+<h3 class="text-xl font-bold text-on-surface group-hover:text-secondary transition-colors">Downtown Pet Clinic</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="bg-primary-container text-on-primary-container text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">local_hospital</span>
+                                        Veterinarian
+                                    </span>
+<span class="text-xs text-on-surface-variant font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">schedule</span>
+                                        Applied 5h ago
+                                    </span>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-bright rounded-2xl p-4 mb-6 border border-outline-variant/50">
+<h4 class="text-sm font-bold text-on-surface mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary">folder_open</span>
+                            Proof Documents
+                        </h4>
+<div class="flex gap-3 overflow-x-auto pb-2">
+<!-- Doc Thumbnail -->
+<div class="min-w-[100px] h-20 bg-white rounded-xl border border-outline-variant/50 p-2 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-tertiary hover:bg-tertiary-fixed/30 transition-colors bouncy-hover shadow-sm group/doc relative overflow-hidden">
+<img alt="Degree photo" class="absolute inset-0 w-full h-full object-cover opacity-30 group-hover/doc:opacity-50 transition-opacity" data-alt="A bright, clear photo of a framed veterinary medical degree hanging on a clean white wall. The diploma has elegant typography and a shiny gold seal in the corner. The lighting is soft and professional." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAA2FEqefLE81aQzxho2mt3cBBEUOg36TiAuCi61tPSFbiOqnJ4GbF5acoxckFbA8p69mYd82fzODfzQUo--D7OsK6WK6jX-0YOGvYvZEY5pWs8jZ1jKT0GQ2xzwzYDAMOc4KDsBBXmxLlXBd4S1x1XfhzALiVEC_9urw79hl0TyETZ6EY5iKNrhUd7p88pf-0gWG4BB_x3Pf1kDp00UbXz7A_BVcuUFT-uh6Hvw1GPXtpCH--LKV0MnxFrUHOoZpyHy8Tr0UoHfTw"/>
+<span class="material-symbols-outlined text-tertiary relative z-10 drop-shadow-md">image</span>
+<span class="text-[10px] font-medium text-center text-on-surface-variant truncate w-full relative z-10 bg-white/80 px-1 rounded">med_degree.png</span>
+</div>
+</div>
+</div>
+<div class="mt-auto flex gap-3">
+<button class="flex-1 bg-primary text-white font-bold py-3 px-4 rounded-full shadow-pink shadow-pink-hover bouncy-hover flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                            Grant Badge
+                        </button>
+<button class="flex-1 bg-surface-container-high text-on-surface font-bold py-3 px-4 rounded-full hover:bg-error hover:text-white transition-colors duration-300 flex items-center justify-center gap-2 border border-outline-variant/50 hover:border-error">
+<span class="material-symbols-outlined">cancel</span>
+                            Deny Request
+                        </button>
+</div>
+</div>
+<!-- Review Card 3 (Transport) -->
+<div class="bg-white rounded-[2rem] p-6 shadow-sm hover:shadow-lg transition-shadow border border-outline-variant/30 flex flex-col relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-2 h-full bg-tertiary-container"></div>
+<div class="flex justify-between items-start mb-4">
+<div class="flex gap-4 items-center">
+<div class="w-14 h-14 rounded-full overflow-hidden bg-surface-variant flex items-center justify-center text-tertiary border-2 border-tertiary-container shadow-sm">
+<span class="material-symbols-outlined text-3xl">airport_shuttle</span>
+</div>
+<div>
+<h3 class="text-xl font-bold text-on-surface group-hover:text-tertiary transition-colors">Safe Paws Transit</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="bg-tertiary-container text-on-tertiary-container text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">directions_car</span>
+                                        Transport
+                                    </span>
+<span class="text-xs text-error font-medium flex items-center gap-1 bg-error-container px-2 py-0.5 rounded-full">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+                                        Missing Info
+                                    </span>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-bright rounded-2xl p-4 mb-6 border border-outline-variant/50">
+<h4 class="text-sm font-bold text-on-surface mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary">folder_open</span>
+                            Proof Documents
+                        </h4>
+<div class="flex gap-3 overflow-x-auto pb-2 items-center">
+<!-- Doc Thumbnail -->
+<div class="min-w-[100px] h-20 bg-white rounded-xl border border-outline-variant/50 p-2 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-tertiary hover:bg-tertiary-fixed/30 transition-colors bouncy-hover shadow-sm group/doc">
+<span class="material-symbols-outlined text-tertiary group-hover/doc:scale-110 transition-transform">description</span>
+<span class="text-[10px] font-medium text-center text-on-surface-variant truncate w-full">insurance.pdf</span>
+</div>
+<div class="text-xs text-on-surface-variant italic px-2 text-center w-full">
+                                Vehicle registration pending upload.
+                            </div>
+</div>
+</div>
+<div class="mt-auto flex gap-3">
+<button class="flex-1 bg-surface-dim text-on-surface-variant font-bold py-3 px-4 rounded-full cursor-not-allowed opacity-70 flex items-center justify-center gap-2" disabled="">
+<span class="material-symbols-outlined">check_circle</span>
+                            Grant Badge
+                        </button>
+<button class="flex-1 bg-surface-container-high text-on-surface font-bold py-3 px-4 rounded-full hover:bg-tertiary hover:text-white transition-colors duration-300 flex items-center justify-center gap-2 border border-outline-variant/50 hover:border-tertiary">
+<span class="material-symbols-outlined">mail</span>
+                            Request Info
+                        </button>
+</div>
+</div>
+</div>
+<!-- Pagination / Load More -->
+<div class="mt-8 flex justify-center">
+<button class="bg-surface-container-high text-primary font-bold py-2 px-6 rounded-full hover:bg-primary-container hover:text-on-primary-container transition-colors duration-300 border border-primary-fixed bouncy-hover">
+                    Load More Applications
+                </button>
+</div>
+</div>
+</main>
+</body></html>

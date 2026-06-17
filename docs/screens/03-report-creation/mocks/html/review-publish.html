@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Revisa tu reporte - Rastro</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#BFE1D8",
+                        "tertiary-container": "#CFE3EE",
+                        "surface-bright": "#F7F9F6",
+                        "on-error-container": "#8A241D",
+                        "error": "#D6453D",
+                        "primary": "#146C5A",
+                        "surface-container-low": "#FFFFFF",
+                        "on-secondary-fixed": "#1a1030",
+                        "tertiary-fixed": "#E1EFF5",
+                        "outline": "#82908A",
+                        "primary-fixed": "#DDEFE9",
+                        "on-surface-variant": "#66736D",
+                        "on-background": "#17201C",
+                        "surface-variant": "#E7EEE9",
+                        "secondary-fixed-dim": "#BFE1D8",
+                        "error-container": "#FDECEC",
+                        "on-secondary-container": "#17201C",
+                        "outline-variant": "#DCE4DE",
+                        "tertiary-fixed-dim": "#B6D4E4",
+                        "on-tertiary-fixed": "#102A3A",
+                        "secondary": "#1D7A52",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-tint": "#146C5A",
+                        "on-primary": "#ffffff",
+                        "surface-dim": "#E4EBE6",
+                        "on-tertiary-container": "#183F56",
+                        "tertiary": "#2E6D9E",
+                        "inverse-on-surface": "#F7F9F6",
+                        "on-surface": "#17201C",
+                        "secondary-fixed": "#DDEFE9",
+                        "on-secondary": "#ffffff",
+                        "background": "#F7F9F6",
+                        "secondary-container": "#DDEFE9",
+                        "surface": "#F7F9F6",
+                        "surface-container-highest": "#DCE4DE",
+                        "on-secondary-fixed-variant": "#39564E",
+                        "on-primary-fixed-variant": "#0E5145",
+                        "on-error": "#ffffff",
+                        "primary-fixed-dim": "#A9D4C9",
+                        "surface-container": "#EEF3EE",
+                        "inverse-primary": "#A9D4C9",
+                        "inverse-surface": "#17201C",
+                        "on-tertiary-fixed-variant": "#2E6D9E",
+                        "on-primary-fixed": "#0B342D",
+                        "surface-container-high": "#E7EEE9",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-container": "#17201C"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["DM Sans", "sans-serif"],
+                        "display": ["DM Sans", "sans-serif"],
+                        "body": ["DM Sans", "sans-serif"],
+                        "label": ["DM Sans", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .bouncy-hover {
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+        }
+        .bouncy-hover:hover {
+            transform: scale(1.03);
+        }
+        .bouncy-hover:active {
+            transform: scale(0.95);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  
+<style id="rastro-polish">
+  :root {
+    color-scheme: light;
+    --rastro-bg: #F7F9F6;
+    --rastro-surface: #FFFFFF;
+    --rastro-surface-muted: #EEF3EE;
+    --rastro-text: #17201C;
+    --rastro-muted: #66736D;
+    --rastro-border: #DCE4DE;
+    --rastro-primary: #146C5A;
+    --rastro-primary-dark: #0E5145;
+    --rastro-lost: #D6453D;
+    --rastro-found: #1D7A52;
+    --rastro-sighting: #2E6D9E;
+    --rastro-adoption: #9D4F66;
+  }
+  html, body {
+    width: 100% !important;
+    max-width: 100vw !important;
+    min-height: 100dvh !important;
+    margin: 0 !important;
+    overflow-x: hidden !important;
+    background: var(--rastro-bg) !important;
+    color: var(--rastro-text) !important;
+    font-family: "DM Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+    letter-spacing: 0 !important;
+  }
+  * { letter-spacing: 0 !important; }
+  .candy-shadow-primary { box-shadow: 0 12px 28px rgba(20,108,90,.22) !important; }
+  .candy-shadow-secondary { box-shadow: 0 12px 28px rgba(29,122,82,.16) !important; }
+  .candy-shadow-tertiary { box-shadow: 0 12px 30px rgba(46,109,158,.18) !important; }
+  .text-primary { color: var(--rastro-primary) !important; }
+  .text-secondary { color: var(--rastro-found) !important; }
+  .text-tertiary { color: var(--rastro-sighting) !important; }
+  .text-on-background, .text-on-surface { color: var(--rastro-text) !important; }
+  .text-on-surface-variant { color: var(--rastro-muted) !important; }
+  .bg-background, .bg-surface, .bg-surface-bright { background-color: var(--rastro-bg) !important; }
+  .bg-surface-container-lowest, .bg-white { background-color: var(--rastro-surface) !important; }
+  .bg-surface-container, .bg-surface-container-low, .bg-surface-container-high, .bg-surface-variant { background-color: var(--rastro-surface-muted) !important; }
+  .bg-primary { background-color: var(--rastro-primary) !important; }
+  .bg-secondary { background-color: var(--rastro-found) !important; }
+  .bg-tertiary { background-color: var(--rastro-sighting) !important; }
+  .bg-primary-container, .bg-primary-fixed, .bg-primary-fixed-dim { background-color: #DDEFE9 !important; }
+  .bg-secondary-container, .bg-secondary-fixed { background-color: #E7F3EB !important; }
+  .bg-tertiary-container, .bg-tertiary-fixed { background-color: #E1EFF5 !important; }
+  .border-primary, .border-primary-fixed, .border-secondary-fixed, .border-outline-variant, .border-surface-variant { border-color: var(--rastro-border) !important; }
+  .shadow-\[0_4px_16px_rgba\(224\,64\,160\,0\.15\)\],
+  .shadow-\[0_4px_16px_rgba\(224\,64\,160\,0\.2\)\],
+  .shadow-\[0_4px_16px_rgba\(224\,64\,160\,0\.3\)\] {
+    box-shadow: 0 12px 28px rgba(20,108,90,.18) !important;
+  }
+  img[data-location],
+  [data-alt*="map"],
+  [data-alt*="Map"],
+  [data-alt*="mapa"],
+  [data-alt*="Mapa"] {
+    filter: saturate(.72) hue-rotate(118deg) contrast(.98) brightness(1.02);
+  }
+  nav.fixed.bottom-0 {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: 430px !important;
+    height: 86px !important;
+    margin-inline: auto !important;
+    padding: 8px 10px 14px !important;
+    border-radius: 24px 24px 0 0 !important;
+    border-top: 1px solid var(--rastro-border) !important;
+    background: rgba(255,255,255,.96) !important;
+    box-shadow: 0 -12px 32px rgba(23,32,28,.10) !important;
+  }
+  nav.fixed.bottom-0 a {
+    min-width: 0 !important;
+    flex: 1 1 0 !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+  nav.fixed.bottom-0 :is(a, button) {
+    min-width: 0 !important;
+    width: auto !important;
+    flex: 1 1 0 !important;
+    height: 64px !important;
+    margin: 0 !important;
+    padding: 6px !important;
+    border: 0 !important;
+    border-radius: 18px !important;
+    background: transparent !important;
+    color: var(--rastro-muted) !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+  nav.fixed.bottom-0 :is(a, button)[class~="bg-primary"],
+  nav.fixed.bottom-0 :is(a, button)[class~="bg-primary-container"] {
+    background: #DDEFE9 !important;
+    color: var(--rastro-primary) !important;
+  }
+  nav.fixed.bottom-0 :is(a, button) .material-symbols-outlined {
+    font-size: 24px !important;
+  }
+  nav.fixed.bottom-0 span:last-child {
+    max-width: 78px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  .fixed.bottom-24,
+  .rastro-global-fab {
+    right: 18px !important;
+    bottom: 98px !important;
+    width: 60px !important;
+    height: 60px !important;
+    border-radius: 999px !important;
+    background: var(--rastro-primary) !important;
+    color: white !important;
+    box-shadow: 0 18px 30px rgba(20,108,90,.28) !important;
+  }
+  .rastro-global-fab {
+    position: fixed !important;
+    z-index: 40 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 0 !important;
+  }
+  [class*="rounded-\[2rem\]"],
+  .rounded-lg,
+  .rounded-xl {
+    border-color: rgba(220,228,222,.95) !important;
+  }
+  main, section { scrollbar-width: none; }
+  main::-webkit-scrollbar, section::-webkit-scrollbar, div::-webkit-scrollbar { display: none; }
+</style>
+</head>
+<body class="bg-background min-h-screen font-body text-on-surface antialiased flex flex-col md:max-w-md md:mx-auto md:shadow-2xl md:border md:border-surface-variant md:my-8 md:rounded-[2.5rem] md:overflow-hidden relative pb-24">
+<!-- TopAppBar from JSON -->
+<header class="bg-surface sticky top-0 z-50 flex justify-between items-center w-full px-6 py-4 shadow-[0_4px_16px_rgba(20,108,90,0.15)]">
+<button aria-label="Go back" class="text-primary hover:scale-105 active:scale-95 transition-all cubic-bezier(0.34,1.56,0.64,1) flex items-center justify-center p-2 rounded-full hover:bg-primary-fixed">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">arrow_back</span>
+</button>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">pets</span>
+<h1 class="font-display text-2xl font-black text-primary tracking-tighter">Rastro</h1>
+</div>
+<button aria-label="Notifications" class="text-on-surface-variant hover:scale-105 active:scale-95 transition-all cubic-bezier(0.34,1.56,0.64,1) flex items-center justify-center p-2 rounded-full hover:bg-surface-variant">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</header>
+<main class="flex-1 px-6 pt-8 pb-8 flex flex-col gap-6">
+<!-- Header Section -->
+<section>
+<h2 class="text-3xl font-headline font-bold text-on-surface mb-2 tracking-tight">Revisa tu reporte</h2>
+<p class="text-on-surface-variant text-base">Verifica que todo esté en orden antes de alertar a la comunidad.</p>
+</section>
+<!-- Warning Banner -->
+<div class="bg-tertiary-fixed rounded-[1.5rem] p-4 flex items-start gap-4 shadow-[0_4px_16px_rgba(46,109,158,0.15)] bouncy-hover cursor-default">
+<div class="bg-tertiary text-on-tertiary rounded-full p-2 flex shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">info</span>
+</div>
+<p class="text-on-tertiary-fixed text-sm font-medium leading-relaxed pt-1">
+                Asegúrate de que la información sea correcta para que la comunidad pueda ayudarte a encontrarlo más rápido.
+            </p>
+</div>
+<!-- Pet Summary Card -->
+<article class="bg-surface-container-lowest rounded-[2rem] p-4 shadow-[0_8px_24px_rgba(20,108,90,0.12)] flex flex-col gap-5 relative group">
+<!-- Image Area with Badge -->
+<div class="relative w-full h-56 rounded-[1.5rem] overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A playful and vivid photograph of a fluffy, light brown mixed-breed dog looking directly at the camera with big, expressive eyes. The background is a brightly lit, cheerful urban park with vibrant green grass and soft, out-of-focus pastel elements that match a lively, optimistic, 'Candy' UI design system. High saturation, warm sunlight." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBHTYG1f_t7eevsnifQsyjxRkeoNCQrxF6hb5q7qzj64Yo9QTKr4QZ2yv5_WnxjZLbUjnrwJg9drGarc-NTdFE4ha-o4hOgWxXQZm7MrtVQ6xA344NMvEWytfLTLJ4bnzqLCI7BL9BL_0SZbOWIBsfA3T7KBKPpxufOQtQeNOum1Dq0USrIb9utN-aW5JihVBJ7S0x5z8hc07hzLGhoRJ_yJizMa-wVg-x0BN8tLdqsEarsfubOHDTX32Yh95qV8aURar6iendTQE8"/>
+<div class="absolute top-4 left-4 bg-error-container text-on-error-container px-4 py-1.5 rounded-full text-sm font-bold shadow-lg flex items-center gap-1.5 backdrop-blur-sm bg-opacity-95">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">error</span>
+                    Perdido
+                </div>
+</div>
+<!-- Core Info -->
+<div class="px-2 pb-2">
+<div class="flex justify-between items-end mb-4">
+<div>
+<h3 class="text-3xl font-display font-bold text-on-surface">Bruno</h3>
+<p class="text-on-surface-variant font-medium mt-1">Mestizo • Mediano • Macho</p>
+</div>
+</div>
+<hr class="border-surface-variant mb-4"/>
+<!-- Details List -->
+<ul class="flex flex-col gap-4">
+<li class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed flex items-center justify-center text-secondary shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">location_on</span>
+</div>
+<div class="flex-1">
+<p class="text-xs text-on-surface-variant font-medium uppercase tracking-wider">Última vez visto en</p>
+<p class="text-on-surface font-semibold text-base mt-0.5">Parque Urbano, Equipetrol</p>
+</div>
+</li>
+<li class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed flex items-center justify-center text-secondary shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">schedule</span>
+</div>
+<div class="flex-1">
+<p class="text-xs text-on-surface-variant font-medium uppercase tracking-wider">Fecha y Hora</p>
+<p class="text-on-surface font-semibold text-base mt-0.5">Hoy, aprox. 10:15 AM</p>
+</div>
+</li>
+<li class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-tertiary-fixed flex items-center justify-center text-tertiary shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">contact_phone</span>
+</div>
+<div class="flex-1">
+<p class="text-xs text-on-surface-variant font-medium uppercase tracking-wider">Método de contacto</p>
+<p class="text-on-surface font-semibold text-base mt-0.5">Llamada telefónica o WhatsApp</p>
+</div>
+</li>
+</ul>
+</div>
+</article>
+<!-- Small Map Preview (Aesthetic addition) -->
+<div class="w-full h-32 rounded-[1.5rem] overflow-hidden relative shadow-[0_4px_16px_rgba(29,122,82,0.1)] mb-4">
+<img class="w-full h-full object-cover opacity-80" data-alt="A stylized, bright, and colorful map snippet of an urban park area. The map uses a very soft, playful pastel color palette with pinks, light purples, and bright blues, matching a joyful 'Candy' UI theme. A large, prominent hot pink map pin sits exactly in the center of a green park area." data-location="Parque Urbano, Santa Cruz de la Sierra" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCnmApOIAvF7AFUX3ZdrTjxCD9cGMMjhjZDAQMce8uHLKyYuwjBFLQcxrkNE2JmHi00-830TKkGgmrE4CP67Qi4jOZY34AYOtyTIQ3Rh80uSVfUwnIVk8Qdh8HI0HuG0kqNnFAhrfMOUWlrBLMUGA1MXB99ET3UgnzWVDP-TVWBamxcCzPVNJEbmO0wHUNrbjHuXaV3iLlj1A1SoKqAx2299CYJVsZduwmHtvsER9jOEEgGP6Agh67nBH0zrbzpGWt6Z2H5dXRDFCY"/>
+<div class="absolute inset-0 border-4 border-surface-container-lowest rounded-[1.5rem] pointer-events-none"></div>
+</div>
+</main>
+<!-- Fixed Bottom Action Area -->
+<div class="fixed bottom-0 left-0 w-full bg-surface-bright/90 backdrop-blur-md px-6 py-4 pb-8 z-40 border-t border-surface-variant md:absolute md:rounded-b-[2.5rem]">
+<button class="w-full bg-primary text-on-primary py-4 px-6 rounded-full font-bold text-lg shadow-[0_8px_24px_rgba(20,108,90,0.35)] bouncy-hover flex justify-center items-center gap-3">
+            Confirmar y Publicar
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+</body></html>

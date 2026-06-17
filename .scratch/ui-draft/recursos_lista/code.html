@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Rastro - Recursos</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .bounce-hover:hover {
+            transform: scale(1.03);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary": "#ffffff",
+                        "on-background": "#2e1a28",
+                        "secondary-fixed": "#eedcff",
+                        "surface-variant": "#f2e8f2",
+                        "surface-container": "#f8eef8",
+                        "on-primary-fixed-variant": "#a02070",
+                        "tertiary-fixed-dim": "#80d0f0",
+                        "surface-container-low": "#fbf2fb",
+                        "inverse-surface": "#2e1a28",
+                        "background": "#fef7ff",
+                        "tertiary-container": "#40c0ee",
+                        "secondary-fixed-dim": "#c8a8e8",
+                        "secondary": "#7c52aa",
+                        "secondary-container": "#eedcff",
+                        "on-primary-fixed": "#3d0028",
+                        "on-error": "#ffffff",
+                        "primary-container": "#f080c0",
+                        "outline": "#907898",
+                        "on-secondary-fixed": "#1a1030",
+                        "on-tertiary-fixed-variant": "#005580",
+                        "on-secondary-fixed-variant": "#4a3068",
+                        "outline-variant": "#dcc8e0",
+                        "surface-container-high": "#f2e8f2",
+                        "on-secondary": "#ffffff",
+                        "surface-bright": "#fef7ff",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-primary": "#f0a0cc",
+                        "surface-container-highest": "#ece2ec",
+                        "error-container": "#ffe8e8",
+                        "error": "#e53e3e",
+                        "surface-tint": "#e040a0",
+                        "surface": "#fef7ff",
+                        "on-tertiary-container": "#00334d",
+                        "on-surface": "#2e1a28",
+                        "on-secondary-container": "#2e2040",
+                        "surface-dim": "#e0d6e0",
+                        "primary-fixed-dim": "#f0a0cc",
+                        "on-primary-container": "#2e1a28",
+                        "on-surface-variant": "#604868",
+                        "on-error-container": "#9b1c1c",
+                        "tertiary": "#0096cc",
+                        "primary-fixed": "#ffd6ee",
+                        "tertiary-fixed": "#c8eaff",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-fixed": "#001a33",
+                        "inverse-on-surface": "#fef7ff",
+                        "primary": "#e040a0"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["DM Sans", "sans-serif"],
+                        "display": ["DM Sans", "sans-serif"],
+                        "body": ["DM Sans", "sans-serif"],
+                        "label": ["DM Sans", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body min-h-screen pb-28 relative overflow-x-hidden selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- Atmospheric Blob Background -->
+<div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none opacity-40">
+<div class="absolute top-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-primary-container rounded-full blur-[100px] mix-blend-multiply"></div>
+<div class="absolute bottom-[20%] left-[-20%] w-[60vw] h-[60vw] bg-secondary-container rounded-full blur-[120px] mix-blend-multiply"></div>
+</div>
+<!-- TopAppBar -->
+<header class="w-full top-0 sticky z-40 bg-background/80 backdrop-blur-xl dark:bg-on-background/80 shadow-[0_4px_16px_rgba(224,64,160,0.05)] flex items-center justify-between px-6 py-4 transition-all duration-300">
+<div class="flex items-center gap-2 group cursor-pointer hover:scale-105 transition-transform duration-200 active:scale-95">
+<div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-[0_4px_12px_rgba(224,64,160,0.3)]">
+<span class="material-symbols-outlined text-on-primary text-xl font-bold" style="font-variation-settings: 'FILL' 1;">pets</span>
+</div>
+<h1 class="font-display font-black text-2xl text-primary dark:text-primary-fixed tracking-tight">Rastro</h1>
+</div>
+<button class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center text-primary hover:bg-primary-fixed-dim hover:scale-105 active:scale-95 transition-all duration-200">
+<span class="material-symbols-outlined text-xl">search</span>
+</button>
+</header>
+<!-- Toggle Controls -->
+<div class="px-6 pt-6 pb-2 w-full flex justify-center">
+<div class="bg-surface-container p-1.5 rounded-full inline-flex relative shadow-inner w-full max-w-[280px]">
+<button class="flex-1 py-2.5 rounded-full font-label font-bold text-sm text-on-primary bg-primary shadow-[0_4px_16px_rgba(224,64,160,0.35)] relative z-10 transition-transform active:scale-95 flex justify-center items-center gap-1.5">
+<span class="material-symbols-outlined text-[18px]">format_list_bulleted</span> Lista
+            </button>
+<button class="flex-1 py-2.5 rounded-full font-label font-medium text-sm text-on-surface-variant hover:text-primary transition-colors relative z-10 active:scale-95 flex justify-center items-center gap-1.5">
+<span class="material-symbols-outlined text-[18px]">map</span> Mapa
+            </button>
+</div>
+</div>
+<!-- Category Filters -->
+<nav class="w-full overflow-x-auto no-scrollbar px-6 py-4 flex gap-3 snap-x">
+<button class="snap-start shrink-0 px-6 py-2.5 rounded-full bg-secondary text-on-primary font-label font-bold text-sm shadow-[0_4px_16px_rgba(124,82,170,0.3)] whitespace-nowrap active:scale-95 transition-all hover:scale-105 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">vaccines</span> Veterinarias
+        </button>
+<button class="snap-start shrink-0 px-6 py-2.5 rounded-full bg-surface-container text-on-surface-variant font-label font-bold text-sm hover:bg-primary-fixed hover:text-primary transition-all whitespace-nowrap active:scale-95 hover:scale-105 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">night_shelter</span> Refugios
+        </button>
+<button class="snap-start shrink-0 px-6 py-2.5 rounded-full bg-surface-container text-on-surface-variant font-label font-bold text-sm hover:bg-primary-fixed hover:text-primary transition-all whitespace-nowrap active:scale-95 hover:scale-105 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">content_cut</span> Peluquerías
+        </button>
+<button class="snap-start shrink-0 px-6 py-2.5 rounded-full bg-surface-container text-on-surface-variant font-label font-bold text-sm hover:bg-primary-fixed hover:text-primary transition-all whitespace-nowrap active:scale-95 hover:scale-105 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">restaurant</span> Alimentos
+        </button>
+<button class="snap-start shrink-0 px-6 py-2.5 rounded-full bg-surface-container text-on-surface-variant font-label font-bold text-sm hover:bg-primary-fixed hover:text-primary transition-all whitespace-nowrap active:scale-95 hover:scale-105 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">sports_baseball</span> Entrenadores
+        </button>
+<button class="snap-start shrink-0 px-6 py-2.5 rounded-full bg-surface-container text-on-surface-variant font-label font-bold text-sm hover:bg-primary-fixed hover:text-primary transition-all whitespace-nowrap active:scale-95 hover:scale-105 flex items-center gap-2 pr-8">
+<span class="material-symbols-outlined text-[16px]">storefront</span> Tiendas
+        </button>
+</nav>
+<!-- Main Content List -->
+<main class="px-6 py-2 flex flex-col gap-6">
+<!-- Sponsored Card -->
+<article class="relative bounce-hover cursor-pointer group">
+<!-- Glow effect behind -->
+<div class="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-[2rem] blur-md opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
+<div class="bg-surface-container-lowest rounded-[2rem] p-4 flex gap-4 relative z-10 border-2 border-primary-fixed shadow-[0_8px_24px_rgba(224,64,160,0.15)]">
+<!-- Badge -->
+<div class="absolute -top-3 left-6 bg-gradient-to-r from-primary to-secondary text-on-primary text-[10px] font-black uppercase tracking-wider px-4 py-1.5 rounded-full shadow-[0_4px_12px_rgba(224,64,160,0.4)] z-20 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">star</span> Patrocinado
+                </div>
+<div class="w-28 h-28 rounded-2xl overflow-hidden shrink-0 shadow-inner mt-2 relative">
+<img class="w-full h-full object-cover" data-alt="A bright, cheerful photograph of a modern veterinary clinic exterior. The building features clean white walls with vibrant magenta pink accent framing around the large glass windows. A small, stylized dog logo is visible above the door. The lighting is sunny and optimistic, casting soft shadows, fitting a playful 'Candy' aesthetic light-mode UI theme." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDpNEwGumAxK2tQCW1wNM5QP85q2-IhXFTVAcjX1NlnOWr-OsJ4vyKqhighwgHLWIYwrV8b-n3K7HwkdSBqoJtrRqlL4T5_OPb8ACbB06ZbJvPj8L2wSyJkp5nGpBwUFXufsrV4HSF0DnQpKVy87Q04ultSRDDLuMhC5uEWsdpKqhi14FIgPGXUFKDVHmp7wyVkoQx-cUQ2RZrQeTthh2NBphhh-SCYa1Id444gOP8CxG7h5Xt9ykqrgg7ebSL-KqpFLRjKVQ3aEE4"/>
+</div>
+<div class="flex-1 flex flex-col justify-center mt-2">
+<div class="flex justify-between items-start gap-2">
+<h3 class="font-display font-bold text-[18px] text-on-background leading-tight">Clínica Vet. San Roque</h3>
+<div class="flex items-center gap-1 text-[11px] font-bold text-primary bg-primary-fixed px-2.5 py-1 rounded-full shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-[14px]">location_on</span> 0.8 km
+                        </div>
+</div>
+<p class="font-label font-medium text-sm text-secondary mt-1">Veterinaria Especializada</p>
+<div class="mt-3 flex items-center gap-2">
+<span class="inline-flex items-center gap-1 text-[11px] font-bold text-tertiary bg-tertiary-fixed px-2.5 py-1.5 rounded-full shadow-sm">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">verified</span> Verificado
+                        </span>
+<div class="flex items-center text-xs font-bold text-on-surface-variant">
+<span class="material-symbols-outlined text-primary text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span> 4.9 (120)
+                        </div>
+</div>
+</div>
+</div>
+</article>
+<!-- Standard Card 1 -->
+<article class="bg-surface-container-lowest rounded-[2rem] p-4 flex gap-4 shadow-[0_8px_24px_rgba(46,26,40,0.04)] bounce-hover cursor-pointer border border-surface-container-highest">
+<div class="w-24 h-24 rounded-[1.5rem] overflow-hidden shrink-0 shadow-inner bg-surface-container">
+<img class="w-full h-full object-cover" data-alt="A highly detailed close-up photograph of a friendly, smiling female veterinarian holding a small, fluffy white dog. The veterinarian is wearing light blue scrubs. The background is a brightly lit, sterile yet welcoming examination room with subtle hot pink and soft purple abstract graphic elements softly blurred out behind her, maintaining a joyful, vibrant brand identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAjn7EZbFvBF7GpHW_6KbD5cmcGs-NqSeSByjI1SUFJud2dI3s1EV0w7N1EjIRWSv1uiR_n1l75Z6LVw2s4hzbnUvvPEm_tLIXKHP4FPEQkz2rQ8Lk1zylevUS-lydhRQlv_nr6A3Ul5YM_5BlHedjKUtCeZaOy9GpXelY8kCCHH0Equ92rpejrZwKc1oY6sFxpYxQpboX9l25PYUGuypzdjgkfXdOz-SPX5iGgmLmLO0uSmEi997-TBzo4p_7iCI-WUAum4IBAvjo"/>
+</div>
+<div class="flex-1 flex flex-col justify-center">
+<div class="flex justify-between items-start gap-2">
+<h3 class="font-display font-bold text-[17px] text-on-background leading-tight">Dra. Marta Gómez</h3>
+<div class="flex items-center gap-1 text-[11px] font-bold text-secondary bg-secondary-fixed px-2.5 py-1 rounded-full shrink-0">
+<span class="material-symbols-outlined text-[14px]">location_on</span> 1.2 km
+                    </div>
+</div>
+<p class="font-label text-sm text-on-surface-variant mt-1">Consultorio General</p>
+<div class="mt-3 flex items-center gap-2">
+<span class="inline-flex items-center gap-1 text-[11px] font-bold text-tertiary bg-tertiary-fixed px-2.5 py-1.5 rounded-full">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">verified</span> Verificado
+                    </span>
+<span class="inline-flex items-center gap-1 text-[11px] font-bold text-primary bg-primary-fixed px-2.5 py-1.5 rounded-full">
+                         Abierto
+                    </span>
+</div>
+</div>
+</article>
+<!-- Standard Card 2 (Refugio) -->
+<article class="bg-surface-container-lowest rounded-[2rem] p-4 flex gap-4 shadow-[0_8px_24px_rgba(46,26,40,0.04)] bounce-hover cursor-pointer border border-surface-container-highest">
+<div class="w-24 h-24 rounded-[1.5rem] overflow-hidden shrink-0 shadow-inner bg-surface-container">
+<img class="w-full h-full object-cover" data-alt="A heartwarming image showing an outdoor animal shelter play yard. Several happy dogs of various breeds are playing on green artificial turf. The perimeter fencing is painted in a soft, welcoming pastel purple color. The scene is bathed in warm, bright sunlight, evoking feelings of hope and joy, aligning perfectly with a saturated, playful UI design aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCeYYA8YJQGpfvXAMYVTMStQfYOnXY3hcpMu7ftqSQnKaYzgcVVt5uhSxr71TL55Xc6KCHPZUhkLF63x4-UsWotSxRi4uluVsekwMHTrAc_GwzHx3GFGMCIfm9mhG8cDX7CXLGQC4NVaM7ooTASPYJ4D9qFQ9z7MDMVK_62pGOSWQTQVja-SnfnFewoBclvffWh5tCPwGsOj9h4SVf99KUNv8r9jtjIthR6FfpWfbrve5kg2r4dPi9FWrjr6ck3mGAS6ZQRNgMBrP8"/>
+</div>
+<div class="flex-1 flex flex-col justify-center">
+<div class="flex justify-between items-start gap-2">
+<h3 class="font-display font-bold text-[17px] text-on-background leading-tight">Huellas Felices</h3>
+<div class="flex items-center gap-1 text-[11px] font-bold text-secondary bg-secondary-fixed px-2.5 py-1 rounded-full shrink-0">
+<span class="material-symbols-outlined text-[14px]">location_on</span> 3.5 km
+                    </div>
+</div>
+<p class="font-label text-sm text-on-surface-variant mt-1">Refugio y Adopción</p>
+<div class="mt-3 flex gap-2">
+<button class="bg-secondary-container text-secondary text-[11px] font-bold px-3 py-1.5 rounded-full hover:bg-secondary hover:text-on-primary transition-colors">Ver perros</button>
+<button class="bg-surface-container text-on-surface-variant text-[11px] font-bold px-3 py-1.5 rounded-full hover:bg-primary-fixed hover:text-primary transition-colors">Donar</button>
+</div>
+</div>
+</article>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-surface-container dark:bg-surface-container-high shadow-[0_-4px_24px_rgba(224,64,160,0.1)] rounded-t-[2rem]">
+<!-- Cerca (Inactive) -->
+<button class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-primary-fixed-dim hover:text-primary transition-colors active:scale-90 rounded-2xl w-20 group">
+<span class="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">explore</span>
+<span class="font-label font-medium text-xs mt-1">Cerca</span>
+</button>
+<!-- Actividad (Inactive) -->
+<button class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-primary-fixed-dim hover:text-primary transition-colors active:scale-90 rounded-2xl w-20 group">
+<span class="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform relative">
+                notifications
+                <!-- Unread dot -->
+<span class="absolute top-0 right-0.5 w-2.5 h-2.5 bg-primary rounded-full border-2 border-surface-container"></span>
+</span>
+<span class="font-label font-medium text-xs mt-1">Actividad</span>
+</button>
+<!-- Recursos (Active) -->
+<button class="flex flex-col items-center justify-center bg-primary text-on-primary rounded-full px-5 py-2.5 shadow-[0_4px_16px_rgba(224,64,160,0.4)] active:scale-90 transition-transform cubic-bezier(0.34, 1.56, 0.64, 1) -mt-6">
+<span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">pets</span>
+<span class="font-label font-bold text-[11px] mt-0.5">Recursos</span>
+</button>
+<!-- Perfil (Inactive) -->
+<button class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-primary-fixed-dim hover:text-primary transition-colors active:scale-90 rounded-2xl w-20 group">
+<span class="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">person</span>
+<span class="font-label font-medium text-xs mt-1">Perfil</span>
+</button>
+</nav>
+</body></html>

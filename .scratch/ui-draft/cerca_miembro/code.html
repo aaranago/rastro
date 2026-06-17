@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Rastro - Cerca</title>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts: DM Sans -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed": "#c8eaff",
+                        "surface-dim": "#e0d6e0",
+                        "on-primary-fixed-variant": "#a02070",
+                        "surface-container-low": "#fbf2fb",
+                        "on-tertiary-container": "#00334d",
+                        "on-secondary": "#ffffff",
+                        "surface": "#fef7ff",
+                        "surface-container-lowest": "#ffffff",
+                        "background": "#fef7ff",
+                        "secondary": "#7c52aa",
+                        "primary-fixed": "#ffd6ee",
+                        "surface-container": "#f8eef8",
+                        "secondary-container": "#eedcff",
+                        "on-primary": "#ffffff",
+                        "inverse-surface": "#2e1a28",
+                        "on-secondary-container": "#2e2040",
+                        "error": "#e53e3e",
+                        "on-surface-variant": "#604868",
+                        "tertiary": "#0096cc",
+                        "tertiary-container": "#40c0ee",
+                        "primary-fixed-dim": "#f0a0cc",
+                        "on-primary-fixed": "#3d0028",
+                        "inverse-primary": "#f0a0cc",
+                        "surface-variant": "#f2e8f2",
+                        "primary-container": "#f080c0",
+                        "on-background": "#2e1a28",
+                        "secondary-fixed": "#eedcff",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed-dim": "#80d0f0",
+                        "inverse-on-surface": "#fef7ff",
+                        "on-error": "#ffffff",
+                        "surface-container-highest": "#ece2ec",
+                        "primary": "#e040a0",
+                        "outline-variant": "#dcc8e0",
+                        "on-primary-container": "#2e1a28",
+                        "on-tertiary-fixed-variant": "#005580",
+                        "secondary-fixed-dim": "#c8a8e8",
+                        "on-tertiary-fixed": "#001a33",
+                        "surface-bright": "#fef7ff",
+                        "surface-tint": "#e040a0",
+                        "outline": "#907898",
+                        "on-error-container": "#9b1c1c",
+                        "on-secondary-fixed": "#1a1030",
+                        "surface-container-high": "#f2e8f2",
+                        "on-surface": "#2e1a28",
+                        "on-secondary-fixed-variant": "#4a3068",
+                        "error-container": "#ffe8e8"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {},
+                    "fontFamily": {
+                        "headline": ["DM Sans", "sans-serif"],
+                        "display": ["DM Sans", "sans-serif"],
+                        "body": ["DM Sans", "sans-serif"],
+                        "label": ["DM Sans", "sans-serif"]
+                    },
+                    "fontSize": {}
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background-color: #fef7ff; /* surface/background */
+        }
+        
+        /* Candy Theme Utilities */
+        .candy-shadow-primary {
+            box-shadow: 0 4px 16px rgba(224, 64, 160, 0.2);
+        }
+        .candy-shadow-secondary {
+            box-shadow: 0 4px 16px rgba(124, 82, 170, 0.15);
+        }
+        .candy-shadow-tertiary {
+            box-shadow: 0 8px 24px rgba(0, 150, 204, 0.2);
+        }
+        
+        .bouncy-hover {
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .bouncy-hover:hover {
+            transform: scale(1.03);
+        }
+        
+        .pulse-ring {
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 1; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
+
+        /* Hide scrollbar for horizontal scroll areas */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background antialiased pb-28 pt-20 selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-4 h-16 bg-background dark:bg-background">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-variant transition-colors text-primary dark:text-primary-fixed-dim bouncy-hover">
+<span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">pets</span>
+</button>
+<h1 class="text-2xl font-black text-primary dark:text-primary-fixed-dim tracking-tight font-headline">Rastro</h1>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-variant transition-colors text-primary dark:text-primary-fixed-dim bouncy-hover">
+<span class="material-symbols-outlined text-[28px]">search</span>
+</button>
+</header>
+<main class="px-4 max-w-md mx-auto relative flex flex-col gap-6">
+<!-- Welcome Section -->
+<section class="flex items-center justify-between mt-2">
+<div>
+<h2 class="text-2xl font-bold font-headline text-secondary mb-1">¡Hola, Camila!</h2>
+<p class="text-on-surface-variant font-medium text-sm">Explora la actividad cerca de ti</p>
+</div>
+<div class="w-14 h-14 rounded-full overflow-hidden candy-shadow-secondary border-2 border-surface border-white">
+<img class="w-full h-full object-cover" data-alt="A cheerful, high-key portrait photograph of a young woman smiling warmly. She has curly brown hair and is wearing a casual bright blue sweater. The lighting is soft and natural, creating a welcoming mood. The background is a clean, solid very light pink, integrating perfectly into a playful, vibrant, and joyful mobile application UI design system." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxqOD0hdkbv3EbVVTFzyp3KyC2yKq12w4eyMTGWdVulLKlp082n8iLMxsFxbwNRSogA7BDN9ILQkEEKvVTKTmXxeOrzulAeAjMWTmllSeGHE38m3r8TejWsVltfmTXb1FXCI3d-YWb4DtFg58GmBppXX_rUWzNdxUqNm9EWDTQ-zVODKh_6VaPwyB94fVSRxX4j0pU1c5EqWz3_8rzxrZVb_r4U1-ngxmTpx2ZJ01SMEBLzCdqnYYp_Uw0Y-RtANi4IUqygDp58K8"/>
+</div>
+</section>
+<!-- Sticky Alert Surface -->
+<div class="sticky top-20 z-30 w-full bg-primary text-on-primary rounded-full px-5 py-4 candy-shadow-primary flex items-center justify-between bouncy-hover cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="relative w-8 h-8 flex items-center justify-center">
+<div class="absolute inset-0 bg-white rounded-full pulse-ring opacity-50"></div>
+<span class="material-symbols-outlined text-white relative z-10" style="font-variation-settings: 'FILL' 1;">campaign</span>
+</div>
+<span class="font-bold text-sm tracking-wide">Alerta activa: Perro perdido a 500m</span>
+</div>
+<span class="material-symbols-outlined text-white opacity-80">chevron_right</span>
+</div>
+<!-- Main Map Area (Bento Layout) -->
+<section class="relative w-full h-[450px] rounded-[2rem] overflow-hidden candy-shadow-tertiary border-4 border-white group">
+<!-- Map Background -->
+<div class="absolute inset-0 bg-cover bg-center w-full h-full transition-transform duration-1000 group-hover:scale-105" data-alt="A bright, stylized street map view of a vibrant urban neighborhood in a modern application interface style. The map features soft, pastel pink and sky blue routes over a very light pinkish-white background. Gentle 3D buildings with rounded edges populate the blocks, casting soft colorful shadows. The overall mood is playful, inviting, and highly legible, fitting perfectly into a candy-colored, joyful pop design system." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAw7GcigpFZArZbNuqPRWU4Ke5WcJutHCaU8i1_JCwdzC6VNhdrsaabT9cv3mATe2zP8e1KSN6UI8XefHJKVFJQpq63pvZuiJA4Xtta-Y6uhd3-jVsIKTm8jVwejLL1IScZdpm7cOmT6rdY3jrSKWzQRj4mosIefNiirlUeL4SDzKNo6R1vcTYA6rX_xAQL00HfJlZIAClgX0FaHXmVZSjytDLnjfFBar7KnVoBWp00EtfCqkojgp8uvyNIkTARbhPY9uly7csJj_U')"></div>
+<!-- Map Overlay Gradients & Elements -->
+<div class="absolute inset-0 bg-gradient-to-t from-secondary-container/90 via-transparent to-transparent"></div>
+<!-- Map Pin -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center bouncy-hover cursor-pointer">
+<div class="bg-white p-1 rounded-full shadow-lg mb-1 relative">
+<div class="w-12 h-12 rounded-full overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A close-up, high-quality portrait of a fluffy white Persian cat with striking blue eyes. The lighting is soft and flattering, highlighting the texture of the fur. The background is a solid, warm pastel pink that perfectly matches a joyful design system. The cat looks curious, providing a lively aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDCGnQqLRVNLIP0TPVmavvfGFURlVOudmDV1krsx6rGatoQtfSelFYQIG8Sb6wr_9IIO0R6b7qTw94kPqqCvOw3c_Cf7z5EwC2cxLPjBpw6GItEoXwVN0lifylUR7TTzZwmq2GyrmEvU94oGVwGWW0b7DlL8Td9jteSaQLekV0TtX9o8qKwlDuV2zL0Vp5S4V5VJpxTFKoHKZzGcmyqzkiE36tbbZSn6fIP7gNb6aRpsmgHMEPKVfdpMxmJGDn96FTnxmC1DawREWI"/>
+</div>
+<div class="absolute -bottom-1 -right-1 w-5 h-5 bg-tertiary rounded-full border-2 border-white flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-[12px] font-bold">pets</span>
+</div>
+</div>
+<div class="bg-surface px-3 py-1 rounded-full text-xs font-bold text-secondary shadow-md">
+                    Pelusa · 150m
+                </div>
+</div>
+<!-- Floating Action Chips over Map -->
+<div class="absolute top-4 left-4 right-4 flex gap-2 overflow-x-auto no-scrollbar pb-2">
+<button class="flex-shrink-0 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-bold text-primary candy-shadow-primary flex items-center gap-2 bouncy-hover">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">filter_alt</span>
+                    Filtros
+                </button>
+<button class="flex-shrink-0 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-bold text-secondary candy-shadow-secondary flex items-center gap-2 bouncy-hover">
+<span class="material-symbols-outlined text-[18px]">local_hospital</span>
+                    Veterinarias
+                </button>
+<button class="flex-shrink-0 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-bold text-tertiary candy-shadow-tertiary flex items-center gap-2 bouncy-hover">
+<span class="material-symbols-outlined text-[18px]">park</span>
+                    Parques
+                </button>
+</div>
+<!-- Nearby Carousel Overlay -->
+<div class="absolute bottom-4 w-full">
+<div class="flex gap-4 overflow-x-auto no-scrollbar px-4 pb-4 snap-x snap-mandatory">
+<!-- Card 1 -->
+<div class="flex-shrink-0 w-64 bg-white rounded-2xl p-3 candy-shadow-secondary snap-center flex items-center gap-3 bouncy-hover cursor-pointer border border-surface-variant">
+<div class="w-16 h-16 rounded-xl overflow-hidden bg-primary-fixed">
+<img class="w-full h-full object-cover" data-alt="A professional, brightly lit pet portrait of a happy Golden Retriever dog sitting outdoors on green grass. The image has a joyful, energetic mood with vibrant colors and high saturation. The dog is looking directly at the camera with its tongue out. The background is softly blurred with bokeh, focusing entirely on the friendly expression of the animal, perfectly suited for a playful, modern app interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBmZxMFhIlWffk9hrCtZWtvOsA-jQ0V-F02UG44L_VOVy0Sow8eW3ufn2QLdlZlsV2TJ3ITPR3bQM6hlKlXYyLm448aamWtn_pXYu1_GSsrCkdXJBwMVa8lwg_FPQwSWjs_meew6_0aJHAFZ_qvvp5_HMVzzTwah0tdUM_VCA03EpEuD01olOgZTyLII0ja21nIlaah4RsHIl1AX2j0N1r4BK3slXrid7UC6004ETMmmbT0d84blhrDmlw_q03_pWYMyGffAQJ9KP8"/>
+</div>
+<div class="flex-1">
+<h3 class="font-bold text-on-surface text-base leading-tight">Max</h3>
+<p class="text-xs text-on-surface-variant font-medium mb-1">Golden Retriever</p>
+<div class="flex items-center gap-1 text-tertiary">
+<span class="material-symbols-outlined text-[14px]">location_on</span>
+<span class="text-xs font-bold">200m de ti</span>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="flex-shrink-0 w-64 bg-white rounded-2xl p-3 candy-shadow-secondary snap-center flex items-center gap-3 bouncy-hover cursor-pointer border border-surface-variant">
+<div class="w-16 h-16 rounded-xl overflow-hidden bg-secondary-container">
+<img class="w-full h-full object-cover" data-alt="A cute portrait of a small brown Dachshund dog wearing a bright yellow bandana. The dog is looking upwards playfully. The lighting is studio quality, creating a pop-art feel with a solid light blue background that contrasts nicely with the dog's coat, fitting a vibrant and joyful design system perfectly." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCN2h9xe1BfideF1PA9tOXgoLV101sWaLGZ89mPQKKvduw_pjDlug8biKCM-1FfWP6blkMYosRgfzh7pSTqzwDrPIS1VjbO0yvBqHt2VcMqlEQRJBsPnzL1Wq-EbT68EtZrseFTCDB6GqR0s8nl9iFrgqnOUr3IVonnsz707LTEI_CCmItlppeoxytE4yLvpkVT9ruZvgWqzxjYynTZbpOHmPrAKQITWCF1SdWOLFa9ukxFNjcSa3TlATeO7K_-kv-ZnOsMFeDUq0E"/>
+</div>
+<div class="flex-1">
+<h3 class="font-bold text-on-surface text-base leading-tight">Bruno</h3>
+<p class="text-xs text-on-surface-variant font-medium mb-1">Dachshund</p>
+<div class="flex items-center gap-1 text-tertiary">
+<span class="material-symbols-outlined text-[14px]">location_on</span>
+<span class="text-xs font-bold">450m de ti</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Global FAB -->
+<button class="fixed bottom-24 right-4 z-40 bg-secondary text-on-secondary w-16 h-16 rounded-full flex items-center justify-center candy-shadow-secondary bouncy-hover">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">add_alert</span>
+</button>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 pb-4 pt-2 bg-surface dark:bg-surface-container-low shadow-[0_-4px_16px_rgba(224,64,160,0.15)] rounded-t-lg">
+<!-- Active Item: Cerca -->
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-full px-5 py-1.5 bouncy-hover scale-90 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">explore</span>
+<span class="font-label text-xs font-bold mt-1">Cerca</span>
+</a>
+<!-- Inactive Items -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-4 py-2 hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-colors rounded-xl bouncy-hover" href="#">
+<span class="material-symbols-outlined text-[24px]">notifications</span>
+<span class="font-label text-xs font-medium mt-1">Actividad</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-4 py-2 hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-colors rounded-xl bouncy-hover" href="#">
+<span class="material-symbols-outlined text-[24px]">menu_book</span>
+<span class="font-label text-xs font-medium mt-1">Recursos</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-4 py-2 hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-colors rounded-xl bouncy-hover" href="#">
+<span class="material-symbols-outlined text-[24px]">person</span>
+<span class="font-label text-xs font-medium mt-1">Perfil</span>
+</a>
+</nav>
+</body></html>

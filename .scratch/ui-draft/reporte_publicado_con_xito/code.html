@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Report Success - Rastro</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts: DM Sans -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..900;1,9..40,400..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#f080c0",
+                        "tertiary-container": "#40c0ee",
+                        "surface-bright": "#fef7ff",
+                        "on-error-container": "#9b1c1c",
+                        "error": "#e53e3e",
+                        "primary": "#e040a0",
+                        "surface-container-low": "#fbf2fb",
+                        "on-secondary-fixed": "#1a1030",
+                        "tertiary-fixed": "#c8eaff",
+                        "outline": "#907898",
+                        "primary-fixed": "#ffd6ee",
+                        "on-surface-variant": "#604868",
+                        "on-background": "#2e1a28",
+                        "surface-variant": "#f2e8f2",
+                        "secondary-fixed-dim": "#c8a8e8",
+                        "error-container": "#ffe8e8",
+                        "on-secondary-container": "#2e2040",
+                        "outline-variant": "#dcc8e0",
+                        "tertiary-fixed-dim": "#80d0f0",
+                        "on-tertiary-fixed": "#001a33",
+                        "secondary": "#7c52aa",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-tint": "#e040a0",
+                        "on-primary": "#ffffff",
+                        "surface-dim": "#e0d6e0",
+                        "on-tertiary-container": "#00334d",
+                        "tertiary": "#0096cc",
+                        "inverse-on-surface": "#fef7ff",
+                        "on-surface": "#2e1a28",
+                        "secondary-fixed": "#eedcff",
+                        "on-secondary": "#ffffff",
+                        "background": "#fef7ff",
+                        "secondary-container": "#eedcff",
+                        "surface": "#fef7ff",
+                        "surface-container-highest": "#ece2ec",
+                        "on-secondary-fixed-variant": "#4a3068",
+                        "on-primary-fixed-variant": "#a02070",
+                        "on-error": "#ffffff",
+                        "primary-fixed-dim": "#f0a0cc",
+                        "surface-container": "#f8eef8",
+                        "inverse-primary": "#f0a0cc",
+                        "inverse-surface": "#2e1a28",
+                        "on-tertiary-fixed-variant": "#005580",
+                        "on-primary-fixed": "#3d0028",
+                        "surface-container-high": "#f2e8f2",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-container": "#2e1a28"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {},
+                    "fontFamily": {
+                        "headline": ["DM Sans", "sans-serif"],
+                        "display": ["DM Sans", "sans-serif"],
+                        "body": ["DM Sans", "sans-serif"],
+                        "label": ["DM Sans", "sans-serif"]
+                    },
+                    "fontSize": {}
+                },
+            },
+        }
+    </script>
+<style>
+        /* Candy System Animations */
+        @keyframes float-up {
+            0% { transform: translateY(100vh) rotate(0deg) scale(0.8); opacity: 1; }
+            100% { transform: translateY(-20vh) rotate(360deg) scale(1.2); opacity: 0; }
+        }
+        .confetti-piece {
+            position: absolute;
+            bottom: -50px;
+            animation: float-up 4s ease-out infinite;
+            z-index: 0;
+        }
+        
+        .bounce-in {
+            animation: bounceIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        
+        @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); opacity: 1; }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .pulse-glow {
+            animation: pulseGlow 2s infinite alternate;
+        }
+
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 0 0 rgba(224, 64, 160, 0.4); }
+            100% { box-shadow: 0 0 0 20px rgba(224, 64, 160, 0); }
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-primary min-h-screen w-full flex flex-col font-body overflow-hidden relative selection:bg-secondary selection:text-on-secondary">
+<!-- Decorative Background Elements (Confetti) -->
+<div class="absolute inset-0 overflow-hidden pointer-events-none">
+<div class="confetti-piece bg-tertiary w-4 h-4 rounded-full" style="left: 10%; animation-delay: 0.2s; animation-duration: 4.5s;"></div>
+<div class="confetti-piece bg-secondary w-6 h-6 rounded-lg" style="left: 25%; animation-delay: 1s; animation-duration: 5s;"></div>
+<div class="confetti-piece bg-tertiary-container w-5 h-5 rounded-full" style="left: 45%; animation-delay: 0.5s; animation-duration: 3.8s;"></div>
+<div class="confetti-piece bg-surface-bright w-8 h-3 rounded-full" style="left: 65%; animation-delay: 1.2s; animation-duration: 4.2s;"></div>
+<div class="confetti-piece bg-secondary w-4 h-4 rounded-full" style="left: 80%; animation-delay: 0.8s; animation-duration: 5.5s;"></div>
+<div class="confetti-piece bg-tertiary w-6 h-6 rounded-full" style="left: 90%; animation-delay: 0.1s; animation-duration: 4s;"></div>
+</div>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col items-center justify-center p-6 z-10 w-full max-w-md mx-auto h-full">
+<!-- Illustration Container -->
+<div class="bounce-in relative w-56 h-56 mb-8 mt-12 flex items-center justify-center">
+<!-- Decorative rings -->
+<div class="absolute inset-0 bg-primary-container rounded-full pulse-glow opacity-60"></div>
+<div class="absolute inset-4 bg-primary-fixed-dim rounded-full"></div>
+<!-- Image Placeholder -->
+<div class="relative z-10 w-48 h-48 bg-cover bg-center rounded-full border-4 border-surface shadow-[0_8px_32px_rgba(26,16,48,0.2)]" data-alt="A joyful, vibrant 3D rendering of a happy community of friendly neighbors and a playful dog. The scene is bathed in bright, soft lighting that evokes a sense of celebration and relief. The visual style uses a playful, candy-colored palette with hot pinks, bright purples, and sky blues against a pristine white background. The characters have soft, rounded shapes, reflecting a modern, friendly UI aesthetic. The overall mood is festive, encouraging, and highly optimistic." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDplZIdhxbytuPtQE8sC3zxMtn9nPbX8VcY6K0m2TMHAsjmuKHFiSORyF7zbMFkKAfFHtCHn4IOqTnipAyjrotC-s6m5NsFRDbPmedcm29Jj7jNWmYiaEVtcvfbjfAiFfTADFMppnUkdNlBJG9D3Y9fZQ6uw7mYUBypgDmK5pw1YtsJWVejSlELq1sBzSg7EpCGO1H08e7iExJ48E2Ix4KamKAADWeF2TbXNZhceL1d-ZXmMbzgJGcMrIMv6Lg9tHAb6cCdnISlyMA')">
+</div>
+<!-- Success Badge -->
+<div class="absolute bottom-0 right-4 bg-tertiary text-on-tertiary w-14 h-14 rounded-full flex items-center justify-center shadow-lg border-4 border-primary z-20">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 32px;">check</span>
+</div>
+</div>
+<!-- Typography Cluster -->
+<div class="text-center w-full mb-10 bounce-in" style="animation-delay: 0.1s; opacity: 0;">
+<h1 class="font-display text-4xl font-extrabold text-on-primary tracking-tight mb-4 leading-tight">
+                ¡Tu reporte<br/>está activo!
+            </h1>
+<p class="font-body text-lg font-medium text-primary-fixed leading-relaxed px-4">
+                Hemos notificado a la comunidad cercana. ¡Mantente atento a las actualizaciones!
+            </p>
+</div>
+<!-- Action Buttons -->
+<div class="w-full space-y-4 mt-auto mb-8 bounce-in flex flex-col" style="animation-delay: 0.2s; opacity: 0;">
+<button class="w-full group relative flex items-center justify-center gap-2 bg-surface text-primary font-label font-bold text-[17px] py-4 px-8 rounded-full shadow-[0_8px_24px_rgba(46,26,40,0.15)] hover:scale-[1.03] active:scale-95 transition-all duration-300 cubic-bezier(0.34,1.56,0.64,1) overflow-hidden">
+<span class="material-symbols-outlined transition-transform group-hover:rotate-12 group-hover:scale-110">share</span>
+                Compartir Reporte
+            </button>
+<button class="w-full flex items-center justify-center gap-2 bg-transparent text-primary-fixed border-2 border-primary-fixed font-label font-bold text-[17px] py-4 px-8 rounded-full hover:bg-primary-fixed hover:text-primary hover:scale-[1.03] active:scale-95 transition-all duration-300 cubic-bezier(0.34,1.56,0.64,1)">
+                Ver mi reporte
+            </button>
+</div>
+</main>
+</body></html>

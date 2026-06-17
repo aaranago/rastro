@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Configuración de Alertas - Rastro</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#40c0ee",
+                        "primary-fixed": "#ffd6ee",
+                        "error": "#e53e3e",
+                        "surface-variant": "#f2e8f2",
+                        "on-surface-variant": "#604868",
+                        "on-secondary-container": "#2e2040",
+                        "tertiary-fixed": "#c8eaff",
+                        "secondary-fixed": "#eedcff",
+                        "surface-container-high": "#f2e8f2",
+                        "on-surface": "#2e1a28",
+                        "surface-tint": "#e040a0",
+                        "on-tertiary-container": "#00334d",
+                        "on-primary-fixed": "#3d0028",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#80d0f0",
+                        "primary-fixed-dim": "#f0a0cc",
+                        "outline-variant": "#dcc8e0",
+                        "on-secondary-fixed-variant": "#4a3068",
+                        "primary-container": "#f080c0",
+                        "on-primary-fixed-variant": "#a02070",
+                        "on-error-container": "#9b1c1c",
+                        "background": "#fef7ff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-dim": "#e0d6e0",
+                        "on-secondary-fixed": "#1a1030",
+                        "error-container": "#ffe8e8",
+                        "surface-container-low": "#fbf2fb",
+                        "secondary-fixed-dim": "#c8a8e8",
+                        "secondary": "#7c52aa",
+                        "inverse-surface": "#2e1a28",
+                        "inverse-on-surface": "#fef7ff",
+                        "on-error": "#ffffff",
+                        "surface": "#fef7ff",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-highest": "#ece2ec",
+                        "on-tertiary-fixed": "#001a33",
+                        "inverse-primary": "#f0a0cc",
+                        "tertiary": "#0096cc",
+                        "primary": "#e040a0",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-fixed-variant": "#005580",
+                        "on-background": "#2e1a28",
+                        "surface-bright": "#fef7ff",
+                        "on-primary-container": "#2e1a28",
+                        "secondary-container": "#eedcff",
+                        "surface-container": "#f8eef8",
+                        "outline": "#907898"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "1.25rem",
+                        "xl": "1.5rem",
+                        "2xl": "2rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["DM Sans", "sans-serif"],
+                        "display": ["DM Sans", "sans-serif"],
+                        "body": ["DM Sans", "sans-serif"],
+                        "label": ["DM Sans", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background-color: #fef7ff;
+            background-image: radial-gradient(#ffd6ee 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+        
+        /* Custom Toggle Switch Styles */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #e040a0;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #e040a0;
+        }
+        
+        /* Bouncy transitions */
+        .bouncy-hover {
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+        }
+        .bouncy-hover:hover {
+            transform: scale(1.02) translateY(-2px);
+            box-shadow: 0 12px 24px rgba(224, 64, 160, 0.15);
+        }
+        .bouncy-active:active {
+            transform: scale(0.95);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-background min-h-screen pb-24">
+<!-- Sub-page App Bar (Suppressed Global TopAppBar & BottomNavBar for task focus) -->
+<header class="flex justify-between items-center px-4 h-16 w-full z-50 bg-background/90 backdrop-blur-md sticky top-0 border-b border-surface-variant">
+<button aria-label="Volver" class="p-2 rounded-full hover:bg-surface-variant text-primary transition-colors flex items-center justify-center group">
+<span class="material-symbols-outlined text-[28px] group-hover:-translate-x-1 transition-transform">arrow_back</span>
+</button>
+<h1 class="font-headline text-lg font-bold text-primary tracking-tight absolute left-1/2 -translate-x-1/2">Configuración de Alertas</h1>
+<div class="w-10"></div> <!-- Spacer for centering -->
+</header>
+<main class="max-w-md mx-auto px-4 py-6 space-y-6">
+<!-- Radio de búsqueda Section -->
+<section class="bg-surface-container-lowest rounded-2xl p-5 shadow-[0_4px_16px_rgba(124,82,170,0.06)] border border-surface-variant bouncy-hover">
+<h2 class="font-headline font-bold text-secondary mb-4 flex items-center gap-2 text-lg">
+<span class="material-symbols-outlined fill-current" style="font-variation-settings: 'FILL' 1;">radar</span>
+                Radio de búsqueda
+            </h2>
+<p class="text-sm text-on-surface-variant mb-4">Define la distancia máxima para recibir notificaciones sobre mascotas perdidas.</p>
+<!-- Segmented Control -->
+<div class="flex bg-surface-container-highest rounded-full p-1 relative z-0" id="radius-selector">
+<div class="absolute inset-y-1 left-1 w-[calc(25%-0.5rem)] bg-primary rounded-full shadow-sm transition-all duration-300 ease-out z-[-1]" id="radius-indicator"></div>
+<button class="flex-1 text-center py-2 text-sm font-bold text-on-primary rounded-full transition-colors radius-btn" data-index="0" data-val="1">1 km</button>
+<button class="flex-1 text-center py-2 text-sm font-bold text-on-surface-variant rounded-full transition-colors radius-btn" data-index="1" data-val="5">5 km</button>
+<button class="flex-1 text-center py-2 text-sm font-bold text-on-surface-variant rounded-full transition-colors radius-btn" data-index="2" data-val="10">10 km</button>
+<button class="flex-1 text-center py-2 text-sm font-bold text-on-surface-variant rounded-full transition-colors radius-btn" data-index="3" data-val="20">20 km</button>
+</div>
+</section>
+<!-- Alertas de movimiento Section -->
+<section class="bg-surface-container-lowest rounded-2xl p-5 shadow-[0_4px_16px_rgba(224,64,160,0.06)] border border-surface-variant bouncy-hover">
+<div class="flex justify-between items-center mb-2">
+<h2 class="font-headline font-bold text-secondary flex items-center gap-2 text-lg">
+<span class="material-symbols-outlined fill-current" style="font-variation-settings: 'FILL' 1;">my_location</span>
+                    Alertas de movimiento
+                </h2>
+<!-- Toggle -->
+<div class="relative inline-block w-14 h-8 align-middle select-none transition duration-200 ease-in">
+<input checked="" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 border-surface-variant appearance-none cursor-pointer top-1 left-1 transition-all duration-300 z-10 checked:translate-x-6 checked:border-primary" id="toggle-movement" name="toggle-movement" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-8 rounded-full bg-surface-variant cursor-pointer transition-colors duration-300" for="toggle-movement"></label>
+</div>
+</div>
+<p class="text-sm text-on-surface-variant leading-relaxed">
+                Utiliza tu ubicación en segundo plano para enviarte alertas en tiempo real si te acercas a una zona donde se ha reportado una mascota recientemente.
+            </p>
+</section>
+<!-- Preferencias de Notificación -->
+<section class="bg-surface-container-lowest rounded-2xl p-2 shadow-[0_4px_16px_rgba(0,150,204,0.06)] border border-surface-variant">
+<div class="p-4 border-b border-surface-variant flex justify-between items-center hover:bg-surface-container-low transition-colors rounded-t-2xl cursor-pointer" onclick="document.getElementById('toggle-new').click()">
+<div>
+<h3 class="font-bold text-on-surface">Nuevos reportes cerca</h3>
+<p class="text-xs text-on-surface-variant mt-0.5">Mascotas perdidas en tu radio</p>
+</div>
+<div class="relative inline-block w-12 h-6 align-middle select-none pointer-events-none">
+<input checked="" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 border-surface-variant appearance-none top-0.5 left-0.5 transition-all duration-300 z-10 checked:translate-x-6 checked:border-primary" id="toggle-new" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-surface-variant transition-colors duration-300"></label>
+</div>
+</div>
+<div class="p-4 border-b border-surface-variant flex justify-between items-center hover:bg-surface-container-low transition-colors cursor-pointer" onclick="document.getElementById('toggle-updates').click()">
+<div>
+<h3 class="font-bold text-on-surface">Actualizaciones de mis reportes</h3>
+<p class="text-xs text-on-surface-variant mt-0.5">Comentarios y avistamientos</p>
+</div>
+<div class="relative inline-block w-12 h-6 align-middle select-none pointer-events-none">
+<input checked="" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 border-surface-variant appearance-none top-0.5 left-0.5 transition-all duration-300 z-10 checked:translate-x-6 checked:border-primary" id="toggle-updates" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-surface-variant transition-colors duration-300"></label>
+</div>
+</div>
+<div class="p-4 flex justify-between items-center hover:bg-surface-container-low transition-colors rounded-b-2xl cursor-pointer" onclick="document.getElementById('toggle-messages').click()">
+<div>
+<h3 class="font-bold text-on-surface">Mensajes directos</h3>
+<p class="text-xs text-on-surface-variant mt-0.5">Otros usuarios contactándote</p>
+</div>
+<div class="relative inline-block w-12 h-6 align-middle select-none pointer-events-none">
+<input class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 border-surface-variant appearance-none top-0.5 left-0.5 transition-all duration-300 z-10 checked:translate-x-6 checked:border-primary" id="toggle-messages" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-surface-variant transition-colors duration-300"></label>
+</div>
+</div>
+</section>
+<!-- Privacy Note -->
+<div class="bg-tertiary-fixed rounded-2xl p-4 flex gap-3 items-start shadow-sm border border-tertiary-fixed-dim">
+<span class="material-symbols-outlined text-tertiary shrink-0" style="font-variation-settings: 'FILL' 1;">security</span>
+<p class="text-sm text-on-tertiary-container font-medium leading-tight">
+                Tus datos de ubicación son anónimos y solo se utilizan para calcular proximidad. Rastro nunca comparte tu ubicación exacta con otros usuarios.
+            </p>
+</div>
+</main>
+<!-- Floating Action Area (Bottom) -->
+<div class="fixed bottom-0 left-0 w-full p-4 bg-gradient-to-t from-background via-background to-transparent z-40 pb-6">
+<div class="max-w-md mx-auto">
+<button class="w-full bg-primary text-on-primary rounded-full py-4 font-headline font-bold text-lg shadow-[0_8px_24px_rgba(224,64,160,0.3)] bouncy-hover bouncy-active flex justify-center items-center gap-2">
+                Guardar cambios
+                <span class="material-symbols-outlined text-xl">check_circle</span>
+</button>
+</div>
+</div>
+<script>
+        // Microinteraction logic for Segmented Control
+        const buttons = document.querySelectorAll('.radius-btn');
+        const indicator = document.getElementById('radius-indicator');
+        
+        buttons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Remove active classes
+                buttons.forEach(b => {
+                    b.classList.remove('text-on-primary');
+                    b.classList.add('text-on-surface-variant');
+                });
+                
+                // Add active class to clicked
+                const target = e.target;
+                target.classList.remove('text-on-surface-variant');
+                target.classList.add('text-on-primary');
+                
+                // Move indicator
+                const index = target.getAttribute('data-index');
+                indicator.style.transform = `translateX(${index * 100}%)`;
+            });
+        });
+    </script>
+</body></html>
