@@ -16,6 +16,7 @@ import { Image } from "expo-image";
 import type { ReportIntent } from "../../i18n";
 import type { ShellAuthActionResult, ShellAuthCredentials } from "./shell-auth";
 import type { ShellAuthPrompt, ShellReportAction } from "./shell-model";
+import { LostReportCreationScreen } from "../lost-report-creation/lost-report-creation-screen";
 import { prepareShellAuthCredentials } from "./shell-auth";
 import { useRastroShell } from "./shell-provider";
 import { reportIntentColors, shellColors } from "./shell-theme";
@@ -40,6 +41,7 @@ export function ShellIcon({ name, color, size = 22 }: IconProps) {
 export function ShellFabHost() {
   const {
     chooseReportIntent,
+    clearMemberIntent,
     closeReportActions,
     continueAsVisitor,
     copy,
@@ -103,7 +105,31 @@ export function ShellFabHost() {
         signInPendingLabel={copy.authPrompt.signingIn}
         signInLabel={copy.authPrompt.signIn}
       />
+
+      <LostReportCreationModal
+        onClose={clearMemberIntent}
+        visible={state.memberIntent?.intent === "lost"}
+      />
     </>
+  );
+}
+
+function LostReportCreationModal({
+  onClose,
+  visible,
+}: {
+  onClose: () => void;
+  visible: boolean;
+}) {
+  return (
+    <Modal
+      animationType="slide"
+      onRequestClose={onClose}
+      presentationStyle="fullScreen"
+      visible={visible}
+    >
+      <LostReportCreationScreen onClose={onClose} />
+    </Modal>
   );
 }
 

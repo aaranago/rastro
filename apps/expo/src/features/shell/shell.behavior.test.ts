@@ -7,6 +7,7 @@ import {
 } from "./shell-auth";
 import {
   chooseReportAction,
+  continueReportActionAsMember,
   createInitialShellState,
   createShellModel,
   createShellProfileModel,
@@ -155,6 +156,37 @@ describe("Rastro shell", () => {
     expect(nextState.authPrompt?.title).toBe("Inicia sesion para continuar");
     expect(nextState.authPrompt?.selectedIntentLabel).toBe("Reportar perdida");
     expect(nextState.authPrompt?.body).toContain("Reportar perdida");
+  });
+
+  it("continues a signed-in member's lost report action into the creation flow", () => {
+    const copy = getShellCopy();
+    const shell = createShellModel({
+      copy,
+      session: {
+        email: "ana@example.com",
+        id: "member_123",
+        kind: "member",
+        name: "Ana",
+      },
+    });
+    const lostAction = shell.reportActions.find(
+      (action) => action.intent === "lost",
+    );
+
+    if (!lostAction) {
+      throw new Error("Expected a lost report action");
+    }
+
+    const nextState = continueReportActionAsMember(
+      createInitialShellState(),
+      lostAction,
+    );
+
+    expect(nextState.authPrompt).toBeNull();
+    expect(nextState.memberIntent).toEqual({
+      intent: "lost",
+      label: "Reportar perdida",
+    });
   });
 
   it("exposes reusable Spanish app states from the shell", () => {

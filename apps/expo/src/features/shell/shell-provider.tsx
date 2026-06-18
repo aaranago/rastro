@@ -27,6 +27,7 @@ interface RastroShellContextValue {
   model: ShellModel;
   session: ShellSession;
   state: ShellState;
+  clearMemberIntent: () => void;
   openReportActions: () => void;
   closeReportActions: () => void;
   chooseReportIntent: (intent: ReportIntent) => void;
@@ -117,6 +118,13 @@ export function RastroShellProvider({
     setState((current) => ({
       ...current,
       authPrompt: null,
+    }));
+  }, []);
+
+  const clearMemberIntent = React.useCallback(() => {
+    setState((current) => ({
+      ...current,
+      memberIntent: null,
     }));
   }, []);
 
@@ -219,6 +227,7 @@ export function RastroShellProvider({
       model,
       session,
       state,
+      clearMemberIntent,
       openReportActions,
       closeReportActions,
       chooseReportIntent,
@@ -232,6 +241,7 @@ export function RastroShellProvider({
     }),
     [
       chooseReportIntent,
+      clearMemberIntent,
       closeReportActions,
       continueAsVisitor,
       copy,
