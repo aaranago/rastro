@@ -1,6 +1,6 @@
 # Build Activity tab for alerts, chats, updates, and matches
 
-Status: ready-for-agent
+Status: complete
 Type: AFK
 
 ## Parent
@@ -13,12 +13,12 @@ Build `Actividad` as the member's recovery activity hub: alert history, chats, r
 
 ## Acceptance criteria
 
-- [ ] `Actividad` shows alert history for nearby lost-pet alerts.
-- [ ] `Actividad` shows chat conversations tied to reports/listings.
-- [ ] `Actividad` shows owned report updates and status prompts.
-- [ ] Candidate matches can be represented in the list even if matching logic is minimal in v1.
-- [ ] Visitors see an appropriate signed-out state.
-- [ ] Tapping an item deep-links to the relevant report, listing, chat, or setting.
+- [x] `Actividad` shows alert history for nearby lost-pet alerts.
+- [x] `Actividad` shows chat conversations tied to reports/listings.
+- [x] `Actividad` shows owned report updates and status prompts.
+- [x] Candidate matches can be represented in the list even if matching logic is minimal in v1.
+- [x] Visitors see an appropriate signed-out state.
+- [x] Tapping an item deep-links to the relevant report, listing, chat, or setting.
 
 ## Blocked by
 

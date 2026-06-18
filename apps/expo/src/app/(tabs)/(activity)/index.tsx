@@ -1,4 +1,4 @@
-import { ActivityScreen } from "~/features/shell/shell-screens";
+import { ActivityScreen } from "~/features/activity";
 
 export default function ActivityRoute() {
   return <ActivityScreen />;
