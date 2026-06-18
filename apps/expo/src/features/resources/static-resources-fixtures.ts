@@ -10,6 +10,7 @@ const clinicSanRoque: ResourceProviderFixture = {
   categoryId: "veterinary",
   description: "Veterinaria especializada",
   approximateLocationLabel: "Sopocachi, La Paz",
+  serviceAreaLabel: "Atiende La Paz y El Alto",
   distanceMeters: 800,
   exactLocation: {
     addressLabel: "Plaza Abaroa, La Paz",
@@ -264,6 +265,7 @@ const providers = [
 const profiles = [
   {
     ...toPublicProviderSummary(clinicSanRoque),
+    serviceAreaLabel: "Atiende La Paz y El Alto",
     hoursLabel: "Lun - Dom: 24 horas",
     shortDescription:
       "Atención veterinaria general, urgencias y orientación para familias que buscan apoyo cerca de La Paz.",
@@ -274,39 +276,51 @@ const profiles = [
         url: "https://instagram.example.com/sanroque",
       },
     ],
+    externalLinks: [
+      {
+        label: "Ficha externa",
+        url: "https://sanroque.example.com/ficha",
+      },
+    ],
   },
   {
     ...toPublicProviderSummary(peludosFelices),
+    serviceAreaLabel: "Atiende Santa Cruz de la Sierra",
     hoursLabel: "Lun - Sáb: 09:00 - 19:00",
     shortDescription:
       "Servicios de peluquería, baño y cuidado básico para perros y gatos.",
   },
   {
     ...toPublicProviderSummary(alimentosPatitas),
+    serviceAreaLabel: "Atiende Cochabamba",
     hoursLabel: "Lun - Sáb: 08:30 - 20:00",
     shortDescription:
       "Alimentos, orientación nutricional básica y productos de cuidado para mascotas en Cochabamba.",
   },
   {
     ...toPublicProviderSummary(kawsayEntrenamiento),
+    serviceAreaLabel: "Clases en Cochabamba y alrededores",
     hoursLabel: "Lun - Vie: 09:00 - 18:00",
     shortDescription:
       "Entrenamiento amable para perros y acompañamiento a familias cuidadoras.",
   },
   {
     ...toPublicProviderSummary(tiendaAndina),
+    serviceAreaLabel: "Atiende La Paz",
     hoursLabel: "Lun - Dom: 10:00 - 20:00",
     shortDescription:
       "Accesorios, camas, correas y productos de cuidado cotidiano para mascotas.",
   },
   {
     ...toPublicProviderSummary(petMovilBolivia),
+    serviceAreaLabel: "Traslados urbanos programados",
     hoursLabel: "Con reserva: 07:00 - 21:00",
     shortDescription:
       "Traslado programado para mascotas dentro de la ciudad, con énfasis en seguridad y coordinación previa.",
   },
   {
     ...toPublicProviderSummary(apoyoMascotero),
+    serviceAreaLabel: "Red de apoyo en Tarija",
     hoursLabel: "Mensajes: 09:00 - 18:00",
     shortDescription:
       "Orientación comunitaria para encontrar apoyo local cuando una mascota necesita ayuda.",

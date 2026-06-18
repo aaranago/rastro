@@ -4,6 +4,10 @@ export {
   VerificationBadge,
 } from "./resource-provider-card";
 export { ResourceProviderProfile } from "./resource-provider-profile";
+export {
+  buildResourceProviderProfileHref,
+  ResourceProviderProfileScreen,
+} from "./resource-provider-profile-screen";
 export { ResourcesScreen } from "./resources-screen";
 export type {
   ResourceCategoryId,

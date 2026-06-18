@@ -17,6 +17,10 @@ export default function ResourcesStackLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: copy.tabs.resources }} />
+      <Stack.Screen
+        name="proveedores/[providerId]"
+        options={{ title: "Proveedor local" }}
+      />
     </Stack>
   );
 }

@@ -214,6 +214,98 @@ describe("Resources directory", () => {
     });
   });
 
+  it("shows the provider profile contract with trust, sponsor, contact, and report details separated", () => {
+    const profile = rastroResourceFixtures.profiles.find(
+      (providerProfile) => providerProfile.id === "clinic-san-roque",
+    );
+
+    if (!profile) {
+      throw new Error("Missing Clínica Veterinaria San Roque fixture");
+    }
+
+    const viewModel = buildResourceProviderProfileViewModel(profile);
+
+    expect(viewModel).toMatchObject({
+      id: "clinic-san-roque",
+      name: "Clínica Veterinaria San Roque",
+      subtitle: "Veterinaria especializada",
+      heroImageUrl: "https://example.com/san-roque-photo.png",
+      logoUrl: "https://example.com/san-roque-logo.png",
+      badges: [
+        { label: "Veterinarias", tone: "category" },
+        { label: "Verificado", tone: "verified" },
+        { label: "Patrocinado", tone: "sponsor" },
+        { label: "Urgencias 24h", tone: "emergency" },
+      ],
+      primaryActions: [
+        {
+          kind: "phone",
+          label: "Llamar",
+          value: "+591 2 222 1111",
+        },
+        {
+          kind: "whatsapp",
+          label: "WhatsApp",
+          value: "+591 70000001",
+        },
+        {
+          kind: "directions",
+          label: "Cómo llegar",
+          value: "geo:-16.5109,-68.1213",
+        },
+      ],
+      sections: [
+        {
+          title: "Sobre",
+          rows: [
+            {
+              label: "Descripción",
+              value:
+                "Atención veterinaria general, urgencias y orientación para familias que buscan apoyo cerca de La Paz.",
+            },
+          ],
+        },
+        {
+          title: "Horario y zona",
+          rows: [
+            {
+              label: "Horario",
+              value: "Lun - Dom: 24 horas",
+            },
+            {
+              label: "Ubicación",
+              value: "Sopocachi, La Paz",
+            },
+            {
+              label: "Cobertura",
+              value: "Atiende La Paz y El Alto",
+            },
+          ],
+        },
+      ],
+      optionalLinks: [
+        {
+          label: "Sitio web",
+          url: "https://sanroque.example.com",
+        },
+        {
+          label: "Instagram",
+          url: "https://instagram.example.com/sanroque",
+        },
+        {
+          label: "Ficha externa",
+          url: "https://sanroque.example.com/ficha",
+        },
+      ],
+      sponsorDisclosure:
+        "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+      reportAction: {
+        label: "Reportar",
+        providerId: "clinic-san-roque",
+      },
+    });
+  });
+
   it("omits missing provider profile optional fields without leaving empty sections", () => {
     const profile = rastroResourceFixtures.profiles.find(
       (providerProfile) => providerProfile.id === "peludos-felices",
@@ -233,12 +325,13 @@ describe("Resources directory", () => {
       "Web",
     ]);
     expect(viewModel.optionalLinks).toEqual([]);
+    expect(viewModel.sponsorDisclosure).toBeUndefined();
     expect(viewModel.sections.map((section) => section.title)).toEqual([
       "Sobre",
       "Horario y zona",
     ]);
     expect(viewModel.reportAction).toMatchObject({
-      label: "Reportar perfil",
+      label: "Reportar",
       providerId: "peludos-felices",
     });
   });

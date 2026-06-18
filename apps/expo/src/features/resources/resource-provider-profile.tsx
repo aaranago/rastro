@@ -12,6 +12,11 @@ import { buildResourceProviderProfileViewModel } from "./resources-view-model";
 
 interface ResourceProviderProfileProps {
   profile: ResourceProviderProfile;
+  reportFeedback?: {
+    body: string;
+    title: string;
+    tone: "info" | "success" | "error";
+  };
   onContactAction?: (action: {
     providerId: string;
     kind: ResourceContactOption["kind"];
@@ -28,6 +33,7 @@ interface ResourceProviderProfileProps {
 
 export function ResourceProviderProfile({
   profile,
+  reportFeedback,
   onContactAction,
   onOpenLink,
   onReportProvider,
@@ -125,6 +131,10 @@ export function ResourceProviderProfile({
         </Pressable>
       </View>
 
+      {reportFeedback ? (
+        <ReportFeedbackPanel feedback={reportFeedback} />
+      ) : null}
+
       {viewModel.sections.map((section) => (
         <View key={section.title} style={styles.section}>
           <Text selectable style={styles.sectionTitle}>
@@ -163,6 +173,31 @@ export function ResourceProviderProfile({
         </View>
       ) : null}
     </ScrollView>
+  );
+}
+
+function ReportFeedbackPanel({
+  feedback,
+}: {
+  feedback: NonNullable<ResourceProviderProfileProps["reportFeedback"]>;
+}) {
+  return (
+    <View
+      style={[styles.reportFeedback, reportFeedbackToneStyles[feedback.tone]]}
+    >
+      <Text
+        selectable
+        style={[
+          styles.reportFeedbackTitle,
+          reportFeedbackTitleToneStyles[feedback.tone],
+        ]}
+      >
+        {feedback.title}
+      </Text>
+      <Text selectable style={styles.reportFeedbackBody}>
+        {feedback.body}
+      </Text>
+    </View>
   );
 }
 
@@ -311,6 +346,33 @@ const profileBadgeTextStyles = StyleSheet.create({
   },
 });
 
+const reportFeedbackToneStyles = StyleSheet.create({
+  error: {
+    borderColor: "#F4B6B6",
+    backgroundColor: "#FDECEC",
+  },
+  info: {
+    borderColor: "#C9DDEB",
+    backgroundColor: "#F1F7FB",
+  },
+  success: {
+    borderColor: "#BBDDC5",
+    backgroundColor: "#E7F3EB",
+  },
+});
+
+const reportFeedbackTitleToneStyles = StyleSheet.create({
+  error: {
+    color: resourcesColors.error,
+  },
+  info: {
+    color: resourcesColors.tertiary,
+  },
+  success: {
+    color: resourcesColors.secondary,
+  },
+});
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -443,6 +505,23 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.76,
     transform: [{ scale: 0.98 }],
+  },
+  reportFeedback: {
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 18,
+    borderCurve: "continuous",
+    padding: 14,
+  },
+  reportFeedbackBody: {
+    color: resourcesColors.text,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  reportFeedbackTitle: {
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: "900",
   },
   section: {
     gap: 12,

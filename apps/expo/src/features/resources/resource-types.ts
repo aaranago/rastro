@@ -122,7 +122,11 @@ export type ResourceProviderFixture = ResourceProviderSummary & {
   exactLocation: ResourceProviderExactLocation;
 };
 
-export type ResourceProviderProfile = ResourceProviderSummary & {
+export type ResourceProviderProfile = Omit<
+  ResourceProviderSummary,
+  "serviceAreaLabel"
+> & {
+  serviceAreaLabel: string;
   hoursLabel: string;
   shortDescription: string;
   websiteUrl?: string;

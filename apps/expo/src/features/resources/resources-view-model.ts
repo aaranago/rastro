@@ -248,7 +248,7 @@ export function buildResourceProviderProfileViewModel(
     optionalLinks: buildProfileLinks(profile),
     sponsorDisclosure: profile.sponsorPlacement?.disclosure,
     reportAction: {
-      label: "Reportar perfil",
+      label: "Reportar",
       providerId: profile.id,
     },
   };
@@ -334,12 +334,10 @@ function buildProfileSections(profile: ResourceProviderProfile) {
       },
     ];
 
-  if (profile.serviceAreaLabel !== undefined) {
-    locationRows.push({
-      label: "Cobertura",
-      value: profile.serviceAreaLabel,
-    });
-  }
+  locationRows.push({
+    label: "Cobertura",
+    value: profile.serviceAreaLabel,
+  });
 
   sections.push({
     title: "Horario y zona",

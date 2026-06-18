@@ -1,6 +1,6 @@
 # Build Resource Provider profiles and verification badge display
 
-Status: ready-for-agent
+Status: complete
 Type: AFK
 
 ## Parent
@@ -13,12 +13,12 @@ Let visitors and members view Resource Provider profiles with useful contact and
 
 ## Acceptance criteria
 
-- [ ] A Resource Provider profile shows name, category, logo/photo, location, service area, hours, contact options, and short description.
-- [ ] Optional fields can show website, social links, emergency availability, and other external links.
-- [ ] Verification Badge display is supported but not required for every provider.
-- [ ] The profile has a `Reportar` action.
-- [ ] The profile can be opened from `Recursos` search results.
-- [ ] Sponsor labels are not implied unless a separate sponsor placement exists.
+- [x] A Resource Provider profile shows name, category, logo/photo, location, service area, hours, contact options, and short description.
+- [x] Optional fields can show website, social links, emergency availability, and other external links.
+- [x] Verification Badge display is supported but not required for every provider.
+- [x] The profile has a `Reportar` action.
+- [x] The profile can be opened from `Recursos` search results.
+- [x] Sponsor labels are not implied unless a separate sponsor placement exists.
 
 ## Blocked by
 
@@ -27,3 +27,12 @@ Let visitors and members view Resource Provider profiles with useful contact and
 ## Context
 
 Use `Verification Badge` and `Resource Provider` from `CONTEXT.md`.
+
+## Verification notes
+
+2026-06-18:
+
+- Added the Recursos provider detail route and wired Resource Provider search results to open profile screens.
+- Loaded Resource Provider profiles through the existing resources adapter boundary with Spanish loading, missing, error, and reported states.
+- Added behavior coverage for required provider profile fields, optional links, emergency availability, Verification Badge separation, sponsor disclosure separation, and `Reportar`.
+- Verified with Expo tests, repo typecheck, repo lint, format check, and Fallow audit.
