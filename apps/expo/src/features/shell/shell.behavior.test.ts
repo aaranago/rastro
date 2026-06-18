@@ -149,6 +149,7 @@ describe("Rastro shell", () => {
     ["lost", "Reportar perdida"],
     ["found", "Reportar encontrada"],
     ["sighting", "Reportar avistamiento"],
+    ["adoption", "Dar en adopcion"],
   ] as const)(
     "preserves a visitor's selected %s report intent in the sign-in prompt",
     (intent, label) => {
@@ -176,6 +177,7 @@ describe("Rastro shell", () => {
     ["lost", "Reportar perdida"],
     ["found", "Reportar encontrada"],
     ["sighting", "Reportar avistamiento"],
+    ["adoption", "Dar en adopcion"],
   ] as const)(
     "continues a signed-in member's %s report action into the creation flow",
     (intent, label) => {

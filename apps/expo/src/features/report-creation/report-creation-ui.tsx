@@ -43,6 +43,15 @@ export interface ReportCreationStep {
   label: string;
 }
 
+export interface ReportCreationPetProfileOptionViewModel {
+  body: string;
+  id: string;
+  isSelected: boolean;
+  photoCountLabel: string;
+  thumbnailUri?: string;
+  title: string;
+}
+
 export type ReportCreationPublishState = "editing" | "publishing" | "success";
 
 export type ReportCreationIconComponent = (props: {
@@ -108,6 +117,14 @@ export interface ReportCreationStyles {
   typePillText: StyleProp<TextStyle>;
   typeRow: StyleProp<ViewStyle>;
 }
+
+export type ReportCreationPetProfileListStyles = Pick<
+  ReportCreationStyles,
+  "itemTitle" | "metaText" | "optionCopy" | "optionStack" | "selectedBorder"
+> & {
+  petOption: StyleProp<ViewStyle>;
+  petThumb: StyleProp<ImageStyle>;
+};
 
 export function useReportCreationPetDraftUpdaters<
   TType extends string,
@@ -265,29 +282,12 @@ export function ReportCreationPetSnapshotSection<TType extends string>({
 }) {
   return (
     <ReportCreationSection styles={styles} title={title}>
-      <View style={styles.typeRow}>
-        {typeOptions.map((type) => (
-          <Pressable
-            accessibilityRole="button"
-            key={type}
-            onPress={() => onSelectType(type)}
-            style={[
-              styles.typePill,
-              selectedType === type ? styles.selectedPill : null,
-            ]}
-          >
-            <Text
-              maxFontSizeMultiplier={1.1}
-              style={[
-                styles.typePillText,
-                selectedType === type ? styles.selectedPillText : null,
-              ]}
-            >
-              {type}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      <ReportCreationInlinePetTypeRow
+        onSelectType={onSelectType}
+        selectedType={selectedType}
+        styles={styles}
+        typeOptions={typeOptions}
+      />
       <ReportCreationField
         field={breedField}
         onChangeText={onChangeBreed}
@@ -302,6 +302,101 @@ export function ReportCreationPetSnapshotSection<TType extends string>({
         styles={styles}
       />
     </ReportCreationSection>
+  );
+}
+
+export function ReportCreationExistingPetProfileList({
+  accentColor,
+  Icon,
+  onSelectProfile,
+  options,
+  styles,
+}: {
+  accentColor: string;
+  Icon: ReportCreationIconComponent;
+  onSelectProfile: (profileId: string) => void;
+  options: readonly ReportCreationPetProfileOptionViewModel[];
+  styles: ReportCreationPetProfileListStyles;
+}) {
+  return (
+    <View style={styles.optionStack}>
+      {options.map((profile) => (
+        <Pressable
+          accessibilityRole="button"
+          key={profile.id}
+          onPress={() => onSelectProfile(profile.id)}
+          style={[
+            styles.petOption,
+            profile.isSelected ? styles.selectedBorder : null,
+          ]}
+        >
+          <Image
+            accessibilityLabel={profile.title}
+            contentFit="cover"
+            source={
+              profile.thumbnailUri ? { uri: profile.thumbnailUri } : undefined
+            }
+            style={styles.petThumb}
+          />
+          <View style={styles.optionCopy}>
+            <Text maxFontSizeMultiplier={1.15} style={styles.itemTitle}>
+              {profile.title}
+            </Text>
+            <Text maxFontSizeMultiplier={1.2} style={styles.metaText}>
+              {profile.body} · {profile.photoCountLabel}
+            </Text>
+          </View>
+          {profile.isSelected ? (
+            <Icon color={accentColor} name="checkmark.circle.fill" size={22} />
+          ) : null}
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+export function ReportCreationInlinePetTypeRow<TType extends string>({
+  onSelectType,
+  selectedType,
+  styles,
+  typeOptions,
+}: {
+  onSelectType: (type: TType) => void;
+  selectedType: TType | "";
+  styles: Pick<
+    ReportCreationStyles,
+    | "selectedPill"
+    | "selectedPillText"
+    | "typePill"
+    | "typePillText"
+    | "typeRow"
+  >;
+  typeOptions: readonly TType[];
+}) {
+  return (
+    <View style={styles.typeRow}>
+      {typeOptions.map((type) => (
+        <Pressable
+          accessibilityRole="button"
+          key={type}
+          onPress={() => onSelectType(type)}
+          style={[
+            styles.typePill,
+            selectedType === type ? styles.selectedPill : null,
+          ]}
+        >
+          <Text
+            maxFontSizeMultiplier={1.1}
+            style={[
+              styles.typePillText,
+              selectedType === type ? styles.selectedPillText : null,
+            ]}
+          >
+            {type}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
   );
 }
 

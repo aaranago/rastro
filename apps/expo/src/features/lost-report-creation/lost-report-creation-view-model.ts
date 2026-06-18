@@ -8,13 +8,18 @@ import type {
   LostReportContactDraft,
   LostReportContactOption,
   LostReportDraft,
-  LostReportInlinePetProfileDraft,
   LostReportPetProfileOption,
   LostReportPetSelectionMode,
   LostReportPetType,
   LostReportPhoto,
   LostReportPublishPayload,
 } from "./lost-report-creation-types";
+import {
+  appendRequiredPetSelectionErrors,
+  getReportCreationSelectedPet,
+  getReportCreationSelectedProfile,
+  hasValidReportCreationInlinePet,
+} from "../report-creation/report-creation-pet-selection";
 import { lostReportPetTypeOptions } from "./lost-report-creation-types";
 
 export { lostReportPetTypeOptions };
@@ -460,9 +465,7 @@ function isLostReportPetType(value: unknown): value is LostReportPetType {
   return lostReportPetTypeOptions.includes(value as LostReportPetType);
 }
 
-function requireLostReportPetType(
-  value: LostReportInlinePetProfileDraft["type"],
-) {
+function requireLostReportPetType(value: LostReportDraft["inlinePet"]["type"]) {
   if (!isLostReportPetType(value)) {
     throw new Error("Pet Profile type must be one of the supported options.");
   }
@@ -481,17 +484,12 @@ function validateLostReportDraft({
   const selectedProfile = getSelectedProfile(draft, petProfiles);
   const photos = getEffectivePhotos(draft, selectedProfile);
 
-  if (!selectedProfile && !hasValidInlinePet(draft.inlinePet)) {
-    errors.push("Elige un Pet Profile o crea uno en linea.");
-  }
-
-  if (photos.length === 0) {
-    errors.push("Agrega al menos una foto.");
-  }
-
-  if (!draft.exactLocation) {
-    errors.push("Selecciona la Exact Location interna.");
-  }
+  appendRequiredPetSelectionErrors({
+    errors,
+    hasExactLocation: Boolean(draft.exactLocation),
+    hasSelectedPet: Boolean(selectedProfile) || hasValidInlinePet(draft),
+    photoCount: photos.length,
+  });
 
   if (draft.lostDetails.lastSeenAtLabel.trim().length === 0) {
     errors.push("Indica cuando fue vista por ultima vez.");
@@ -541,7 +539,7 @@ function buildContactOptions(currentOption: LostReportContactOption) {
   ];
 }
 
-function buildInlinePetForm(draft: LostReportInlinePetProfileDraft) {
+function buildInlinePetForm(draft: LostReportDraft["inlinePet"]) {
   return {
     fields: {
       breed: {
@@ -686,45 +684,28 @@ function getSelectedProfile(
   draft: LostReportDraft,
   petProfiles: readonly LostReportPetProfileOption[],
 ) {
-  if (draft.petSelectionMode !== "existing") {
-    return undefined;
-  }
-
-  return petProfiles.find((profile) => profile.id === draft.petProfileId);
+  return getReportCreationSelectedProfile(draft, petProfiles);
 }
 
 function getSelectedPet(
   draft: LostReportDraft,
   selectedProfile?: LostReportPetProfileOption,
 ): LostReportCreationViewModel["selectedPet"] {
-  if (selectedProfile) {
-    return {
-      breedLabel: toOptionalLabel(selectedProfile.breed),
-      description: selectedProfile.description,
-      id: selectedProfile.id,
-      name: selectedProfile.name,
-      thumbnailUri: getPhotoUri(selectedProfile.photos[0]),
-      typeLabel: selectedProfile.type,
-    };
-  }
-
-  if (!hasValidInlinePet(draft.inlinePet)) {
-    return undefined;
-  }
-
-  return {
-    breedLabel: toOptionalLabel(draft.inlinePet.breed),
-    description: draft.inlinePet.description,
-    name: draft.inlinePet.name.trim(),
-    thumbnailUri: getPhotoUri(draft.photos[0]),
-    typeLabel: draft.inlinePet.type,
-  };
+  return getReportCreationSelectedPet({
+    draftPhotos: draft.photos,
+    getPhotoUri,
+    inlinePet: draft.inlinePet,
+    selectedProfile,
+    toOptionalLabel,
+    typeOptions: lostReportPetTypeOptions,
+  });
 }
 
-function hasValidInlinePet(
-  draft: LostReportInlinePetProfileDraft,
-): draft is LostReportInlinePetProfileDraft & { type: LostReportPetType } {
-  return draft.name.trim().length > 0 && isLostReportPetType(draft.type);
+function hasValidInlinePet(draft: LostReportDraft) {
+  return hasValidReportCreationInlinePet(
+    draft.inlinePet,
+    lostReportPetTypeOptions,
+  );
 }
 
 function getEffectivePhotos(

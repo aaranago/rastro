@@ -6,6 +6,7 @@ export type NearbyBrowseMode = "list" | "map";
 
 export type NearbyBrowseAudience = "visitor" | "member";
 export type NearbyPublicReportKind =
+  | "adoption-listing"
   | "found-pet-report"
   | "lost-pet-report"
   | "sighting-report";
@@ -98,7 +99,29 @@ export interface SightingReportSummary {
   shareTarget: PublicReportShareTarget;
 }
 
+export interface AdoptionListingSummary {
+  adoptionSummary: string;
+  breed?: string;
+  distanceMeters?: number;
+  healthNotes?: string;
+  id: string;
+  idealHome?: string;
+  locationCellLabel: string;
+  petName: string;
+  photoUrl?: string;
+  publicLocation: PublicLocation;
+  publishedAtLabel: string;
+  reportKind: "adoption-listing";
+  shareTarget: PublicReportShareTarget;
+  species: string;
+  verificationBadge?: {
+    label: string;
+    visible: boolean;
+  };
+}
+
 export type NearbyPublicReportSummary =
+  | AdoptionListingSummary
   | FoundPetReportSummary
   | LostPetReportSummary
   | SightingReportSummary;

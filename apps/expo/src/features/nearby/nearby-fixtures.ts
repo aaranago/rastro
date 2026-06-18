@@ -1,6 +1,10 @@
-import { buildPublicLostReportShareTarget } from "@acme/validators";
+import {
+  buildPublicAdoptionListingShareTarget,
+  buildPublicLostReportShareTarget,
+} from "@acme/validators";
 
 import type {
+  AdoptionListingSummary,
   LostPetReportSummary,
   NearbySearchLocation,
   SightingReportSummary,
@@ -141,6 +145,33 @@ const nearbySightingReportFixtures = [
   },
 ] satisfies SightingReportSummary[];
 
+const nearbyAdoptionListingFixtures = [
+  {
+    adoptionSummary:
+      "Nala busca un hogar tranquilo donde reciba tiempo, cuidado y carino.",
+    breed: "Mestizo",
+    distanceMeters: 3_100,
+    healthNotes: "Vacunada y desparasitada.",
+    id: "adoption-nala-sopocachi",
+    idealHome: "Familia paciente y ambiente seguro.",
+    locationCellLabel: "Sopocachi",
+    petName: "Nala",
+    photoUrl: "file:///adoption-nala-thumb.jpg",
+    publicLocation: { kind: "approximate" },
+    publishedAtLabel: "Hoy",
+    reportKind: "adoption-listing",
+    shareTarget: buildAdoptionFixtureShareTarget(
+      "adoption-nala-sopocachi",
+      "Nala",
+    ),
+    species: "Gato",
+    verificationBadge: {
+      label: "Organizacion verificada",
+      visible: true,
+    },
+  },
+] satisfies AdoptionListingSummary[];
+
 function buildFixtureShareTarget(reportId: string, title: string) {
   return buildPublicLostReportShareTarget({
     publicWebBaseUrl: "https://rastro.bo",
@@ -162,8 +193,20 @@ function buildSightingFixtureShareTarget(reportId: string, title: string) {
   };
 }
 
+function buildAdoptionFixtureShareTarget(listingId: string, title: string) {
+  return buildPublicAdoptionListingShareTarget({
+    listingId,
+    publicWebBaseUrl: "https://rastro.bo",
+    title,
+  });
+}
+
 export const defaultNearbyLostReportsAdapter =
   createStaticNearbyLostReportsAdapter({
     generatedAt: "2026-06-17T00:00:00.000Z",
-    reports: [...nearbyLostReportFixtures, ...nearbySightingReportFixtures],
+    reports: [
+      ...nearbyLostReportFixtures,
+      ...nearbySightingReportFixtures,
+      ...nearbyAdoptionListingFixtures,
+    ],
   });

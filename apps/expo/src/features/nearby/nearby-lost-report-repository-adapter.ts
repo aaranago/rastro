@@ -1,4 +1,8 @@
 import type {
+  AdoptionListingRepository,
+  AdoptionListingsSessionState,
+} from "../adoption-listings/adoption-listings";
+import type {
   FoundPetReportRepository,
   FoundReportsSessionState,
 } from "../found-reports/found-reports";
@@ -11,15 +15,18 @@ import type {
   SightingReportsSessionState,
 } from "../sighting-reports/sighting-reports";
 import type {
+  AdoptionListingSummary,
   FoundPetReportSummary,
   LostPetReportSummary,
   NearbyLostReportsAdapter,
-  NearbyPublicReportSummary,
   PublicLocation,
   SightingReportSummary,
 } from "./nearby-types";
+import { compareNearbyPublicReports } from "./nearby-ranking";
 
 export interface NearbyLostReportRepositoryAdapterOptions {
+  adoptionListings?: AdoptionListingRepository;
+  adoptionSession?: AdoptionListingsSessionState;
   foundReports?: FoundPetReportRepository;
   foundSession?: FoundReportsSessionState;
   repository: LostPetReportRepository;
@@ -29,12 +36,17 @@ export interface NearbyLostReportRepositoryAdapterOptions {
 }
 
 const visitorSession: LostReportsSessionState = { kind: "visitor" };
+const adoptionVisitorSession: AdoptionListingsSessionState = {
+  kind: "visitor",
+};
 const foundVisitorSession: FoundReportsSessionState = { kind: "visitor" };
 const sightingVisitorSession: SightingReportsSessionState = {
   kind: "visitor",
 };
 
 export function createNearbyLostReportRepositoryAdapter({
+  adoptionListings,
+  adoptionSession = adoptionVisitorSession,
   foundReports,
   foundSession = foundVisitorSession,
   repository,
@@ -89,6 +101,19 @@ export function createNearbyLostReportRepositoryAdapter({
             strategy: "postgis_radius",
           })
         : undefined;
+      const adoptionResult = adoptionListings
+        ? await adoptionListings.searchActiveAdoptionListings(adoptionSession, {
+            location: {
+              coordinates,
+              countryCode: query.location.countryCode,
+              label: query.location.label,
+              locationCellLabel: query.location.locationCellLabel,
+              source: query.location.source,
+            },
+            radiusKm: query.radiusKm,
+            strategy: "postgis_radius",
+          })
+        : undefined;
       const reports = [
         ...lostResult.reports.map((report) =>
           toNearbyLostPetReportSummary({
@@ -108,7 +133,13 @@ export function createNearbyLostReportRepositoryAdapter({
             report,
           }),
         ) ?? []),
-      ].sort(compareNearbyReports);
+        ...(adoptionResult?.listings.map((listing) =>
+          toNearbyAdoptionListingSummary({
+            generatedAt: adoptionResult.generatedAt,
+            listing,
+          }),
+        ) ?? []),
+      ].sort(compareNearbyPublicReports);
 
       return {
         generatedAt: lostResult.generatedAt,
@@ -123,6 +154,39 @@ export function createNearbyLostReportRepositoryAdapter({
         },
       };
     },
+  };
+}
+
+function toNearbyAdoptionListingSummary({
+  generatedAt,
+  listing,
+}: {
+  generatedAt: string;
+  listing: Awaited<
+    ReturnType<AdoptionListingRepository["searchActiveAdoptionListings"]>
+  >["listings"][number];
+}): AdoptionListingSummary {
+  return {
+    adoptionSummary: listing.adoptionSummary,
+    breed: listing.breed,
+    distanceMeters: listing.distanceMeters,
+    healthNotes: listing.healthNotes,
+    id: listing.id,
+    idealHome: listing.idealHome,
+    locationCellLabel: listing.locationCellLabel,
+    petName: listing.petName,
+    photoUrl: listing.photoUrl,
+    publicLocation: toNearbyPublicLocation(listing.publicLocation),
+    publishedAtLabel: formatLastSeenAt(listing.publishedAt, generatedAt),
+    reportKind: "adoption-listing",
+    shareTarget: listing.shareTarget,
+    species: listing.species,
+    verificationBadge: listing.verificationBadge
+      ? {
+          label: listing.verificationBadge.label,
+          visible: true,
+        }
+      : undefined,
   };
 }
 
@@ -215,7 +279,10 @@ function toNearbyPublicLocation(
       >["reports"][number]["publicLocation"]
     | Awaited<
         ReturnType<SightingReportRepository["searchActiveSightingReports"]>
-      >["reports"][number]["publicLocation"],
+      >["reports"][number]["publicLocation"]
+    | Awaited<
+        ReturnType<AdoptionListingRepository["searchActiveAdoptionListings"]>
+      >["listings"][number]["publicLocation"],
 ): PublicLocation {
   if (publicLocation.kind === "exact") {
     return {
@@ -257,34 +324,4 @@ function formatLastSeenAt(lastSeenAt: string, generatedAt: string) {
   }
 
   return `Hace ${days} dias`;
-}
-
-const farAwayDistance = Number.POSITIVE_INFINITY;
-
-function compareNearbyReports(
-  left: NearbyPublicReportSummary,
-  right: NearbyPublicReportSummary,
-) {
-  const priority = priorityScore(right) - priorityScore(left);
-
-  if (priority !== 0) {
-    return priority;
-  }
-
-  return (
-    (left.distanceMeters ?? farAwayDistance) -
-    (right.distanceMeters ?? farAwayDistance)
-  );
-}
-
-function priorityScore(report: NearbyPublicReportSummary) {
-  if (report.reportKind === "found-pet-report") {
-    return 1;
-  }
-
-  if (report.reportKind === "sighting-report") {
-    return 1;
-  }
-
-  return report.alertPriority === "urgent" ? 2 : 1;
 }

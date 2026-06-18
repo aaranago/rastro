@@ -20,6 +20,7 @@ import type {
   ShellReportAction,
   ShellSession,
 } from "./shell-model";
+import { AdoptionListingCreationScreen } from "../adoption-listing-creation/adoption-listing-creation-screen";
 import { FoundReportCreationScreen } from "../found-report-creation/found-report-creation-screen";
 import { LostReportCreationScreen } from "../lost-report-creation/lost-report-creation-screen";
 import { SightingReportCreationScreen } from "../sighting-report-creation/sighting-report-creation-screen";
@@ -129,6 +130,12 @@ export function ShellFabHost() {
         session={session}
         visible={state.memberIntent?.intent === "sighting"}
       />
+
+      <AdoptionListingCreationModal
+        onClose={clearMemberIntent}
+        session={session}
+        visible={state.memberIntent?.intent === "adoption"}
+      />
     </>
   );
 }
@@ -201,6 +208,38 @@ function SightingReportStartModal({
       visible={visible}
     >
       <SightingReportCreationScreen
+        onClose={onClose}
+        session={
+          session.kind === "member"
+            ? {
+                displayName: session.name ?? undefined,
+                kind: "member",
+                memberId: session.id,
+              }
+            : { kind: "visitor" }
+        }
+      />
+    </Modal>
+  );
+}
+
+function AdoptionListingCreationModal({
+  onClose,
+  session,
+  visible,
+}: {
+  onClose: () => void;
+  session: ShellSession;
+  visible: boolean;
+}) {
+  return (
+    <Modal
+      animationType="slide"
+      onRequestClose={onClose}
+      presentationStyle="fullScreen"
+      visible={visible}
+    >
+      <AdoptionListingCreationScreen
         onClose={onClose}
         session={
           session.kind === "member"

@@ -25,6 +25,10 @@ export default function NearbyStackLayout() {
         name="reportes/avistamientos/[reportId]"
         options={{ title: "Avistamiento" }}
       />
+      <Stack.Screen
+        name="adopciones/[listingId]"
+        options={{ title: "Adopcion" }}
+      />
     </Stack>
   );
 }

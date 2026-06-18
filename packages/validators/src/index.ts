@@ -21,10 +21,47 @@ export interface PublicLostReportShareTarget {
   webUrl: string;
 }
 
+export interface PublicAdoptionListingShareTargetInput {
+  listingId: string;
+  publicWebBaseUrl: string;
+  title: string;
+}
+
+export interface PublicAdoptionListingShareTarget {
+  appDeepLink: string;
+  message: string;
+  path: string;
+  title: string;
+  webUrl: string;
+}
+
+const publicAdoptionListingPathPrefix = "/adopciones";
 const publicLostReportPathPrefix = "/reportes/perdidos";
+
+export function publicAdoptionListingPathForId(listingId: string) {
+  return `${publicAdoptionListingPathPrefix}/${encodeURIComponent(listingId)}`;
+}
 
 export function publicLostReportPathForId(reportId: string) {
   return `${publicLostReportPathPrefix}/${encodeURIComponent(reportId)}`;
+}
+
+export function buildPublicAdoptionListingShareTarget({
+  listingId,
+  publicWebBaseUrl,
+  title,
+}: PublicAdoptionListingShareTargetInput): PublicAdoptionListingShareTarget {
+  const path = publicAdoptionListingPathForId(listingId);
+  const webUrl = `${publicWebBaseUrl.replace(/\/+$/, "")}${path}`;
+  const shareTitle = `Mascota en adopcion: ${title}`;
+
+  return {
+    appDeepLink: `rastro://${path.replace(/^\//, "")}`,
+    message: `Conoce a ${title} en adopcion en Rastro: ${webUrl}`,
+    path,
+    title: shareTitle,
+    webUrl,
+  };
 }
 
 export function buildPublicLostReportShareTarget({

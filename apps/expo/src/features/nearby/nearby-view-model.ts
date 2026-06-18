@@ -38,6 +38,10 @@ export interface NearbyPublicLostReportSummaryViewModel {
   summary: string;
   priorityLabel: string;
   shareTarget: PublicReportShareTarget;
+  verificationBadge?: {
+    label: string;
+    visible: boolean;
+  };
 }
 
 export interface NearbyLostReportCardViewModel
@@ -225,6 +229,24 @@ function formatLocationSource(location: NearbySearchLocation) {
 function toPublicSummary(
   report: NearbyPublicReportSummary,
 ): NearbyPublicLostReportSummaryViewModel {
+  if (isAdoptionListingSummary(report)) {
+    return {
+      distanceLabel: formatDistance(report.distanceMeters),
+      eventAtLabel: report.publishedAtLabel,
+      id: report.id,
+      lastSeenAtLabel: report.publishedAtLabel,
+      photoUrl: report.photoUrl,
+      priorityLabel: "Adopcion",
+      publicLocationLabel: formatPublicLocation(report),
+      reportKind: "adoption-listing",
+      shareTarget: report.shareTarget,
+      subtitle: [report.species, report.breed].filter(Boolean).join(" • "),
+      summary: report.adoptionSummary,
+      title: report.petName,
+      verificationBadge: report.verificationBadge,
+    };
+  }
+
   if (isFoundPetReportSummary(report)) {
     return {
       distanceLabel: formatDistance(report.distanceMeters),
@@ -349,6 +371,15 @@ function isFoundPetReportSummary(
   { reportKind: "found-pet-report" }
 > {
   return report.reportKind === "found-pet-report";
+}
+
+function isAdoptionListingSummary(
+  report: NearbyPublicReportSummary,
+): report is Extract<
+  NearbyPublicReportSummary,
+  { reportKind: "adoption-listing" }
+> {
+  return report.reportKind === "adoption-listing";
 }
 
 function isSightingReportSummary(

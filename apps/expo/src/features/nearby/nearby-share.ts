@@ -1,4 +1,7 @@
-import type { PublicLostReportShareTarget } from "@acme/validators";
+import type {
+  NearbyPublicReportKind,
+  PublicReportShareTarget,
+} from "./nearby-types";
 
 export interface NearbyNativeShareSheet {
   share: (
@@ -15,7 +18,8 @@ export interface NearbyNativeShareSheet {
 }
 
 export interface NearbyShareableLostReport {
-  shareTarget: PublicLostReportShareTarget;
+  reportKind?: NearbyPublicReportKind;
+  shareTarget: PublicReportShareTarget;
 }
 
 export function shareNearbyLostReport(
@@ -29,8 +33,24 @@ export function shareNearbyLostReport(
       url: report.shareTarget.webUrl,
     },
     {
-      dialogTitle: "Compartir reporte de mascota perdida",
+      dialogTitle: getShareDialogTitle(report.reportKind),
       subject: report.shareTarget.title,
     },
   );
+}
+
+function getShareDialogTitle(reportKind: NearbyPublicReportKind | undefined) {
+  if (reportKind === "adoption-listing") {
+    return "Compartir adopcion";
+  }
+
+  if (reportKind === "found-pet-report") {
+    return "Compartir reporte de mascota encontrada";
+  }
+
+  if (reportKind === "sighting-report") {
+    return "Compartir avistamiento";
+  }
+
+  return "Compartir reporte de mascota perdida";
 }

@@ -53,6 +53,7 @@ export interface ShellCopy {
       filterLost: string;
       filterFound: string;
       filterSightings: string;
+      filterAdoption: string;
       emptyTitle: string;
       emptyBody: string;
       locationHint: string;
@@ -351,6 +352,7 @@ const esBO: ShellCopy = {
       filterLost: "Perdidas",
       filterFound: "Encontradas",
       filterSightings: "Vistas",
+      filterAdoption: "Adopcion",
       emptyTitle: "Todavia no hay reportes cerca",
       emptyBody:
         "Puedes revisar por ciudad, cambiar filtros o crear un reporte cuando necesites ayuda.",

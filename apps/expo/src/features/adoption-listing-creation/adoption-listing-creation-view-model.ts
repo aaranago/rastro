@@ -1,0 +1,796 @@
+import type {
+  AdoptionListingContactOption as PublishAdoptionListingContactOption,
+  PublishAdoptionListingInput,
+} from "../adoption-listings/adoption-listings";
+import type { PetProfileSummary } from "../pet-profiles/pet-profile-types";
+import type {
+  AdoptionListingContactChoice,
+  AdoptionListingContactDraft,
+  AdoptionListingCreationSession,
+  AdoptionListingDraft,
+  AdoptionListingPetProfileOption,
+  AdoptionListingPetSelectionMode,
+  AdoptionListingPetType,
+  AdoptionListingPhoto,
+} from "./adoption-listing-creation-types";
+import {
+  appendRequiredPetSelectionErrors,
+  getReportCreationSelectedPet,
+  getReportCreationSelectedProfile,
+  hasValidReportCreationInlinePet,
+} from "../report-creation/report-creation-pet-selection";
+import {
+  adoptionListingPetTypeOptions,
+  toAdoptionListingPetProfileOption,
+} from "./adoption-listing-creation-types";
+
+export { adoptionListingPetTypeOptions };
+
+const adoptionListingPhotoLimit = 5;
+
+export interface AdoptionListingFieldViewModel {
+  error?: string;
+  label: string;
+  placeholder: string;
+  value: string;
+}
+
+export interface AdoptionListingCreationViewModel {
+  adoptionDetails: {
+    fields: {
+      adoptionSummary: AdoptionListingFieldViewModel;
+      healthNotes: AdoptionListingFieldViewModel;
+      idealHome: AdoptionListingFieldViewModel;
+    };
+    title: string;
+  };
+  canPublish: boolean;
+  contact: {
+    currentOption: AdoptionListingContactChoice;
+    error?: string;
+    options: {
+      body: string;
+      iconName: string;
+      isSelected: boolean;
+      label: string;
+      value: AdoptionListingContactChoice;
+    }[];
+    whatsappField: AdoptionListingFieldViewModel & {
+      visible: boolean;
+    };
+  };
+  kind: "member";
+  location: {
+    approximatePublicLabel: string;
+    exactInternalLabel: string;
+    exactPinOptInLabel: string;
+    hasExactLocation: boolean;
+    mapPreviewLabel: string;
+    publicPrecisionLabel: string;
+    showExactPinPublicly: boolean;
+    toggleBody: string;
+    toggleLabel: string;
+  };
+  petProfile: {
+    selectedLabel: string;
+  };
+  petSelection: {
+    inlineForm: {
+      fields: {
+        breed: AdoptionListingFieldViewModel;
+        description: AdoptionListingFieldViewModel;
+        name: AdoptionListingFieldViewModel;
+      };
+      modeLabel: string;
+      typeOptions: {
+        isSelected: boolean;
+        label: AdoptionListingPetType;
+        value: AdoptionListingPetType;
+      }[];
+    };
+    mode: AdoptionListingPetSelectionMode;
+    options: {
+      body: string;
+      id: string;
+      isSelected: boolean;
+      photoCountLabel: string;
+      thumbnailUri?: string;
+      title: string;
+    }[];
+  };
+  photos: {
+    canAddPhoto: boolean;
+    countLabel: string;
+    error?: string;
+    helpLabel: string;
+    items: AdoptionListingPhoto[];
+    permissionBody: string;
+    permissionTitle: string;
+  };
+  review: {
+    publishActionLabel: string;
+    rows: {
+      label: string;
+      value: string;
+    }[];
+    validationErrors: string[];
+  };
+  selectedPet?: {
+    breedLabel?: string;
+    description: string;
+    id?: string;
+    name: string;
+    thumbnailUri?: string;
+    typeLabel: AdoptionListingPetType;
+  };
+  steps: {
+    id: "pet" | "details" | "location" | "contact" | "review" | "success";
+    isComplete: boolean;
+    label: string;
+  }[];
+  success: {
+    body: string;
+    primaryActionLabel: string;
+    shareActionLabel: string;
+    title: string;
+  };
+  title: string;
+  verificationBadge: {
+    label?: string;
+    required: false;
+    visible: boolean;
+  };
+}
+
+export function createAdoptionListingDraft(
+  overrides: Partial<AdoptionListingDraft> = {},
+): AdoptionListingDraft {
+  const base: AdoptionListingDraft = {
+    adoptionDetails: {
+      adoptionSummary:
+        "Busca un hogar responsable donde pueda recibir tiempo, cuidado y carino.",
+      healthNotes: "",
+      idealHome: "",
+    },
+    contact: {
+      inAppChatEnabled: true,
+      whatsappEnabled: false,
+      whatsappPhone: "",
+    },
+    inlinePet: {
+      breed: "",
+      description: "",
+      name: "",
+      type: "",
+    },
+    petSelectionMode: "existing",
+    photos: [],
+    showExactPinPublicly: false,
+  };
+
+  return {
+    ...base,
+    ...overrides,
+    adoptionDetails: {
+      ...base.adoptionDetails,
+      ...overrides.adoptionDetails,
+    },
+    contact: {
+      ...base.contact,
+      ...overrides.contact,
+    },
+    inlinePet: {
+      ...base.inlinePet,
+      ...overrides.inlinePet,
+    },
+  };
+}
+
+export function createInitialAdoptionListingDraft({
+  petProfiles,
+}: {
+  petProfiles: readonly (AdoptionListingPetProfileOption | PetProfileSummary)[];
+}): AdoptionListingDraft {
+  const firstProfile = petProfiles[0];
+
+  return createAdoptionListingDraft({
+    petProfileId: firstProfile?.id,
+    petSelectionMode: firstProfile ? "existing" : "inline-create",
+  });
+}
+
+export function buildAdoptionListingCreationViewModel({
+  draft,
+  petProfiles,
+  session,
+}: {
+  draft: AdoptionListingDraft;
+  petProfiles: readonly (AdoptionListingPetProfileOption | PetProfileSummary)[];
+  session?: AdoptionListingCreationSession;
+}): AdoptionListingCreationViewModel {
+  const profileOptions = petProfiles.map(toAdoptionListingPetProfileOption);
+  const selectedProfile = getSelectedProfile(draft, profileOptions);
+  const selectedPet = getSelectedPet(draft, selectedProfile);
+  const effectivePhotos = getEffectivePhotos(draft, selectedProfile);
+  const validationErrors = validateAdoptionListingDraft({
+    draft,
+    petProfiles: profileOptions,
+  });
+  const contactOption = getContactOption(draft.contact);
+  const canPublish = validationErrors.length === 0;
+  const verificationBadge =
+    session?.kind === "member" ? session.verificationBadge : undefined;
+
+  return {
+    adoptionDetails: buildAdoptionDetailsViewModel(draft),
+    canPublish,
+    contact: {
+      currentOption: contactOption,
+      error: getContactError(draft.contact),
+      options: buildContactOptions(contactOption),
+      whatsappField: {
+        error:
+          draft.contact.whatsappEnabled &&
+          draft.contact.whatsappPhone.trim().length === 0
+            ? "Ingresa el numero de WhatsApp que quieres mostrar."
+            : undefined,
+        label: "Numero de WhatsApp",
+        placeholder: "+591 70000000",
+        value: draft.contact.whatsappPhone,
+        visible: draft.contact.whatsappEnabled,
+      },
+    },
+    kind: "member",
+    location: buildLocationViewModel(draft),
+    petProfile: {
+      selectedLabel: selectedPet
+        ? `${selectedPet.name} · ${selectedPet.typeLabel}`
+        : "Crear perfil en linea",
+    },
+    petSelection: {
+      inlineForm: buildInlinePetForm(draft.inlinePet),
+      mode: draft.petSelectionMode,
+      options: profileOptions.map((profile) => ({
+        body: formatPetProfileSubtitle(profile),
+        id: profile.id,
+        isSelected:
+          draft.petSelectionMode === "existing" &&
+          profile.id === draft.petProfileId,
+        photoCountLabel: formatPhotoCount(profile.photos.length),
+        thumbnailUri: getPhotoUri(profile.photos[0]),
+        title: profile.name,
+      })),
+    },
+    photos: {
+      canAddPhoto: effectivePhotos.length < adoptionListingPhotoLimit,
+      countLabel: formatPhotoCount(effectivePhotos.length),
+      error:
+        effectivePhotos.length === 0 ? "Agrega al menos una foto." : undefined,
+      helpLabel:
+        "Maximo 5 fotos. Rastro prepara miniaturas y retira datos de ubicacion antes de subirlas.",
+      items: effectivePhotos,
+      permissionBody:
+        "Te pediremos acceso solo para elegir fotos de esta adopcion.",
+      permissionTitle: "Antes de abrir tus fotos",
+    },
+    review: {
+      publishActionLabel: canPublish ? "Publicar adopcion" : "Completar datos",
+      rows: buildReviewRows({
+        contactOption,
+        draft,
+        photos: effectivePhotos,
+        selectedPet,
+        verificationBadge,
+      }),
+      validationErrors,
+    },
+    selectedPet,
+    steps: buildSteps({
+      canPublish,
+      draft,
+      effectivePhotos,
+      selectedPet,
+    }),
+    success: {
+      body: "Tu adopcion ya puede mostrarse cerca de la zona aproximada y compartirse con la comunidad.",
+      primaryActionLabel: "Ver adopcion",
+      shareActionLabel: "Compartir",
+      title: "Adopcion publicada",
+    },
+    title: "Dar en adopcion",
+    verificationBadge: {
+      label: verificationBadge?.label,
+      required: false,
+      visible: Boolean(verificationBadge),
+    },
+  };
+}
+
+export function toPublishAdoptionListingInput({
+  draft,
+  petProfiles = [],
+}: {
+  draft: AdoptionListingDraft;
+  petProfiles?: readonly (
+    | AdoptionListingPetProfileOption
+    | PetProfileSummary
+  )[];
+}): PublishAdoptionListingInput {
+  const profileOptions = petProfiles.map(toAdoptionListingPetProfileOption);
+  const selectedProfile = getSelectedProfile(draft, profileOptions);
+  const photos = getEffectivePhotos(draft, selectedProfile);
+  const errors = validateAdoptionListingDraft({
+    draft,
+    petProfiles: profileOptions,
+  });
+
+  if (errors.length > 0) {
+    throw new Error(errors.join(" "));
+  }
+
+  if (!draft.exactLocation) {
+    throw new Error("Exact Location is required.");
+  }
+
+  return {
+    adoptionSummary: draft.adoptionDetails.adoptionSummary.trim(),
+    contactOption: toPublishContactOption({
+      option: getContactOption(draft.contact),
+      whatsappPhone: draft.contact.whatsappPhone,
+    }),
+    exactLocation: {
+      addressLabel: draft.exactLocation.addressLabel,
+      countryCode: "BO",
+      latitude: draft.exactLocation.coordinates.latitude,
+      locationCellLabel: draft.exactLocation.locationCellLabel,
+      longitude: draft.exactLocation.coordinates.longitude,
+    },
+    healthNotes: optionalTrimmed(draft.adoptionDetails.healthNotes),
+    idealHome: optionalTrimmed(draft.adoptionDetails.idealHome),
+    petProfile: selectedProfile
+      ? {
+          kind: "existing",
+          petProfileId: selectedProfile.id,
+        }
+      : {
+          kind: "inline",
+          profile: {
+            breed: draft.inlinePet.breed.trim(),
+            description: draft.inlinePet.description.trim(),
+            name: draft.inlinePet.name.trim(),
+            photos: photos.map(toPetProfilePhotoSource),
+            type: requireAdoptionListingPetType(draft.inlinePet.type),
+          },
+        },
+    photos: photos.map(toPetProfilePhotoSource),
+    showExactPublicLocation: draft.showExactPinPublicly,
+  };
+}
+
+export function appendAdoptionListingPhoto({
+  draft,
+  photo,
+}: {
+  draft: AdoptionListingDraft;
+  photo: AdoptionListingPhoto;
+}): AdoptionListingDraft {
+  if (draft.photos.length >= adoptionListingPhotoLimit) {
+    return draft;
+  }
+
+  return {
+    ...draft,
+    photos: [...draft.photos, photo].slice(0, adoptionListingPhotoLimit),
+  };
+}
+
+export function removeAdoptionListingPhoto({
+  draft,
+  photoId,
+}: {
+  draft: AdoptionListingDraft;
+  photoId: string;
+}): AdoptionListingDraft {
+  return {
+    ...draft,
+    photos: draft.photos.filter((photo) => photo.id !== photoId),
+  };
+}
+
+export function selectAdoptionListingContactOption({
+  draft,
+  option,
+}: {
+  draft: AdoptionListingDraft;
+  option: AdoptionListingContactChoice;
+}): AdoptionListingDraft {
+  return {
+    ...draft,
+    contact: {
+      ...draft.contact,
+      inAppChatEnabled: option === "chat" || option === "both",
+      whatsappEnabled: option === "whatsapp" || option === "both",
+    },
+  };
+}
+
+function validateAdoptionListingDraft({
+  draft,
+  petProfiles,
+}: {
+  draft: AdoptionListingDraft;
+  petProfiles: readonly AdoptionListingPetProfileOption[];
+}) {
+  const errors: string[] = [];
+  const selectedProfile = getSelectedProfile(draft, petProfiles);
+  const photos = getEffectivePhotos(draft, selectedProfile);
+
+  appendRequiredPetSelectionErrors({
+    errors,
+    hasExactLocation: Boolean(draft.exactLocation),
+    hasSelectedPet: Boolean(selectedProfile) || hasValidInlinePet(draft),
+    photoCount: photos.length,
+  });
+
+  if (draft.adoptionDetails.adoptionSummary.trim().length === 0) {
+    errors.push("Cuenta que tipo de hogar necesita.");
+  }
+
+  if (!draft.contact.inAppChatEnabled && !draft.contact.whatsappEnabled) {
+    errors.push("Elige al menos una Contact Option.");
+  }
+
+  if (
+    draft.contact.whatsappEnabled &&
+    draft.contact.whatsappPhone.trim().length === 0
+  ) {
+    errors.push("Ingresa un numero de WhatsApp.");
+  }
+
+  return errors;
+}
+
+function buildAdoptionDetailsViewModel(draft: AdoptionListingDraft) {
+  return {
+    fields: {
+      adoptionSummary: {
+        error:
+          draft.adoptionDetails.adoptionSummary.trim().length === 0
+            ? "Cuenta que tipo de hogar necesita."
+            : undefined,
+        label: "Sobre la adopcion",
+        placeholder:
+          "Personalidad, historia y el cuidado que necesita para su nuevo hogar",
+        value: draft.adoptionDetails.adoptionSummary,
+      },
+      healthNotes: {
+        label: "Salud y cuidados",
+        placeholder: "Vacunas, esterilizacion, medicamentos o cuidados",
+        value: draft.adoptionDetails.healthNotes,
+      },
+      idealHome: {
+        label: "Hogar ideal",
+        placeholder: "Familia, espacio, otras mascotas o rutinas importantes",
+        value: draft.adoptionDetails.idealHome,
+      },
+    },
+    title: "Detalles de adopcion",
+  };
+}
+
+function buildContactOptions(currentOption: AdoptionListingContactChoice) {
+  return [
+    {
+      body: "Conversaciones dentro de Rastro con notificaciones.",
+      iconName: "message.fill",
+      isSelected: currentOption === "chat",
+      label: "Chat en Rastro",
+      value: "chat" as const,
+    },
+    {
+      body: "Muestra el numero que elijas para contacto directo.",
+      iconName: "phone.fill",
+      isSelected: currentOption === "whatsapp",
+      label: "WhatsApp",
+      value: "whatsapp" as const,
+    },
+    {
+      body: "Permite chat en la app y WhatsApp en la misma adopcion.",
+      iconName: "bubble.left.and.phone.fill",
+      isSelected: currentOption === "both",
+      label: "Ambos",
+      value: "both" as const,
+    },
+  ];
+}
+
+function buildInlinePetForm(draft: AdoptionListingDraft["inlinePet"]) {
+  return {
+    fields: {
+      breed: {
+        label: "Raza",
+        placeholder: "Mestizo, Siames, Labrador...",
+        value: draft.breed,
+      },
+      description: {
+        label: "Descripcion y marcas",
+        placeholder: "Color, personalidad, senas o cuidados relevantes",
+        value: draft.description,
+      },
+      name: {
+        error:
+          draft.name.trim().length === 0
+            ? "Ingresa el nombre de la mascota."
+            : undefined,
+        label: "Nombre",
+        placeholder: "Nombre de la mascota",
+        value: draft.name,
+      },
+    },
+    modeLabel: "Crear Pet Profile en linea",
+    typeOptions: adoptionListingPetTypeOptions.map((option) => ({
+      isSelected: draft.type === option,
+      label: option,
+      value: option,
+    })),
+  };
+}
+
+function buildLocationViewModel(draft: AdoptionListingDraft) {
+  const location = draft.exactLocation;
+  const exactInternalLabel = location
+    ? `${location.addressLabel} · ${location.municipality}, ${location.department}`
+    : "Selecciona un punto exacto para uso interno.";
+  const approximatePublicLabel = location
+    ? location.locationCellLabel
+    : "Zona aproximada pendiente";
+
+  return {
+    approximatePublicLabel,
+    exactInternalLabel,
+    hasExactLocation: Boolean(location),
+    mapPreviewLabel: location
+      ? `Pin interno en ${location.locationCellLabel}`
+      : "Mapa de Bolivia pendiente",
+    publicPrecisionLabel: draft.showExactPinPublicly
+      ? "Pin exacto publico"
+      : "Zona aproximada por defecto",
+    showExactPinPublicly: draft.showExactPinPublicly,
+    exactPinOptInLabel: "Mostrar pin exacto publicamente",
+    toggleBody:
+      "Por defecto mostramos solo la zona aproximada. Activa el punto exacto solo si es seguro compartirlo.",
+    toggleLabel: "Mostrar pin exacto publicamente",
+  };
+}
+
+function buildReviewRows({
+  contactOption,
+  draft,
+  photos,
+  selectedPet,
+  verificationBadge,
+}: {
+  contactOption: AdoptionListingContactChoice;
+  draft: AdoptionListingDraft;
+  photos: readonly AdoptionListingPhoto[];
+  selectedPet?: AdoptionListingCreationViewModel["selectedPet"];
+  verificationBadge?: { label: string };
+}) {
+  return [
+    {
+      label: "Mascota",
+      value: selectedPet
+        ? `${selectedPet.name} · ${selectedPet.typeLabel}`
+        : "Pendiente",
+    },
+    {
+      label: "Fotos",
+      value: formatPhotoCount(photos.length),
+    },
+    {
+      label: "Ubicacion interna",
+      value: draft.exactLocation?.addressLabel ?? "Pendiente",
+    },
+    {
+      label: "Ubicacion publica",
+      value: draft.showExactPinPublicly
+        ? "Punto exacto publico"
+        : "Zona aproximada publica",
+    },
+    {
+      label: "Contacto",
+      value: contactOptionLabel(contactOption),
+    },
+    {
+      label: "Verificacion",
+      value: verificationBadge?.label ?? "No requerida",
+    },
+  ];
+}
+
+function buildSteps({
+  canPublish,
+  draft,
+  effectivePhotos,
+  selectedPet,
+}: {
+  canPublish: boolean;
+  draft: AdoptionListingDraft;
+  effectivePhotos: readonly AdoptionListingPhoto[];
+  selectedPet?: AdoptionListingCreationViewModel["selectedPet"];
+}) {
+  return [
+    {
+      id: "pet" as const,
+      isComplete: Boolean(selectedPet) && effectivePhotos.length > 0,
+      label: "Mascota",
+    },
+    {
+      id: "details" as const,
+      isComplete: draft.adoptionDetails.adoptionSummary.trim().length > 0,
+      label: "Detalles",
+    },
+    {
+      id: "location" as const,
+      isComplete: Boolean(draft.exactLocation),
+      label: "Ubicacion",
+    },
+    {
+      id: "contact" as const,
+      isComplete: !getContactError(draft.contact),
+      label: "Contacto",
+    },
+    {
+      id: "review" as const,
+      isComplete: canPublish,
+      label: "Revisar",
+    },
+    {
+      id: "success" as const,
+      isComplete: false,
+      label: "Publicado",
+    },
+  ];
+}
+
+function getSelectedProfile(
+  draft: AdoptionListingDraft,
+  petProfiles: readonly AdoptionListingPetProfileOption[],
+) {
+  return getReportCreationSelectedProfile(draft, petProfiles);
+}
+
+function getSelectedPet(
+  draft: AdoptionListingDraft,
+  selectedProfile?: AdoptionListingPetProfileOption,
+): AdoptionListingCreationViewModel["selectedPet"] {
+  return getReportCreationSelectedPet({
+    draftPhotos: draft.photos,
+    getPhotoUri,
+    inlinePet: draft.inlinePet,
+    selectedProfile,
+    toOptionalLabel,
+    typeOptions: adoptionListingPetTypeOptions,
+  });
+}
+
+function hasValidInlinePet(draft: AdoptionListingDraft) {
+  return hasValidReportCreationInlinePet(
+    draft.inlinePet,
+    adoptionListingPetTypeOptions,
+  );
+}
+
+function requireAdoptionListingPetType(
+  value: AdoptionListingDraft["inlinePet"]["type"],
+): AdoptionListingPetType {
+  if (
+    !adoptionListingPetTypeOptions.includes(value as AdoptionListingPetType)
+  ) {
+    throw new Error("Pet Profile type must be one of the supported options.");
+  }
+
+  return value as AdoptionListingPetType;
+}
+
+function getEffectivePhotos(
+  draft: AdoptionListingDraft,
+  selectedProfile?: AdoptionListingPetProfileOption,
+) {
+  const sourcePhotos =
+    draft.photos.length > 0 ? draft.photos : (selectedProfile?.photos ?? []);
+
+  return sourcePhotos.slice(0, adoptionListingPhotoLimit);
+}
+
+function getContactOption(contact: AdoptionListingContactDraft) {
+  if (contact.inAppChatEnabled && contact.whatsappEnabled) {
+    return "both";
+  }
+
+  if (contact.whatsappEnabled) {
+    return "whatsapp";
+  }
+
+  return "chat";
+}
+
+function getContactError(contact: AdoptionListingContactDraft) {
+  if (!contact.inAppChatEnabled && !contact.whatsappEnabled) {
+    return "Elige chat, WhatsApp o ambos.";
+  }
+
+  if (contact.whatsappEnabled && contact.whatsappPhone.trim().length === 0) {
+    return "Ingresa un numero para WhatsApp.";
+  }
+
+  return undefined;
+}
+
+function contactOptionLabel(option: AdoptionListingContactChoice) {
+  if (option === "both") {
+    return "Chat en Rastro y WhatsApp";
+  }
+
+  if (option === "whatsapp") {
+    return "WhatsApp";
+  }
+
+  return "Chat en Rastro";
+}
+
+function toPublishContactOption({
+  option,
+  whatsappPhone,
+}: {
+  option: AdoptionListingContactChoice;
+  whatsappPhone: string;
+}): PublishAdoptionListingContactOption {
+  if (option === "chat") {
+    return {
+      kind: "in-app-chat",
+    };
+  }
+
+  return {
+    kind: option,
+    phoneNumber: whatsappPhone.trim(),
+  };
+}
+
+function toPetProfilePhotoSource(photo: AdoptionListingPhoto) {
+  const uri = photo.uri ?? photo.thumbUri;
+
+  if (!uri) {
+    throw new Error("Photo URI is required.");
+  }
+
+  return {
+    id: photo.id,
+    uri,
+  };
+}
+
+function formatPetProfileSubtitle(profile: AdoptionListingPetProfileOption) {
+  return [profile.type, profile.breed].filter(Boolean).join(" · ");
+}
+
+function formatPhotoCount(count: number) {
+  return `${count}/${adoptionListingPhotoLimit} fotos`;
+}
+
+function getPhotoUri(photo: AdoptionListingPhoto | undefined) {
+  return photo?.thumbUri ?? photo?.uri;
+}
+
+function toOptionalLabel(value: string) {
+  const trimmed = value.trim();
+
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function optionalTrimmed(value: string) {
+  const trimmed = value.trim();
+
+  return trimmed.length > 0 ? trimmed : undefined;
+}

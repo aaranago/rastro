@@ -149,10 +149,12 @@ export function NearbyScreen({
         photoUrl={item.photoUrl}
         priorityLabel={item.priorityLabel}
         publicLocationLabel={item.publicLocationLabel}
+        reportKind={item.reportKind}
         shareTarget={item.shareTarget}
         subtitle={item.subtitle}
         summary={item.summary}
         title={item.title}
+        verificationBadge={item.verificationBadge}
       />
     ),
     [onOpenReport, onShareReport],
@@ -423,10 +425,12 @@ const LostReportCard = memo(function LostReportCard({
   photoUrl,
   priorityLabel,
   publicLocationLabel,
+  reportKind,
   shareTarget,
   subtitle,
   summary,
   title,
+  verificationBadge,
 }: {
   distanceLabel?: string;
   id: string;
@@ -436,10 +440,12 @@ const LostReportCard = memo(function LostReportCard({
   photoUrl?: string;
   priorityLabel: string;
   publicLocationLabel: string;
+  reportKind: NearbyLostReportCardViewModel["reportKind"];
   shareTarget: NearbyLostReportCardViewModel["shareTarget"];
   subtitle: string;
   summary: string;
   title: string;
+  verificationBadge?: NearbyLostReportCardViewModel["verificationBadge"];
 }) {
   const handleOpenReport = useCallback(() => {
     onOpenReport?.(id);
@@ -447,8 +453,10 @@ const LostReportCard = memo(function LostReportCard({
 
   const handleShareReport = useCallback(() => {
     onShareReport?.(id);
-    void shareNearbyLostReport({ shareTarget }, Share).catch(() => undefined);
-  }, [id, onShareReport, shareTarget]);
+    void shareNearbyLostReport({ reportKind, shareTarget }, Share).catch(
+      () => undefined,
+    );
+  }, [id, onShareReport, reportKind, shareTarget]);
 
   return (
     <Pressable
@@ -499,6 +507,11 @@ const LostReportCard = memo(function LostReportCard({
         <Text selectable style={styles.locationCopy}>
           {publicLocationLabel}
         </Text>
+        {verificationBadge?.visible ? (
+          <Text selectable style={styles.verificationCopy}>
+            {verificationBadge.label}
+          </Text>
+        ) : null}
         <Text selectable style={styles.summaryCopy} numberOfLines={3}>
           {summary}
         </Text>
@@ -558,10 +571,12 @@ function MapBrowse({
           photoUrl={featuredCard.photoUrl}
           priorityLabel={featuredCard.priorityLabel}
           publicLocationLabel={featuredCard.publicLocationLabel}
+          reportKind={featuredCard.reportKind}
           shareTarget={featuredCard.shareTarget}
           subtitle={featuredCard.subtitle}
           summary={featuredCard.summary}
           title={featuredCard.title}
+          verificationBadge={featuredCard.verificationBadge}
         />
       ) : null}
     </View>
@@ -931,6 +946,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     lineHeight: 20,
+  },
+  verificationCopy: {
+    color: colors.inkStrong,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 19,
   },
   locationLabel: {
     color: colors.ink,

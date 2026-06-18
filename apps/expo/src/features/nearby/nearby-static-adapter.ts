@@ -5,6 +5,7 @@ import type {
   NearbyPublicReportSummary,
   NearbySearchBoundary,
 } from "./nearby-types";
+import { compareNearbyPublicReports } from "./nearby-ranking";
 
 interface StaticNearbyLostReportsAdapterOptions {
   reports: NearbyPublicReportSummary[];
@@ -12,8 +13,6 @@ interface StaticNearbyLostReportsAdapterOptions {
   isOffline?: boolean;
   isStale?: boolean;
 }
-
-const farAwayDistance = Number.POSITIVE_INFINITY;
 
 export function createStaticNearbyLostReportsAdapter(
   options: StaticNearbyLostReportsAdapterOptions,
@@ -27,7 +26,7 @@ export function createStaticNearbyLostReportsAdapter(
         ...options.reports.filter(
           (report) => (report.distanceMeters ?? 0) <= radiusMeters,
         ),
-      ].sort(compareLostReports);
+      ].sort(compareNearbyPublicReports);
 
       return Promise.resolve({
         generatedAt: options.generatedAt ?? "2026-01-01T00:00:00.000Z",
@@ -51,32 +50,4 @@ function buildSearchBoundary(
     publicLocationPrecision: "location-cell",
     radiusKm: query.radiusKm,
   };
-}
-
-function compareLostReports(
-  left: NearbyPublicReportSummary,
-  right: NearbyPublicReportSummary,
-) {
-  const priority = priorityScore(right) - priorityScore(left);
-
-  if (priority !== 0) {
-    return priority;
-  }
-
-  return (
-    (left.distanceMeters ?? farAwayDistance) -
-    (right.distanceMeters ?? farAwayDistance)
-  );
-}
-
-function priorityScore(report: NearbyPublicReportSummary) {
-  if (report.reportKind === "found-pet-report") {
-    return 1;
-  }
-
-  if (report.reportKind === "sighting-report") {
-    return 1;
-  }
-
-  return report.alertPriority === "urgent" ? 2 : 1;
 }

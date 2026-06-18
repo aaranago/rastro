@@ -2,41 +2,64 @@ import * as React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 
-import type { PublishLostPetReportInput } from "../lost-reports/lost-reports";
+import type { PublishAdoptionListingInput } from "../adoption-listings/adoption-listings";
 import type { ReportCreationFieldViewModel } from "../report-creation/report-creation-ui";
 import type {
-  LostReportDraft,
-  LostReportPetProfileOption,
-  LostReportPhoto,
-} from "./lost-report-creation-types";
+  AdoptionListingCreationSession,
+  AdoptionListingDraft,
+  AdoptionListingPetProfileOption,
+  AdoptionListingPhoto,
+} from "./adoption-listing-creation-types";
 import {
   ReportCreationActionButton,
   ReportCreationContactOptionSection,
+  ReportCreationDetailsFieldsSection,
+  ReportCreationEditorScrollView,
   ReportCreationExistingPetProfileList,
   ReportCreationField,
   ReportCreationInfoRow,
   ReportCreationInlinePetTypeRow,
+  ReportCreationPhotoSection,
   ReportCreationProgressSteps,
   ReportCreationReviewPublishSection,
   ReportCreationSection,
   ReportCreationToggleRow,
 } from "../report-creation/report-creation-ui";
 import { shellColors } from "../shell/shell-theme";
-import { lostReportCreationFixtures } from "./lost-report-creation-fixtures";
+import { adoptionListingCreationFixtures } from "./adoption-listing-creation-fixtures";
 import {
-  appendLostReportPhoto,
-  buildLostReportCreationViewModel,
-  createInitialLostReportDraft,
-  createLostReportDraft,
-  lostReportPetTypeOptions,
-  removeLostReportPhoto,
-  selectLostReportContactOption,
-  toPublishLostPetReportInput,
-} from "./lost-report-creation-view-model";
+  adoptionListingPetTypeOptions,
+  appendAdoptionListingPhoto,
+  buildAdoptionListingCreationViewModel,
+  createAdoptionListingDraft,
+  createInitialAdoptionListingDraft,
+  removeAdoptionListingPhoto,
+  selectAdoptionListingContactOption,
+  toPublishAdoptionListingInput,
+} from "./adoption-listing-creation-view-model";
 
+const adoptionAccent = shellColors.adoption;
+const adoptionAccentSoft = "#F8E9EE";
 const bottomInset = 36;
+const errorAccent = "#D6453D";
+const mapPreviewBlocks = Array.from({ length: 12 }, (_, index) => index);
 
-function ReportCreationIcon({
+type PublishState = "editing" | "publishing" | "success";
+type AdoptionListingCreationViewModel = ReturnType<
+  typeof buildAdoptionListingCreationViewModel
+>;
+
+export interface AdoptionListingCreationScreenProps {
+  initialDraft?: AdoptionListingDraft;
+  onClose?: () => void;
+  onPublishAdoptionListing?: (
+    input: PublishAdoptionListingInput,
+  ) => Promise<void> | void;
+  petProfiles?: readonly AdoptionListingPetProfileOption[];
+  session?: AdoptionListingCreationSession;
+}
+
+function AdoptionListingCreationIcon({
   color,
   name,
   size = 22,
@@ -55,30 +78,19 @@ function ReportCreationIcon({
   );
 }
 
-export interface LostReportCreationScreenProps {
-  initialDraft?: LostReportDraft;
-  onClose?: () => void;
-  onPublishLostReport?: (input: PublishLostPetReportInput) => Promise<void>;
-  petProfiles?: readonly LostReportPetProfileOption[];
-}
-
-type PublishState = "editing" | "publishing" | "success";
-type LostReportCreationViewModel = ReturnType<
-  typeof buildLostReportCreationViewModel
->;
-
-export function LostReportCreationScreen({
+export function AdoptionListingCreationScreen({
   initialDraft,
   onClose,
-  onPublishLostReport,
-  petProfiles = lostReportCreationFixtures.petProfiles,
-}: LostReportCreationScreenProps) {
-  const [draft, setDraft] = React.useState<LostReportDraft>(
+  onPublishAdoptionListing,
+  petProfiles = adoptionListingCreationFixtures.petProfiles,
+  session = { kind: "member", memberId: "member-preview" },
+}: AdoptionListingCreationScreenProps) {
+  const [draft, setDraft] = React.useState<AdoptionListingDraft>(
     () =>
       initialDraft ??
-      createLostReportDraft({
-        ...createInitialLostReportDraft({ petProfiles }),
-        exactLocation: lostReportCreationFixtures.defaultLocation,
+      createAdoptionListingDraft({
+        ...createInitialAdoptionListingDraft({ petProfiles }),
+        exactLocation: adoptionListingCreationFixtures.defaultLocation,
       }),
   );
   const [publishState, setPublishState] =
@@ -86,20 +98,21 @@ export function LostReportCreationScreen({
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const viewModel = React.useMemo(
     () =>
-      buildLostReportCreationViewModel({
+      buildAdoptionListingCreationViewModel({
         draft,
         petProfiles,
+        session,
       }),
-    [draft, petProfiles],
+    [draft, petProfiles, session],
   );
 
   const addPhoto = React.useCallback(() => {
     const nextPhoto =
-      lostReportCreationFixtures.photoSamples[draft.photos.length] ??
+      adoptionListingCreationFixtures.photoSamples[draft.photos.length] ??
       createFallbackPhoto(draft.photos.length);
 
     setDraft((current) =>
-      appendLostReportPhoto({
+      appendAdoptionListingPhoto({
         draft: current,
         photo: nextPhoto,
       }),
@@ -115,27 +128,30 @@ export function LostReportCreationScreen({
     setPublishState("publishing");
 
     try {
-      await onPublishLostReport?.(
-        toPublishLostPetReportInput({
-          draft,
-          petProfiles,
-        }),
+      await onPublishAdoptionListing?.(
+        toPublishAdoptionListingInput({ draft, petProfiles }),
       );
       setPublishState("success");
     } catch {
       setSubmitError("No pudimos publicar. Tu informacion sigue aqui.");
       setPublishState("editing");
     }
-  }, [draft, onPublishLostReport, petProfiles, publishState, viewModel]);
+  }, [
+    draft,
+    onPublishAdoptionListing,
+    petProfiles,
+    publishState,
+    viewModel.canPublish,
+  ]);
 
   if (publishState === "success") {
     return (
-      <LostReportCreationSuccess onClose={onClose} viewModel={viewModel} />
+      <AdoptionListingCreationSuccess onClose={onClose} viewModel={viewModel} />
     );
   }
 
   return (
-    <LostReportCreationEditor
+    <AdoptionListingCreationEditor
       addPhoto={addPhoto}
       draft={draft}
       onClose={onClose}
@@ -148,12 +164,12 @@ export function LostReportCreationScreen({
   );
 }
 
-function LostReportCreationSuccess({
+function AdoptionListingCreationSuccess({
   onClose,
   viewModel,
 }: {
   onClose?: () => void;
-  viewModel: LostReportCreationViewModel;
+  viewModel: AdoptionListingCreationViewModel;
 }) {
   return (
     <ScrollView
@@ -165,9 +181,9 @@ function LostReportCreationSuccess({
     >
       <View style={styles.successHero}>
         <View style={styles.successIcon}>
-          <ReportCreationIcon
+          <AdoptionListingCreationIcon
             color={shellColors.white}
-            name="checkmark.seal.fill"
+            name="heart.fill"
             size={34}
           />
         </View>
@@ -179,22 +195,30 @@ function LostReportCreationSuccess({
         </Text>
       </View>
       <View style={styles.buttonRow}>
-        <ActionButton
+        <ReportCreationActionButton
+          accentColor={adoptionAccent}
+          Icon={AdoptionListingCreationIcon}
           icon="square.and.arrow.up"
           label={viewModel.success.shareActionLabel}
+          primaryTextColor={shellColors.white}
+          styles={styles}
           variant="secondary"
         />
-        <ActionButton
-          icon="list.bullet.rectangle"
+        <ReportCreationActionButton
+          accentColor={adoptionAccent}
+          Icon={AdoptionListingCreationIcon}
+          icon="heart.text.square.fill"
           label={viewModel.success.primaryActionLabel}
           onPress={onClose}
+          primaryTextColor={shellColors.white}
+          styles={styles}
         />
       </View>
     </ScrollView>
   );
 }
 
-function LostReportCreationEditor({
+function AdoptionListingCreationEditor({
   addPhoto,
   draft,
   onClose,
@@ -205,45 +229,93 @@ function LostReportCreationEditor({
   viewModel,
 }: {
   addPhoto: () => void;
-  draft: LostReportDraft;
+  draft: AdoptionListingDraft;
   onClose?: () => void;
   publish: () => void;
   publishState: PublishState;
-  setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
+  setDraft: React.Dispatch<React.SetStateAction<AdoptionListingDraft>>;
   submitError: string | null;
-  viewModel: LostReportCreationViewModel;
+  viewModel: AdoptionListingCreationViewModel;
 }) {
   return (
-    <ScrollView
-      contentContainerStyle={styles.content}
-      contentInset={{ bottom: bottomInset }}
-      contentInsetAdjustmentBehavior="automatic"
-      keyboardShouldPersistTaps="handled"
-      scrollIndicatorInsets={{ bottom: bottomInset }}
-      style={styles.screen}
-    >
+    <ReportCreationEditorScrollView bottomInset={bottomInset} styles={styles}>
       <CreationHeader onClose={onClose} title={viewModel.title} />
-      <ProgressSteps steps={viewModel.steps} />
+      <ReportCreationProgressSteps steps={viewModel.steps} styles={styles} />
       <PetProfileSection
         draft={draft}
         setDraft={setDraft}
         viewModel={viewModel}
       />
-      <LostDetailsSection setDraft={setDraft} viewModel={viewModel} />
-      <PhotoSection
+      <ReportCreationDetailsFieldsSection
+        fields={[
+          {
+            field: viewModel.adoptionDetails.fields.adoptionSummary,
+            key: "adoptionSummary" as const,
+            multiline: true,
+          },
+          {
+            field: viewModel.adoptionDetails.fields.idealHome,
+            key: "idealHome" as const,
+            multiline: true,
+          },
+          {
+            field: viewModel.adoptionDetails.fields.healthNotes,
+            key: "healthNotes" as const,
+            multiline: true,
+          },
+        ]}
+        onChangeField={(key, value) =>
+          setDraft((current) => ({
+            ...current,
+            adoptionDetails: {
+              ...current.adoptionDetails,
+              [key]: value,
+            },
+          }))
+        }
+        placeholderTextColor={shellColors.muted}
+        styles={styles}
+        title={viewModel.adoptionDetails.title}
+      />
+      <ReportCreationPhotoSection
+        accentColor={adoptionAccent}
         addPhoto={addPhoto}
-        setDraft={setDraft}
-        viewModel={viewModel}
+        addPhotoAccessibilityLabel="Agregar foto"
+        canAddPhoto={viewModel.photos.canAddPhoto}
+        countLabel={viewModel.photos.countLabel}
+        error={viewModel.photos.error}
+        helpLabel={viewModel.photos.helpLabel}
+        Icon={AdoptionListingCreationIcon}
+        onRemovePhoto={(photoId) =>
+          setDraft((current) =>
+            removeAdoptionListingPhoto({
+              draft: current,
+              photoId,
+            }),
+          )
+        }
+        permissionBody={viewModel.photos.permissionBody}
+        permissionTitle={viewModel.photos.permissionTitle}
+        photos={viewModel.photos.items}
+        styles={styles}
+        title="Fotos"
       />
       <LocationPrivacySection setDraft={setDraft} viewModel={viewModel} />
       <ContactOptionSection setDraft={setDraft} viewModel={viewModel} />
-      <ReviewPublishSection
-        publish={publish}
+      <VerificationSection viewModel={viewModel} />
+      <ReportCreationReviewPublishSection
+        activityIndicatorColor={shellColors.white}
+        canPublish={viewModel.canPublish}
+        Icon={AdoptionListingCreationIcon}
+        onPublish={publish}
+        publishActionLabel={viewModel.review.publishActionLabel}
         publishState={publishState}
+        rows={viewModel.review.rows}
+        styles={styles}
         submitError={submitError}
-        viewModel={viewModel}
+        validationErrors={viewModel.review.validationErrors}
       />
-    </ScrollView>
+    </ReportCreationEditorScrollView>
   );
 }
 
@@ -257,15 +329,15 @@ function CreationHeader({
   return (
     <View style={styles.header}>
       <View style={styles.headerIcon}>
-        <ReportCreationIcon
+        <AdoptionListingCreationIcon
           color={shellColors.white}
-          name="megaphone.fill"
+          name="heart.fill"
           size={24}
         />
       </View>
       <View style={styles.headerCopy}>
         <Text maxFontSizeMultiplier={1.15} style={styles.eyebrow}>
-          Mascota perdida
+          Adopcion
         </Text>
         <Text maxFontSizeMultiplier={1.2} style={styles.title}>
           {title}
@@ -273,12 +345,12 @@ function CreationHeader({
       </View>
       {onClose ? (
         <Pressable
-          accessibilityLabel="Cerrar reporte"
+          accessibilityLabel="Cerrar adopcion"
           accessibilityRole="button"
           onPress={onClose}
           style={styles.iconButton}
         >
-          <ReportCreationIcon
+          <AdoptionListingCreationIcon
             color={shellColors.muted}
             name="xmark"
             size={18}
@@ -294,31 +366,40 @@ function PetProfileSection({
   setDraft,
   viewModel,
 }: {
-  draft: LostReportDraft;
-  setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
-  viewModel: LostReportCreationViewModel;
+  draft: AdoptionListingDraft;
+  setDraft: React.Dispatch<React.SetStateAction<AdoptionListingDraft>>;
+  viewModel: AdoptionListingCreationViewModel;
 }) {
   return (
-    <Section title="Mascota">
-      <SegmentedChoice
-        options={[
-          { label: "Usar perfil", value: "existing" },
-          { label: "Crear aqui", value: "inline-create" },
-        ]}
-        selectedValue={draft.petSelectionMode}
-        onSelect={(value) =>
-          setDraft((current) => ({
-            ...current,
-            petSelectionMode: value as LostReportDraft["petSelectionMode"],
-          }))
-        }
-      />
+    <ReportCreationSection styles={styles} title="Mascota">
+      <View style={styles.segmented}>
+        <SegmentButton
+          isSelected={draft.petSelectionMode === "existing"}
+          label="Usar perfil"
+          onPress={() =>
+            setDraft((current) => ({
+              ...current,
+              petSelectionMode: "existing",
+            }))
+          }
+        />
+        <SegmentButton
+          isSelected={draft.petSelectionMode === "inline-create"}
+          label="Crear aqui"
+          onPress={() =>
+            setDraft((current) => ({
+              ...current,
+              petSelectionMode: "inline-create",
+            }))
+          }
+        />
+      </View>
       {draft.petSelectionMode === "existing" ? (
         <ExistingPetProfileList setDraft={setDraft} viewModel={viewModel} />
       ) : (
         <InlinePetForm draft={draft} setDraft={setDraft} />
       )}
-    </Section>
+    </ReportCreationSection>
   );
 }
 
@@ -326,13 +407,13 @@ function ExistingPetProfileList({
   setDraft,
   viewModel,
 }: {
-  setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
-  viewModel: LostReportCreationViewModel;
+  setDraft: React.Dispatch<React.SetStateAction<AdoptionListingDraft>>;
+  viewModel: AdoptionListingCreationViewModel;
 }) {
   return (
     <ReportCreationExistingPetProfileList
-      accentColor={shellColors.primary}
-      Icon={ReportCreationIcon}
+      accentColor={adoptionAccent}
+      Icon={AdoptionListingCreationIcon}
       onSelectProfile={(profileId) =>
         setDraft((current) => ({
           ...current,
@@ -346,269 +427,22 @@ function ExistingPetProfileList({
   );
 }
 
-function LostDetailsSection({
-  setDraft,
-  viewModel,
-}: {
-  setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
-  viewModel: LostReportCreationViewModel;
-}) {
-  return (
-    <Section title={viewModel.lostDetails.title}>
-      <Field
-        field={viewModel.lostDetails.fields.lastSeenAtLabel}
-        onChangeText={(value) =>
-          setDraft((current) => ({
-            ...current,
-            lostDetails: {
-              ...current.lostDetails,
-              lastSeenAtLabel: value,
-            },
-          }))
-        }
-      />
-      <Field
-        multiline
-        field={viewModel.lostDetails.fields.circumstances}
-        onChangeText={(value) =>
-          setDraft((current) => ({
-            ...current,
-            lostDetails: {
-              ...current.lostDetails,
-              circumstances: value,
-            },
-          }))
-        }
-      />
-      <Field
-        multiline
-        field={viewModel.lostDetails.fields.markings}
-        onChangeText={(value) =>
-          setDraft((current) => ({
-            ...current,
-            lostDetails: {
-              ...current.lostDetails,
-              markings: value,
-            },
-          }))
-        }
-      />
-    </Section>
-  );
-}
-
-function PhotoSection({
-  addPhoto,
-  setDraft,
-  viewModel,
-}: {
-  addPhoto: () => void;
-  setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
-  viewModel: LostReportCreationViewModel;
-}) {
-  return (
-    <Section title="Fotos">
-      <View style={styles.permissionBox}>
-        <ReportCreationIcon
-          color={shellColors.primary}
-          name="camera.fill"
-          size={22}
-        />
-        <View style={styles.optionCopy}>
-          <Text maxFontSizeMultiplier={1.15} style={styles.itemTitle}>
-            {viewModel.photos.permissionTitle}
-          </Text>
-          <Text maxFontSizeMultiplier={1.2} style={styles.metaText}>
-            {viewModel.photos.permissionBody}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.photoGrid}>
-        {viewModel.photos.items.map((photo) => (
-          <Pressable
-            accessibilityLabel="Quitar foto"
-            accessibilityRole="button"
-            key={photo.id}
-            onPress={() =>
-              setDraft((current) =>
-                removeLostReportPhoto({
-                  draft: current,
-                  photoId: photo.id,
-                }),
-              )
-            }
-            style={styles.photoTile}
-          >
-            <Image
-              accessibilityLabel={photo.alt}
-              contentFit="cover"
-              source={photo.thumbUri ?? photo.uri}
-              style={styles.photoImage}
-            />
-          </Pressable>
-        ))}
-        <Pressable
-          accessibilityLabel="Agregar foto"
-          accessibilityRole="button"
-          disabled={!viewModel.photos.canAddPhoto}
-          onPress={addPhoto}
-          style={[
-            styles.addPhotoTile,
-            !viewModel.photos.canAddPhoto ? styles.disabledTile : null,
-          ]}
-        >
-          <ReportCreationIcon
-            color={shellColors.primary}
-            name="plus"
-            size={22}
-          />
-          <Text maxFontSizeMultiplier={1.1} style={styles.addPhotoText}>
-            {viewModel.photos.countLabel}
-          </Text>
-        </Pressable>
-      </View>
-      <Text maxFontSizeMultiplier={1.2} style={styles.helpText}>
-        {viewModel.photos.helpLabel}
-      </Text>
-      {viewModel.photos.error ? (
-        <Text maxFontSizeMultiplier={1.2} style={styles.errorText}>
-          {viewModel.photos.error}
-        </Text>
-      ) : null}
-    </Section>
-  );
-}
-
-function LocationPrivacySection({
-  setDraft,
-  viewModel,
-}: {
-  setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
-  viewModel: LostReportCreationViewModel;
-}) {
-  return (
-    <Section title="Ubicacion y privacidad">
-      <View style={styles.mapPreview}>
-        <View style={styles.mapGrid}>
-          {Array.from({ length: 12 }).map((_, index) => (
-            <View key={index} style={styles.mapBlock} />
-          ))}
-        </View>
-        <View style={styles.mapPin}>
-          <ReportCreationIcon
-            color={shellColors.white}
-            name="mappin"
-            size={22}
-          />
-        </View>
-        <Text maxFontSizeMultiplier={1.15} style={styles.mapLabel}>
-          {viewModel.location.mapPreviewLabel}
-        </Text>
-      </View>
-      <InfoRow
-        icon="location.fill"
-        label="Exact Location interna"
-        value={viewModel.location.exactInternalLabel}
-      />
-      <InfoRow
-        icon="circle.grid.2x2.fill"
-        label={viewModel.location.publicPrecisionLabel}
-        value={viewModel.location.approximatePublicLabel}
-      />
-      <ToggleRow
-        body={viewModel.location.toggleBody}
-        isSelected={viewModel.location.showExactPinPublicly}
-        label={viewModel.location.exactPinOptInLabel}
-        onPress={() =>
-          setDraft((current) => ({
-            ...current,
-            showExactPinPublicly: !current.showExactPinPublicly,
-          }))
-        }
-      />
-    </Section>
-  );
-}
-
-function ContactOptionSection({
-  setDraft,
-  viewModel,
-}: {
-  setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
-  viewModel: LostReportCreationViewModel;
-}) {
-  return (
-    <ReportCreationContactOptionSection
-      accentColor={shellColors.primary}
-      Icon={ReportCreationIcon}
-      onChangeWhatsappPhone={(value) =>
-        setDraft((current) => ({
-          ...current,
-          contact: {
-            ...current.contact,
-            whatsappPhone: value,
-          },
-        }))
-      }
-      onSelectOption={(option) =>
-        setDraft((current) =>
-          selectLostReportContactOption({
-            draft: current,
-            option,
-          }),
-        )
-      }
-      options={viewModel.contact.options}
-      styles={styles}
-      title="Contacto"
-      whatsappField={viewModel.contact.whatsappField}
-    />
-  );
-}
-
-function ReviewPublishSection({
-  publish,
-  publishState,
-  submitError,
-  viewModel,
-}: {
-  publish: () => void;
-  publishState: PublishState;
-  submitError: string | null;
-  viewModel: LostReportCreationViewModel;
-}) {
-  return (
-    <ReportCreationReviewPublishSection
-      activityIndicatorColor={shellColors.white}
-      canPublish={viewModel.canPublish}
-      Icon={ReportCreationIcon}
-      onPublish={publish}
-      publishActionLabel={viewModel.review.publishActionLabel}
-      publishState={publishState}
-      rows={viewModel.review.rows}
-      styles={styles}
-      submitError={submitError}
-      validationErrors={viewModel.review.validationErrors}
-    />
-  );
-}
-
 function InlinePetForm({
   draft,
   setDraft,
 }: {
-  draft: LostReportDraft;
-  setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
+  draft: AdoptionListingDraft;
+  setDraft: React.Dispatch<React.SetStateAction<AdoptionListingDraft>>;
 }) {
-  const viewModel = buildLostReportCreationViewModel({
+  const inline = buildAdoptionListingCreationViewModel({
     draft,
     petProfiles: [],
-  });
+  }).petSelection.inlineForm;
 
   return (
     <View style={styles.formStack}>
       <Field
-        field={viewModel.petSelection.inlineForm.fields.name}
+        field={inline.fields.name}
         onChangeText={(value) =>
           setDraft((current) => ({
             ...current,
@@ -625,10 +459,10 @@ function InlinePetForm({
         }
         selectedType={draft.inlinePet.type}
         styles={styles}
-        typeOptions={lostReportPetTypeOptions}
+        typeOptions={adoptionListingPetTypeOptions}
       />
       <Field
-        field={viewModel.petSelection.inlineForm.fields.breed}
+        field={inline.fields.breed}
         onChangeText={(value) =>
           setDraft((current) => ({
             ...current,
@@ -638,7 +472,7 @@ function InlinePetForm({
       />
       <Field
         multiline
-        field={viewModel.petSelection.inlineForm.fields.description}
+        field={inline.fields.description}
         onChangeText={(value) =>
           setDraft((current) => ({
             ...current,
@@ -650,35 +484,135 @@ function InlinePetForm({
   );
 }
 
-function Section({
-  children,
-  title,
+function LocationPrivacySection({
+  setDraft,
+  viewModel,
 }: {
-  children: React.ReactNode;
-  title: string;
+  setDraft: React.Dispatch<React.SetStateAction<AdoptionListingDraft>>;
+  viewModel: AdoptionListingCreationViewModel;
 }) {
   return (
-    <ReportCreationSection styles={styles} title={title}>
-      {children}
+    <ReportCreationSection styles={styles} title="Ubicacion y privacidad">
+      <View style={styles.mapPreview}>
+        <View style={styles.mapGrid}>
+          {mapPreviewBlocks.map((index) => (
+            <View key={index} style={styles.mapBlock} />
+          ))}
+        </View>
+        <View style={styles.mapPin}>
+          <AdoptionListingCreationIcon
+            color={shellColors.white}
+            name="mappin"
+            size={22}
+          />
+        </View>
+        <Text maxFontSizeMultiplier={1.15} style={styles.mapLabel}>
+          {viewModel.location.mapPreviewLabel}
+        </Text>
+      </View>
+      <ReportCreationInfoRow
+        accentColor={adoptionAccent}
+        Icon={AdoptionListingCreationIcon}
+        icon="location.fill"
+        label="Ubicacion interna"
+        styles={styles}
+        value={viewModel.location.exactInternalLabel}
+      />
+      <ReportCreationInfoRow
+        accentColor={adoptionAccent}
+        Icon={AdoptionListingCreationIcon}
+        icon="circle.grid.2x2.fill"
+        label={viewModel.location.publicPrecisionLabel}
+        styles={styles}
+        value={viewModel.location.approximatePublicLabel}
+      />
+      <ReportCreationToggleRow
+        body={viewModel.location.toggleBody}
+        isSelected={viewModel.location.showExactPinPublicly}
+        label={viewModel.location.exactPinOptInLabel}
+        onPress={() =>
+          setDraft((current) => ({
+            ...current,
+            showExactPinPublicly: !current.showExactPinPublicly,
+          }))
+        }
+        styles={styles}
+      />
+    </ReportCreationSection>
+  );
+}
+
+function ContactOptionSection({
+  setDraft,
+  viewModel,
+}: {
+  setDraft: React.Dispatch<React.SetStateAction<AdoptionListingDraft>>;
+  viewModel: AdoptionListingCreationViewModel;
+}) {
+  return (
+    <ReportCreationContactOptionSection
+      accentColor={adoptionAccent}
+      Icon={AdoptionListingCreationIcon}
+      onChangeWhatsappPhone={(value) =>
+        setDraft((current) => ({
+          ...current,
+          contact: {
+            ...current.contact,
+            whatsappPhone: value,
+          },
+        }))
+      }
+      onSelectOption={(option) =>
+        setDraft((current) =>
+          selectAdoptionListingContactOption({
+            draft: current,
+            option,
+          }),
+        )
+      }
+      options={viewModel.contact.options}
+      styles={styles}
+      title="Contacto"
+      whatsappField={viewModel.contact.whatsappField}
+    />
+  );
+}
+
+function VerificationSection({
+  viewModel,
+}: {
+  viewModel: AdoptionListingCreationViewModel;
+}) {
+  return (
+    <ReportCreationSection styles={styles} title="Verificacion">
+      <ReportCreationInfoRow
+        accentColor={adoptionAccent}
+        Icon={AdoptionListingCreationIcon}
+        icon={
+          viewModel.verificationBadge.visible
+            ? "checkmark.seal.fill"
+            : "info.circle.fill"
+        }
+        label="Insignia"
+        styles={styles}
+        value={viewModel.verificationBadge.label ?? "No requerida"}
+      />
     </ReportCreationSection>
   );
 }
 
 function Field({
   field,
-  keyboardType,
   multiline,
   onChangeText,
 }: {
   field: ReportCreationFieldViewModel;
-  keyboardType?: "default" | "phone-pad";
   multiline?: boolean;
   onChangeText: (value: string) => void;
 }) {
   return (
     <ReportCreationField
       field={field}
-      keyboardType={keyboardType}
       multiline={multiline}
       onChangeText={onChangeText}
       placeholderTextColor={shellColors.muted}
@@ -687,141 +621,50 @@ function Field({
   );
 }
 
-function ProgressSteps({
-  steps,
-}: {
-  steps: {
-    id: string;
-    isComplete: boolean;
-    label: string;
-  }[];
-}) {
-  return <ReportCreationProgressSteps steps={steps} styles={styles} />;
-}
-
-function SegmentedChoice({
-  onSelect,
-  options,
-  selectedValue,
-}: {
-  onSelect: (value: string) => void;
-  options: {
-    label: string;
-    value: string;
-  }[];
-  selectedValue: string;
-}) {
-  return (
-    <View style={styles.segmented}>
-      {options.map((option) => (
-        <Pressable
-          accessibilityRole="button"
-          key={option.value}
-          onPress={() => onSelect(option.value)}
-          style={[
-            styles.segment,
-            selectedValue === option.value ? styles.segmentSelected : null,
-          ]}
-        >
-          <Text
-            maxFontSizeMultiplier={1.1}
-            style={[
-              styles.segmentText,
-              selectedValue === option.value
-                ? styles.segmentTextSelected
-                : null,
-            ]}
-          >
-            {option.label}
-          </Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
-function ToggleRow({
-  body,
+function SegmentButton({
   isSelected,
   label,
   onPress,
 }: {
-  body: string;
   isSelected: boolean;
   label: string;
   onPress: () => void;
 }) {
   return (
-    <ReportCreationToggleRow
-      body={body}
-      isSelected={isSelected}
-      label={label}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: isSelected }}
       onPress={onPress}
-      styles={styles}
-    />
+      style={[styles.segmentButton, isSelected ? styles.selectedPill : null]}
+    >
+      <Text
+        maxFontSizeMultiplier={1.1}
+        style={[
+          styles.segmentText,
+          isSelected ? styles.selectedPillText : null,
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
-function InfoRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: string;
-  label: string;
-  value: string;
-}) {
-  return (
-    <ReportCreationInfoRow
-      accentColor={shellColors.primary}
-      Icon={ReportCreationIcon}
-      icon={icon}
-      label={label}
-      styles={styles}
-      value={value}
-    />
-  );
-}
-
-function ActionButton({
-  icon,
-  label,
-  onPress,
-  variant = "primary",
-}: {
-  icon: string;
-  label: string;
-  onPress?: () => void;
-  variant?: "primary" | "secondary";
-}) {
-  return (
-    <ReportCreationActionButton
-      accentColor={shellColors.primary}
-      Icon={ReportCreationIcon}
-      icon={icon}
-      label={label}
-      onPress={onPress}
-      primaryTextColor={shellColors.white}
-      styles={styles}
-      variant={variant}
-    />
-  );
-}
-
-function createFallbackPhoto(index: number): LostReportPhoto {
+function createFallbackPhoto(index: number): AdoptionListingPhoto {
   return {
-    id: `lost-report-photo-${index + 1}`,
+    alt: "Foto para adopcion",
+    id: `adoption-listing-photo-${index + 1}`,
     status: "ready",
-    uri: `file:///lost-report-photo-${index + 1}.jpg`,
+    uri: `file:///adoption-listing-photo-${index + 1}.jpg`,
   };
 }
 
 const styles = StyleSheet.create({
   actionButton: {
     alignItems: "center",
+    borderCurve: "continuous",
     borderRadius: 16,
     borderWidth: 1,
-    flex: 1,
     flexDirection: "row",
     gap: 8,
     justifyContent: "center",
@@ -829,15 +672,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   actionButtonPrimary: {
-    backgroundColor: shellColors.primary,
-    borderColor: shellColors.primary,
+    backgroundColor: adoptionAccent,
+    borderColor: adoptionAccent,
   },
   actionButtonSecondary: {
-    backgroundColor: shellColors.primarySoft,
+    backgroundColor: adoptionAccentSoft,
     borderColor: shellColors.border,
   },
   actionButtonText: {
-    color: shellColors.primary,
+    color: adoptionAccent,
     fontSize: 14,
     fontWeight: "800",
   },
@@ -845,15 +688,16 @@ const styles = StyleSheet.create({
     color: shellColors.white,
   },
   addPhotoText: {
-    color: shellColors.primary,
+    color: adoptionAccent,
     fontSize: 12,
     fontWeight: "800",
   },
   addPhotoTile: {
     alignItems: "center",
     aspectRatio: 1,
-    backgroundColor: shellColors.primarySoft,
+    backgroundColor: adoptionAccentSoft,
     borderColor: shellColors.border,
+    borderCurve: "continuous",
     borderRadius: 16,
     borderWidth: 1,
     gap: 4,
@@ -874,6 +718,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: shellColors.surface,
     borderColor: shellColors.border,
+    borderCurve: "continuous",
     borderRadius: 18,
     borderWidth: 1,
     flexDirection: "row",
@@ -893,15 +738,16 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   errorText: {
-    color: shellColors.lost,
+    color: errorAccent,
     fontSize: 13,
     fontWeight: "700",
     lineHeight: 18,
   },
   eyebrow: {
-    color: shellColors.lost,
+    color: adoptionAccent,
     fontSize: 12,
     fontWeight: "900",
+    letterSpacing: 0,
     textTransform: "uppercase",
   },
   field: {
@@ -926,7 +772,8 @@ const styles = StyleSheet.create({
   },
   headerIcon: {
     alignItems: "center",
-    backgroundColor: shellColors.lost,
+    backgroundColor: adoptionAccent,
+    borderCurve: "continuous",
     borderRadius: 18,
     height: 46,
     justifyContent: "center",
@@ -940,6 +787,7 @@ const styles = StyleSheet.create({
   iconButton: {
     alignItems: "center",
     backgroundColor: shellColors.surfaceMuted,
+    borderCurve: "continuous",
     borderRadius: 18,
     height: 38,
     justifyContent: "center",
@@ -953,6 +801,7 @@ const styles = StyleSheet.create({
   infoRow: {
     alignItems: "center",
     backgroundColor: shellColors.surfaceMuted,
+    borderCurve: "continuous",
     borderRadius: 16,
     flexDirection: "row",
     gap: 12,
@@ -961,6 +810,7 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: shellColors.surface,
     borderColor: shellColors.border,
+    borderCurve: "continuous",
     borderRadius: 14,
     borderWidth: 1,
     color: shellColors.text,
@@ -975,7 +825,8 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   mapBlock: {
-    backgroundColor: "rgba(20, 108, 90, 0.10)",
+    backgroundColor: "rgba(157, 79, 102, 0.12)",
+    borderCurve: "continuous",
     borderRadius: 8,
     flex: 1,
     minHeight: 28,
@@ -988,9 +839,10 @@ const styles = StyleSheet.create({
   },
   mapLabel: {
     backgroundColor: shellColors.surface,
+    borderCurve: "continuous",
     borderRadius: 999,
     bottom: 12,
-    color: shellColors.primaryDark,
+    color: adoptionAccent,
     fontSize: 12,
     fontWeight: "800",
     left: 12,
@@ -1000,7 +852,8 @@ const styles = StyleSheet.create({
   },
   mapPin: {
     alignItems: "center",
-    backgroundColor: shellColors.lost,
+    backgroundColor: adoptionAccent,
+    borderCurve: "continuous",
     borderRadius: 20,
     height: 40,
     justifyContent: "center",
@@ -1010,8 +863,9 @@ const styles = StyleSheet.create({
     width: 40,
   },
   mapPreview: {
-    backgroundColor: "#E1EFF5",
+    backgroundColor: adoptionAccentSoft,
     borderColor: shellColors.border,
+    borderCurve: "continuous",
     borderRadius: 20,
     borderWidth: 1,
     minHeight: 160,
@@ -1036,8 +890,9 @@ const styles = StyleSheet.create({
   },
   permissionBox: {
     alignItems: "center",
-    backgroundColor: shellColors.primarySoft,
+    backgroundColor: adoptionAccentSoft,
     borderColor: shellColors.border,
+    borderCurve: "continuous",
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: "row",
@@ -1048,17 +903,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: shellColors.surface,
     borderColor: shellColors.border,
+    borderCurve: "continuous",
     borderRadius: 18,
     borderWidth: 1,
     flexDirection: "row",
     gap: 12,
-    padding: 10,
+    padding: 12,
   },
   petThumb: {
     backgroundColor: shellColors.surfaceMuted,
+    borderCurve: "continuous",
     borderRadius: 14,
-    height: 56,
-    width: 56,
+    height: 54,
+    width: 54,
   },
   photoGrid: {
     flexDirection: "row",
@@ -1072,6 +929,7 @@ const styles = StyleSheet.create({
   photoTile: {
     aspectRatio: 1,
     backgroundColor: shellColors.surfaceMuted,
+    borderCurve: "continuous",
     borderRadius: 16,
     overflow: "hidden",
     width: "31%",
@@ -1081,8 +939,9 @@ const styles = StyleSheet.create({
   },
   publishButton: {
     alignItems: "center",
-    backgroundColor: shellColors.primary,
-    borderColor: shellColors.primary,
+    backgroundColor: adoptionAccent,
+    borderColor: adoptionAccent,
+    borderCurve: "continuous",
     borderRadius: 18,
     borderWidth: 1,
     flexDirection: "row",
@@ -1103,6 +962,7 @@ const styles = StyleSheet.create({
   },
   reviewList: {
     backgroundColor: shellColors.surfaceMuted,
+    borderCurve: "continuous",
     borderRadius: 16,
     overflow: "hidden",
   },
@@ -1128,47 +988,45 @@ const styles = StyleSheet.create({
   section: {
     backgroundColor: shellColors.surface,
     borderColor: shellColors.border,
-    borderRadius: 20,
+    borderCurve: "continuous",
+    borderRadius: 22,
     borderWidth: 1,
     gap: 12,
     padding: 14,
   },
   sectionTitle: {
     color: shellColors.text,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "900",
   },
-  segment: {
+  segmentButton: {
     alignItems: "center",
-    borderRadius: 14,
+    borderCurve: "continuous",
+    borderRadius: 999,
     flex: 1,
     minHeight: 42,
     justifyContent: "center",
-  },
-  segmentSelected: {
-    backgroundColor: shellColors.primary,
+    paddingHorizontal: 12,
   },
   segmentText: {
-    color: shellColors.muted,
-    fontSize: 13,
+    color: adoptionAccent,
+    fontSize: 14,
     fontWeight: "800",
   },
-  segmentTextSelected: {
-    color: shellColors.white,
-  },
   segmented: {
-    backgroundColor: shellColors.surfaceMuted,
-    borderRadius: 16,
+    backgroundColor: adoptionAccentSoft,
+    borderCurve: "continuous",
+    borderRadius: 999,
     flexDirection: "row",
+    gap: 4,
     padding: 4,
   },
   selectedBorder: {
-    borderColor: shellColors.primary,
+    borderColor: adoptionAccent,
     borderWidth: 2,
   },
   selectedPill: {
-    backgroundColor: shellColors.primary,
-    borderColor: shellColors.primary,
+    backgroundColor: adoptionAccent,
   },
   selectedPillText: {
     color: shellColors.white,
@@ -1176,13 +1034,14 @@ const styles = StyleSheet.create({
   stepDot: {
     alignItems: "center",
     backgroundColor: shellColors.surfaceMuted,
+    borderCurve: "continuous",
     borderRadius: 999,
     height: 28,
     justifyContent: "center",
     width: 28,
   },
   stepDotComplete: {
-    backgroundColor: shellColors.primary,
+    backgroundColor: adoptionAccent,
   },
   stepItem: {
     alignItems: "center",
@@ -1193,6 +1052,7 @@ const styles = StyleSheet.create({
     color: shellColors.muted,
     fontSize: 11,
     fontWeight: "800",
+    textAlign: "center",
   },
   stepNumber: {
     color: shellColors.muted,
@@ -1203,76 +1063,74 @@ const styles = StyleSheet.create({
     color: shellColors.white,
   },
   steps: {
-    backgroundColor: shellColors.surface,
-    borderColor: shellColors.border,
-    borderRadius: 18,
-    borderWidth: 1,
     flexDirection: "row",
-    gap: 6,
-    padding: 10,
+    gap: 8,
   },
   successHero: {
     alignItems: "center",
     backgroundColor: shellColors.surface,
     borderColor: shellColors.border,
-    borderRadius: 22,
+    borderCurve: "continuous",
+    borderRadius: 24,
     borderWidth: 1,
     gap: 12,
-    padding: 22,
+    padding: 24,
   },
   successIcon: {
     alignItems: "center",
-    backgroundColor: shellColors.primary,
-    borderRadius: 24,
-    height: 58,
+    backgroundColor: adoptionAccent,
+    borderCurve: "continuous",
+    borderRadius: 28,
+    height: 56,
     justifyContent: "center",
-    width: 58,
+    width: 56,
   },
   switchOn: {
-    backgroundColor: shellColors.primary,
+    backgroundColor: adoptionAccent,
   },
   switchThumb: {
     backgroundColor: shellColors.white,
-    borderRadius: 10,
-    height: 20,
-    width: 20,
+    borderCurve: "continuous",
+    borderRadius: 999,
+    height: 22,
+    width: 22,
   },
   switchThumbOn: {
-    transform: [{ translateX: 20 }],
+    marginLeft: 24,
   },
   switchTrack: {
-    backgroundColor: shellColors.muted,
+    backgroundColor: shellColors.border,
+    borderCurve: "continuous",
     borderRadius: 999,
-    padding: 2,
-    width: 44,
+    padding: 3,
+    width: 52,
   },
   title: {
     color: shellColors.text,
     fontSize: 24,
     fontWeight: "900",
+    lineHeight: 30,
   },
   toggleRow: {
     alignItems: "center",
-    backgroundColor: shellColors.surface,
-    borderColor: shellColors.border,
+    backgroundColor: shellColors.surfaceMuted,
+    borderCurve: "continuous",
     borderRadius: 16,
-    borderWidth: 1,
     flexDirection: "row",
     gap: 12,
     padding: 12,
   },
   typePill: {
-    alignItems: "center",
     backgroundColor: shellColors.surfaceMuted,
     borderColor: shellColors.border,
+    borderCurve: "continuous",
     borderRadius: 999,
     borderWidth: 1,
-    minHeight: 34,
     paddingHorizontal: 12,
-    justifyContent: "center",
+    paddingVertical: 9,
   },
   typePillText: {
-    color: shellColors.primaryDark,
+    color: adoptionAccent,
     fontSize: 13,
     fontWeight: "800",
   },

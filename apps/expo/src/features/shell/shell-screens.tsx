@@ -84,6 +84,7 @@ export function NearbyScreen() {
         />
         <FilterPill icon="checkmark.seal.fill" label={screen.filterFound} />
         <FilterPill icon="eye.fill" label={screen.filterSightings} />
+        <FilterPill icon="heart.fill" label={screen.filterAdoption} />
       </View>
 
       <View style={styles.mapPreview}>
