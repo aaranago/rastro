@@ -1,5 +1,6 @@
 import type { TrustSafetyRepository } from "../trust-safety";
 import type {
+  LocalSponsorPlacement,
   ResourceCategoryId,
   ResourceCoordinate,
   ResourceProviderAdminReviewItem,
@@ -300,10 +301,24 @@ function toResourceProviderSearchSummary({
     ...summary,
     contactOptions: summary.contactOptions.map((contact) => ({ ...contact })),
     distanceMeters: Math.round(distanceMeters),
-    sponsorPlacement:
-      summary.sponsorPlacement === undefined
-        ? undefined
-        : { ...summary.sponsorPlacement },
+    sponsorPlacement: cloneLocalSponsorPlacement(summary.sponsorPlacement),
+  };
+}
+
+function cloneLocalSponsorPlacement(
+  placement: LocalSponsorPlacement | undefined,
+) {
+  if (placement === undefined) {
+    return undefined;
+  }
+
+  return {
+    ...placement,
+    eligibleSurfaces: [...placement.eligibleSurfaces],
+    safetyPolicy: {
+      recoveryPriority: { ...placement.safetyPolicy.recoveryPriority },
+      pushNotifications: { ...placement.safetyPolicy.pushNotifications },
+    },
   };
 }
 

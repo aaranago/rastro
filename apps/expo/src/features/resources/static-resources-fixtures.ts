@@ -1,4 +1,5 @@
 import type {
+  LocalSponsorPlacement,
   ResourceProviderFixture,
   ResourceProviderProfile,
   ResourceProviderSummary,
@@ -22,8 +23,24 @@ const clinicSanRoque: ResourceProviderFixture = {
   isVerified: true,
   emergencyAvailable: true,
   sponsorPlacement: {
+    kind: "Local Sponsor Placement",
     label: "Patrocinado",
     disclosure: "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+    eligibleSurfaces: [
+      "resources_directory",
+      "provider_details",
+      "report_success",
+      "contextual_care_resources",
+    ],
+    safetyPolicy: {
+      recoveryPriority: {
+        label: "Recovery Priority",
+        canAffect: false,
+      },
+      pushNotifications: {
+        eligible: false,
+      },
+    },
   },
   logoUrl: "https://example.com/san-roque-logo.png",
   photoUrl: "https://example.com/san-roque-photo.png",
@@ -340,9 +357,23 @@ function toPublicProviderSummary(
   return {
     ...summary,
     contactOptions: summary.contactOptions.map((contact) => ({ ...contact })),
-    sponsorPlacement:
-      summary.sponsorPlacement === undefined
-        ? undefined
-        : { ...summary.sponsorPlacement },
+    sponsorPlacement: cloneLocalSponsorPlacement(summary.sponsorPlacement),
+  };
+}
+
+function cloneLocalSponsorPlacement(
+  placement: LocalSponsorPlacement | undefined,
+) {
+  if (placement === undefined) {
+    return undefined;
+  }
+
+  return {
+    ...placement,
+    eligibleSurfaces: [...placement.eligibleSurfaces],
+    safetyPolicy: {
+      recoveryPriority: { ...placement.safetyPolicy.recoveryPriority },
+      pushNotifications: { ...placement.safetyPolicy.pushNotifications },
+    },
   };
 }

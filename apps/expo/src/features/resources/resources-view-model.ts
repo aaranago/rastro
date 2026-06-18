@@ -1,4 +1,5 @@
 import type {
+  LocalSponsorPlacement,
   ResourceCategoryId,
   ResourceContactOption,
   ResourceProviderProfile,
@@ -77,6 +78,7 @@ export interface ResourceProviderSummaryViewModel {
   isSponsored: boolean;
   sponsorLabel?: string;
   sponsorDisclosure?: string;
+  sponsorPlacement?: LocalSponsorPlacement;
   availabilityLabel?: string;
   emergencyLabel?: string;
   logoUrl?: string;
@@ -154,6 +156,7 @@ export interface ResourceProviderProfileViewModel {
     label: string;
     url: string;
   }[];
+  sponsorPlacement?: LocalSponsorPlacement;
   sponsorDisclosure?: string;
   reportAction: {
     label: string;
@@ -246,6 +249,7 @@ export function buildResourceProviderProfileViewModel(
     })),
     sections: buildProfileSections(profile),
     optionalLinks: buildProfileLinks(profile),
+    sponsorPlacement: cloneLocalSponsorPlacement(profile.sponsorPlacement),
     sponsorDisclosure: profile.sponsorPlacement?.disclosure,
     reportAction: {
       label: "Reportar",
@@ -298,12 +302,30 @@ function buildProviderSummaryViewModel(
     isSponsored: provider.sponsorPlacement !== undefined,
     sponsorLabel: provider.sponsorPlacement?.label,
     sponsorDisclosure: provider.sponsorPlacement?.disclosure,
+    sponsorPlacement: cloneLocalSponsorPlacement(provider.sponsorPlacement),
     availabilityLabel: provider.isOpenNow === true ? "Abierto" : undefined,
     emergencyLabel:
       provider.emergencyAvailable === true ? "Urgencias" : undefined,
     logoUrl: provider.logoUrl,
     photoUrl: provider.photoUrl,
     contactLabels: provider.contactOptions.map((contact) => contact.label),
+  };
+}
+
+function cloneLocalSponsorPlacement(
+  placement: LocalSponsorPlacement | undefined,
+) {
+  if (placement === undefined) {
+    return undefined;
+  }
+
+  return {
+    ...placement,
+    eligibleSurfaces: [...placement.eligibleSurfaces],
+    safetyPolicy: {
+      recoveryPriority: { ...placement.safetyPolicy.recoveryPriority },
+      pushNotifications: { ...placement.safetyPolicy.pushNotifications },
+    },
   };
 }
 

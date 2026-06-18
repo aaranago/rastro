@@ -99,4 +99,45 @@ describe("Lost Pet Report creation view model", () => {
       showExactPublicLocation: true,
     });
   });
+
+  it("surfaces a sponsored local care resource after publishing without recovery priority language", () => {
+    const draft = createInitialLostReportDraft({ petProfiles: profiles });
+
+    const viewModel = buildLostReportCreationViewModel({
+      draft,
+      petProfiles: profiles,
+      session: { kind: "member", memberId: "member-camila" },
+    });
+
+    expect(viewModel.success.localSponsorPlacement).toMatchObject({
+      actionLabel: "Ver recurso",
+      categoryLabel: "Veterinaria",
+      paidDisclosure: "Colocacion pagada",
+      reportActionLabel: "Reportar",
+      sponsorLabel: "Patrocinado",
+      title: "Recurso local cercano",
+    });
+    expect(viewModel.success.localSponsorPlacement?.body).toContain(
+      "orientacion local",
+    );
+    expect(
+      viewModel.success.localSponsorPlacement?.recoveryPriorityDisclosure,
+    ).toContain("No cambia la prioridad de tu reporte");
+
+    const renderedCopy = JSON.stringify(
+      viewModel.success.localSponsorPlacement,
+    ).toLowerCase();
+
+    for (const forbiddenCopy of [
+      "destacado",
+      "mas visible",
+      "notificacion",
+      "promocion",
+      "push",
+      "ranking",
+      "urgente",
+    ]) {
+      expect(renderedCopy).not.toContain(forbiddenCopy);
+    }
+  });
 });

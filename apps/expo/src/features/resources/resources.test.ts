@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { ResourceProviderFixture } from "./resource-types";
 import { createInMemoryTrustSafetyRepository } from "../trust-safety";
 import {
   buildResourceProviderProfileViewModel,
@@ -145,6 +146,44 @@ describe("Resources directory", () => {
     expect(sponsoredProvider?.sponsorDisclosure).not.toMatch(
       /push|notific|prioridad de recuperaci[oó]n/i,
     );
+  });
+
+  it("exposes Local Sponsor Placement surfaces and safety policy in resource results", () => {
+    const viewModel = buildResourcesDirectoryViewModel({
+      providers: rastroResourceFixtures.providers,
+      location: {
+        kind: "current",
+        label: "La Paz",
+      },
+      mode: "list",
+      status: "ready",
+    });
+
+    const sponsoredProvider = viewModel.results.find(
+      (provider) => provider.id === "clinic-san-roque",
+    );
+
+    expect(sponsoredProvider?.sponsorPlacement).toEqual({
+      kind: "Local Sponsor Placement",
+      label: "Patrocinado",
+      disclosure:
+        "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+      eligibleSurfaces: [
+        "resources_directory",
+        "provider_details",
+        "report_success",
+        "contextual_care_resources",
+      ],
+      safetyPolicy: {
+        recoveryPriority: {
+          label: "Recovery Priority",
+          canAffect: false,
+        },
+        pushNotifications: {
+          eligible: false,
+        },
+      },
+    });
   });
 
   it("describes empty, denied-location, offline, and error notices with Spanish actions", () => {
@@ -306,6 +345,48 @@ describe("Resources directory", () => {
     });
   });
 
+  it("exposes Local Sponsor Placement policy on provider profiles separately from verification", () => {
+    const profile = rastroResourceFixtures.profiles.find(
+      (providerProfile) => providerProfile.id === "clinic-san-roque",
+    );
+
+    if (!profile) {
+      throw new Error("Missing Clínica Veterinaria San Roque fixture");
+    }
+
+    const viewModel = buildResourceProviderProfileViewModel(profile);
+
+    expect(viewModel.badges).toContainEqual({
+      label: "Verificado",
+      tone: "verified",
+    });
+    expect(viewModel.badges).toContainEqual({
+      label: "Patrocinado",
+      tone: "sponsor",
+    });
+    expect(viewModel.sponsorPlacement).toEqual({
+      kind: "Local Sponsor Placement",
+      label: "Patrocinado",
+      disclosure:
+        "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+      eligibleSurfaces: [
+        "resources_directory",
+        "provider_details",
+        "report_success",
+        "contextual_care_resources",
+      ],
+      safetyPolicy: {
+        recoveryPriority: {
+          label: "Recovery Priority",
+          canAffect: false,
+        },
+        pushNotifications: {
+          eligible: false,
+        },
+      },
+    });
+  });
+
   it("omits missing provider profile optional fields without leaving empty sections", () => {
     const profile = rastroResourceFixtures.profiles.find(
       (providerProfile) => providerProfile.id === "peludos-felices",
@@ -367,6 +448,126 @@ describe("Resources directory", () => {
         },
       },
     });
+  });
+
+  it("keeps static adapter results radius-sorted and clones sponsor policy data", async () => {
+    const nearbyProvider: ResourceProviderFixture = {
+      id: "nearby-provider",
+      name: "Veterinaria Cerca",
+      categoryId: "veterinary",
+      description: "Atención general",
+      approximateLocationLabel: "Sopocachi, La Paz",
+      exactLocation: {
+        addressLabel: "Sopocachi, La Paz",
+        countryCode: "BO",
+        latitude: -16.5103,
+        locationCellLabel: "Sopocachi",
+        longitude: -68.1299,
+      },
+      contactOptions: [
+        {
+          kind: "phone",
+          label: "Llamar",
+          value: "+591 2 222 0000",
+        },
+      ],
+    };
+    const sponsoredFartherProvider: ResourceProviderFixture = {
+      id: "sponsored-farther-provider",
+      name: "Clínica Patrocinada Lejos",
+      categoryId: "veterinary",
+      description: "Atención patrocinada",
+      approximateLocationLabel: "Miraflores, La Paz",
+      exactLocation: {
+        addressLabel: "Miraflores, La Paz",
+        countryCode: "BO",
+        latitude: -16.5006,
+        locationCellLabel: "Miraflores",
+        longitude: -68.1216,
+      },
+      sponsorPlacement: {
+        kind: "Local Sponsor Placement",
+        label: "Patrocinado",
+        disclosure:
+          "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+        eligibleSurfaces: [
+          "resources_directory",
+          "provider_details",
+          "report_success",
+          "contextual_care_resources",
+        ],
+        safetyPolicy: {
+          recoveryPriority: {
+            label: "Recovery Priority",
+            canAffect: false,
+          },
+          pushNotifications: {
+            eligible: false,
+          },
+        },
+      },
+      contactOptions: [
+        {
+          kind: "phone",
+          label: "Llamar",
+          value: "+591 2 222 9999",
+        },
+      ],
+    };
+    const adapter = createStaticResourcesAdapter({
+      providers: [sponsoredFartherProvider, nearbyProvider],
+      profiles: [],
+    });
+    const query = {
+      location: {
+        coordinate: {
+          latitude: -16.5103,
+          longitude: -68.1299,
+        },
+        countryCode: "BO",
+        kind: "manual",
+        label: "Sopocachi, La Paz",
+        locationCellLabel: "Sopocachi",
+        manualLocationKind: "place",
+      },
+      radiusMeters: 2_000,
+      strategy: "postgis_radius",
+    } as const;
+
+    const firstResults = await adapter.searchProviders(query);
+    const firstSponsor = firstResults.find(
+      (provider) => provider.id === "sponsored-farther-provider",
+    );
+
+    expect(firstResults.map((provider) => provider.id)).toEqual([
+      "nearby-provider",
+      "sponsored-farther-provider",
+    ]);
+    expect(firstSponsor?.sponsorPlacement?.safetyPolicy).toEqual({
+      recoveryPriority: {
+        label: "Recovery Priority",
+        canAffect: false,
+      },
+      pushNotifications: {
+        eligible: false,
+      },
+    });
+
+    (
+      firstSponsor?.sponsorPlacement?.eligibleSurfaces as unknown as string[]
+    ).push("launch_home_banner");
+
+    const secondResults = await adapter.searchProviders(query);
+    const secondSponsor = secondResults.find(
+      (provider) => provider.id === "sponsored-farther-provider",
+    );
+
+    expect(secondSponsor?.sponsorPlacement?.eligibleSurfaces).toEqual([
+      "resources_directory",
+      "provider_details",
+      "report_success",
+      "contextual_care_resources",
+    ]);
   });
 
   it("describes current, last, manual, denied, and offline search states", () => {

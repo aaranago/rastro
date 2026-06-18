@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 
 import type { ReportIntent } from "../../i18n";
 import type { ShellAuthActionResult, ShellAuthCredentials } from "./shell-auth";
@@ -23,6 +24,10 @@ import type {
 import { AdoptionListingCreationScreen } from "../adoption-listing-creation/adoption-listing-creation-screen";
 import { FoundReportCreationScreen } from "../found-report-creation/found-report-creation-screen";
 import { LostReportCreationScreen } from "../lost-report-creation/lost-report-creation-screen";
+import {
+  buildResourceProviderProfileHref,
+  createStaticResourcesAdapter,
+} from "../resources";
 import { SightingReportCreationScreen } from "../sighting-report-creation/sighting-report-creation-screen";
 import { prepareShellAuthCredentials } from "./shell-auth";
 import { useRastroShell } from "./shell-provider";
@@ -61,6 +66,28 @@ export function ShellFabHost() {
     state,
   } = useRastroShell();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const sponsorResourcesAdapter = React.useMemo(
+    () => createStaticResourcesAdapter(),
+    [],
+  );
+  const handleOpenSponsorPlacement = React.useCallback(
+    (sponsorPlacementId: string) => {
+      clearMemberIntent();
+      router.push(buildResourceProviderProfileHref(sponsorPlacementId));
+    },
+    [clearMemberIntent, router],
+  );
+  const handleReportSponsorPlacement = React.useCallback(
+    (sponsorPlacementId: string) => {
+      void sponsorResourcesAdapter.reportProvider({
+        detail: "Reporte enviado desde una colocacion patrocinada.",
+        providerId: sponsorPlacementId,
+        reason: "other",
+      });
+    },
+    [sponsorResourcesAdapter],
+  );
 
   return (
     <>
@@ -115,6 +142,8 @@ export function ShellFabHost() {
       />
 
       <LostReportCreationModal
+        onOpenSponsorPlacement={handleOpenSponsorPlacement}
+        onReportSponsorPlacement={handleReportSponsorPlacement}
         onClose={clearMemberIntent}
         visible={state.memberIntent?.intent === "lost"}
       />
@@ -142,9 +171,13 @@ export function ShellFabHost() {
 
 function LostReportCreationModal({
   onClose,
+  onOpenSponsorPlacement,
+  onReportSponsorPlacement,
   visible,
 }: {
   onClose: () => void;
+  onOpenSponsorPlacement: (sponsorPlacementId: string) => void;
+  onReportSponsorPlacement: (sponsorPlacementId: string) => void;
   visible: boolean;
 }) {
   return (
@@ -154,7 +187,11 @@ function LostReportCreationModal({
       presentationStyle="fullScreen"
       visible={visible}
     >
-      <LostReportCreationScreen onClose={onClose} />
+      <LostReportCreationScreen
+        onClose={onClose}
+        onOpenSponsorPlacement={onOpenSponsorPlacement}
+        onReportSponsorPlacement={onReportSponsorPlacement}
+      />
     </Modal>
   );
 }

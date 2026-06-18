@@ -1,6 +1,6 @@
 # Display Local Sponsor Placements without affecting Recovery Priority
 
-Status: ready-for-agent
+Status: complete
 Type: AFK
 
 ## Parent
@@ -13,12 +13,12 @@ Display clearly labeled Local Sponsor Placements in approved resource and contex
 
 ## Acceptance criteria
 
-- [ ] Sponsor placements are clearly labeled as paid/sponsored.
-- [ ] Sponsor placements can appear in resources, provider details, launch/home banner, report success, or contextual care-resource surfaces.
-- [ ] Sponsor placements never outrank or promote lost, found, sighting, or adoption content.
-- [ ] Sponsor placements are never sent as push notifications.
-- [ ] The UI avoids generic ad-wall treatment.
-- [ ] Visitors and members can report inappropriate sponsor/provider content.
+- [x] Sponsor placements are clearly labeled as paid/sponsored.
+- [x] Sponsor placements can appear in resources, provider details, launch/home banner, report success, or contextual care-resource surfaces.
+- [x] Sponsor placements never outrank or promote lost, found, sighting, or adoption content.
+- [x] Sponsor placements are never sent as push notifications.
+- [x] The UI avoids generic ad-wall treatment.
+- [x] Visitors and members can report inappropriate sponsor/provider content.
 
 ## Blocked by
 

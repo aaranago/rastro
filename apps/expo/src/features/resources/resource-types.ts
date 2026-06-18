@@ -90,6 +90,29 @@ export interface ResourceContactOption {
   value: string;
 }
 
+export type LocalSponsorPlacementSurface =
+  | "resources_directory"
+  | "provider_details"
+  | "launch_home_banner"
+  | "report_success"
+  | "contextual_care_resources";
+
+export interface LocalSponsorPlacement {
+  kind: "Local Sponsor Placement";
+  label: string;
+  disclosure: string;
+  eligibleSurfaces: readonly LocalSponsorPlacementSurface[];
+  safetyPolicy: {
+    recoveryPriority: {
+      label: "Recovery Priority";
+      canAffect: false;
+    };
+    pushNotifications: {
+      eligible: false;
+    };
+  };
+}
+
 export interface ResourceProviderSummary {
   id: string;
   name: string;
@@ -99,10 +122,7 @@ export interface ResourceProviderSummary {
   serviceAreaLabel?: string;
   distanceMeters?: number;
   isVerified?: boolean;
-  sponsorPlacement?: {
-    label: string;
-    disclosure: string;
-  };
+  sponsorPlacement?: LocalSponsorPlacement;
   isOpenNow?: boolean;
   emergencyAvailable?: boolean;
   logoUrl?: string;

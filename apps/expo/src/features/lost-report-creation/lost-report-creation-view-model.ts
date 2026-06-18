@@ -125,10 +125,24 @@ export interface LostReportCreationViewModel {
   }[];
   success: {
     body: string;
+    localSponsorPlacement?: LostReportSuccessLocalSponsorPlacement;
     primaryActionLabel: string;
     shareActionLabel: string;
     title: string;
   };
+  title: string;
+}
+
+export interface LostReportSuccessLocalSponsorPlacement {
+  actionLabel: string;
+  body: string;
+  categoryLabel: string;
+  id: string;
+  name: string;
+  paidDisclosure: string;
+  recoveryPriorityDisclosure: string;
+  reportActionLabel: string;
+  sponsorLabel: string;
   title: string;
 }
 
@@ -304,6 +318,7 @@ export function buildLostReportCreationViewModel({
     steps: buildSteps({ canPublish, draft, effectivePhotos, selectedPet }),
     success: {
       body: "Tu reporte de mascota perdida ya puede mostrarse cerca de la zona aproximada y compartirse con la comunidad.",
+      localSponsorPlacement: lostReportSuccessLocalSponsorPlacement,
       primaryActionLabel: "Ver reporte",
       shareActionLabel: "Compartir",
       title: "Reporte publicado",
@@ -316,6 +331,21 @@ export function buildLostReportCreationViewModel({
     title: "Reportar perdida",
   };
 }
+
+const lostReportSuccessLocalSponsorPlacement: LostReportSuccessLocalSponsorPlacement =
+  {
+    actionLabel: "Ver recurso",
+    body: "Atencion veterinaria y orientacion local para primeros cuidados mientras compartes el reporte.",
+    categoryLabel: "Veterinaria",
+    id: "clinic-san-roque",
+    name: "Clinica Veterinaria San Roque",
+    paidDisclosure: "Colocacion pagada",
+    recoveryPriorityDisclosure:
+      "No cambia la prioridad de tu reporte ni donde aparece.",
+    reportActionLabel: "Reportar",
+    sponsorLabel: "Patrocinado",
+    title: "Recurso local cercano",
+  };
 
 export function toPublishLostPetReportInput({
   draft,

@@ -58,7 +58,9 @@ function ReportCreationIcon({
 export interface LostReportCreationScreenProps {
   initialDraft?: LostReportDraft;
   onClose?: () => void;
+  onOpenSponsorPlacement?: (sponsorPlacementId: string) => void;
   onPublishLostReport?: (input: PublishLostPetReportInput) => Promise<void>;
+  onReportSponsorPlacement?: (sponsorPlacementId: string) => void;
   petProfiles?: readonly LostReportPetProfileOption[];
 }
 
@@ -70,7 +72,9 @@ type LostReportCreationViewModel = ReturnType<
 export function LostReportCreationScreen({
   initialDraft,
   onClose,
+  onOpenSponsorPlacement,
   onPublishLostReport,
+  onReportSponsorPlacement,
   petProfiles = lostReportCreationFixtures.petProfiles,
 }: LostReportCreationScreenProps) {
   const [draft, setDraft] = React.useState<LostReportDraft>(
@@ -130,7 +134,12 @@ export function LostReportCreationScreen({
 
   if (publishState === "success") {
     return (
-      <LostReportCreationSuccess onClose={onClose} viewModel={viewModel} />
+      <LostReportCreationSuccess
+        onClose={onClose}
+        onOpenSponsorPlacement={onOpenSponsorPlacement}
+        onReportSponsorPlacement={onReportSponsorPlacement}
+        viewModel={viewModel}
+      />
     );
   }
 
@@ -150,11 +159,17 @@ export function LostReportCreationScreen({
 
 function LostReportCreationSuccess({
   onClose,
+  onOpenSponsorPlacement,
+  onReportSponsorPlacement,
   viewModel,
 }: {
   onClose?: () => void;
+  onOpenSponsorPlacement?: (sponsorPlacementId: string) => void;
+  onReportSponsorPlacement?: (sponsorPlacementId: string) => void;
   viewModel: LostReportCreationViewModel;
 }) {
+  const sponsorPlacement = viewModel.success.localSponsorPlacement;
+
   return (
     <ScrollView
       contentContainerStyle={styles.content}
@@ -178,6 +193,13 @@ function LostReportCreationSuccess({
           {viewModel.success.body}
         </Text>
       </View>
+      {sponsorPlacement ? (
+        <SuccessSponsorPlacement
+          onOpen={onOpenSponsorPlacement}
+          onReport={onReportSponsorPlacement}
+          placement={sponsorPlacement}
+        />
+      ) : null}
       <View style={styles.buttonRow}>
         <ActionButton
           icon="square.and.arrow.up"
@@ -191,6 +213,102 @@ function LostReportCreationSuccess({
         />
       </View>
     </ScrollView>
+  );
+}
+
+function SuccessSponsorPlacement({
+  onOpen,
+  onReport,
+  placement,
+}: {
+  onOpen?: (sponsorPlacementId: string) => void;
+  onReport?: (sponsorPlacementId: string) => void;
+  placement: NonNullable<
+    LostReportCreationViewModel["success"]["localSponsorPlacement"]
+  >;
+}) {
+  const openPlacement = React.useCallback(() => {
+    onOpen?.(placement.id);
+  }, [onOpen, placement.id]);
+  const reportPlacement = React.useCallback(() => {
+    onReport?.(placement.id);
+  }, [onReport, placement.id]);
+
+  return (
+    <View style={styles.sponsorPlacement}>
+      <View style={styles.sponsorHeader}>
+        <View style={styles.sponsorIcon}>
+          <ReportCreationIcon
+            color={shellColors.primary}
+            name="cross.case.fill"
+            size={22}
+          />
+        </View>
+        <View style={styles.optionCopy}>
+          <View style={styles.sponsorLabelRow}>
+            <View style={styles.sponsorPill}>
+              <Text maxFontSizeMultiplier={1.1} style={styles.sponsorPillText}>
+                {placement.sponsorLabel}
+              </Text>
+            </View>
+            <Text maxFontSizeMultiplier={1.1} style={styles.sponsorDisclosure}>
+              {placement.paidDisclosure}
+            </Text>
+          </View>
+          <Text maxFontSizeMultiplier={1.15} style={styles.itemTitle}>
+            {placement.title}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.sponsorCopy}>
+        <Text maxFontSizeMultiplier={1.15} style={styles.sponsorName}>
+          {placement.name}
+        </Text>
+        <Text maxFontSizeMultiplier={1.1} style={styles.sponsorCategory}>
+          {placement.categoryLabel}
+        </Text>
+        <Text maxFontSizeMultiplier={1.2} style={styles.metaText}>
+          {placement.body}
+        </Text>
+      </View>
+      <View style={styles.priorityDisclosure}>
+        <ReportCreationIcon
+          color={shellColors.primaryDark}
+          name="info.circle.fill"
+          size={16}
+        />
+        <Text maxFontSizeMultiplier={1.15} style={styles.priorityText}>
+          {placement.recoveryPriorityDisclosure}
+        </Text>
+      </View>
+      <View style={styles.sponsorActions}>
+        <Pressable
+          accessibilityLabel={`${placement.actionLabel}: ${placement.name}`}
+          accessibilityRole="button"
+          onPress={openPlacement}
+          style={styles.sponsorAction}
+        >
+          <ReportCreationIcon
+            color={shellColors.primary}
+            name="arrow.up.right"
+            size={14}
+          />
+          <Text maxFontSizeMultiplier={1.1} style={styles.sponsorActionText}>
+            {placement.actionLabel}
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityLabel={`${placement.reportActionLabel} ${placement.name}`}
+          accessibilityRole="button"
+          onPress={reportPlacement}
+          style={styles.sponsorReportAction}
+        >
+          <Text maxFontSizeMultiplier={1.1} style={styles.sponsorReportText}>
+            {placement.reportActionLabel}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -1076,6 +1194,22 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     width: "31%",
   },
+  priorityDisclosure: {
+    alignItems: "center",
+    backgroundColor: shellColors.surfaceMuted,
+    borderCurve: "continuous",
+    borderRadius: 14,
+    flexDirection: "row",
+    gap: 8,
+    padding: 10,
+  },
+  priorityText: {
+    color: shellColors.primaryDark,
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 17,
+  },
   pressed: {
     opacity: 0.86,
   },
@@ -1124,6 +1258,100 @@ const styles = StyleSheet.create({
   screen: {
     backgroundColor: shellColors.background,
     flex: 1,
+  },
+  sponsorAction: {
+    alignItems: "center",
+    backgroundColor: shellColors.primarySoft,
+    borderColor: shellColors.border,
+    borderCurve: "continuous",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    minHeight: 36,
+    paddingHorizontal: 12,
+  },
+  sponsorActionText: {
+    color: shellColors.primary,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  sponsorActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  sponsorCategory: {
+    color: shellColors.primary,
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  sponsorCopy: {
+    gap: 4,
+  },
+  sponsorDisclosure: {
+    color: shellColors.muted,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  sponsorHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+  },
+  sponsorIcon: {
+    alignItems: "center",
+    backgroundColor: shellColors.primarySoft,
+    borderCurve: "continuous",
+    borderRadius: 16,
+    height: 42,
+    justifyContent: "center",
+    width: 42,
+  },
+  sponsorLabelRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  sponsorName: {
+    color: shellColors.text,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  sponsorPill: {
+    backgroundColor: "#FFF4DA",
+    borderCurve: "continuous",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  sponsorPillText: {
+    color: "#8A5A12",
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  sponsorPlacement: {
+    backgroundColor: shellColors.surface,
+    borderColor: shellColors.border,
+    borderCurve: "continuous",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 10,
+    padding: 14,
+  },
+  sponsorReportAction: {
+    minHeight: 36,
+    justifyContent: "center",
+    paddingHorizontal: 6,
+  },
+  sponsorReportText: {
+    color: shellColors.muted,
+    fontSize: 13,
+    fontWeight: "800",
   },
   section: {
     backgroundColor: shellColors.surface,
