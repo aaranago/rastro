@@ -4,8 +4,6 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { oAuthProxy } from "better-auth/plugins";
 
-import { db } from "@acme/db/client";
-
 export interface OAuthProviderCredentials {
   clientId?: string | undefined;
   clientSecret?: string | undefined;
@@ -21,9 +19,13 @@ export interface AuthSocialProviders {
   apple?: AppleProviderCredentials | undefined;
 }
 
+export type AuthDatabase = NonNullable<BetterAuthOptions["database"]>;
+type DrizzleDatabase = Parameters<typeof drizzleAdapter>[0];
+
 export interface InitAuthOptions<
   TExtraPlugins extends BetterAuthPlugin[] = [],
 > {
+  database: AuthDatabase;
   baseUrl: string;
   productionUrl: string;
   secret: string | undefined;
@@ -34,6 +36,12 @@ export interface InitAuthOptions<
 }
 
 const DEFAULT_TRUSTED_ORIGINS = ["expo://"];
+
+export function createDrizzleAuthDatabase(database: DrizzleDatabase) {
+  return drizzleAdapter(database, {
+    provider: "pg",
+  });
+}
 
 function hasOAuthCredentials<TCredentials extends OAuthProviderCredentials>(
   credentials: TCredentials | undefined,
@@ -85,9 +93,7 @@ export function createAuthOptions<
   TExtraPlugins extends BetterAuthPlugin[] = [],
 >(options: InitAuthOptions<TExtraPlugins>) {
   const config = {
-    database: drizzleAdapter(db, {
-      provider: "pg",
-    }),
+    database: options.database,
     baseURL: options.baseUrl,
     secret: options.secret,
     plugins: [

@@ -10,7 +10,9 @@
  * For actual authentication usage, import from "../src/index.ts" instead.
  */
 
-import { initAuth } from "../src/index";
+import { db } from "@acme/db/client";
+
+import { createDrizzleAuthDatabase, initAuth } from "../src/index";
 
 /**
  * CLI-only authentication configuration for schema generation.
@@ -19,6 +21,7 @@ import { initAuth } from "../src/index";
  * @warning Use the main auth configuration from "../src/index.ts" for your application.
  */
 export const auth = initAuth({
+  database: createDrizzleAuthDatabase(db),
   baseUrl: "http://localhost:3000",
   productionUrl: "http://localhost:3000",
   secret: "secret",

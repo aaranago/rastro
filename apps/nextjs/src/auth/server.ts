@@ -5,7 +5,8 @@ import { headers } from "next/headers";
 import { nextCookies } from "better-auth/next-js";
 
 import type { AuthSocialProviders, OAuthProviderCredentials } from "@acme/auth";
-import { initAuth } from "@acme/auth";
+import { createDrizzleAuthDatabase, initAuth } from "@acme/auth";
+import { db } from "@acme/db/client";
 
 import { env } from "~/env";
 
@@ -76,6 +77,7 @@ const socialProviders: AuthSocialProviders = {
 };
 
 export const auth = initAuth({
+  database: createDrizzleAuthDatabase(db),
   baseUrl,
   productionUrl,
   secret: env.AUTH_SECRET,

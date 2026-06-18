@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 
+import type { AuthDatabase } from "./index";
 import { createAuthOptions } from "./index";
+
+const testDatabase = (() => {
+  throw new Error("Auth database should not be called while building config");
+}) as AuthDatabase;
 
 describe("createAuthOptions", () => {
   it("builds the shared Rastro v1 auth configuration", () => {
     const config = createAuthOptions({
+      database: testDatabase,
       baseUrl: "http://localhost:3000",
       productionUrl: "https://rastro.bo",
       secret: "test-secret",
@@ -57,6 +63,7 @@ describe("createAuthOptions", () => {
 
   it("does not enable social providers with incomplete credentials", () => {
     const config = createAuthOptions({
+      database: testDatabase,
       baseUrl: "http://localhost:3000",
       productionUrl: "https://rastro.bo",
       secret: "test-secret",
