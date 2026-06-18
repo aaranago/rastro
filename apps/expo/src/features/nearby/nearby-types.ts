@@ -4,7 +4,11 @@ export type NearbyRadiusKm = (typeof nearbyRadiusOptionsKm)[number];
 
 export type NearbyBrowseMode = "list" | "map";
 
+export type NearbyBrowseAudience = "visitor" | "member";
+
 export type NearbyLocationSource = "current" | "last" | "manual";
+
+export type NearbyManualLocationKind = "place" | "map-pin";
 
 export type BoliviaCountryCode = "BO";
 
@@ -19,6 +23,7 @@ export interface NearbySearchLocation {
   locationCellLabel: string;
   countryCode: BoliviaCountryCode;
   coordinates?: NearbyCoordinates;
+  manualLocationKind?: NearbyManualLocationKind;
 }
 
 export type NearbyLocationState =
@@ -53,8 +58,17 @@ export interface NearbyLostReportsQuery {
   cursor?: string;
 }
 
+export interface NearbySearchBoundary {
+  engine: "rastro-postgis-radius";
+  owner: "rastro";
+  center: NearbySearchLocation;
+  radiusKm: NearbyRadiusKm;
+  publicLocationPrecision: "location-cell";
+}
+
 export interface NearbyLostReportsResult {
   query: NearbyLostReportsQuery;
+  searchBoundary: NearbySearchBoundary;
   reports: LostPetReportSummary[];
   generatedAt: string;
   isOffline?: boolean;

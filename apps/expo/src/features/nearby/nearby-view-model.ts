@@ -1,9 +1,11 @@
 import type {
   LostPetReportSummary,
+  NearbyBrowseAudience,
   NearbyBrowseMode,
   NearbyLocationState,
   NearbyLostReportsResult,
   NearbyRadiusKm,
+  NearbySearchBoundary,
   NearbySearchLocation,
 } from "./nearby-types";
 import { nearbyRadiusOptionsKm } from "./nearby-types";
@@ -20,7 +22,7 @@ export interface NearbyLostReportsViewModelInput {
   result: NearbyLostReportsLoadState;
 }
 
-export interface NearbyLostReportCardViewModel {
+export interface NearbyPublicLostReportSummaryViewModel {
   id: string;
   title: string;
   subtitle: string;
@@ -32,8 +34,14 @@ export interface NearbyLostReportCardViewModel {
   priorityLabel: string;
 }
 
+export interface NearbyLostReportCardViewModel
+  extends NearbyPublicLostReportSummaryViewModel {
+  publicSummaryId: string;
+}
+
 export interface NearbyLostReportMapPinViewModel {
   id: string;
+  publicSummaryId: string;
   title: string;
   label: string;
   distanceLabel?: string;
@@ -46,6 +54,10 @@ export interface NearbyUrgentLostPetAlertViewModel {
 }
 
 interface NearbyViewModelBase {
+  accessPolicy: {
+    audiences: readonly NearbyBrowseAudience[];
+    requiresSignIn: false;
+  };
   mode: NearbyBrowseMode;
   radiusKm: NearbyRadiusKm;
   radiusOptionsKm: readonly NearbyRadiusKm[];
@@ -77,6 +89,7 @@ export type NearbyLostReportsViewModel =
       locationLabel: string;
       locationSourceLabel: string;
       radiusActionLabel: string;
+      searchBoundaryLabel: string;
     })
   | (NearbyViewModelBase & {
       kind: "ready";
@@ -84,15 +97,23 @@ export type NearbyLostReportsViewModel =
       locationLabel: string;
       locationSourceLabel: string;
       offlineLabel?: string;
+      publicSummaries: NearbyPublicLostReportSummaryViewModel[];
+      searchBoundaryLabel: string;
       urgentAlert?: NearbyUrgentLostPetAlertViewModel;
       cards: NearbyLostReportCardViewModel[];
       mapPins: NearbyLostReportMapPinViewModel[];
     });
 
+const nearbyAccessPolicy: NearbyViewModelBase["accessPolicy"] = {
+  audiences: ["visitor", "member"],
+  requiresSignIn: false,
+};
+
 export function buildNearbyLostReportsViewModel(
   input: NearbyLostReportsViewModelInput,
 ): NearbyLostReportsViewModel {
   const base: NearbyViewModelBase = {
+    accessPolicy: nearbyAccessPolicy,
     mode: input.mode,
     radiusKm: input.radiusKm,
     radiusOptionsKm: nearbyRadiusOptionsKm,
@@ -130,7 +151,11 @@ export function buildNearbyLostReportsViewModel(
     };
   }
 
-  const cards = input.result.value.reports.map(toLostReportCard);
+  const publicSummaries = input.result.value.reports.map(toPublicSummary);
+  const cards = publicSummaries.map(toLostReportCard);
+  const searchBoundaryLabel = formatSearchBoundary(
+    input.result.value.searchBoundary,
+  );
 
   if (cards.length === 0) {
     return {
@@ -141,6 +166,7 @@ export function buildNearbyLostReportsViewModel(
       message:
         "No hay reportes de mascotas perdidas en este radio. Prueba ampliando la busqueda.",
       radiusActionLabel: "Cambiar radio",
+      searchBoundaryLabel,
       title: "No hay reportes cerca",
     };
   }
@@ -151,8 +177,10 @@ export function buildNearbyLostReportsViewModel(
     kind: "ready",
     locationLabel: location.label,
     locationSourceLabel: formatLocationSource(location),
-    mapPins: input.result.value.reports.map(toMapPin),
+    mapPins: publicSummaries.map(toMapPin),
     offlineLabel: buildOfflineLabel(input.result.value),
+    publicSummaries,
+    searchBoundaryLabel,
     title: "Mascotas perdidas cerca de ti",
     urgentAlert: buildUrgentAlert(input.result.value.reports),
   };
@@ -181,12 +209,16 @@ function formatLocationSource(location: NearbySearchLocation) {
     return "Ultima ubicacion detectada";
   }
 
+  if (location.manualLocationKind === "map-pin") {
+    return "Pin manual en Bolivia";
+  }
+
   return "Ubicacion manual en Bolivia";
 }
 
-function toLostReportCard(
+function toPublicSummary(
   report: LostPetReportSummary,
-): NearbyLostReportCardViewModel {
+): NearbyPublicLostReportSummaryViewModel {
   return {
     distanceLabel: formatDistance(report.distanceMeters),
     id: report.id,
@@ -201,13 +233,23 @@ function toLostReportCard(
 }
 
 function toMapPin(
-  report: LostPetReportSummary,
+  summary: NearbyPublicLostReportSummaryViewModel,
 ): NearbyLostReportMapPinViewModel {
   return {
-    distanceLabel: formatDistance(report.distanceMeters),
-    id: report.id,
-    label: report.locationCellLabel,
-    title: report.petName,
+    distanceLabel: summary.distanceLabel,
+    id: summary.id,
+    label: summary.publicLocationLabel,
+    publicSummaryId: summary.id,
+    title: summary.title,
+  };
+}
+
+function toLostReportCard(
+  summary: NearbyPublicLostReportSummaryViewModel,
+): NearbyLostReportCardViewModel {
+  return {
+    ...summary,
+    publicSummaryId: summary.id,
   };
 }
 
@@ -217,6 +259,10 @@ function formatPublicLocation(report: LostPetReportSummary) {
   }
 
   return `${report.locationCellLabel} · zona aproximada`;
+}
+
+function formatSearchBoundary(boundary: NearbySearchBoundary) {
+  return `Radio Rastro/PostGIS de ${boundary.radiusKm} km · ${boundary.center.locationCellLabel}`;
 }
 
 function formatDistance(distanceMeters: number | undefined) {

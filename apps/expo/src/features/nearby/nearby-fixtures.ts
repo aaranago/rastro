@@ -24,13 +24,15 @@ export const nearbyBoliviaLocations = {
     countryCode: "BO",
     label: "Queru Queru, Cochabamba",
     locationCellLabel: "Queru Queru",
+    manualLocationKind: "place",
     source: "manual",
   },
   manualSantaCruz: {
     coordinates: { latitude: -17.7833, longitude: -63.1821 },
     countryCode: "BO",
-    label: "Equipetrol, Santa Cruz",
+    label: "Pin en Equipetrol, Santa Cruz",
     locationCellLabel: "Equipetrol",
+    manualLocationKind: "map-pin",
     source: "manual",
   },
 } satisfies Record<string, NearbySearchLocation>;

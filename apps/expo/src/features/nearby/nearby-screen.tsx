@@ -260,16 +260,7 @@ function Header({
         </Text>
       ) : null}
 
-      {"locationLabel" in viewModel ? (
-        <View style={styles.locationBlock}>
-          <Text selectable style={styles.locationSource}>
-            {viewModel.locationSourceLabel}
-          </Text>
-          <Text selectable style={styles.locationLabel}>
-            {viewModel.locationLabel}
-          </Text>
-        </View>
-      ) : null}
+      <HeaderLocationBlock viewModel={viewModel} />
 
       <View style={styles.controls}>
         <ModeSwitch mode={mode} onModeChange={onModeChange} />
@@ -279,6 +270,37 @@ function Header({
           radiusOptionsKm={viewModel.radiusOptionsKm}
         />
       </View>
+    </View>
+  );
+}
+
+function HeaderLocationBlock({
+  viewModel,
+}: {
+  viewModel: Exclude<NearbyLostReportsViewModel, { kind: "location-denied" }>;
+}) {
+  if (!("locationLabel" in viewModel)) {
+    return null;
+  }
+
+  const searchBoundaryLabel =
+    "searchBoundaryLabel" in viewModel
+      ? viewModel.searchBoundaryLabel
+      : undefined;
+
+  return (
+    <View style={styles.locationBlock}>
+      <Text selectable style={styles.locationSource}>
+        {viewModel.locationSourceLabel}
+      </Text>
+      <Text selectable style={styles.locationLabel}>
+        {viewModel.locationLabel}
+      </Text>
+      {searchBoundaryLabel ? (
+        <Text selectable style={styles.searchBoundaryLabel}>
+          {searchBoundaryLabel}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -431,6 +453,7 @@ const LostReportCard = memo(function LostReportCard({
         {photoUrl ? (
           <Image
             contentFit="cover"
+            recyclingKey={id}
             source={photoUrl}
             style={styles.cardPhoto}
             transition={120}
@@ -727,6 +750,7 @@ function getLocationQueryKey(location: NearbySearchLocation | undefined) {
     location.countryCode,
     location.label,
     location.locationCellLabel,
+    location.manualLocationKind,
     location.coordinates?.latitude,
     location.coordinates?.longitude,
   ].join(":");
@@ -1056,6 +1080,12 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "900",
     lineHeight: 34,
+  },
+  searchBoundaryLabel: {
+    color: colors.inkMuted,
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 19,
   },
   segmentButton: {
     alignItems: "center",

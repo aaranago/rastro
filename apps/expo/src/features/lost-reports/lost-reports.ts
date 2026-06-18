@@ -17,11 +17,27 @@ import {
 export type LostReportsSessionState = PetProfilesSessionState;
 export type LostPetReportOutcome = "still-missing";
 export type LostPetReportStatus = "active" | "closed";
-export type BoliviaCountryCode = "BO";
+export type LostPetReportBoliviaCountryCode = "BO";
+export type LostPetReportSearchLocationSource = "current" | "last" | "manual";
+export type LostPetReportAlertRadiusKm = 5 | 10 | 20;
+export type LostPetReportSearchStrategy = "postgis_radius";
+
+export interface LostPetReportSearchCoordinates {
+  latitude: number;
+  longitude: number;
+}
+
+export interface LostPetReportSearchLocation {
+  coordinates: LostPetReportSearchCoordinates;
+  countryCode: LostPetReportBoliviaCountryCode;
+  label: string;
+  locationCellLabel: string;
+  source: LostPetReportSearchLocationSource;
+}
 
 export interface LostPetReportExactLocation {
   addressLabel?: string;
-  countryCode: BoliviaCountryCode;
+  countryCode: LostPetReportBoliviaCountryCode;
   latitude: number;
   locationCellLabel: string;
   longitude: number;
@@ -105,10 +121,39 @@ export interface LostPetReport {
   updatedAt: string;
 }
 
+export interface SearchActiveLostPetReportsQuery {
+  location: LostPetReportSearchLocation;
+  radiusKm: LostPetReportAlertRadiusKm;
+  strategy: LostPetReportSearchStrategy;
+}
+
+export interface LostPetReportSearchSummary {
+  alertPriority: "standard" | "urgent";
+  breed: string;
+  distanceMeters: number;
+  id: string;
+  lastSeenAt: string;
+  lastSeenDescription: string;
+  locationCellLabel: string;
+  petName: string;
+  photoUrl?: string;
+  publicLocation: LostPetReportPublicLocation;
+  species: PetProfileType;
+}
+
+export interface SearchActiveLostPetReportsResult {
+  generatedAt: string;
+  query: SearchActiveLostPetReportsQuery;
+  radiusMeters: number;
+  reports: LostPetReportSearchSummary[];
+  searchStrategy: LostPetReportSearchStrategy;
+}
+
 type LostPetReportRepositoryErrorCode =
   | "exact_location_required"
   | "lost_report_photo_required"
   | "pet_profile_not_found"
+  | "search_location_required"
   | "visitor_cannot_publish_lost_report"
   | "whatsapp_phone_required";
 
@@ -127,6 +172,10 @@ export interface LostPetReportRepository {
     session: LostReportsSessionState,
     input: PublishLostPetReportInput,
   ) => Promise<LostPetReport>;
+  searchActiveLostPetReports: (
+    session: LostReportsSessionState,
+    query: SearchActiveLostPetReportsQuery,
+  ) => Promise<SearchActiveLostPetReportsResult>;
 }
 
 export interface InMemoryLostPetReportRepositoryOptions {
@@ -187,6 +236,38 @@ export function createInMemoryLostPetReportRepository(
 
       return cloneLostPetReport(report);
     },
+    searchActiveLostPetReports(_session, query) {
+      assertSearchQuery(query);
+
+      const generatedAt = now();
+      const radiusMeters = query.radiusKm * 1000;
+      const matchingReports = reports
+        .filter((report) => report.status === "active")
+        .map((report) => ({
+          distanceMeters: calculateDistanceMeters(
+            query.location.coordinates,
+            report.exactLocation,
+          ),
+          report,
+        }))
+        .filter((match) => match.distanceMeters <= radiusMeters)
+        .sort(createLostPetReportSearchComparator(generatedAt))
+        .map(({ distanceMeters, report }) =>
+          toLostPetReportSearchSummary({
+            distanceMeters,
+            generatedAt,
+            report,
+          }),
+        );
+
+      return Promise.resolve({
+        generatedAt,
+        query: cloneSearchQuery(query),
+        radiusMeters,
+        reports: matchingReports,
+        searchStrategy: "postgis_radius",
+      });
+    },
   };
 }
 
@@ -227,6 +308,18 @@ function assertPublishInput(input: PublishLostPetReportInput) {
     throw new LostPetReportRepositoryError(
       "whatsapp_phone_required",
       "WhatsApp number is required when WhatsApp Contact Option is selected.",
+    );
+  }
+}
+
+function assertSearchQuery(query: SearchActiveLostPetReportsQuery) {
+  if (
+    !Number.isFinite(query.location.coordinates.latitude) ||
+    !Number.isFinite(query.location.coordinates.longitude)
+  ) {
+    throw new LostPetReportRepositoryError(
+      "search_location_required",
+      "La busqueda necesita una ubicacion resuelta en Bolivia para el radio PostGIS.",
     );
   }
 }
@@ -306,6 +399,108 @@ function cloneLostPetReport(report: LostPetReport): LostPetReport {
     photos: report.photos.map(clonePhotoAsset),
     publicLocation: { ...report.publicLocation },
   };
+}
+
+function cloneSearchQuery(
+  query: SearchActiveLostPetReportsQuery,
+): SearchActiveLostPetReportsQuery {
+  return {
+    ...query,
+    location: {
+      ...query.location,
+      coordinates: { ...query.location.coordinates },
+    },
+  };
+}
+
+function toLostPetReportSearchSummary({
+  distanceMeters,
+  generatedAt,
+  report,
+}: {
+  distanceMeters: number;
+  generatedAt: string;
+  report: LostPetReport;
+}): LostPetReportSearchSummary {
+  const primaryPhoto = report.photos[0];
+
+  return {
+    alertPriority: getAlertPriority(report, generatedAt),
+    breed: report.petSnapshot.breed,
+    distanceMeters: Math.round(distanceMeters),
+    id: report.id,
+    lastSeenAt: report.lastSeenAt,
+    lastSeenDescription: report.lastSeenDescription,
+    locationCellLabel: report.exactLocation.locationCellLabel,
+    petName: report.petName,
+    photoUrl: primaryPhoto?.thumbnail.uri ?? primaryPhoto?.uri,
+    publicLocation: { ...report.publicLocation },
+    species: report.petSnapshot.type,
+  };
+}
+
+function createLostPetReportSearchComparator(generatedAt: string) {
+  return (
+    left: { distanceMeters: number; report: LostPetReport },
+    right: { distanceMeters: number; report: LostPetReport },
+  ) => {
+    const priority =
+      getAlertPriorityScore(right.report, generatedAt) -
+      getAlertPriorityScore(left.report, generatedAt);
+
+    if (priority !== 0) {
+      return priority;
+    }
+
+    return left.distanceMeters - right.distanceMeters;
+  };
+}
+
+function getAlertPriority(report: LostPetReport, generatedAt: string) {
+  return isUrgentLostPetReport(report, generatedAt) ? "urgent" : "standard";
+}
+
+function getAlertPriorityScore(report: LostPetReport, generatedAt: string) {
+  return isUrgentLostPetReport(report, generatedAt) ? 1 : 0;
+}
+
+function isUrgentLostPetReport(report: LostPetReport, generatedAt: string) {
+  const lastSeenAtMs = Date.parse(report.lastSeenAt);
+  const generatedAtMs = Date.parse(generatedAt);
+
+  if (!Number.isFinite(lastSeenAtMs) || !Number.isFinite(generatedAtMs)) {
+    return false;
+  }
+
+  const oneDayMs = 24 * 60 * 60 * 1000;
+
+  const ageMs = generatedAtMs - lastSeenAtMs;
+
+  return ageMs >= 0 && ageMs <= oneDayMs;
+}
+
+function calculateDistanceMeters(
+  from: LostPetReportSearchCoordinates,
+  to: LostPetReportExactLocation,
+) {
+  const earthRadiusMeters = 6_371_000;
+  const fromLatitude = toRadians(from.latitude);
+  const toLatitude = toRadians(to.latitude);
+  const latitudeDelta = toRadians(to.latitude - from.latitude);
+  const longitudeDelta = toRadians(to.longitude - from.longitude);
+  const haversine =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(fromLatitude) *
+      Math.cos(toLatitude) *
+      Math.sin(longitudeDelta / 2) ** 2;
+  const centralAngle =
+    2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+
+  return earthRadiusMeters * centralAngle;
+}
+
+function toRadians(degrees: number) {
+  return (degrees * Math.PI) / 180;
 }
 
 function cloneExactLocation(

@@ -3,6 +3,7 @@ import type {
   NearbyLostReportsAdapter,
   NearbyLostReportsQuery,
   NearbyLostReportsResult,
+  NearbySearchBoundary,
 } from "./nearby-types";
 
 interface StaticNearbyLostReportsAdapterOptions {
@@ -34,8 +35,21 @@ export function createStaticNearbyLostReportsAdapter(
         isStale: options.isStale,
         query,
         reports,
+        searchBoundary: buildSearchBoundary(query),
       });
     },
+  };
+}
+
+function buildSearchBoundary(
+  query: NearbyLostReportsQuery,
+): NearbySearchBoundary {
+  return {
+    center: query.location,
+    engine: "rastro-postgis-radius",
+    owner: "rastro",
+    publicLocationPrecision: "location-cell",
+    radiusKm: query.radiusKm,
   };
 }
 
