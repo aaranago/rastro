@@ -1,5 +1,7 @@
+import type { Href } from "expo-router";
 import * as React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Link } from "expo-router";
 
 import type { AppStateDescriptor } from "../app-states";
 import type { ShellAuthActionResult } from "./shell-auth";
@@ -240,7 +242,11 @@ export function ProfileScreen() {
         title={profile.title}
       />
       <View style={styles.profileList}>
-        <ProfileRow icon="pawprint.fill" label={screen.pets} />
+        <ProfileRow
+          href="/mis-mascotas"
+          icon="pawprint.fill"
+          label={screen.pets}
+        />
         <ProfileRow icon="doc.text.fill" label={screen.reports} />
         <ProfileRow icon="bell.fill" label={screen.alerts} />
         <ProfileRow icon="gearshape.fill" label={screen.settings} />
@@ -324,8 +330,16 @@ function QuickTile({ icon, label }: { icon: string; label: string }) {
   );
 }
 
-function ProfileRow({ icon, label }: { icon: string; label: string }) {
-  return (
+function ProfileRow({
+  href,
+  icon,
+  label,
+}: {
+  href?: Href;
+  icon: string;
+  label: string;
+}) {
+  const row = (
     <Pressable accessibilityRole="button" style={styles.profileRow}>
       <View style={styles.profileRowIcon}>
         <ShellIcon color={shellColors.primary} name={icon} size={20} />
@@ -335,6 +349,14 @@ function ProfileRow({ icon, label }: { icon: string; label: string }) {
       </Text>
       <ShellIcon color={shellColors.muted} name="chevron.right" size={17} />
     </Pressable>
+  );
+
+  return href ? (
+    <Link asChild href={href}>
+      {row}
+    </Link>
+  ) : (
+    row
   );
 }
 

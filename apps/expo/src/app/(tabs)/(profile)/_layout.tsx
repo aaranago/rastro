@@ -17,6 +17,7 @@ export default function ProfileStackLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: copy.tabs.profile }} />
+      <Stack.Screen name="mis-mascotas" options={{ title: "Mis mascotas" }} />
     </Stack>
   );
 }
