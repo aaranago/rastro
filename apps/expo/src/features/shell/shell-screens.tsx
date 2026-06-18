@@ -249,7 +249,11 @@ export function ProfileScreen() {
           label={screen.pets}
         />
         <ProfileRow icon="doc.text.fill" label={screen.reports} />
-        <ProfileRow icon="bell.fill" label={screen.alerts} />
+        <ProfileRow
+          href={"/alertas" as Href}
+          icon="bell.fill"
+          label={screen.alerts}
+        />
         <ProfileRow icon="gearshape.fill" label={screen.settings} />
       </View>
       {profile.accountSettings ? (

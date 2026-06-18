@@ -46,6 +46,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-secure-store",
     "expo-web-browser",
     [
+      "expo-location",
+      {
+        locationWhenInUsePermission:
+          "Rastro usa tu ubicacion mientras usas la app para actualizar tu area de alertas y mostrar reportes cercanos.",
+      },
+    ],
+    "expo-notifications",
+    [
       "expo-splash-screen",
       {
         backgroundColor: "#E4E4E7",

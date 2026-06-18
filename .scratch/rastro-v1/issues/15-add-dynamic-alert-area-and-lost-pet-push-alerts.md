@@ -1,6 +1,6 @@
 # Add Dynamic Alert Area and lost-pet push alerts
 
-Status: ready-for-agent
+Status: complete
 Type: AFK
 
 ## Parent
@@ -13,14 +13,14 @@ Let members opt into nearby lost-pet alerts based on a Dynamic Alert Area and Al
 
 ## Acceptance criteria
 
-- [ ] A member can enable/disable an Alert Subscription.
-- [ ] The alert area uses current location when available and last detected location as fallback.
-- [ ] The member can choose an Alert Radius.
-- [ ] Notifications are sent only for new nearby active Lost Pet Reports.
-- [ ] Closed reports do not trigger alerts.
-- [ ] Default location updates occur on app open, foreground, or manual refresh.
-- [ ] Optional background moving alerts are behind an explicit setting and clear permission state.
-- [ ] The implementation is battery-conscious and avoids continuous GPS polling.
+- [x] A member can enable/disable an Alert Subscription.
+- [x] The alert area uses current location when available and last detected location as fallback.
+- [x] The member can choose an Alert Radius.
+- [x] Notifications are sent only for new nearby active Lost Pet Reports.
+- [x] Closed reports do not trigger alerts.
+- [x] Default location updates occur on app open, foreground, or manual refresh.
+- [x] Optional background moving alerts are behind an explicit setting and clear permission state.
+- [x] The implementation is battery-conscious and avoids continuous GPS polling.
 
 ## Blocked by
 
