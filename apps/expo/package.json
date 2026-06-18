@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@acme/auth": "workspace:*",
+    "@acme/validators": "workspace:*",
     "@better-auth/expo": "catalog:",
     "@legendapp/list": "^2.0.14",
     "@tanstack/react-query": "catalog:",

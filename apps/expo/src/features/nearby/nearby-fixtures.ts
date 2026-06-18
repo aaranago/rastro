@@ -1,3 +1,5 @@
+import { buildPublicLostReportShareTarget } from "@acme/validators";
+
 import type {
   LostPetReportSummary,
   NearbySearchLocation,
@@ -57,6 +59,7 @@ export const nearbyLostReportFixtures = [
     photoUrl:
       "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=900&q=80",
     publicLocation: { kind: "approximate" },
+    shareTarget: buildFixtureShareTarget("lost-bruno-achumani", "Bruno"),
     sex: "Macho",
     species: "Perro",
   },
@@ -73,6 +76,7 @@ export const nearbyLostReportFixtures = [
     photoUrl:
       "https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=900&q=80",
     publicLocation: { kind: "approximate" },
+    shareTarget: buildFixtureShareTarget("lost-nina-irpavi", "Nina"),
     sex: "Hembra",
     species: "Perro",
   },
@@ -89,6 +93,7 @@ export const nearbyLostReportFixtures = [
     photoUrl:
       "https://images.unsplash.com/photo-1561037404-61cd46aa615b?auto=format&fit=crop&w=900&q=80",
     publicLocation: { kind: "approximate" },
+    shareTarget: buildFixtureShareTarget("lost-coco-calacoto", "Coco"),
     sex: "Macho",
     species: "Perro",
   },
@@ -105,10 +110,19 @@ export const nearbyLostReportFixtures = [
     photoUrl:
       "https://images.unsplash.com/photo-1558788353-f76d92427f16?auto=format&fit=crop&w=900&q=80",
     publicLocation: { kind: "approximate" },
+    shareTarget: buildFixtureShareTarget("lost-toby-mallasa", "Toby"),
     sex: "Macho",
     species: "Perro",
   },
 ] satisfies LostPetReportSummary[];
+
+function buildFixtureShareTarget(reportId: string, title: string) {
+  return buildPublicLostReportShareTarget({
+    publicWebBaseUrl: "https://rastro.bo",
+    reportId,
+    title,
+  });
+}
 
 export const defaultNearbyLostReportsAdapter =
   createStaticNearbyLostReportsAdapter({

@@ -313,6 +313,14 @@ describe("Lost Pet Report browsing", () => {
         locationCellLabel: "Sopocachi",
       },
     });
+    expect(result.reports[0]?.shareTarget).toEqual({
+      appDeepLink: "rastro://reportes/perdidos/lost-report-1",
+      message:
+        "Ayuda a encontrar a Toby en Rastro: https://rastro.bo/reportes/perdidos/lost-report-1",
+      path: "/reportes/perdidos/lost-report-1",
+      title: "Mascota perdida: Toby",
+      webUrl: "https://rastro.bo/reportes/perdidos/lost-report-1",
+    });
     expect(result.reports[0]?.publicLocation).not.toHaveProperty("latitude");
     expect(result.reports[0]?.publicLocation).not.toHaveProperty("longitude");
   });

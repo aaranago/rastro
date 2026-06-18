@@ -16,6 +16,10 @@ const config = {
     "@acme/validators",
   ],
 
+  images: {
+    remotePatterns: [{ hostname: "images.unsplash.com", protocol: "https" }],
+  },
+
   /** We already do linting and typechecking as separate tasks in CI */
   typescript: { ignoreBuildErrors: true },
 };

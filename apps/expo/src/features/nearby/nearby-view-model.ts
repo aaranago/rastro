@@ -1,3 +1,5 @@
+import type { PublicLostReportShareTarget } from "@acme/validators";
+
 import type {
   LostPetReportSummary,
   NearbyBrowseAudience,
@@ -32,6 +34,7 @@ export interface NearbyPublicLostReportSummaryViewModel {
   lastSeenAtLabel: string;
   summary: string;
   priorityLabel: string;
+  shareTarget: PublicLostReportShareTarget;
 }
 
 export interface NearbyLostReportCardViewModel
@@ -226,6 +229,7 @@ function toPublicSummary(
     photoUrl: report.photoUrl,
     priorityLabel: "Perdido",
     publicLocationLabel: formatPublicLocation(report),
+    shareTarget: report.shareTarget,
     subtitle: [report.breed, report.sex].filter(Boolean).join(" • "),
     summary: report.lastSeenSummary,
     title: report.petName,

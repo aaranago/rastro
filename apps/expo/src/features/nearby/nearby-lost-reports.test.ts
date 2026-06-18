@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { buildPublicLostReportShareTarget } from "@acme/validators";
+
 import type {
   LostPetReportSummary,
   NearbySearchLocation,
@@ -7,6 +9,7 @@ import type {
 import type { NearbyLostReportsViewModel } from "./nearby-view-model";
 import { createInMemoryLostPetReportRepository } from "../lost-reports/lost-reports";
 import { createNearbyLostReportRepositoryAdapter } from "./nearby-lost-report-repository-adapter";
+import { shareNearbyLostReport } from "./nearby-share";
 import { createStaticNearbyLostReportsAdapter } from "./nearby-static-adapter";
 import { buildNearbyLostReportsViewModel } from "./nearby-view-model";
 
@@ -28,6 +31,7 @@ const reports: LostPetReportSummary[] = [
     distanceMeters: 300,
     locationCellLabel: "Achumani",
     publicLocation: { kind: "approximate" },
+    shareTarget: buildTestShareTarget("lost-bruno", "Bruno"),
     lastSeenAtLabel: "Hace 40 min",
     lastSeenSummary: "Collar azul con plaquita, visto cerca del parque.",
     alertPriority: "urgent",
@@ -42,11 +46,20 @@ const reports: LostPetReportSummary[] = [
     distanceMeters: 12_400,
     locationCellLabel: "Sopocachi",
     publicLocation: { kind: "approximate" },
+    shareTarget: buildTestShareTarget("lost-luna", "Luna"),
     lastSeenAtLabel: "Ayer",
     lastSeenSummary: "Se escapó durante la lluvia.",
     alertPriority: "standard",
   },
 ];
+
+function buildTestShareTarget(reportId: string, title: string) {
+  return buildPublicLostReportShareTarget({
+    publicWebBaseUrl: "https://rastro.bo",
+    reportId,
+    title,
+  });
+}
 
 describe("nearby Lost Pet Report discovery", () => {
   it("browses Lost Pet Reports published through the Rastro-owned search boundary without signing in", async () => {
@@ -116,8 +129,19 @@ describe("nearby Lost Pet Report discovery", () => {
     expect(viewModel.cards).toHaveLength(1);
     expect(viewModel.cards[0]).toMatchObject({
       publicLocationLabel: "Sopocachi · zona aproximada",
+      shareTarget: {
+        message:
+          "Ayuda a encontrar a Toby en Rastro: https://rastro.bo/reportes/perdidos/lost-report-1",
+        webUrl: "https://rastro.bo/reportes/perdidos/lost-report-1",
+      },
       title: "Toby",
     });
+    expect(result.reports[0]?.shareTarget.webUrl).toBe(
+      "https://rastro.bo/reportes/perdidos/lost-report-1",
+    );
+    expect(viewModel.cards[0]?.shareTarget.message).not.toContain(
+      "Plaza Abaroa",
+    );
     expect(viewModel.cards[0]?.distanceLabel).toBe("a 0 m");
   });
 
@@ -145,6 +169,54 @@ describe("nearby Lost Pet Report discovery", () => {
     expect(viewModel.urgentAlert?.title).toBe("Alerta activa");
     expect(viewModel.urgentAlert?.message).toContain("Bruno");
     expect(viewModel.locationLabel).toBe("Zona Sur, La Paz");
+  });
+
+  it("shares a Nearby Lost Pet Report card through the native share sheet with Spanish copy and the stable web URL", async () => {
+    const adapter = createStaticNearbyLostReportsAdapter({ reports });
+    const shareCalls: unknown[] = [];
+
+    const result = await adapter.searchLostPetReports({
+      location: manualLocation,
+      radiusKm: 5,
+    });
+    const viewModel = buildNearbyLostReportsViewModel({
+      locationState: { kind: "ready", location: manualLocation },
+      mode: "list",
+      radiusKm: 5,
+      result: { kind: "success", value: result },
+    });
+
+    assertNearbyViewModelKind(viewModel, "ready");
+    const card = viewModel.cards[0];
+    expect(card).toBeDefined();
+
+    if (!card) {
+      throw new Error("Expected a shareable Nearby Lost Pet Report card.");
+    }
+
+    const shareResult = await shareNearbyLostReport(card, {
+      share: (...args) => {
+        shareCalls.push(args);
+
+        return Promise.resolve({ action: "sharedAction" });
+      },
+    });
+
+    expect(shareResult).toEqual({ action: "sharedAction" });
+    expect(shareCalls).toEqual([
+      [
+        {
+          message:
+            "Ayuda a encontrar a Bruno en Rastro: https://rastro.bo/reportes/perdidos/lost-bruno",
+          title: "Mascota perdida: Bruno",
+          url: "https://rastro.bo/reportes/perdidos/lost-bruno",
+        },
+        {
+          dialogTitle: "Compartir reporte de mascota perdida",
+          subject: "Mascota perdida: Bruno",
+        },
+      ],
+    ]);
   });
 
   it("exposes a sign-in-free Rastro/PostGIS browse contract shared by list and map states", async () => {

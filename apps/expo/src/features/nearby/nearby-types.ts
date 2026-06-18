@@ -1,3 +1,5 @@
+import type { PublicLostReportShareTarget } from "@acme/validators";
+
 export const nearbyRadiusOptionsKm = [5, 10, 20] as const;
 
 export type NearbyRadiusKm = (typeof nearbyRadiusOptionsKm)[number];
@@ -49,6 +51,7 @@ export interface LostPetReportSummary {
   lastSeenAtLabel: string;
   lastSeenSummary: string;
   alertPriority: "urgent" | "standard";
+  shareTarget: PublicLostReportShareTarget;
 }
 
 export interface NearbyLostReportsQuery {

@@ -1,3 +1,6 @@
+import type { PublicLostReportShareTarget } from "@acme/validators";
+import { buildPublicLostReportShareTarget } from "@acme/validators";
+
 import type {
   PetProfilesSessionState,
   PetProfileType,
@@ -117,6 +120,7 @@ export interface LostPetReport {
   petSnapshot: LostPetReportPetSnapshot;
   photos: PetProfilePhotoAsset[];
   publicLocation: LostPetReportPublicLocation;
+  shareTarget: PublicLostReportShareTarget;
   status: LostPetReportStatus;
   updatedAt: string;
 }
@@ -138,6 +142,7 @@ export interface LostPetReportSearchSummary {
   petName: string;
   photoUrl?: string;
   publicLocation: LostPetReportPublicLocation;
+  shareTarget: PublicLostReportShareTarget;
   species: PetProfileType;
 }
 
@@ -182,7 +187,10 @@ export interface InMemoryLostPetReportRepositoryOptions {
   mediaAdapter?: PetProfileMediaAdapter;
   now?: () => string;
   petProfiles?: PetProfileRepository;
+  publicWebBaseUrl?: string;
 }
+
+const defaultPublicWebBaseUrl = "https://rastro.bo";
 
 export function createInMemoryLostPetReportRepository(
   options: InMemoryLostPetReportRepositoryOptions = {},
@@ -196,6 +204,7 @@ export function createInMemoryLostPetReportRepository(
       mediaAdapter,
       now,
     });
+  const publicWebBaseUrl = options.publicWebBaseUrl ?? defaultPublicWebBaseUrl;
   const reports: LostPetReport[] = [];
 
   return {
@@ -209,12 +218,13 @@ export function createInMemoryLostPetReportRepository(
         session,
       });
       const createdAt = now();
+      const id = `lost-report-${reports.length + 1}`;
       const report: LostPetReport = {
         caretakerMemberId: petProfile.caretakerMemberId,
         contactOption: normalizeContactOption(input.contactOption),
         createdAt,
         exactLocation: cloneExactLocation(input.exactLocation),
-        id: `lost-report-${reports.length + 1}`,
+        id,
         lastSeenAt: input.lastSeenAt,
         lastSeenDescription: input.lastSeenDescription.trim(),
         outcome: "still-missing",
@@ -228,6 +238,11 @@ export function createInMemoryLostPetReportRepository(
         },
         photos: await mediaAdapter.normalizePhotos(input.photos),
         publicLocation: buildPublicLocation(input),
+        shareTarget: buildPublicLostReportShareTarget({
+          publicWebBaseUrl,
+          reportId: id,
+          title: petProfile.name,
+        }),
         status: "active",
         updatedAt: createdAt,
       };
@@ -398,6 +413,7 @@ function cloneLostPetReport(report: LostPetReport): LostPetReport {
     petSnapshot: { ...report.petSnapshot },
     photos: report.photos.map(clonePhotoAsset),
     publicLocation: { ...report.publicLocation },
+    shareTarget: { ...report.shareTarget },
   };
 }
 
@@ -435,6 +451,7 @@ function toLostPetReportSearchSummary({
     petName: report.petName,
     photoUrl: primaryPhoto?.thumbnail.uri ?? primaryPhoto?.uri,
     publicLocation: { ...report.publicLocation },
+    shareTarget: { ...report.shareTarget },
     species: report.petSnapshot.type,
   };
 }

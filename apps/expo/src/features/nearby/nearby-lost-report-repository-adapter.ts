@@ -82,6 +82,7 @@ function toNearbyLostPetReportSummary({
     petName: report.petName,
     photoUrl: report.photoUrl,
     publicLocation: toNearbyPublicLocation(report.publicLocation),
+    shareTarget: report.shareTarget,
     species: report.species,
   };
 }

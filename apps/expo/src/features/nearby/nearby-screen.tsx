@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -29,6 +30,7 @@ import {
   nearbyBoliviaLocations,
   nearbyManualLocationOptions,
 } from "./nearby-fixtures";
+import { shareNearbyLostReport } from "./nearby-share";
 import { buildNearbyLostReportsViewModel } from "./nearby-view-model";
 
 export interface NearbyScreenProps {
@@ -147,6 +149,7 @@ export function NearbyScreen({
         photoUrl={item.photoUrl}
         priorityLabel={item.priorityLabel}
         publicLocationLabel={item.publicLocationLabel}
+        shareTarget={item.shareTarget}
         subtitle={item.subtitle}
         summary={item.summary}
         title={item.title}
@@ -183,6 +186,7 @@ export function NearbyScreen({
           cards={viewModel.cards}
           mapPins={viewModel.mapPins}
           onOpenReport={onOpenReport}
+          onShareReport={onShareReport}
         />
       </ScrollView>
     );
@@ -419,6 +423,7 @@ const LostReportCard = memo(function LostReportCard({
   photoUrl,
   priorityLabel,
   publicLocationLabel,
+  shareTarget,
   subtitle,
   summary,
   title,
@@ -431,6 +436,7 @@ const LostReportCard = memo(function LostReportCard({
   photoUrl?: string;
   priorityLabel: string;
   publicLocationLabel: string;
+  shareTarget: NearbyLostReportCardViewModel["shareTarget"];
   subtitle: string;
   summary: string;
   title: string;
@@ -441,7 +447,8 @@ const LostReportCard = memo(function LostReportCard({
 
   const handleShareReport = useCallback(() => {
     onShareReport?.(id);
-  }, [id, onShareReport]);
+    void shareNearbyLostReport({ shareTarget }, Share).catch(() => undefined);
+  }, [id, onShareReport, shareTarget]);
 
   return (
     <Pressable
@@ -517,10 +524,12 @@ function MapBrowse({
   cards,
   mapPins,
   onOpenReport,
+  onShareReport,
 }: {
   cards: NearbyLostReportCardViewModel[];
   mapPins: NearbyLostReportMapPinViewModel[];
   onOpenReport?: (reportId: string) => void;
+  onShareReport?: (reportId: string) => void;
 }) {
   const featuredCard = cards[0];
 
@@ -545,9 +554,11 @@ function MapBrowse({
           id={featuredCard.id}
           lastSeenAtLabel={featuredCard.lastSeenAtLabel}
           onOpenReport={onOpenReport}
+          onShareReport={onShareReport}
           photoUrl={featuredCard.photoUrl}
           priorityLabel={featuredCard.priorityLabel}
           publicLocationLabel={featuredCard.publicLocationLabel}
+          shareTarget={featuredCard.shareTarget}
           subtitle={featuredCard.subtitle}
           summary={featuredCard.summary}
           title={featuredCard.title}

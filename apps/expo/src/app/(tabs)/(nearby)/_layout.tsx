@@ -17,6 +17,10 @@ export default function NearbyStackLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: copy.tabs.nearby }} />
+      <Stack.Screen
+        name="reportes/perdidos/[reportId]"
+        options={{ title: "Reporte perdido" }}
+      />
     </Stack>
   );
 }
