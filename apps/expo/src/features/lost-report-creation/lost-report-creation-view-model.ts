@@ -500,7 +500,7 @@ function validateLostReportDraft({
   }
 
   if (!draft.contact.inAppChatEnabled && !draft.contact.whatsappEnabled) {
-    errors.push("Elige al menos una Contact Option.");
+    errors.push("Elige chat, WhatsApp o ambos.");
   }
 
   if (
