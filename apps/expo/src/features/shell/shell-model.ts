@@ -1,9 +1,16 @@
 import type { ReportIntent, ShellCopy, ShellTabKey } from "../../i18n";
 import type { AppStateCatalog } from "../app-states";
 
-export interface ShellSession {
-  kind: "visitor" | "member";
-}
+export type ShellSession =
+  | {
+      kind: "visitor";
+    }
+  | {
+      email?: string;
+      id: string;
+      kind: "member";
+      name?: string | null;
+    };
 
 export interface ShellTab {
   key: ShellTabKey;
@@ -31,6 +38,33 @@ export interface ShellModel {
   session: ShellSession;
   tabs: ShellTab[];
   reportActions: ShellReportAction[];
+}
+
+export interface ShellProfileAccountSettings {
+  deletionAction: string;
+  deletionBody: string;
+  deletionImpacts: string[];
+  deletionPending: string;
+  deletionSuccess: string;
+  deletionTitle: string;
+  email?: string;
+  emailLabel: string;
+  passwordResetAction: string;
+  passwordResetBody?: string;
+  passwordResetPending: string;
+  passwordResetSuccess: string;
+  passwordResetTitle: string;
+  passwordResetUnavailable: string;
+  signOutAction: string;
+  signOutPending: string;
+  title: string;
+}
+
+export interface ShellProfileModel {
+  accountSettings: ShellProfileAccountSettings | null;
+  body: string;
+  isMember: boolean;
+  title: string;
 }
 
 export interface ShellAuthPrompt {
@@ -145,6 +179,52 @@ export function createShellModel({
       label: copy.reportActions[action.intent],
       memberOnly: true,
     })),
+  };
+}
+
+export function createShellProfileModel({
+  copy,
+  session,
+}: {
+  copy: ShellCopy;
+  session: ShellSession;
+}): ShellProfileModel {
+  const profileCopy = copy.screens.profile;
+
+  if (session.kind === "visitor") {
+    return {
+      accountSettings: null,
+      body: profileCopy.visitorBody,
+      isMember: false,
+      title: profileCopy.visitorTitle,
+    };
+  }
+
+  return {
+    accountSettings: {
+      deletionAction: profileCopy.account.deletionAction,
+      deletionBody: profileCopy.account.deletionBody,
+      deletionImpacts: profileCopy.account.deletionImpacts,
+      deletionPending: profileCopy.account.deletionPending,
+      deletionSuccess: profileCopy.account.deletionSuccess,
+      deletionTitle: profileCopy.account.deletionTitle,
+      email: session.email,
+      emailLabel: profileCopy.account.emailLabel,
+      passwordResetAction: profileCopy.account.passwordResetAction,
+      passwordResetBody: session.email
+        ? profileCopy.account.passwordResetBody(session.email)
+        : undefined,
+      passwordResetPending: profileCopy.account.passwordResetPending,
+      passwordResetSuccess: profileCopy.account.passwordResetSuccess,
+      passwordResetTitle: profileCopy.account.passwordResetTitle,
+      passwordResetUnavailable: profileCopy.account.passwordResetUnavailable,
+      signOutAction: profileCopy.account.signOutAction,
+      signOutPending: profileCopy.account.signOutPending,
+      title: profileCopy.account.title,
+    },
+    body: profileCopy.memberBody,
+    isMember: true,
+    title: session.name ?? session.email ?? profileCopy.memberTitle,
   };
 }
 

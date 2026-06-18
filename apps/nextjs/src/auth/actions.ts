@@ -17,9 +17,14 @@ const signUpSchema = signInSchema.extend({
   name: z.string().trim().min(2),
 });
 
+const passwordResetRequestSchema = z.object({
+  email: z.email().transform((value) => value.toLowerCase()),
+});
+
 const socialProviderSchema = z.enum(["apple", "facebook", "google"]);
 type SignInCredentials = z.infer<typeof signInSchema>;
 type SignUpAccount = z.infer<typeof signUpSchema>;
+type PasswordResetRequest = z.infer<typeof passwordResetRequestSchema>;
 
 const readString = (formData: FormData, key: string) => {
   const value = formData.get(key);
@@ -47,6 +52,32 @@ const getAuthFailureStatus = (error: unknown, fallback: string): string => {
   }
 
   return fallback;
+};
+
+const getPasswordResetFailureStatus = (error: unknown): string => {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+
+  if (
+    message.includes("reset password isn't enabled") ||
+    message.includes("email delivery is not configured")
+  ) {
+    return "password-reset-integration-needed";
+  }
+
+  return "password-reset-error";
+};
+
+const getAccountDeletionFailureStatus = (error: unknown): string => {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+
+  if (
+    message.includes("not found") ||
+    message.includes("email delivery is not configured")
+  ) {
+    return "account-deletion-integration-needed";
+  }
+
+  return "account-deletion-error";
 };
 
 const parseSignInCredentials = (formData: FormData): SignInCredentials => {
@@ -86,6 +117,20 @@ const parseSocialProvider = (formData: FormData): SocialAuthProvider => {
   }
 
   return redirectToAuth("social-unavailable");
+};
+
+const parsePasswordResetRequest = (
+  formData: FormData,
+): PasswordResetRequest => {
+  const parsed = passwordResetRequestSchema.safeParse({
+    email: readString(formData, "email"),
+  });
+
+  if (parsed.success) {
+    return parsed.data;
+  }
+
+  return redirectToAuth("password-reset-invalid");
 };
 
 export async function signInWithEmail(formData: FormData) {
@@ -158,6 +203,49 @@ export async function signInWithSocialProvider(formData: FormData) {
   }
 
   redirect(redirectUrl);
+}
+
+export async function requestPasswordReset(formData: FormData) {
+  const request = parsePasswordResetRequest(formData);
+
+  try {
+    await auth.api.requestPasswordReset({
+      body: {
+        email: request.email,
+        redirectTo: "/",
+      },
+      headers: await headers(),
+    });
+  } catch (error) {
+    return redirectToAuth(getPasswordResetFailureStatus(error));
+  }
+
+  return redirectToAuth("password-reset-sent");
+}
+
+export async function initiateAccountDeletion() {
+  const session = await getSession();
+
+  if (!session) {
+    return redirectToAuth("account-deletion-signed-out");
+  }
+
+  try {
+    const response = await auth.api.deleteUser({
+      body: {
+        callbackURL: "/",
+      },
+      headers: await headers(),
+    });
+
+    if (response.message === "Verification email sent") {
+      return redirectToAuth("account-deletion-verification-sent");
+    }
+  } catch (error) {
+    return redirectToAuth(getAccountDeletionFailureStatus(error));
+  }
+
+  return redirectToAuth("account-deletion-started");
 }
 
 export async function signOut() {

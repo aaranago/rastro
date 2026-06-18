@@ -87,6 +87,25 @@ export interface ShellCopy {
       reports: string;
       alerts: string;
       settings: string;
+      account: {
+        title: string;
+        emailLabel: string;
+        passwordResetTitle: string;
+        passwordResetBody: (email: string) => string;
+        passwordResetAction: string;
+        passwordResetPending: string;
+        passwordResetSuccess: string;
+        passwordResetUnavailable: string;
+        signOutAction: string;
+        signOutPending: string;
+        deletionTitle: string;
+        deletionBody: string;
+        deletionImpacts: string[];
+        deletionAction: string;
+        deletionPending: string;
+        deletionSuccess: string;
+        actionFailed: string;
+      };
     };
   };
 }
@@ -369,6 +388,34 @@ const esBO: ShellCopy = {
       reports: "Mis reportes",
       alerts: "Alertas",
       settings: "Ajustes",
+      account: {
+        title: "Cuenta",
+        emailLabel: "Correo de acceso",
+        passwordResetTitle: "Contrasena",
+        passwordResetBody: (email) =>
+          `Enviaremos un enlace a ${email} para restablecer tu contrasena.`,
+        passwordResetAction: "Enviar enlace de restablecimiento",
+        passwordResetPending: "Enviando enlace",
+        passwordResetSuccess: "Revisa tu correo para cambiar tu contrasena.",
+        passwordResetUnavailable:
+          "Necesitas un correo en tu cuenta para restablecer la contrasena.",
+        signOutAction: "Cerrar sesion",
+        signOutPending: "Cerrando sesion",
+        deletionTitle: "Eliminar cuenta",
+        deletionBody:
+          "Puedes iniciar la eliminacion de tu cuenta desde Rastro. Conservamos solo lo necesario para seguridad, moderacion y recuperacion.",
+        deletionImpacts: [
+          "Perfiles de mascota: dejan de estar bajo tu gestion cuando se complete la eliminacion.",
+          "Reportes y adopcion: se cierran o quedan para moderacion sin datos de contacto publicos.",
+          "Conversaciones: conservamos mensajes necesarios para seguridad y moderacion, sin permitir nuevas respuestas.",
+          "Contenido publico: retiramos contacto personal y mantenemos contexto util para recuperacion cuando corresponde.",
+        ],
+        deletionAction: "Solicitar eliminacion de cuenta",
+        deletionPending: "Solicitando eliminacion",
+        deletionSuccess:
+          "Te enviaremos las instrucciones para confirmar la eliminacion.",
+        actionFailed: "No pudimos completar esta accion. Intenta de nuevo.",
+      },
     },
   },
 };

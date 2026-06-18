@@ -1,7 +1,11 @@
+import * as React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { AppStateDescriptor } from "../app-states";
+import type { ShellAuthActionResult } from "./shell-auth";
+import type { ShellProfileAccountSettings } from "./shell-model";
 import { AppStatePanel } from "../app-states";
+import { createShellProfileModel } from "./shell-model";
 import { ShellIcon } from "./shell-overlays";
 import { useRastroShell } from "./shell-provider";
 import { shellColors } from "./shell-theme";
@@ -206,9 +210,18 @@ export function ResourcesScreen() {
 }
 
 export function ProfileScreen() {
-  const { copy, session } = useRastroShell();
+  const {
+    copy,
+    initiateAccountDeletion,
+    requestMemberPasswordReset,
+    session,
+    signOutMember,
+  } = useRastroShell();
   const screen = copy.screens.profile;
-  const isMember = session.kind === "member";
+  const profile = React.useMemo(
+    () => createShellProfileModel({ copy, session }),
+    [copy, session],
+  );
 
   return (
     <ScrollView
@@ -220,9 +233,11 @@ export function ProfileScreen() {
     >
       <MemberIntentBanner />
       <StateCard
-        body={isMember ? screen.memberBody : screen.visitorBody}
-        icon={isMember ? "person.crop.circle.fill" : "person.crop.circle"}
-        title={isMember ? screen.memberTitle : screen.visitorTitle}
+        body={profile.body}
+        icon={
+          profile.isMember ? "person.crop.circle.fill" : "person.crop.circle"
+        }
+        title={profile.title}
       />
       <View style={styles.profileList}>
         <ProfileRow icon="pawprint.fill" label={screen.pets} />
@@ -230,6 +245,15 @@ export function ProfileScreen() {
         <ProfileRow icon="bell.fill" label={screen.alerts} />
         <ProfileRow icon="gearshape.fill" label={screen.settings} />
       </View>
+      {profile.accountSettings ? (
+        <AccountSettingsPanel
+          actionFailedLabel={screen.account.actionFailed}
+          onInitiateAccountDeletion={initiateAccountDeletion}
+          onRequestPasswordReset={requestMemberPasswordReset}
+          onSignOut={signOutMember}
+          settings={profile.accountSettings}
+        />
+      ) : null}
       <PermissionEducationStack />
     </ScrollView>
   );
@@ -310,6 +334,248 @@ function ProfileRow({ icon, label }: { icon: string; label: string }) {
         {label}
       </Text>
       <ShellIcon color={shellColors.muted} name="chevron.right" size={17} />
+    </Pressable>
+  );
+}
+
+type AccountAction = "password-reset" | "delete-account" | "sign-out";
+
+interface AccountFeedback {
+  message: string;
+  tone: "error" | "success";
+}
+
+function AccountSettingsPanel({
+  actionFailedLabel,
+  onInitiateAccountDeletion,
+  onRequestPasswordReset,
+  onSignOut,
+  settings,
+}: {
+  actionFailedLabel: string;
+  onInitiateAccountDeletion: () => Promise<ShellAuthActionResult>;
+  onRequestPasswordReset: () => Promise<ShellAuthActionResult>;
+  onSignOut: () => Promise<ShellAuthActionResult>;
+  settings: ShellProfileAccountSettings;
+}) {
+  const [feedback, setFeedback] = React.useState<AccountFeedback | null>(null);
+  const [pendingAction, setPendingAction] =
+    React.useState<AccountAction | null>(null);
+  const canRequestPasswordReset = Boolean(settings.email);
+
+  const runAccountAction = React.useCallback(
+    async ({
+      action,
+      request,
+      successMessage,
+    }: {
+      action: AccountAction;
+      request: () => Promise<ShellAuthActionResult>;
+      successMessage?: string;
+    }) => {
+      setPendingAction(action);
+      setFeedback(null);
+
+      const result = await request();
+
+      setPendingAction(null);
+
+      if (!result.ok) {
+        setFeedback({
+          message: result.message ?? actionFailedLabel,
+          tone: "error",
+        });
+        return;
+      }
+
+      if (successMessage) {
+        setFeedback({
+          message: successMessage,
+          tone: "success",
+        });
+      }
+    },
+    [actionFailedLabel],
+  );
+
+  const requestPasswordReset = React.useCallback(() => {
+    void runAccountAction({
+      action: "password-reset",
+      request: onRequestPasswordReset,
+      successMessage: settings.passwordResetSuccess,
+    });
+  }, [onRequestPasswordReset, runAccountAction, settings.passwordResetSuccess]);
+
+  const initiateDeletion = React.useCallback(() => {
+    void runAccountAction({
+      action: "delete-account",
+      request: onInitiateAccountDeletion,
+      successMessage: settings.deletionSuccess,
+    });
+  }, [onInitiateAccountDeletion, runAccountAction, settings.deletionSuccess]);
+
+  const signOut = React.useCallback(() => {
+    void runAccountAction({
+      action: "sign-out",
+      request: onSignOut,
+    });
+  }, [onSignOut, runAccountAction]);
+
+  return (
+    <View style={styles.accountPanel}>
+      <View style={styles.accountHeader}>
+        <Text maxFontSizeMultiplier={1.2} style={styles.sectionTitle}>
+          {settings.title}
+        </Text>
+        {settings.email ? (
+          <View style={styles.emailBadge}>
+            <Text maxFontSizeMultiplier={1.15} style={styles.emailLabel}>
+              {settings.emailLabel}
+            </Text>
+            <Text maxFontSizeMultiplier={1.15} style={styles.emailValue}>
+              {settings.email}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.accountBlock}>
+        <View style={styles.accountCopy}>
+          <Text maxFontSizeMultiplier={1.2} style={styles.accountBlockTitle}>
+            {settings.passwordResetTitle}
+          </Text>
+          <Text maxFontSizeMultiplier={1.25} style={styles.accountBlockBody}>
+            {settings.passwordResetBody ?? settings.passwordResetUnavailable}
+          </Text>
+        </View>
+        <AccountActionButton
+          disabled={!canRequestPasswordReset}
+          icon="key.fill"
+          isPending={pendingAction === "password-reset"}
+          label={settings.passwordResetAction}
+          onPress={requestPasswordReset}
+          pendingLabel={settings.passwordResetPending}
+        />
+      </View>
+
+      <View style={styles.accountDivider} />
+
+      <View style={styles.accountBlock}>
+        <View style={styles.accountCopy}>
+          <Text maxFontSizeMultiplier={1.2} style={styles.accountBlockTitle}>
+            {settings.deletionTitle}
+          </Text>
+          <Text maxFontSizeMultiplier={1.25} style={styles.accountBlockBody}>
+            {settings.deletionBody}
+          </Text>
+          <View style={styles.deletionImpactList}>
+            {settings.deletionImpacts.map((impact) => (
+              <View key={impact} style={styles.deletionImpactRow}>
+                <View style={styles.deletionBullet} />
+                <Text
+                  maxFontSizeMultiplier={1.2}
+                  style={styles.deletionImpactText}
+                >
+                  {impact}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+        <AccountActionButton
+          icon="trash.fill"
+          isPending={pendingAction === "delete-account"}
+          label={settings.deletionAction}
+          onPress={initiateDeletion}
+          pendingLabel={settings.deletionPending}
+          tone="danger"
+        />
+      </View>
+
+      <View style={styles.accountDivider} />
+
+      <AccountActionButton
+        icon="rectangle.portrait.and.arrow.right"
+        isPending={pendingAction === "sign-out"}
+        label={settings.signOutAction}
+        onPress={signOut}
+        pendingLabel={settings.signOutPending}
+        tone="secondary"
+      />
+
+      {feedback ? (
+        <Text
+          maxFontSizeMultiplier={1.2}
+          style={
+            feedback.tone === "success"
+              ? styles.accountFeedbackSuccess
+              : styles.accountFeedbackError
+          }
+        >
+          {feedback.message}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+function AccountActionButton({
+  disabled = false,
+  icon,
+  isPending,
+  label,
+  onPress,
+  pendingLabel,
+  tone = "primary",
+}: {
+  disabled?: boolean;
+  icon: string;
+  isPending: boolean;
+  label: string;
+  onPress: () => void;
+  pendingLabel: string;
+  tone?: "danger" | "primary" | "secondary";
+}) {
+  const isDisabled = disabled || isPending;
+  const buttonStyle =
+    tone === "danger"
+      ? styles.accountButtonDanger
+      : tone === "secondary"
+        ? styles.accountButtonSecondary
+        : styles.accountButtonPrimary;
+  const iconColor =
+    tone === "danger"
+      ? shellColors.lost
+      : tone === "secondary"
+        ? shellColors.primary
+        : shellColors.white;
+  const labelStyle =
+    tone === "primary"
+      ? styles.accountButtonLabelOnPrimary
+      : tone === "danger"
+        ? styles.accountButtonLabelDanger
+        : styles.accountButtonLabel;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={isDisabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.accountButton,
+        buttonStyle,
+        isDisabled ? styles.accountButtonDisabled : null,
+        pressed ? styles.accountButtonPressed : null,
+      ]}
+    >
+      <ShellIcon color={iconColor} name={icon} size={18} />
+      <Text
+        maxFontSizeMultiplier={1.15}
+        numberOfLines={2}
+        style={isDisabled ? styles.accountButtonLabelDisabled : labelStyle}
+      >
+        {isPending ? pendingLabel : label}
+      </Text>
     </Pressable>
   );
 }
@@ -404,6 +670,106 @@ function EmptyState({ body, title }: { body?: string; title: string }) {
 }
 
 const styles = StyleSheet.create({
+  accountBlock: {
+    gap: 12,
+  },
+  accountBlockBody: {
+    color: shellColors.muted,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  accountBlockTitle: {
+    color: shellColors.text,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  accountButton: {
+    alignItems: "center",
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 50,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  accountButtonDanger: {
+    backgroundColor: "#FFF1F0",
+    borderColor: "#F0B7B4",
+  },
+  accountButtonDisabled: {
+    opacity: 0.56,
+  },
+  accountButtonLabel: {
+    color: shellColors.primary,
+    flexShrink: 1,
+    fontSize: 14,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  accountButtonLabelDisabled: {
+    color: shellColors.muted,
+    flexShrink: 1,
+    fontSize: 14,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  accountButtonLabelDanger: {
+    color: shellColors.lost,
+    flexShrink: 1,
+    fontSize: 14,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  accountButtonLabelOnPrimary: {
+    color: shellColors.white,
+    flexShrink: 1,
+    fontSize: 14,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  accountButtonPressed: {
+    opacity: 0.82,
+  },
+  accountButtonPrimary: {
+    backgroundColor: shellColors.primary,
+    borderColor: shellColors.primary,
+  },
+  accountButtonSecondary: {
+    backgroundColor: shellColors.surface,
+    borderColor: shellColors.border,
+  },
+  accountCopy: {
+    gap: 5,
+  },
+  accountDivider: {
+    backgroundColor: shellColors.border,
+    height: 1,
+  },
+  accountFeedbackError: {
+    color: shellColors.lost,
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  accountFeedbackSuccess: {
+    color: shellColors.primary,
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  accountHeader: {
+    gap: 10,
+  },
+  accountPanel: {
+    backgroundColor: shellColors.surface,
+    borderColor: shellColors.border,
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 16,
+    padding: 16,
+  },
   alertCopy: {
     flex: 1,
     gap: 2,
@@ -470,6 +836,45 @@ const styles = StyleSheet.create({
   cardTitle: {
     color: shellColors.text,
     fontSize: 17,
+    fontWeight: "800",
+  },
+  deletionBullet: {
+    backgroundColor: shellColors.primary,
+    borderRadius: 4,
+    height: 8,
+    marginTop: 7,
+    width: 8,
+  },
+  deletionImpactList: {
+    gap: 7,
+    paddingTop: 4,
+  },
+  deletionImpactRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  deletionImpactText: {
+    color: shellColors.text,
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  emailBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: shellColors.surfaceMuted,
+    borderRadius: 16,
+    gap: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  emailLabel: {
+    color: shellColors.muted,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  emailValue: {
+    color: shellColors.text,
+    fontSize: 13,
     fontWeight: "800",
   },
   emptyBody: {

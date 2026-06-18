@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@acme/auth": "workspace:*",
     "@better-auth/expo": "catalog:",
     "@legendapp/list": "^2.0.14",
     "@tanstack/react-query": "catalog:",

@@ -9,6 +9,7 @@ import {
   chooseReportAction,
   createInitialShellState,
   createShellModel,
+  createShellProfileModel,
 } from "./shell-model";
 
 describe("Rastro shell", () => {
@@ -60,6 +61,50 @@ describe("Rastro shell", () => {
 
     expect(visitorShell.session.kind).toBe("visitor");
     expect(memberShell.session.kind).toBe("member");
+  });
+
+  it("shows member account settings from Perfil", () => {
+    const copy = getShellCopy();
+    const profile = createShellProfileModel({
+      copy,
+      session: {
+        email: "ana@example.com",
+        id: "member_123",
+        kind: "member",
+        name: "Ana",
+      },
+    });
+
+    expect(profile.accountSettings).toMatchObject({
+      email: "ana@example.com",
+      passwordResetAction: "Enviar enlace de restablecimiento",
+      signOutAction: "Cerrar sesion",
+      deletionAction: "Solicitar eliminacion de cuenta",
+    });
+    expect(profile.accountSettings?.deletionImpacts).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Perfiles de mascota"),
+        expect.stringContaining("Reportes"),
+        expect.stringContaining("adopcion"),
+        expect.stringContaining("Conversaciones"),
+        expect.stringContaining("Contenido publico"),
+      ]),
+    );
+  });
+
+  it("keeps signed-out Perfil copy for visitors", () => {
+    const copy = getShellCopy();
+    const profile = createShellProfileModel({
+      copy,
+      session: { kind: "visitor" },
+    });
+
+    expect(profile).toMatchObject({
+      accountSettings: null,
+      body: "Puedes explorar Cerca y Recursos. Inicia sesion para crear reportes y guardar tu actividad.",
+      isMember: false,
+      title: "Usas Rastro como visitante",
+    });
   });
 
   it("prepares email and password prompt input for Better Auth actions", () => {

@@ -4,7 +4,13 @@ import { cache } from "react";
 import { headers } from "next/headers";
 import { nextCookies } from "better-auth/next-js";
 
-import type { AuthSocialProviders, OAuthProviderCredentials } from "@acme/auth";
+import type {
+  AccountDeletionCleanupBoundary,
+  AuthSocialProviders,
+  OAuthProviderCredentials,
+  SendDeleteAccountVerificationEmail,
+  SendPasswordResetEmail,
+} from "@acme/auth";
 import { createDrizzleAuthDatabase, initAuth } from "@acme/auth";
 import { db } from "@acme/db/client";
 
@@ -76,12 +82,61 @@ const socialProviders: AuthSocialProviders = {
   },
 };
 
+function assertDevelopmentEmailBoundary(kind: string) {
+  if (env.NODE_ENV === "production") {
+    throw new Error(`${kind} email delivery is not configured for production.`);
+  }
+}
+
+const sendPasswordResetEmail: SendPasswordResetEmail = ({ url, user }) => {
+  assertDevelopmentEmailBoundary("Password reset");
+  console.info("[Rastro auth] Password reset link requested", {
+    to: user.email,
+    url,
+  });
+
+  return Promise.resolve();
+};
+
+const sendDeleteAccountVerificationEmail: SendDeleteAccountVerificationEmail =
+  ({ url, user }) => {
+    assertDevelopmentEmailBoundary("Account deletion verification");
+    console.info("[Rastro auth] Account deletion confirmation link requested", {
+      to: user.email,
+      url,
+    });
+
+    return Promise.resolve();
+  };
+
+const accountDeletionCleanup: AccountDeletionCleanupBoundary = {
+  removeUnsafePublicContactData: ({ memberId, requirement }) => {
+    console.info("[Rastro auth] Account deletion cleanup boundary completed", {
+      memberId,
+      requirement: requirement.id,
+    });
+
+    return Promise.resolve({
+      id: "unsafePublicContactData",
+      removedRecords: 0,
+      status: "completed",
+    });
+  },
+};
+
 export const auth = initAuth({
   database: createDrizzleAuthDatabase(db),
   baseUrl,
   productionUrl,
   secret: env.AUTH_SECRET,
   requireEmailVerification: env.AUTH_REQUIRE_EMAIL_VERIFICATION,
+  passwordReset: {
+    sendEmail: sendPasswordResetEmail,
+  },
+  accountDeletion: {
+    cleanup: accountDeletionCleanup,
+    sendVerificationEmail: sendDeleteAccountVerificationEmail,
+  },
   socialProviders,
   extraPlugins: [nextCookies()],
 });

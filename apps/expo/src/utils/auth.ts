@@ -2,6 +2,8 @@ import * as SecureStore from "expo-secure-store";
 import { expoClient } from "@better-auth/expo/client";
 import { createAuthClient } from "better-auth/react";
 
+import { createAccountClientAdapter } from "@acme/auth/client";
+
 import type {
   ShellAuthActionResult,
   ShellAuthAdapter,
@@ -19,6 +21,8 @@ export const authClient = createAuthClient({
     }),
   ],
 });
+
+const accountClientAdapter = createAccountClientAdapter(authClient);
 
 function getErrorMessage(error: unknown): string | undefined {
   if (error instanceof Error) {
@@ -72,6 +76,14 @@ export const shellAuthAdapter: ShellAuthAdapter = {
         password,
       }),
     ),
+  initiateAccountDeletion: () =>
+    accountClientAdapter.initiateAccountDeletion({
+      callbackURL: "/",
+    }),
+  requestPasswordResetForEmail: (email: string) =>
+    accountClientAdapter.requestPasswordResetForEmail(email, {
+      redirectTo: "/",
+    }),
   signInWithEmail: ({ email, password }: ShellAuthCredentials) =>
     runAuthAction(() =>
       authClient.signIn.email({
@@ -80,5 +92,6 @@ export const shellAuthAdapter: ShellAuthAdapter = {
         rememberMe: true,
       }),
     ),
+  signOut: () => accountClientAdapter.signOut(),
   useSession: () => authClient.useSession(),
 };

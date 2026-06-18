@@ -59,6 +59,19 @@ AUTH_APPLE_APP_BUNDLE_IDENTIFIER=""
 - Email verification remains configurable so admins can require verified email for publishing if spam is detected.
 - If verification is enabled later, configure email sending before enforcing it.
 
+## Account Emails And Deletion
+
+Password reset and account deletion confirmation are wired through Better Auth in the Next.js auth server. In local development, Rastro logs the generated secure links to the server console so the flows can be validated without committing an email-provider secret.
+
+Before production launch, replace the local logging boundary in `apps/nextjs/src/auth/server.ts` with a transactional email sender. The sender must deliver:
+
+- password reset links for email/password members;
+- account deletion confirmation links before Better Auth deletes a member.
+
+Do not log reset or deletion URLs in production. The current production guard throws if a real email sender has not replaced the local boundary, so the UI shows an integration-needed message instead of pretending that an email was sent.
+
+Account deletion also runs an unsafe-public-contact cleanup boundary before deleting the Better Auth user. The current v1 boundary has no public contact tables to scrub yet and records zero removed rows. Future Pet Profile, report, Adoption Listing, chat, and WhatsApp-contact tables must implement that boundary before exposing public contact data.
+
 Source: [Better Auth Email & Password](https://www.better-auth.com/docs/authentication/email-password)
 
 ## Common Validation Steps

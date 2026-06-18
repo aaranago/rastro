@@ -46,16 +46,30 @@ export interface ShellAuthAdapter {
   createAccountWithEmail: (
     credentials: ShellAuthCredentials,
   ) => Promise<ShellAuthActionResult>;
+  initiateAccountDeletion: () => Promise<ShellAuthActionResult>;
+  requestPasswordResetForEmail: (
+    email: string,
+  ) => Promise<ShellAuthActionResult>;
   signInWithEmail: (
     credentials: ShellAuthCredentials,
   ) => Promise<ShellAuthActionResult>;
+  signOut: () => Promise<ShellAuthActionResult>;
   useSession: () => ShellAuthSessionState;
 }
 
 export function deriveShellSessionFromAuthState(
   authState: ShellAuthSessionState,
 ): ShellSession {
-  return authState.data?.user ? { kind: "member" } : { kind: "visitor" };
+  const user = authState.data?.user;
+
+  return user
+    ? {
+        email: user.email,
+        id: user.id,
+        kind: "member",
+        name: user.name,
+      }
+    : { kind: "visitor" };
 }
 
 export function prepareShellAuthCredentials({

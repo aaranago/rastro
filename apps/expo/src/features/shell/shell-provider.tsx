@@ -37,6 +37,9 @@ interface RastroShellContextValue {
   createAccountFromPrompt: (
     credentials: ShellAuthCredentials,
   ) => Promise<ShellAuthActionResult>;
+  requestMemberPasswordReset: () => Promise<ShellAuthActionResult>;
+  initiateAccountDeletion: () => Promise<ShellAuthActionResult>;
+  signOutMember: () => Promise<ShellAuthActionResult>;
   continueAsVisitor: () => void;
 }
 
@@ -157,6 +160,59 @@ export function RastroShellProvider({
     [authAdapter, completeAuthPrompt],
   );
 
+  const requestMemberPasswordReset =
+    React.useCallback(async (): Promise<ShellAuthActionResult> => {
+      if (session.kind !== "member" || !session.email) {
+        return {
+          message: copy.screens.profile.account.passwordResetUnavailable,
+          ok: false,
+        };
+      }
+
+      return authAdapter.requestPasswordResetForEmail(session.email);
+    }, [authAdapter, copy, session]);
+
+  const initiateAccountDeletion =
+    React.useCallback(async (): Promise<ShellAuthActionResult> => {
+      if (session.kind !== "member") {
+        return {
+          message: copy.screens.profile.account.actionFailed,
+          ok: false,
+        };
+      }
+
+      const result = await authAdapter.initiateAccountDeletion();
+
+      if (result.ok) {
+        refetchAuthSession?.();
+      }
+
+      return result;
+    }, [authAdapter, copy, refetchAuthSession, session.kind]);
+
+  const signOutMember =
+    React.useCallback(async (): Promise<ShellAuthActionResult> => {
+      if (session.kind !== "member") {
+        return {
+          message: copy.screens.profile.account.actionFailed,
+          ok: false,
+        };
+      }
+
+      const result = await authAdapter.signOut();
+
+      if (result.ok) {
+        refetchAuthSession?.();
+        setState((current) => ({
+          ...current,
+          authPrompt: null,
+          memberIntent: null,
+        }));
+      }
+
+      return result;
+    }, [authAdapter, copy, refetchAuthSession, session.kind]);
+
   const value = React.useMemo<RastroShellContextValue>(
     () => ({
       copy,
@@ -169,6 +225,9 @@ export function RastroShellProvider({
       dismissAuthPrompt,
       signInFromPrompt,
       createAccountFromPrompt,
+      requestMemberPasswordReset,
+      initiateAccountDeletion,
+      signOutMember,
       continueAsVisitor,
     }),
     [
@@ -178,10 +237,13 @@ export function RastroShellProvider({
       copy,
       createAccountFromPrompt,
       dismissAuthPrompt,
+      initiateAccountDeletion,
       model,
       openReportActions,
+      requestMemberPasswordReset,
       session,
       signInFromPrompt,
+      signOutMember,
       state,
     ],
   );

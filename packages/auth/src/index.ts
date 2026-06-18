@@ -4,6 +4,26 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { oAuthProxy } from "better-auth/plugins";
 
+import type { AccountDeletionCleanupBoundary } from "./account-deletion-policy";
+import { prepareAccountDeletion } from "./account-deletion-policy";
+
+export {
+  getAccountDeletionPolicy,
+  prepareAccountDeletion,
+} from "./account-deletion-policy";
+export type {
+  AccountDeletionCleanupBoundary,
+  AccountDeletionCleanupInput,
+  AccountDeletionCleanupRequirement,
+  AccountDeletionCleanupResult,
+  AccountDeletionConsequence,
+  AccountDeletionConsequenceResource,
+  AccountDeletionDisposition,
+  AccountDeletionPreparation,
+  AccountDeletionPolicy,
+  PrepareAccountDeletionInput,
+} from "./account-deletion-policy";
+
 export interface OAuthProviderCredentials {
   clientId?: string | undefined;
   clientSecret?: string | undefined;
@@ -19,8 +39,39 @@ export interface AuthSocialProviders {
   apple?: AppleProviderCredentials | undefined;
 }
 
-export type AuthDatabase = NonNullable<BetterAuthOptions["database"]>;
+export type AuthDatabase = ReturnType<typeof drizzleAdapter>;
 type DrizzleDatabase = Parameters<typeof drizzleAdapter>[0];
+type EmailAndPasswordOptions = Extract<
+  NonNullable<BetterAuthOptions["emailAndPassword"]>,
+  { sendResetPassword?: unknown }
+>;
+type DeleteUserOptions = NonNullable<
+  NonNullable<BetterAuthOptions["user"]>["deleteUser"]
+>;
+
+export type SendPasswordResetEmail = NonNullable<
+  EmailAndPasswordOptions["sendResetPassword"]
+>;
+export type SendDeleteAccountVerificationEmail = NonNullable<
+  DeleteUserOptions["sendDeleteAccountVerification"]
+>;
+export type BeforeDeleteAccount = NonNullable<
+  DeleteUserOptions["beforeDelete"]
+>;
+export type AfterDeleteAccount = NonNullable<DeleteUserOptions["afterDelete"]>;
+
+export interface AuthPasswordResetOptions {
+  sendEmail: SendPasswordResetEmail;
+  tokenExpiresInSeconds?: number | undefined;
+}
+
+export interface AuthAccountDeletionOptions {
+  cleanup?: AccountDeletionCleanupBoundary | undefined;
+  sendVerificationEmail?: SendDeleteAccountVerificationEmail | undefined;
+  tokenExpiresInSeconds?: number | undefined;
+  beforeDelete?: BeforeDeleteAccount | undefined;
+  afterDelete?: AfterDeleteAccount | undefined;
+}
 
 export interface InitAuthOptions<
   TExtraPlugins extends BetterAuthPlugin[] = [],
@@ -30,6 +81,8 @@ export interface InitAuthOptions<
   productionUrl: string;
   secret: string | undefined;
   requireEmailVerification?: boolean | undefined;
+  passwordReset?: AuthPasswordResetOptions | undefined;
+  accountDeletion?: AuthAccountDeletionOptions | undefined;
   socialProviders?: AuthSocialProviders | undefined;
   trustedOrigins?: string[] | undefined;
   extraPlugins?: TExtraPlugins | undefined;
@@ -106,6 +159,27 @@ export function createAuthOptions<
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: options.requireEmailVerification ?? false,
+      sendResetPassword: options.passwordReset?.sendEmail,
+      resetPasswordTokenExpiresIn: options.passwordReset?.tokenExpiresInSeconds,
+    },
+    user: {
+      deleteUser: {
+        enabled: true,
+        sendDeleteAccountVerification:
+          options.accountDeletion?.sendVerificationEmail,
+        deleteTokenExpiresIn: options.accountDeletion?.tokenExpiresInSeconds,
+        async beforeDelete(user, request) {
+          if (options.accountDeletion?.cleanup) {
+            await prepareAccountDeletion({
+              cleanup: options.accountDeletion.cleanup,
+              memberId: user.id,
+            });
+          }
+
+          await options.accountDeletion?.beforeDelete?.(user, request);
+        },
+        afterDelete: options.accountDeletion?.afterDelete,
+      },
     },
     socialProviders: createSocialProviders(
       options.productionUrl,
