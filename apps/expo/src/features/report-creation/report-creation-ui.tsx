@@ -1,17 +1,21 @@
 import type { ReactNode } from "react";
 import type {
+  ImageStyle,
   KeyboardTypeOptions,
   StyleProp,
   TextStyle,
   ViewStyle,
 } from "react-native";
+import * as React from "react";
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { Image } from "expo-image";
 
 export interface ReportCreationFieldViewModel {
   error?: string;
@@ -53,11 +57,16 @@ export interface ReportCreationStyles {
   actionButtonSecondary: StyleProp<ViewStyle>;
   actionButtonText: StyleProp<TextStyle>;
   actionButtonTextPrimary: StyleProp<TextStyle>;
+  addPhotoText: StyleProp<TextStyle>;
+  addPhotoTile: StyleProp<ViewStyle>;
   contactOption: StyleProp<ViewStyle>;
+  content: StyleProp<ViewStyle>;
   disabledButton: StyleProp<ViewStyle>;
+  disabledTile: StyleProp<ViewStyle>;
   errorText: StyleProp<TextStyle>;
   field: StyleProp<ViewStyle>;
   fieldLabel: StyleProp<TextStyle>;
+  helpText: StyleProp<TextStyle>;
   infoLabel: StyleProp<TextStyle>;
   infoRow: StyleProp<ViewStyle>;
   input: StyleProp<TextStyle>;
@@ -66,6 +75,10 @@ export interface ReportCreationStyles {
   multilineInput: StyleProp<TextStyle>;
   optionCopy: StyleProp<ViewStyle>;
   optionStack: StyleProp<ViewStyle>;
+  permissionBox: StyleProp<ViewStyle>;
+  photoGrid: StyleProp<ViewStyle>;
+  photoImage: StyleProp<ImageStyle>;
+  photoTile: StyleProp<ViewStyle>;
   pressed: StyleProp<ViewStyle>;
   publishButton: StyleProp<ViewStyle>;
   publishText: StyleProp<TextStyle>;
@@ -76,6 +89,9 @@ export interface ReportCreationStyles {
   section: StyleProp<ViewStyle>;
   sectionTitle: StyleProp<TextStyle>;
   selectedBorder: StyleProp<ViewStyle>;
+  selectedPill: StyleProp<ViewStyle>;
+  selectedPillText: StyleProp<TextStyle>;
+  screen: StyleProp<ViewStyle>;
   stepDot: StyleProp<ViewStyle>;
   stepDotComplete: StyleProp<ViewStyle>;
   stepItem: StyleProp<ViewStyle>;
@@ -88,6 +104,83 @@ export interface ReportCreationStyles {
   switchThumbOn: StyleProp<ViewStyle>;
   switchTrack: StyleProp<ViewStyle>;
   toggleRow: StyleProp<ViewStyle>;
+  typePill: StyleProp<ViewStyle>;
+  typePillText: StyleProp<TextStyle>;
+  typeRow: StyleProp<ViewStyle>;
+}
+
+export function useReportCreationPetDraftUpdaters<
+  TType extends string,
+  TDraft extends {
+    pet: {
+      breed: string;
+      description: string;
+      type: TType;
+    };
+  },
+>(setDraft: React.Dispatch<React.SetStateAction<TDraft>>) {
+  const updatePetType = React.useCallback(
+    (type: TType) => {
+      setDraft((current) => ({
+        ...current,
+        pet: { ...current.pet, type },
+      }));
+    },
+    [setDraft],
+  );
+  const updatePetBreed = React.useCallback(
+    (breed: string) => {
+      setDraft((current) => ({
+        ...current,
+        pet: {
+          ...current.pet,
+          breed,
+        },
+      }));
+    },
+    [setDraft],
+  );
+  const updatePetDescription = React.useCallback(
+    (description: string) => {
+      setDraft((current) => ({
+        ...current,
+        pet: {
+          ...current.pet,
+          description,
+        },
+      }));
+    },
+    [setDraft],
+  );
+
+  return {
+    updatePetBreed,
+    updatePetDescription,
+    updatePetType,
+  };
+}
+
+export function ReportCreationEditorScrollView({
+  bottomInset,
+  children,
+  styles,
+}: {
+  bottomInset: number;
+  children: ReactNode;
+  styles: ReportCreationStyles;
+}) {
+  return (
+    <ScrollView
+      contentContainerStyle={styles.content}
+      contentInset={{ bottom: bottomInset }}
+      contentInsetAdjustmentBehavior="automatic"
+      keyboardShouldPersistTaps="handled"
+      scrollIndicatorInsets={{ bottom: bottomInset }}
+      style={styles.screen}
+    >
+      {children}
+    </ScrollView>
+  );
 }
 
 export function ReportCreationSection({
@@ -144,6 +237,202 @@ export function ReportCreationField({
         </Text>
       ) : null}
     </View>
+  );
+}
+
+export function ReportCreationPetSnapshotSection<TType extends string>({
+  breedField,
+  descriptionField,
+  onChangeBreed,
+  onChangeDescription,
+  onSelectType,
+  placeholderTextColor,
+  selectedType,
+  styles,
+  title,
+  typeOptions,
+}: {
+  breedField: ReportCreationFieldViewModel;
+  descriptionField: ReportCreationFieldViewModel;
+  onChangeBreed: (value: string) => void;
+  onChangeDescription: (value: string) => void;
+  onSelectType: (type: TType) => void;
+  placeholderTextColor: string;
+  selectedType: TType;
+  styles: ReportCreationStyles;
+  title: string;
+  typeOptions: readonly TType[];
+}) {
+  return (
+    <ReportCreationSection styles={styles} title={title}>
+      <View style={styles.typeRow}>
+        {typeOptions.map((type) => (
+          <Pressable
+            accessibilityRole="button"
+            key={type}
+            onPress={() => onSelectType(type)}
+            style={[
+              styles.typePill,
+              selectedType === type ? styles.selectedPill : null,
+            ]}
+          >
+            <Text
+              maxFontSizeMultiplier={1.1}
+              style={[
+                styles.typePillText,
+                selectedType === type ? styles.selectedPillText : null,
+              ]}
+            >
+              {type}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      <ReportCreationField
+        field={breedField}
+        onChangeText={onChangeBreed}
+        placeholderTextColor={placeholderTextColor}
+        styles={styles}
+      />
+      <ReportCreationField
+        multiline
+        field={descriptionField}
+        onChangeText={onChangeDescription}
+        placeholderTextColor={placeholderTextColor}
+        styles={styles}
+      />
+    </ReportCreationSection>
+  );
+}
+
+export function ReportCreationDetailsFieldsSection<TKey extends string>({
+  fields,
+  onChangeField,
+  placeholderTextColor,
+  styles,
+  title,
+}: {
+  fields: readonly {
+    field: ReportCreationFieldViewModel;
+    key: TKey;
+    multiline?: boolean;
+  }[];
+  onChangeField: (key: TKey, value: string) => void;
+  placeholderTextColor: string;
+  styles: ReportCreationStyles;
+  title: string;
+}) {
+  return (
+    <ReportCreationSection styles={styles} title={title}>
+      {fields.map((item) => (
+        <ReportCreationField
+          field={item.field}
+          key={item.key}
+          multiline={item.multiline}
+          onChangeText={(value) => onChangeField(item.key, value)}
+          placeholderTextColor={placeholderTextColor}
+          styles={styles}
+        />
+      ))}
+    </ReportCreationSection>
+  );
+}
+
+export interface ReportCreationPhotoItem {
+  alt?: string;
+  id: string;
+  thumbUri?: string;
+  uri?: string;
+}
+
+export function ReportCreationPhotoSection<
+  TPhoto extends ReportCreationPhotoItem,
+>({
+  accentColor,
+  addPhoto,
+  addPhotoAccessibilityLabel,
+  canAddPhoto,
+  countLabel,
+  error,
+  helpLabel,
+  Icon,
+  onRemovePhoto,
+  permissionBody,
+  permissionTitle,
+  photos,
+  styles,
+  title,
+}: {
+  accentColor: string;
+  addPhoto: () => void;
+  addPhotoAccessibilityLabel: string;
+  canAddPhoto: boolean;
+  countLabel: string;
+  error?: string;
+  helpLabel: string;
+  Icon: ReportCreationIconComponent;
+  onRemovePhoto: (photoId: string) => void;
+  permissionBody: string;
+  permissionTitle: string;
+  photos: readonly TPhoto[];
+  styles: ReportCreationStyles;
+  title: string;
+}) {
+  return (
+    <ReportCreationSection styles={styles} title={title}>
+      <View style={styles.permissionBox}>
+        <Icon color={accentColor} name="camera.fill" size={22} />
+        <View style={styles.optionCopy}>
+          <Text maxFontSizeMultiplier={1.15} style={styles.itemTitle}>
+            {permissionTitle}
+          </Text>
+          <Text maxFontSizeMultiplier={1.2} style={styles.metaText}>
+            {permissionBody}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.photoGrid}>
+        {photos.map((photo) => (
+          <Pressable
+            accessibilityLabel="Quitar foto"
+            accessibilityRole="button"
+            key={photo.id}
+            onPress={() => onRemovePhoto(photo.id)}
+            style={styles.photoTile}
+          >
+            <Image
+              accessibilityLabel={photo.alt}
+              contentFit="cover"
+              source={photo.thumbUri ?? photo.uri}
+              style={styles.photoImage}
+            />
+          </Pressable>
+        ))}
+        <Pressable
+          accessibilityLabel={addPhotoAccessibilityLabel}
+          accessibilityRole="button"
+          disabled={!canAddPhoto}
+          onPress={addPhoto}
+          style={[
+            styles.addPhotoTile,
+            !canAddPhoto ? styles.disabledTile : null,
+          ]}
+        >
+          <Icon color={accentColor} name="plus" size={22} />
+          <Text maxFontSizeMultiplier={1.1} style={styles.addPhotoText}>
+            {countLabel}
+          </Text>
+        </Pressable>
+      </View>
+      <Text maxFontSizeMultiplier={1.2} style={styles.helpText}>
+        {helpLabel}
+      </Text>
+      {error ? (
+        <Text maxFontSizeMultiplier={1.2} selectable style={styles.errorText}>
+          {error}
+        </Text>
+      ) : null}
+    </ReportCreationSection>
   );
 }
 

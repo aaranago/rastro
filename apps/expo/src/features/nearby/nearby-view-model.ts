@@ -242,6 +242,25 @@ function toPublicSummary(
     };
   }
 
+  if (isSightingReportSummary(report)) {
+    return {
+      distanceLabel: formatDistance(report.distanceMeters),
+      eventAtLabel: report.observedAtLabel,
+      id: report.id,
+      lastSeenAtLabel: report.observedAtLabel,
+      photoUrl: report.photoUrl,
+      priorityLabel: "Avistamiento",
+      publicLocationLabel: formatPublicLocation(report),
+      reportKind: "sighting-report",
+      shareTarget: report.shareTarget,
+      subtitle: [report.breed, report.observedCondition]
+        .filter(Boolean)
+        .join(" • "),
+      summary: report.sightingSummary,
+      title: report.title,
+    };
+  }
+
   return {
     distanceLabel: formatDistance(report.distanceMeters),
     eventAtLabel: report.lastSeenAtLabel,
@@ -309,7 +328,7 @@ function buildUrgentAlert(
 ): NearbyUrgentLostPetAlertViewModel | undefined {
   const urgent = reports.find(
     (report): report is LostPetReportSummary =>
-      !isFoundPetReportSummary(report) && report.alertPriority === "urgent",
+      isLostPetReportSummary(report) && report.alertPriority === "urgent",
   );
 
   if (!urgent) {
@@ -330,6 +349,23 @@ function isFoundPetReportSummary(
   { reportKind: "found-pet-report" }
 > {
   return report.reportKind === "found-pet-report";
+}
+
+function isSightingReportSummary(
+  report: NearbyPublicReportSummary,
+): report is Extract<
+  NearbyPublicReportSummary,
+  { reportKind: "sighting-report" }
+> {
+  return report.reportKind === "sighting-report";
+}
+
+function isLostPetReportSummary(
+  report: NearbyPublicReportSummary,
+): report is LostPetReportSummary {
+  return (
+    report.reportKind === undefined || report.reportKind === "lost-pet-report"
+  );
 }
 
 function buildOfflineLabel(result: NearbyLostReportsResult) {

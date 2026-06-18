@@ -7,11 +7,16 @@ import type {
   LostReportsSessionState,
 } from "../lost-reports/lost-reports";
 import type {
+  SightingReportRepository,
+  SightingReportsSessionState,
+} from "../sighting-reports/sighting-reports";
+import type {
   FoundPetReportSummary,
   LostPetReportSummary,
   NearbyLostReportsAdapter,
   NearbyPublicReportSummary,
   PublicLocation,
+  SightingReportSummary,
 } from "./nearby-types";
 
 export interface NearbyLostReportRepositoryAdapterOptions {
@@ -19,16 +24,23 @@ export interface NearbyLostReportRepositoryAdapterOptions {
   foundSession?: FoundReportsSessionState;
   repository: LostPetReportRepository;
   session?: LostReportsSessionState;
+  sightingReports?: SightingReportRepository;
+  sightingSession?: SightingReportsSessionState;
 }
 
 const visitorSession: LostReportsSessionState = { kind: "visitor" };
 const foundVisitorSession: FoundReportsSessionState = { kind: "visitor" };
+const sightingVisitorSession: SightingReportsSessionState = {
+  kind: "visitor",
+};
 
 export function createNearbyLostReportRepositoryAdapter({
   foundReports,
   foundSession = foundVisitorSession,
   repository,
   session = visitorSession,
+  sightingReports,
+  sightingSession = sightingVisitorSession,
 }: NearbyLostReportRepositoryAdapterOptions): NearbyLostReportsAdapter {
   return {
     async searchLostPetReports(query) {
@@ -64,6 +76,19 @@ export function createNearbyLostReportRepositoryAdapter({
             strategy: "postgis_radius",
           })
         : undefined;
+      const sightingResult = sightingReports
+        ? await sightingReports.searchActiveSightingReports(sightingSession, {
+            location: {
+              coordinates,
+              countryCode: query.location.countryCode,
+              label: query.location.label,
+              locationCellLabel: query.location.locationCellLabel,
+              source: query.location.source,
+            },
+            radiusKm: query.radiusKm,
+            strategy: "postgis_radius",
+          })
+        : undefined;
       const reports = [
         ...lostResult.reports.map((report) =>
           toNearbyLostPetReportSummary({
@@ -74,6 +99,12 @@ export function createNearbyLostReportRepositoryAdapter({
         ...(foundResult?.reports.map((report) =>
           toNearbyFoundPetReportSummary({
             generatedAt: foundResult.generatedAt,
+            report,
+          }),
+        ) ?? []),
+        ...(sightingResult?.reports.map((report) =>
+          toNearbySightingReportSummary({
+            generatedAt: sightingResult.generatedAt,
             report,
           }),
         ) ?? []),
@@ -147,10 +178,44 @@ function toNearbyFoundPetReportSummary({
   };
 }
 
+function toNearbySightingReportSummary({
+  generatedAt,
+  report,
+}: {
+  generatedAt: string;
+  report: Awaited<
+    ReturnType<SightingReportRepository["searchActiveSightingReports"]>
+  >["reports"][number];
+}): SightingReportSummary {
+  return {
+    breed: report.breed,
+    direction: report.direction,
+    distanceMeters: report.distanceMeters,
+    id: report.id,
+    locationCellLabel: report.locationCellLabel,
+    observedAtLabel: formatLastSeenAt(report.observedAt, generatedAt),
+    observedCondition: report.observedCondition,
+    photoUrl: report.photoUrl,
+    publicLocation: toNearbyPublicLocation(report.publicLocation),
+    reportKind: "sighting-report",
+    shareTarget: report.shareTarget,
+    sightingSummary: report.sightingDescription,
+    species: report.species,
+    title: report.title,
+  };
+}
+
 function toNearbyPublicLocation(
-  publicLocation: Awaited<
-    ReturnType<LostPetReportRepository["searchActiveLostPetReports"]>
-  >["reports"][number]["publicLocation"],
+  publicLocation:
+    | Awaited<
+        ReturnType<LostPetReportRepository["searchActiveLostPetReports"]>
+      >["reports"][number]["publicLocation"]
+    | Awaited<
+        ReturnType<FoundPetReportRepository["searchActiveFoundPetReports"]>
+      >["reports"][number]["publicLocation"]
+    | Awaited<
+        ReturnType<SightingReportRepository["searchActiveSightingReports"]>
+      >["reports"][number]["publicLocation"],
 ): PublicLocation {
   if (publicLocation.kind === "exact") {
     return {
@@ -214,6 +279,10 @@ function compareNearbyReports(
 
 function priorityScore(report: NearbyPublicReportSummary) {
   if (report.reportKind === "found-pet-report") {
+    return 1;
+  }
+
+  if (report.reportKind === "sighting-report") {
     return 1;
   }
 

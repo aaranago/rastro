@@ -5,7 +5,10 @@ export type NearbyRadiusKm = (typeof nearbyRadiusOptionsKm)[number];
 export type NearbyBrowseMode = "list" | "map";
 
 export type NearbyBrowseAudience = "visitor" | "member";
-export type NearbyPublicReportKind = "found-pet-report" | "lost-pet-report";
+export type NearbyPublicReportKind =
+  | "found-pet-report"
+  | "lost-pet-report"
+  | "sighting-report";
 
 export type NearbyLocationSource = "current" | "last" | "manual";
 
@@ -78,9 +81,27 @@ export interface FoundPetReportSummary {
   shareTarget: PublicReportShareTarget;
 }
 
+export interface SightingReportSummary {
+  reportKind: "sighting-report";
+  id: string;
+  title: string;
+  species: string;
+  breed?: string;
+  photoUrl?: string;
+  distanceMeters?: number;
+  locationCellLabel: string;
+  publicLocation: PublicLocation;
+  observedAtLabel: string;
+  sightingSummary: string;
+  observedCondition: string;
+  direction: string;
+  shareTarget: PublicReportShareTarget;
+}
+
 export type NearbyPublicReportSummary =
   | FoundPetReportSummary
-  | LostPetReportSummary;
+  | LostPetReportSummary
+  | SightingReportSummary;
 
 export interface NearbyLostReportsQuery {
   location: NearbySearchLocation;

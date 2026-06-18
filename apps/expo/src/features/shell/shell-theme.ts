@@ -33,16 +33,16 @@ export const reportIntentColors: Record<
     border: shellColors.primary,
   },
   found: {
-    background: shellColors.sighting,
-    foreground: shellColors.white,
-    iconBackground: "rgba(255, 255, 255, 0.18)",
-    border: shellColors.sighting,
-  },
-  sighting: {
     background: shellColors.found,
     foreground: shellColors.white,
     iconBackground: "rgba(255, 255, 255, 0.18)",
     border: shellColors.found,
+  },
+  sighting: {
+    background: shellColors.sighting,
+    foreground: shellColors.white,
+    iconBackground: "rgba(255, 255, 255, 0.18)",
+    border: shellColors.sighting,
   },
   adoption: {
     background: "#DDEFE9",

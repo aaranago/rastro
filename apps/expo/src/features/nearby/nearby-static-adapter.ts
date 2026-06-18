@@ -1,13 +1,13 @@
 import type {
-  LostPetReportSummary,
   NearbyLostReportsAdapter,
   NearbyLostReportsQuery,
   NearbyLostReportsResult,
+  NearbyPublicReportSummary,
   NearbySearchBoundary,
 } from "./nearby-types";
 
 interface StaticNearbyLostReportsAdapterOptions {
-  reports: LostPetReportSummary[];
+  reports: NearbyPublicReportSummary[];
   generatedAt?: string;
   isOffline?: boolean;
   isStale?: boolean;
@@ -54,8 +54,8 @@ function buildSearchBoundary(
 }
 
 function compareLostReports(
-  left: LostPetReportSummary,
-  right: LostPetReportSummary,
+  left: NearbyPublicReportSummary,
+  right: NearbyPublicReportSummary,
 ) {
   const priority = priorityScore(right) - priorityScore(left);
 
@@ -69,6 +69,14 @@ function compareLostReports(
   );
 }
 
-function priorityScore(report: LostPetReportSummary) {
-  return report.alertPriority === "urgent" ? 1 : 0;
+function priorityScore(report: NearbyPublicReportSummary) {
+  if (report.reportKind === "found-pet-report") {
+    return 1;
+  }
+
+  if (report.reportKind === "sighting-report") {
+    return 1;
+  }
+
+  return report.alertPriority === "urgent" ? 2 : 1;
 }

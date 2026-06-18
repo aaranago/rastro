@@ -22,6 +22,7 @@ import type {
 } from "./shell-model";
 import { FoundReportCreationScreen } from "../found-report-creation/found-report-creation-screen";
 import { LostReportCreationScreen } from "../lost-report-creation/lost-report-creation-screen";
+import { SightingReportCreationScreen } from "../sighting-report-creation/sighting-report-creation-screen";
 import { prepareShellAuthCredentials } from "./shell-auth";
 import { useRastroShell } from "./shell-provider";
 import { reportIntentColors, shellColors } from "./shell-theme";
@@ -122,6 +123,12 @@ export function ShellFabHost() {
         session={session}
         visible={state.memberIntent?.intent === "found"}
       />
+
+      <SightingReportStartModal
+        onClose={clearMemberIntent}
+        session={session}
+        visible={state.memberIntent?.intent === "sighting"}
+      />
     </>
   );
 }
@@ -162,6 +169,38 @@ function FoundReportCreationModal({
       visible={visible}
     >
       <FoundReportCreationScreen
+        onClose={onClose}
+        session={
+          session.kind === "member"
+            ? {
+                displayName: session.name ?? undefined,
+                kind: "member",
+                memberId: session.id,
+              }
+            : { kind: "visitor" }
+        }
+      />
+    </Modal>
+  );
+}
+
+function SightingReportStartModal({
+  onClose,
+  session,
+  visible,
+}: {
+  onClose: () => void;
+  session: ShellSession;
+  visible: boolean;
+}) {
+  return (
+    <Modal
+      animationType="slide"
+      onRequestClose={onClose}
+      presentationStyle="fullScreen"
+      visible={visible}
+    >
+      <SightingReportCreationScreen
         onClose={onClose}
         session={
           session.kind === "member"

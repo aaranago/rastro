@@ -3,6 +3,7 @@ import { buildPublicLostReportShareTarget } from "@acme/validators";
 import type {
   LostPetReportSummary,
   NearbySearchLocation,
+  SightingReportSummary,
 } from "./nearby-types";
 import { createStaticNearbyLostReportsAdapter } from "./nearby-static-adapter";
 
@@ -116,6 +117,30 @@ export const nearbyLostReportFixtures = [
   },
 ] satisfies LostPetReportSummary[];
 
+const nearbySightingReportFixtures = [
+  {
+    breed: "Mestizo",
+    direction: "Caminaba hacia la avenida Ballivian.",
+    distanceMeters: 1_100,
+    id: "sighting-dog-calacoto",
+    locationCellLabel: "Calacoto",
+    observedAtLabel: "Hace 25 min",
+    observedCondition: "Asustado, sin heridas visibles.",
+    photoUrl:
+      "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=900&q=80",
+    publicLocation: { kind: "approximate" },
+    reportKind: "sighting-report",
+    shareTarget: buildSightingFixtureShareTarget(
+      "sighting-dog-calacoto",
+      "Perro",
+    ),
+    sightingSummary:
+      "Fue visto cruzando cerca de una plaza. No se dejo acercar ni asegurar.",
+    species: "Perro",
+    title: "Avistamiento de perro",
+  },
+] satisfies SightingReportSummary[];
+
 function buildFixtureShareTarget(reportId: string, title: string) {
   return buildPublicLostReportShareTarget({
     publicWebBaseUrl: "https://rastro.bo",
@@ -124,8 +149,21 @@ function buildFixtureShareTarget(reportId: string, title: string) {
   });
 }
 
+function buildSightingFixtureShareTarget(reportId: string, title: string) {
+  const path = `/reportes/avistamientos/${encodeURIComponent(reportId)}`;
+  const webUrl = `https://rastro.bo${path}`;
+
+  return {
+    appDeepLink: `rastro://${path.replace(/^\//, "")}`,
+    message: `Avistamiento de ${title} en Rastro: ${webUrl}`,
+    path,
+    title: `Avistamiento de mascota: ${title}`,
+    webUrl,
+  };
+}
+
 export const defaultNearbyLostReportsAdapter =
   createStaticNearbyLostReportsAdapter({
     generatedAt: "2026-06-17T00:00:00.000Z",
-    reports: nearbyLostReportFixtures,
+    reports: [...nearbyLostReportFixtures, ...nearbySightingReportFixtures],
   });

@@ -5,6 +5,7 @@ import { buildPublicLostReportShareTarget } from "@acme/validators";
 import type {
   LostPetReportSummary,
   NearbySearchLocation,
+  SightingReportSummary,
 } from "./nearby-types";
 import type { NearbyLostReportsViewModel } from "./nearby-view-model";
 import { createInMemoryLostPetReportRepository } from "../lost-reports/lost-reports";
@@ -52,6 +53,30 @@ const reports: LostPetReportSummary[] = [
     alertPriority: "standard",
   },
 ];
+
+const sightingReport = {
+  breed: "Mestizo",
+  direction: "Iba hacia la avenida 20 de Octubre.",
+  distanceMeters: 650,
+  id: "sighting-dog-sopocachi",
+  locationCellLabel: "Sopocachi",
+  observedAtLabel: "Hace 25 min",
+  observedCondition: "Asustado, caminando rapido.",
+  publicLocation: { kind: "approximate" },
+  reportKind: "sighting-report",
+  shareTarget: {
+    appDeepLink: "rastro://reportes/avistamientos/sighting-dog-sopocachi",
+    message:
+      "Avistamiento de Perro en Rastro: https://rastro.bo/reportes/avistamientos/sighting-dog-sopocachi",
+    path: "/reportes/avistamientos/sighting-dog-sopocachi",
+    title: "Avistamiento de mascota: Perro",
+    webUrl: "https://rastro.bo/reportes/avistamientos/sighting-dog-sopocachi",
+  },
+  sightingSummary:
+    "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.",
+  species: "Perro",
+  title: "Avistamiento de perro",
+} satisfies SightingReportSummary;
 
 function buildTestShareTarget(reportId: string, title: string) {
   return buildPublicLostReportShareTarget({
@@ -169,6 +194,53 @@ describe("nearby Lost Pet Report discovery", () => {
     expect(viewModel.urgentAlert?.title).toBe("Alerta activa");
     expect(viewModel.urgentAlert?.message).toContain("Bruno");
     expect(viewModel.locationLabel).toBe("Zona Sur, La Paz");
+  });
+
+  it("browses Sighting Reports with sighting-specific labels and detail links without signing in", async () => {
+    const adapter = createStaticNearbyLostReportsAdapter({
+      reports: [sightingReport],
+    });
+
+    const result = await adapter.searchLostPetReports({
+      location: manualLocation,
+      radiusKm: 5,
+    });
+
+    const viewModel = buildNearbyLostReportsViewModel({
+      locationState: { kind: "ready", location: manualLocation },
+      mode: "list",
+      radiusKm: 5,
+      result: { kind: "success", value: result },
+    });
+
+    assertNearbyViewModelKind(viewModel, "ready");
+    expect(viewModel.accessPolicy.requiresSignIn).toBe(false);
+    expect(viewModel.cards).toHaveLength(1);
+    expect(viewModel.cards[0]).toMatchObject({
+      eventAtLabel: "Hace 25 min",
+      priorityLabel: "Avistamiento",
+      publicLocationLabel: "Sopocachi · zona aproximada",
+      reportKind: "sighting-report",
+      shareTarget: {
+        path: "/reportes/avistamientos/sighting-dog-sopocachi",
+        webUrl:
+          "https://rastro.bo/reportes/avistamientos/sighting-dog-sopocachi",
+      },
+      subtitle: "Mestizo • Asustado, caminando rapido.",
+      summary:
+        "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.",
+      title: "Avistamiento de perro",
+    });
+    expect(viewModel.cards[0]?.summary).not.toMatch(/encontrad|asegurad/i);
+    expect(viewModel.mapPins[0]).toMatchObject({
+      publicSummaryId: "sighting-dog-sopocachi",
+      title: "Avistamiento de perro",
+    });
+    expect(result.reports[0]).toMatchObject({
+      direction: "Iba hacia la avenida 20 de Octubre.",
+      observedCondition: "Asustado, caminando rapido.",
+      reportKind: "sighting-report",
+    });
   });
 
   it("shares a Nearby Lost Pet Report card through the native share sheet with Spanish copy and the stable web URL", async () => {

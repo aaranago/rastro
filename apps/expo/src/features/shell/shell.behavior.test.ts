@@ -12,6 +12,7 @@ import {
   createShellModel,
   createShellProfileModel,
 } from "./shell-model";
+import { reportIntentColors, shellColors } from "./shell-theme";
 
 describe("Rastro shell", () => {
   it("opens with Spanish Rastro tabs and report actions", () => {
@@ -31,6 +32,14 @@ describe("Rastro shell", () => {
       "Reportar avistamiento",
       "Dar en adopcion",
     ]);
+  });
+
+  it("distinguishes Found Pet Report and Sighting Report actions with their own visual tones", () => {
+    expect(reportIntentColors.found.background).toBe(shellColors.found);
+    expect(reportIntentColors.sighting.background).toBe(shellColors.sighting);
+    expect(reportIntentColors.found.background).not.toBe(
+      reportIntentColors.sighting.background,
+    );
   });
 
   it("derives signed-in shell state from Better Auth session data", () => {
@@ -139,6 +148,7 @@ describe("Rastro shell", () => {
   it.each([
     ["lost", "Reportar perdida"],
     ["found", "Reportar encontrada"],
+    ["sighting", "Reportar avistamiento"],
   ] as const)(
     "preserves a visitor's selected %s report intent in the sign-in prompt",
     (intent, label) => {
@@ -165,6 +175,7 @@ describe("Rastro shell", () => {
   it.each([
     ["lost", "Reportar perdida"],
     ["found", "Reportar encontrada"],
+    ["sighting", "Reportar avistamiento"],
   ] as const)(
     "continues a signed-in member's %s report action into the creation flow",
     (intent, label) => {

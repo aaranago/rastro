@@ -8,6 +8,7 @@ import type {
   PublishFoundPetReportInput,
   PublishFoundReportContactOption,
 } from "./found-report-creation-types";
+import { buildReportCreationContactViewModel } from "../report-creation/report-creation-view-model";
 import { foundReportPetTypeOptions } from "./found-report-creation-types";
 
 const foundReportPhotoLimit = 5;
@@ -160,22 +161,12 @@ export function buildFoundReportCreationViewModel({
 
   return {
     canPublish,
-    contact: {
+    contact: buildReportCreationContactViewModel({
+      contact: draft.contact,
       currentOption: contactOption,
       error: getContactError(draft.contact),
       options: buildContactOptions(contactOption),
-      whatsappField: {
-        error:
-          draft.contact.whatsappEnabled &&
-          draft.contact.whatsappPhone.trim().length === 0
-            ? "Ingresa el numero de WhatsApp que quieres mostrar."
-            : undefined,
-        label: "Numero de WhatsApp",
-        placeholder: "+591 70000000",
-        value: draft.contact.whatsappPhone,
-        visible: draft.contact.whatsappEnabled,
-      },
-    },
+    }),
     header: {
       eyebrow: "Mascota encontrada",
     },

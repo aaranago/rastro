@@ -3,12 +3,12 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 
 import type {
-  FoundReportCreationSession,
-  FoundReportCreationVisitorAction,
-  FoundReportDraft,
-  FoundReportPhoto,
-  PublishFoundPetReportInput,
-} from "./found-report-creation-types";
+  PublishSightingReportInput,
+  SightingReportCreationSession,
+  SightingReportCreationVisitorAction,
+  SightingReportDraft,
+  SightingReportPhoto,
+} from "./sighting-report-creation-types";
 import {
   ReportCreationActionButton,
   ReportCreationContactOptionSection,
@@ -24,40 +24,40 @@ import {
   useReportCreationPetDraftUpdaters,
 } from "../report-creation/report-creation-ui";
 import { shellColors } from "../shell/shell-theme";
-import { foundReportCreationFixtures } from "./found-report-creation-fixtures";
-import { foundReportPetTypeOptions } from "./found-report-creation-types";
+import { sightingReportCreationFixtures } from "./sighting-report-creation-fixtures";
+import { sightingReportPetTypeOptions } from "./sighting-report-creation-types";
 import {
-  appendFoundReportPhoto,
-  buildFoundReportCreationViewModel,
-  createFoundReportDraft,
-  removeFoundReportPhoto,
-  selectFoundReportContactOption,
-  toPublishFoundPetReportInput,
-} from "./found-report-creation-view-model";
+  appendSightingReportPhoto,
+  buildSightingReportCreationViewModel,
+  createSightingReportDraft,
+  removeSightingReportPhoto,
+  selectSightingReportContactOption,
+  toPublishSightingReportInput,
+} from "./sighting-report-creation-view-model";
 
 const bottomInset = 36;
 const errorAccent = "#D6453D";
-const foundAccent = shellColors.found;
-const foundAccentSoft = "#E2F4EA";
+const sightingAccent = shellColors.sighting;
+const sightingAccentSoft = "#E6F0F7";
 const mapPreviewBlocks = Array.from({ length: 12 }, (_, index) => index);
 
 type PublishState = "editing" | "publishing" | "success";
-type FoundReportCreationViewModel = ReturnType<
-  typeof buildFoundReportCreationViewModel
+type SightingReportCreationViewModel = ReturnType<
+  typeof buildSightingReportCreationViewModel
 >;
 
-export interface FoundReportCreationScreenProps {
-  initialDraft?: FoundReportDraft;
-  onChooseFoundLocation?: () => void;
+export interface SightingReportCreationScreenProps {
+  initialDraft?: SightingReportDraft;
+  onChooseSightingLocation?: () => void;
   onClose?: () => void;
-  onPublishFoundReport?: (
-    input: PublishFoundPetReportInput,
+  onPublishSightingReport?: (
+    input: PublishSightingReportInput,
   ) => Promise<void> | void;
-  onRequestMemberSignIn?: (action: FoundReportCreationVisitorAction) => void;
-  session?: FoundReportCreationSession;
+  onRequestMemberSignIn?: (action: SightingReportCreationVisitorAction) => void;
+  session?: SightingReportCreationSession;
 }
 
-function FoundReportCreationIcon({
+function SightingReportCreationIcon({
   color,
   name,
   size = 22,
@@ -76,19 +76,19 @@ function FoundReportCreationIcon({
   );
 }
 
-export function FoundReportCreationScreen({
+export function SightingReportCreationScreen({
   initialDraft,
-  onChooseFoundLocation,
+  onChooseSightingLocation,
   onClose,
-  onPublishFoundReport,
+  onPublishSightingReport,
   onRequestMemberSignIn,
   session = { kind: "member", memberId: "member-preview" },
-}: FoundReportCreationScreenProps) {
-  const [draft, setDraft] = React.useState<FoundReportDraft>(
+}: SightingReportCreationScreenProps) {
+  const [draft, setDraft] = React.useState<SightingReportDraft>(
     () =>
       initialDraft ??
-      createFoundReportDraft({
-        exactFoundLocation: foundReportCreationFixtures.defaultLocation,
+      createSightingReportDraft({
+        exactSightingLocation: sightingReportCreationFixtures.defaultLocation,
       }),
   );
   const [publishState, setPublishState] =
@@ -96,7 +96,7 @@ export function FoundReportCreationScreen({
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const viewModel = React.useMemo(
     () =>
-      buildFoundReportCreationViewModel({
+      buildSightingReportCreationViewModel({
         draft,
         session,
       }),
@@ -105,11 +105,11 @@ export function FoundReportCreationScreen({
 
   const addPhoto = React.useCallback(() => {
     const nextPhoto =
-      foundReportCreationFixtures.photoSamples[draft.photos.length] ??
+      sightingReportCreationFixtures.photoSamples[draft.photos.length] ??
       createFallbackPhoto(draft.photos.length);
 
     setDraft((current) =>
-      appendFoundReportPhoto({
+      appendSightingReportPhoto({
         draft: current,
         photo: nextPhoto,
       }),
@@ -125,17 +125,17 @@ export function FoundReportCreationScreen({
     setPublishState("publishing");
 
     try {
-      await onPublishFoundReport?.(toPublishFoundPetReportInput({ draft }));
+      await onPublishSightingReport?.(toPublishSightingReportInput({ draft }));
       setPublishState("success");
     } catch {
       setSubmitError("No pudimos publicar. Tu informacion sigue aqui.");
       setPublishState("editing");
     }
-  }, [draft, onPublishFoundReport, publishState, viewModel.canPublish]);
+  }, [draft, onPublishSightingReport, publishState, viewModel.canPublish]);
 
   if (viewModel.kind === "visitor") {
     return (
-      <FoundReportVisitorHandoff
+      <SightingReportVisitorHandoff
         onClose={onClose}
         onRequestMemberSignIn={onRequestMemberSignIn}
         viewModel={viewModel}
@@ -145,15 +145,15 @@ export function FoundReportCreationScreen({
 
   if (publishState === "success") {
     return (
-      <FoundReportCreationSuccess onClose={onClose} viewModel={viewModel} />
+      <SightingReportCreationSuccess onClose={onClose} viewModel={viewModel} />
     );
   }
 
   return (
-    <FoundReportCreationEditor
+    <SightingReportCreationEditor
       addPhoto={addPhoto}
       draft={draft}
-      onChooseFoundLocation={onChooseFoundLocation}
+      onChooseSightingLocation={onChooseSightingLocation}
       onClose={onClose}
       publish={publish}
       publishState={publishState}
@@ -164,14 +164,14 @@ export function FoundReportCreationScreen({
   );
 }
 
-function FoundReportVisitorHandoff({
+function SightingReportVisitorHandoff({
   onClose,
   onRequestMemberSignIn,
   viewModel,
 }: {
   onClose?: () => void;
-  onRequestMemberSignIn?: (action: FoundReportCreationVisitorAction) => void;
-  viewModel: FoundReportCreationViewModel;
+  onRequestMemberSignIn?: (action: SightingReportCreationVisitorAction) => void;
+  viewModel: SightingReportCreationViewModel;
 }) {
   return (
     <ScrollView
@@ -187,8 +187,8 @@ function FoundReportVisitorHandoff({
         title={viewModel.title}
       />
       <View style={styles.section}>
-        <FoundReportCreationIcon
-          color={foundAccent}
+        <SightingReportCreationIcon
+          color={sightingAccent}
           name="person.crop.circle.badge.exclamationmark"
           size={30}
         />
@@ -208,7 +208,7 @@ function FoundReportVisitorHandoff({
           }}
           style={styles.publishButton}
         >
-          <FoundReportCreationIcon
+          <SightingReportCreationIcon
             color={shellColors.white}
             name="person.fill.checkmark"
             size={20}
@@ -222,12 +222,12 @@ function FoundReportVisitorHandoff({
   );
 }
 
-function FoundReportCreationSuccess({
+function SightingReportCreationSuccess({
   onClose,
   viewModel,
 }: {
   onClose?: () => void;
-  viewModel: FoundReportCreationViewModel;
+  viewModel: SightingReportCreationViewModel;
 }) {
   return (
     <ScrollView
@@ -239,7 +239,7 @@ function FoundReportCreationSuccess({
     >
       <View style={styles.successHero}>
         <View style={styles.successIcon}>
-          <FoundReportCreationIcon
+          <SightingReportCreationIcon
             color={shellColors.white}
             name="checkmark.seal.fill"
             size={34}
@@ -254,8 +254,8 @@ function FoundReportCreationSuccess({
       </View>
       <View style={styles.buttonRow}>
         <ReportCreationActionButton
-          accentColor={foundAccent}
-          Icon={FoundReportCreationIcon}
+          accentColor={sightingAccent}
+          Icon={SightingReportCreationIcon}
           icon="square.and.arrow.up"
           label={viewModel.success.shareActionLabel}
           primaryTextColor={shellColors.white}
@@ -263,8 +263,8 @@ function FoundReportCreationSuccess({
           variant="secondary"
         />
         <ReportCreationActionButton
-          accentColor={foundAccent}
-          Icon={FoundReportCreationIcon}
+          accentColor={sightingAccent}
+          Icon={SightingReportCreationIcon}
           icon="list.bullet.rectangle"
           label={viewModel.success.primaryActionLabel}
           onPress={onClose}
@@ -276,10 +276,10 @@ function FoundReportCreationSuccess({
   );
 }
 
-function FoundReportCreationEditor({
+function SightingReportCreationEditor({
   addPhoto,
   draft,
-  onChooseFoundLocation,
+  onChooseSightingLocation,
   onClose,
   publish,
   publishState,
@@ -288,16 +288,16 @@ function FoundReportCreationEditor({
   viewModel,
 }: {
   addPhoto: () => void;
-  draft: FoundReportDraft;
-  onChooseFoundLocation?: () => void;
+  draft: SightingReportDraft;
+  onChooseSightingLocation?: () => void;
   onClose?: () => void;
   publish: () => void;
   publishState: PublishState;
-  setDraft: React.Dispatch<React.SetStateAction<FoundReportDraft>>;
+  setDraft: React.Dispatch<React.SetStateAction<SightingReportDraft>>;
   submitError: string | null;
-  viewModel: FoundReportCreationViewModel;
+  viewModel: SightingReportCreationViewModel;
 }) {
-  const foundPetDraft = useReportCreationPetDraftUpdaters(setDraft);
+  const sightingPetDraft = useReportCreationPetDraftUpdaters(setDraft);
 
   return (
     <ReportCreationEditorScrollView bottomInset={bottomInset} styles={styles}>
@@ -310,27 +310,31 @@ function FoundReportCreationEditor({
       <ReportCreationPetSnapshotSection
         breedField={viewModel.pet.fields.breed}
         descriptionField={viewModel.pet.fields.description}
-        onChangeBreed={foundPetDraft.updatePetBreed}
-        onChangeDescription={foundPetDraft.updatePetDescription}
-        onSelectType={foundPetDraft.updatePetType}
+        onChangeBreed={sightingPetDraft.updatePetBreed}
+        onChangeDescription={sightingPetDraft.updatePetDescription}
+        onSelectType={sightingPetDraft.updatePetType}
         placeholderTextColor={shellColors.muted}
         selectedType={draft.pet.type}
         styles={styles}
         title={viewModel.pet.title}
-        typeOptions={foundReportPetTypeOptions}
+        typeOptions={sightingReportPetTypeOptions}
       />
       <ReportCreationDetailsFieldsSection
         fields={[
           {
-            field: viewModel.foundDetails.fields.foundAtLabel,
-            key: "foundAtLabel" as const,
+            field: viewModel.sightingDetails.fields.observedAtLabel,
+            key: "observedAtLabel" as const,
           },
           {
-            field: viewModel.foundDetails.fields.condition,
-            key: "condition" as const,
+            field: viewModel.sightingDetails.fields.observedCondition,
+            key: "observedCondition" as const,
           },
           {
-            field: viewModel.foundDetails.fields.description,
+            field: viewModel.sightingDetails.fields.direction,
+            key: "direction" as const,
+          },
+          {
+            field: viewModel.sightingDetails.fields.description,
             key: "description" as const,
             multiline: true,
           },
@@ -338,28 +342,27 @@ function FoundReportCreationEditor({
         onChangeField={(key, value) =>
           setDraft((current) => ({
             ...current,
-            foundDetails: {
-              ...current.foundDetails,
+            sightingDetails: {
+              ...current.sightingDetails,
               [key]: value,
             },
           }))
         }
         placeholderTextColor={shellColors.muted}
         styles={styles}
-        title={viewModel.foundDetails.title}
+        title={viewModel.sightingDetails.title}
       />
       <ReportCreationPhotoSection
-        accentColor={foundAccent}
+        accentColor={sightingAccent}
         addPhoto={addPhoto}
-        addPhotoAccessibilityLabel="Agregar foto"
+        addPhotoAccessibilityLabel="Agregar foto opcional"
         canAddPhoto={viewModel.photos.canAddPhoto}
         countLabel={viewModel.photos.countLabel}
-        error={viewModel.photos.error}
         helpLabel={viewModel.photos.helpLabel}
-        Icon={FoundReportCreationIcon}
+        Icon={SightingReportCreationIcon}
         onRemovePhoto={(photoId) =>
           setDraft((current) =>
-            removeFoundReportPhoto({
+            removeSightingReportPhoto({
               draft: current,
               photoId,
             }),
@@ -369,10 +372,10 @@ function FoundReportCreationEditor({
         permissionTitle={viewModel.photos.permissionTitle}
         photos={viewModel.photos.items}
         styles={styles}
-        title="Fotos"
+        title="Fotos opcionales"
       />
       <LocationPrivacySection
-        onChooseFoundLocation={onChooseFoundLocation}
+        onChooseSightingLocation={onChooseSightingLocation}
         setDraft={setDraft}
         viewModel={viewModel}
       />
@@ -399,9 +402,9 @@ function CreationHeader({
   return (
     <View style={styles.header}>
       <View style={styles.headerIcon}>
-        <FoundReportCreationIcon
+        <SightingReportCreationIcon
           color={shellColors.white}
-          name="hands.sparkles.fill"
+          name="eye.fill"
           size={24}
         />
       </View>
@@ -415,12 +418,12 @@ function CreationHeader({
       </View>
       {onClose ? (
         <Pressable
-          accessibilityLabel="Cerrar reporte"
+          accessibilityLabel="Cerrar avistamiento"
           accessibilityRole="button"
           onPress={onClose}
           style={styles.iconButton}
         >
-          <FoundReportCreationIcon
+          <SightingReportCreationIcon
             color={shellColors.muted}
             name="xmark"
             size={18}
@@ -432,13 +435,13 @@ function CreationHeader({
 }
 
 function LocationPrivacySection({
-  onChooseFoundLocation,
+  onChooseSightingLocation,
   setDraft,
   viewModel,
 }: {
-  onChooseFoundLocation?: () => void;
-  setDraft: React.Dispatch<React.SetStateAction<FoundReportDraft>>;
-  viewModel: FoundReportCreationViewModel;
+  onChooseSightingLocation?: () => void;
+  setDraft: React.Dispatch<React.SetStateAction<SightingReportDraft>>;
+  viewModel: SightingReportCreationViewModel;
 }) {
   return (
     <ReportCreationSection styles={styles} title="Ubicacion y privacidad">
@@ -449,7 +452,7 @@ function LocationPrivacySection({
           ))}
         </View>
         <View style={styles.mapPin}>
-          <FoundReportCreationIcon
+          <SightingReportCreationIcon
             color={shellColors.white}
             name="mappin"
             size={22}
@@ -460,32 +463,32 @@ function LocationPrivacySection({
         </Text>
       </View>
       <ReportCreationInfoRow
-        accentColor={foundAccent}
-        Icon={FoundReportCreationIcon}
+        accentColor={sightingAccent}
+        Icon={SightingReportCreationIcon}
         icon="location.fill"
         label="Ubicacion interna"
         styles={styles}
         value={viewModel.location.exactInternalLabel}
       />
       <ReportCreationInfoRow
-        accentColor={foundAccent}
-        Icon={FoundReportCreationIcon}
+        accentColor={sightingAccent}
+        Icon={SightingReportCreationIcon}
         icon="circle.grid.2x2.fill"
         label={viewModel.location.publicPrecisionLabel}
         styles={styles}
         value={viewModel.location.approximatePublicLabel}
       />
-      {onChooseFoundLocation ? (
+      {onChooseSightingLocation ? (
         <ReportCreationActionButton
-          accentColor={foundAccent}
-          Icon={FoundReportCreationIcon}
+          accentColor={sightingAccent}
+          Icon={SightingReportCreationIcon}
           icon="map.fill"
           label={
             viewModel.location.hasExactLocation
               ? "Cambiar ubicacion"
               : "Elegir ubicacion"
           }
-          onPress={onChooseFoundLocation}
+          onPress={onChooseSightingLocation}
           primaryTextColor={shellColors.white}
           styles={styles}
           variant="secondary"
@@ -511,13 +514,13 @@ function ContactOptionSection({
   setDraft,
   viewModel,
 }: {
-  setDraft: React.Dispatch<React.SetStateAction<FoundReportDraft>>;
-  viewModel: FoundReportCreationViewModel;
+  setDraft: React.Dispatch<React.SetStateAction<SightingReportDraft>>;
+  viewModel: SightingReportCreationViewModel;
 }) {
   return (
     <ReportCreationContactOptionSection
-      accentColor={foundAccent}
-      Icon={FoundReportCreationIcon}
+      accentColor={sightingAccent}
+      Icon={SightingReportCreationIcon}
       onChangeWhatsappPhone={(value) =>
         setDraft((current) => ({
           ...current,
@@ -529,7 +532,7 @@ function ContactOptionSection({
       }
       onSelectOption={(option) =>
         setDraft((current) =>
-          selectFoundReportContactOption({
+          selectSightingReportContactOption({
             draft: current,
             option,
           }),
@@ -552,13 +555,13 @@ function ReviewPublishSection({
   publish: () => void;
   publishState: PublishState;
   submitError: string | null;
-  viewModel: FoundReportCreationViewModel;
+  viewModel: SightingReportCreationViewModel;
 }) {
   return (
     <ReportCreationReviewPublishSection
       activityIndicatorColor={shellColors.white}
       canPublish={viewModel.canPublish}
-      Icon={FoundReportCreationIcon}
+      Icon={SightingReportCreationIcon}
       onPublish={publish}
       publishActionLabel={viewModel.review.publishActionLabel}
       publishState={publishState}
@@ -570,12 +573,12 @@ function ReviewPublishSection({
   );
 }
 
-function createFallbackPhoto(index: number): FoundReportPhoto {
+function createFallbackPhoto(index: number): SightingReportPhoto {
   return {
-    alt: "Foto de mascota encontrada",
-    id: `found-report-photo-${index + 1}`,
+    alt: "Foto opcional de avistamiento",
+    id: `sighting-report-photo-${index + 1}`,
     status: "ready",
-    uri: `file:///found-report-photo-${index + 1}.jpg`,
+    uri: `file:///sighting-report-photo-${index + 1}.jpg`,
   };
 }
 
@@ -591,15 +594,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   actionButtonPrimary: {
-    backgroundColor: foundAccent,
-    borderColor: foundAccent,
+    backgroundColor: sightingAccent,
+    borderColor: sightingAccent,
   },
   actionButtonSecondary: {
-    backgroundColor: foundAccentSoft,
+    backgroundColor: sightingAccentSoft,
     borderColor: shellColors.border,
   },
   actionButtonText: {
-    color: foundAccent,
+    color: sightingAccent,
     fontSize: 14,
     fontWeight: "800",
   },
@@ -607,14 +610,14 @@ const styles = StyleSheet.create({
     color: shellColors.white,
   },
   addPhotoText: {
-    color: foundAccent,
+    color: sightingAccent,
     fontSize: 12,
     fontWeight: "800",
   },
   addPhotoTile: {
     alignItems: "center",
     aspectRatio: 1,
-    backgroundColor: foundAccentSoft,
+    backgroundColor: sightingAccentSoft,
     borderColor: shellColors.border,
     borderRadius: 16,
     borderWidth: 1,
@@ -661,7 +664,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   eyebrow: {
-    color: foundAccent,
+    color: sightingAccent,
     fontSize: 12,
     fontWeight: "900",
     textTransform: "uppercase",
@@ -685,7 +688,7 @@ const styles = StyleSheet.create({
   },
   headerIcon: {
     alignItems: "center",
-    backgroundColor: foundAccent,
+    backgroundColor: sightingAccent,
     borderRadius: 18,
     height: 46,
     justifyContent: "center",
@@ -734,7 +737,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   mapBlock: {
-    backgroundColor: "rgba(29, 122, 82, 0.12)",
+    backgroundColor: "rgba(46, 109, 158, 0.12)",
     borderRadius: 8,
     flex: 1,
     minHeight: 28,
@@ -759,7 +762,7 @@ const styles = StyleSheet.create({
   },
   mapPin: {
     alignItems: "center",
-    backgroundColor: foundAccent,
+    backgroundColor: sightingAccent,
     borderRadius: 20,
     height: 40,
     justifyContent: "center",
@@ -769,7 +772,7 @@ const styles = StyleSheet.create({
     width: 40,
   },
   mapPreview: {
-    backgroundColor: "#EAF3EE",
+    backgroundColor: "#EEF5FA",
     borderColor: shellColors.border,
     borderRadius: 20,
     borderWidth: 1,
@@ -795,7 +798,7 @@ const styles = StyleSheet.create({
   },
   permissionBox: {
     alignItems: "center",
-    backgroundColor: foundAccentSoft,
+    backgroundColor: sightingAccentSoft,
     borderColor: shellColors.border,
     borderRadius: 16,
     borderWidth: 1,
@@ -824,8 +827,8 @@ const styles = StyleSheet.create({
   },
   publishButton: {
     alignItems: "center",
-    backgroundColor: foundAccent,
-    borderColor: foundAccent,
+    backgroundColor: sightingAccent,
+    borderColor: sightingAccent,
     borderRadius: 18,
     borderWidth: 1,
     flexDirection: "row",
@@ -882,12 +885,12 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   selectedBorder: {
-    borderColor: foundAccent,
+    borderColor: sightingAccent,
     borderWidth: 2,
   },
   selectedPill: {
-    backgroundColor: foundAccent,
-    borderColor: foundAccent,
+    backgroundColor: sightingAccent,
+    borderColor: sightingAccent,
   },
   selectedPillText: {
     color: shellColors.white,
@@ -901,7 +904,7 @@ const styles = StyleSheet.create({
     width: 28,
   },
   stepDotComplete: {
-    backgroundColor: foundAccent,
+    backgroundColor: sightingAccent,
   },
   stepItem: {
     alignItems: "center",
@@ -941,14 +944,14 @@ const styles = StyleSheet.create({
   },
   successIcon: {
     alignItems: "center",
-    backgroundColor: foundAccent,
+    backgroundColor: sightingAccent,
     borderRadius: 24,
     height: 58,
     justifyContent: "center",
     width: 58,
   },
   switchOn: {
-    backgroundColor: foundAccent,
+    backgroundColor: sightingAccent,
   },
   switchThumb: {
     backgroundColor: shellColors.white,
