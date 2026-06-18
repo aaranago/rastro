@@ -2,13 +2,13 @@ import * as React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 
-import type { PublishLostPetReportInput } from "../lost-reports/lost-reports";
-import type { ReportCreationFieldViewModel } from "../report-creation/report-creation-ui";
 import type {
-  LostReportDraft,
-  LostReportPetProfileOption,
-  LostReportPhoto,
-} from "./lost-report-creation-types";
+  FoundReportCreationSession,
+  FoundReportCreationVisitorAction,
+  FoundReportDraft,
+  FoundReportPhoto,
+  PublishFoundPetReportInput,
+} from "./found-report-creation-types";
 import {
   ReportCreationActionButton,
   ReportCreationContactOptionSection,
@@ -20,21 +20,40 @@ import {
   ReportCreationToggleRow,
 } from "../report-creation/report-creation-ui";
 import { shellColors } from "../shell/shell-theme";
-import { lostReportCreationFixtures } from "./lost-report-creation-fixtures";
+import { foundReportCreationFixtures } from "./found-report-creation-fixtures";
+import { foundReportPetTypeOptions } from "./found-report-creation-types";
 import {
-  appendLostReportPhoto,
-  buildLostReportCreationViewModel,
-  createInitialLostReportDraft,
-  createLostReportDraft,
-  lostReportPetTypeOptions,
-  removeLostReportPhoto,
-  selectLostReportContactOption,
-  toPublishLostPetReportInput,
-} from "./lost-report-creation-view-model";
+  appendFoundReportPhoto,
+  buildFoundReportCreationViewModel,
+  createFoundReportDraft,
+  removeFoundReportPhoto,
+  selectFoundReportContactOption,
+  toPublishFoundPetReportInput,
+} from "./found-report-creation-view-model";
 
 const bottomInset = 36;
+const errorAccent = "#D6453D";
+const foundAccent = shellColors.found;
+const foundAccentSoft = "#E2F4EA";
+const mapPreviewBlocks = Array.from({ length: 12 }, (_, index) => index);
 
-function ReportCreationIcon({
+type PublishState = "editing" | "publishing" | "success";
+type FoundReportCreationViewModel = ReturnType<
+  typeof buildFoundReportCreationViewModel
+>;
+
+export interface FoundReportCreationScreenProps {
+  initialDraft?: FoundReportDraft;
+  onChooseFoundLocation?: () => void;
+  onClose?: () => void;
+  onPublishFoundReport?: (
+    input: PublishFoundPetReportInput,
+  ) => Promise<void> | void;
+  onRequestMemberSignIn?: (action: FoundReportCreationVisitorAction) => void;
+  session?: FoundReportCreationSession;
+}
+
+function FoundReportCreationIcon({
   color,
   name,
   size = 22,
@@ -53,30 +72,19 @@ function ReportCreationIcon({
   );
 }
 
-export interface LostReportCreationScreenProps {
-  initialDraft?: LostReportDraft;
-  onClose?: () => void;
-  onPublishLostReport?: (input: PublishLostPetReportInput) => Promise<void>;
-  petProfiles?: readonly LostReportPetProfileOption[];
-}
-
-type PublishState = "editing" | "publishing" | "success";
-type LostReportCreationViewModel = ReturnType<
-  typeof buildLostReportCreationViewModel
->;
-
-export function LostReportCreationScreen({
+export function FoundReportCreationScreen({
   initialDraft,
+  onChooseFoundLocation,
   onClose,
-  onPublishLostReport,
-  petProfiles = lostReportCreationFixtures.petProfiles,
-}: LostReportCreationScreenProps) {
-  const [draft, setDraft] = React.useState<LostReportDraft>(
+  onPublishFoundReport,
+  onRequestMemberSignIn,
+  session = { kind: "member", memberId: "member-preview" },
+}: FoundReportCreationScreenProps) {
+  const [draft, setDraft] = React.useState<FoundReportDraft>(
     () =>
       initialDraft ??
-      createLostReportDraft({
-        ...createInitialLostReportDraft({ petProfiles }),
-        exactLocation: lostReportCreationFixtures.defaultLocation,
+      createFoundReportDraft({
+        exactFoundLocation: foundReportCreationFixtures.defaultLocation,
       }),
   );
   const [publishState, setPublishState] =
@@ -84,20 +92,20 @@ export function LostReportCreationScreen({
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const viewModel = React.useMemo(
     () =>
-      buildLostReportCreationViewModel({
+      buildFoundReportCreationViewModel({
         draft,
-        petProfiles,
+        session,
       }),
-    [draft, petProfiles],
+    [draft, session],
   );
 
   const addPhoto = React.useCallback(() => {
     const nextPhoto =
-      lostReportCreationFixtures.photoSamples[draft.photos.length] ??
+      foundReportCreationFixtures.photoSamples[draft.photos.length] ??
       createFallbackPhoto(draft.photos.length);
 
     setDraft((current) =>
-      appendLostReportPhoto({
+      appendFoundReportPhoto({
         draft: current,
         photo: nextPhoto,
       }),
@@ -113,29 +121,35 @@ export function LostReportCreationScreen({
     setPublishState("publishing");
 
     try {
-      await onPublishLostReport?.(
-        toPublishLostPetReportInput({
-          draft,
-          petProfiles,
-        }),
-      );
+      await onPublishFoundReport?.(toPublishFoundPetReportInput({ draft }));
       setPublishState("success");
     } catch {
       setSubmitError("No pudimos publicar. Tu informacion sigue aqui.");
       setPublishState("editing");
     }
-  }, [draft, onPublishLostReport, petProfiles, publishState, viewModel]);
+  }, [draft, onPublishFoundReport, publishState, viewModel.canPublish]);
+
+  if (viewModel.kind === "visitor") {
+    return (
+      <FoundReportVisitorHandoff
+        onClose={onClose}
+        onRequestMemberSignIn={onRequestMemberSignIn}
+        viewModel={viewModel}
+      />
+    );
+  }
 
   if (publishState === "success") {
     return (
-      <LostReportCreationSuccess onClose={onClose} viewModel={viewModel} />
+      <FoundReportCreationSuccess onClose={onClose} viewModel={viewModel} />
     );
   }
 
   return (
-    <LostReportCreationEditor
+    <FoundReportCreationEditor
       addPhoto={addPhoto}
       draft={draft}
+      onChooseFoundLocation={onChooseFoundLocation}
       onClose={onClose}
       publish={publish}
       publishState={publishState}
@@ -146,12 +160,70 @@ export function LostReportCreationScreen({
   );
 }
 
-function LostReportCreationSuccess({
+function FoundReportVisitorHandoff({
+  onClose,
+  onRequestMemberSignIn,
+  viewModel,
+}: {
+  onClose?: () => void;
+  onRequestMemberSignIn?: (action: FoundReportCreationVisitorAction) => void;
+  viewModel: FoundReportCreationViewModel;
+}) {
+  return (
+    <ScrollView
+      contentContainerStyle={styles.content}
+      contentInset={{ bottom: bottomInset }}
+      contentInsetAdjustmentBehavior="automatic"
+      scrollIndicatorInsets={{ bottom: bottomInset }}
+      style={styles.screen}
+    >
+      <CreationHeader
+        eyebrow={viewModel.header.eyebrow}
+        onClose={onClose}
+        title={viewModel.title}
+      />
+      <View style={styles.section}>
+        <FoundReportCreationIcon
+          color={foundAccent}
+          name="person.crop.circle.badge.exclamationmark"
+          size={30}
+        />
+        <Text maxFontSizeMultiplier={1.15} style={styles.sectionTitle}>
+          {viewModel.visitorAction?.label}
+        </Text>
+        <Text maxFontSizeMultiplier={1.2} style={styles.bodyText}>
+          Rastro guardara esta accion para que puedas continuar como miembro.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          disabled={!viewModel.visitorAction}
+          onPress={() => {
+            if (viewModel.visitorAction) {
+              onRequestMemberSignIn?.(viewModel.visitorAction);
+            }
+          }}
+          style={styles.publishButton}
+        >
+          <FoundReportCreationIcon
+            color={shellColors.white}
+            name="person.fill.checkmark"
+            size={20}
+          />
+          <Text maxFontSizeMultiplier={1.15} style={styles.publishText}>
+            {viewModel.visitorAction?.label}
+          </Text>
+        </Pressable>
+      </View>
+    </ScrollView>
+  );
+}
+
+function FoundReportCreationSuccess({
   onClose,
   viewModel,
 }: {
   onClose?: () => void;
-  viewModel: LostReportCreationViewModel;
+  viewModel: FoundReportCreationViewModel;
 }) {
   return (
     <ScrollView
@@ -163,7 +235,7 @@ function LostReportCreationSuccess({
     >
       <View style={styles.successHero}>
         <View style={styles.successIcon}>
-          <ReportCreationIcon
+          <FoundReportCreationIcon
             color={shellColors.white}
             name="checkmark.seal.fill"
             size={34}
@@ -177,24 +249,33 @@ function LostReportCreationSuccess({
         </Text>
       </View>
       <View style={styles.buttonRow}>
-        <ActionButton
+        <ReportCreationActionButton
+          accentColor={foundAccent}
+          Icon={FoundReportCreationIcon}
           icon="square.and.arrow.up"
           label={viewModel.success.shareActionLabel}
+          primaryTextColor={shellColors.white}
+          styles={styles}
           variant="secondary"
         />
-        <ActionButton
+        <ReportCreationActionButton
+          accentColor={foundAccent}
+          Icon={FoundReportCreationIcon}
           icon="list.bullet.rectangle"
           label={viewModel.success.primaryActionLabel}
           onPress={onClose}
+          primaryTextColor={shellColors.white}
+          styles={styles}
         />
       </View>
     </ScrollView>
   );
 }
 
-function LostReportCreationEditor({
+function FoundReportCreationEditor({
   addPhoto,
   draft,
+  onChooseFoundLocation,
   onClose,
   publish,
   publishState,
@@ -203,13 +284,14 @@ function LostReportCreationEditor({
   viewModel,
 }: {
   addPhoto: () => void;
-  draft: LostReportDraft;
+  draft: FoundReportDraft;
+  onChooseFoundLocation?: () => void;
   onClose?: () => void;
   publish: () => void;
   publishState: PublishState;
-  setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
+  setDraft: React.Dispatch<React.SetStateAction<FoundReportDraft>>;
   submitError: string | null;
-  viewModel: LostReportCreationViewModel;
+  viewModel: FoundReportCreationViewModel;
 }) {
   return (
     <ScrollView
@@ -220,20 +302,28 @@ function LostReportCreationEditor({
       scrollIndicatorInsets={{ bottom: bottomInset }}
       style={styles.screen}
     >
-      <CreationHeader onClose={onClose} title={viewModel.title} />
-      <ProgressSteps steps={viewModel.steps} />
-      <PetProfileSection
+      <CreationHeader
+        eyebrow={viewModel.header.eyebrow}
+        onClose={onClose}
+        title={viewModel.title}
+      />
+      <ReportCreationProgressSteps steps={viewModel.steps} styles={styles} />
+      <PetSnapshotSection
         draft={draft}
         setDraft={setDraft}
         viewModel={viewModel}
       />
-      <LostDetailsSection setDraft={setDraft} viewModel={viewModel} />
+      <FoundDetailsSection setDraft={setDraft} viewModel={viewModel} />
       <PhotoSection
         addPhoto={addPhoto}
         setDraft={setDraft}
         viewModel={viewModel}
       />
-      <LocationPrivacySection setDraft={setDraft} viewModel={viewModel} />
+      <LocationPrivacySection
+        onChooseFoundLocation={onChooseFoundLocation}
+        setDraft={setDraft}
+        viewModel={viewModel}
+      />
       <ContactOptionSection setDraft={setDraft} viewModel={viewModel} />
       <ReviewPublishSection
         publish={publish}
@@ -246,24 +336,26 @@ function LostReportCreationEditor({
 }
 
 function CreationHeader({
+  eyebrow,
   onClose,
   title,
 }: {
+  eyebrow: string;
   onClose?: () => void;
   title: string;
 }) {
   return (
     <View style={styles.header}>
       <View style={styles.headerIcon}>
-        <ReportCreationIcon
+        <FoundReportCreationIcon
           color={shellColors.white}
-          name="megaphone.fill"
+          name="hands.sparkles.fill"
           size={24}
         />
       </View>
       <View style={styles.headerCopy}>
         <Text maxFontSizeMultiplier={1.15} style={styles.eyebrow}>
-          Mascota perdida
+          {eyebrow}
         </Text>
         <Text maxFontSizeMultiplier={1.2} style={styles.title}>
           {title}
@@ -276,7 +368,7 @@ function CreationHeader({
           onPress={onClose}
           style={styles.iconButton}
         >
-          <ReportCreationIcon
+          <FoundReportCreationIcon
             color={shellColors.muted}
             name="xmark"
             size={18}
@@ -287,141 +379,131 @@ function CreationHeader({
   );
 }
 
-function PetProfileSection({
+function PetSnapshotSection({
   draft,
   setDraft,
   viewModel,
 }: {
-  draft: LostReportDraft;
-  setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
-  viewModel: LostReportCreationViewModel;
+  draft: FoundReportDraft;
+  setDraft: React.Dispatch<React.SetStateAction<FoundReportDraft>>;
+  viewModel: FoundReportCreationViewModel;
 }) {
   return (
-    <Section title="Mascota">
-      <SegmentedChoice
-        options={[
-          { label: "Usar perfil", value: "existing" },
-          { label: "Crear aqui", value: "inline-create" },
-        ]}
-        selectedValue={draft.petSelectionMode}
-        onSelect={(value) =>
-          setDraft((current) => ({
-            ...current,
-            petSelectionMode: value as LostReportDraft["petSelectionMode"],
-          }))
-        }
-      />
-      {draft.petSelectionMode === "existing" ? (
-        <ExistingPetProfileList setDraft={setDraft} viewModel={viewModel} />
-      ) : (
-        <InlinePetForm draft={draft} setDraft={setDraft} />
-      )}
-    </Section>
-  );
-}
-
-function ExistingPetProfileList({
-  setDraft,
-  viewModel,
-}: {
-  setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
-  viewModel: LostReportCreationViewModel;
-}) {
-  return (
-    <View style={styles.optionStack}>
-      {viewModel.petSelection.options.map((profile) => (
-        <Pressable
-          accessibilityRole="button"
-          key={profile.id}
-          onPress={() =>
-            setDraft((current) => ({
-              ...current,
-              petProfileId: profile.id,
-              petSelectionMode: "existing",
-            }))
-          }
-          style={[
-            styles.petOption,
-            profile.isSelected ? styles.selectedBorder : null,
-          ]}
-        >
-          <Image
-            accessibilityLabel={profile.title}
-            contentFit="cover"
-            source={
-              profile.thumbnailUri ? { uri: profile.thumbnailUri } : undefined
+    <ReportCreationSection styles={styles} title={viewModel.pet.title}>
+      <View style={styles.typeRow}>
+        {foundReportPetTypeOptions.map((type) => (
+          <Pressable
+            accessibilityRole="button"
+            key={type}
+            onPress={() =>
+              setDraft((current) => ({
+                ...current,
+                pet: { ...current.pet, type },
+              }))
             }
-            style={styles.petThumb}
-          />
-          <View style={styles.optionCopy}>
-            <Text maxFontSizeMultiplier={1.15} style={styles.itemTitle}>
-              {profile.title}
+            style={[
+              styles.typePill,
+              draft.pet.type === type ? styles.selectedPill : null,
+            ]}
+          >
+            <Text
+              maxFontSizeMultiplier={1.1}
+              style={[
+                styles.typePillText,
+                draft.pet.type === type ? styles.selectedPillText : null,
+              ]}
+            >
+              {type}
             </Text>
-            <Text maxFontSizeMultiplier={1.2} style={styles.metaText}>
-              {profile.body} · {profile.photoCountLabel}
-            </Text>
-          </View>
-          {profile.isSelected ? (
-            <ReportCreationIcon
-              color={shellColors.primary}
-              name="checkmark.circle.fill"
-              size={22}
-            />
-          ) : null}
-        </Pressable>
-      ))}
-    </View>
+          </Pressable>
+        ))}
+      </View>
+      <ReportCreationField
+        field={viewModel.pet.fields.breed}
+        onChangeText={(value) =>
+          setDraft((current) => ({
+            ...current,
+            pet: {
+              ...current.pet,
+              breed: value,
+            },
+          }))
+        }
+        placeholderTextColor={shellColors.muted}
+        styles={styles}
+      />
+      <ReportCreationField
+        multiline
+        field={viewModel.pet.fields.description}
+        onChangeText={(value) =>
+          setDraft((current) => ({
+            ...current,
+            pet: {
+              ...current.pet,
+              description: value,
+            },
+          }))
+        }
+        placeholderTextColor={shellColors.muted}
+        styles={styles}
+      />
+    </ReportCreationSection>
   );
 }
 
-function LostDetailsSection({
+function FoundDetailsSection({
   setDraft,
   viewModel,
 }: {
-  setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
-  viewModel: LostReportCreationViewModel;
+  setDraft: React.Dispatch<React.SetStateAction<FoundReportDraft>>;
+  viewModel: FoundReportCreationViewModel;
 }) {
   return (
-    <Section title={viewModel.lostDetails.title}>
-      <Field
-        field={viewModel.lostDetails.fields.lastSeenAtLabel}
+    <ReportCreationSection styles={styles} title={viewModel.foundDetails.title}>
+      <ReportCreationField
+        field={viewModel.foundDetails.fields.foundAtLabel}
         onChangeText={(value) =>
           setDraft((current) => ({
             ...current,
-            lostDetails: {
-              ...current.lostDetails,
-              lastSeenAtLabel: value,
+            foundDetails: {
+              ...current.foundDetails,
+              foundAtLabel: value,
             },
           }))
         }
+        placeholderTextColor={shellColors.muted}
+        styles={styles}
       />
-      <Field
+      <ReportCreationField
+        field={viewModel.foundDetails.fields.condition}
+        onChangeText={(value) =>
+          setDraft((current) => ({
+            ...current,
+            foundDetails: {
+              ...current.foundDetails,
+              condition: value,
+            },
+          }))
+        }
+        placeholderTextColor={shellColors.muted}
+        styles={styles}
+      />
+      <ReportCreationField
         multiline
-        field={viewModel.lostDetails.fields.circumstances}
+        field={viewModel.foundDetails.fields.description}
         onChangeText={(value) =>
           setDraft((current) => ({
             ...current,
-            lostDetails: {
-              ...current.lostDetails,
-              circumstances: value,
+            foundDetails: {
+              ...current.foundDetails,
+              description: value,
             },
           }))
         }
+        placeholderTextColor={shellColors.muted}
+        styles={styles}
       />
-      <Field
-        multiline
-        field={viewModel.lostDetails.fields.markings}
-        onChangeText={(value) =>
-          setDraft((current) => ({
-            ...current,
-            lostDetails: {
-              ...current.lostDetails,
-              markings: value,
-            },
-          }))
-        }
-      />
-    </Section>
+    </ReportCreationSection>
   );
 }
 
@@ -431,14 +513,14 @@ function PhotoSection({
   viewModel,
 }: {
   addPhoto: () => void;
-  setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
-  viewModel: LostReportCreationViewModel;
+  setDraft: React.Dispatch<React.SetStateAction<FoundReportDraft>>;
+  viewModel: FoundReportCreationViewModel;
 }) {
   return (
-    <Section title="Fotos">
+    <ReportCreationSection styles={styles} title="Fotos">
       <View style={styles.permissionBox}>
-        <ReportCreationIcon
-          color={shellColors.primary}
+        <FoundReportCreationIcon
+          color={foundAccent}
           name="camera.fill"
           size={22}
         />
@@ -453,27 +535,7 @@ function PhotoSection({
       </View>
       <View style={styles.photoGrid}>
         {viewModel.photos.items.map((photo) => (
-          <Pressable
-            accessibilityLabel="Quitar foto"
-            accessibilityRole="button"
-            key={photo.id}
-            onPress={() =>
-              setDraft((current) =>
-                removeLostReportPhoto({
-                  draft: current,
-                  photoId: photo.id,
-                }),
-              )
-            }
-            style={styles.photoTile}
-          >
-            <Image
-              accessibilityLabel={photo.alt}
-              contentFit="cover"
-              source={photo.thumbUri ?? photo.uri}
-              style={styles.photoImage}
-            />
-          </Pressable>
+          <PhotoTile key={photo.id} photo={photo} setDraft={setDraft} />
         ))}
         <Pressable
           accessibilityLabel="Agregar foto"
@@ -485,11 +547,7 @@ function PhotoSection({
             !viewModel.photos.canAddPhoto ? styles.disabledTile : null,
           ]}
         >
-          <ReportCreationIcon
-            color={shellColors.primary}
-            name="plus"
-            size={22}
-          />
+          <FoundReportCreationIcon color={foundAccent} name="plus" size={22} />
           <Text maxFontSizeMultiplier={1.1} style={styles.addPhotoText}>
             {viewModel.photos.countLabel}
           </Text>
@@ -499,31 +557,64 @@ function PhotoSection({
         {viewModel.photos.helpLabel}
       </Text>
       {viewModel.photos.error ? (
-        <Text maxFontSizeMultiplier={1.2} style={styles.errorText}>
+        <Text maxFontSizeMultiplier={1.2} selectable style={styles.errorText}>
           {viewModel.photos.error}
         </Text>
       ) : null}
-    </Section>
+    </ReportCreationSection>
+  );
+}
+
+function PhotoTile({
+  photo,
+  setDraft,
+}: {
+  photo: FoundReportPhoto;
+  setDraft: React.Dispatch<React.SetStateAction<FoundReportDraft>>;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel="Quitar foto"
+      accessibilityRole="button"
+      onPress={() =>
+        setDraft((current) =>
+          removeFoundReportPhoto({
+            draft: current,
+            photoId: photo.id,
+          }),
+        )
+      }
+      style={styles.photoTile}
+    >
+      <Image
+        accessibilityLabel={photo.alt}
+        contentFit="cover"
+        source={photo.thumbUri ?? photo.uri}
+        style={styles.photoImage}
+      />
+    </Pressable>
   );
 }
 
 function LocationPrivacySection({
+  onChooseFoundLocation,
   setDraft,
   viewModel,
 }: {
-  setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
-  viewModel: LostReportCreationViewModel;
+  onChooseFoundLocation?: () => void;
+  setDraft: React.Dispatch<React.SetStateAction<FoundReportDraft>>;
+  viewModel: FoundReportCreationViewModel;
 }) {
   return (
-    <Section title="Ubicacion y privacidad">
+    <ReportCreationSection styles={styles} title="Ubicacion y privacidad">
       <View style={styles.mapPreview}>
         <View style={styles.mapGrid}>
-          {Array.from({ length: 12 }).map((_, index) => (
+          {mapPreviewBlocks.map((index) => (
             <View key={index} style={styles.mapBlock} />
           ))}
         </View>
         <View style={styles.mapPin}>
-          <ReportCreationIcon
+          <FoundReportCreationIcon
             color={shellColors.white}
             name="mappin"
             size={22}
@@ -533,17 +624,39 @@ function LocationPrivacySection({
           {viewModel.location.mapPreviewLabel}
         </Text>
       </View>
-      <InfoRow
+      <ReportCreationInfoRow
+        accentColor={foundAccent}
+        Icon={FoundReportCreationIcon}
         icon="location.fill"
-        label="Exact Location interna"
+        label="Ubicacion interna"
+        styles={styles}
         value={viewModel.location.exactInternalLabel}
       />
-      <InfoRow
+      <ReportCreationInfoRow
+        accentColor={foundAccent}
+        Icon={FoundReportCreationIcon}
         icon="circle.grid.2x2.fill"
         label={viewModel.location.publicPrecisionLabel}
+        styles={styles}
         value={viewModel.location.approximatePublicLabel}
       />
-      <ToggleRow
+      {onChooseFoundLocation ? (
+        <ReportCreationActionButton
+          accentColor={foundAccent}
+          Icon={FoundReportCreationIcon}
+          icon="map.fill"
+          label={
+            viewModel.location.hasExactLocation
+              ? "Cambiar ubicacion"
+              : "Elegir ubicacion"
+          }
+          onPress={onChooseFoundLocation}
+          primaryTextColor={shellColors.white}
+          styles={styles}
+          variant="secondary"
+        />
+      ) : null}
+      <ReportCreationToggleRow
         body={viewModel.location.toggleBody}
         isSelected={viewModel.location.showExactPinPublicly}
         label={viewModel.location.exactPinOptInLabel}
@@ -553,8 +666,9 @@ function LocationPrivacySection({
             showExactPinPublicly: !current.showExactPinPublicly,
           }))
         }
+        styles={styles}
       />
-    </Section>
+    </ReportCreationSection>
   );
 }
 
@@ -562,13 +676,13 @@ function ContactOptionSection({
   setDraft,
   viewModel,
 }: {
-  setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
-  viewModel: LostReportCreationViewModel;
+  setDraft: React.Dispatch<React.SetStateAction<FoundReportDraft>>;
+  viewModel: FoundReportCreationViewModel;
 }) {
   return (
     <ReportCreationContactOptionSection
-      accentColor={shellColors.primary}
-      Icon={ReportCreationIcon}
+      accentColor={foundAccent}
+      Icon={FoundReportCreationIcon}
       onChangeWhatsappPhone={(value) =>
         setDraft((current) => ({
           ...current,
@@ -580,7 +694,7 @@ function ContactOptionSection({
       }
       onSelectOption={(option) =>
         setDraft((current) =>
-          selectLostReportContactOption({
+          selectFoundReportContactOption({
             draft: current,
             option,
           }),
@@ -603,13 +717,13 @@ function ReviewPublishSection({
   publish: () => void;
   publishState: PublishState;
   submitError: string | null;
-  viewModel: LostReportCreationViewModel;
+  viewModel: FoundReportCreationViewModel;
 }) {
   return (
     <ReportCreationReviewPublishSection
       activityIndicatorColor={shellColors.white}
       canPublish={viewModel.canPublish}
-      Icon={ReportCreationIcon}
+      Icon={FoundReportCreationIcon}
       onPublish={publish}
       publishActionLabel={viewModel.review.publishActionLabel}
       publishState={publishState}
@@ -621,243 +735,12 @@ function ReviewPublishSection({
   );
 }
 
-function InlinePetForm({
-  draft,
-  setDraft,
-}: {
-  draft: LostReportDraft;
-  setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
-}) {
-  const viewModel = buildLostReportCreationViewModel({
-    draft,
-    petProfiles: [],
-  });
-
-  return (
-    <View style={styles.formStack}>
-      <Field
-        field={viewModel.petSelection.inlineForm.fields.name}
-        onChangeText={(value) =>
-          setDraft((current) => ({
-            ...current,
-            inlinePet: { ...current.inlinePet, name: value },
-          }))
-        }
-      />
-      <View style={styles.typeRow}>
-        {lostReportPetTypeOptions.map((type) => (
-          <Pressable
-            accessibilityRole="button"
-            key={type}
-            onPress={() =>
-              setDraft((current) => ({
-                ...current,
-                inlinePet: { ...current.inlinePet, type },
-              }))
-            }
-            style={[
-              styles.typePill,
-              draft.inlinePet.type === type ? styles.selectedPill : null,
-            ]}
-          >
-            <Text
-              maxFontSizeMultiplier={1.1}
-              style={[
-                styles.typePillText,
-                draft.inlinePet.type === type ? styles.selectedPillText : null,
-              ]}
-            >
-              {type}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      <Field
-        field={viewModel.petSelection.inlineForm.fields.breed}
-        onChangeText={(value) =>
-          setDraft((current) => ({
-            ...current,
-            inlinePet: { ...current.inlinePet, breed: value },
-          }))
-        }
-      />
-      <Field
-        multiline
-        field={viewModel.petSelection.inlineForm.fields.description}
-        onChangeText={(value) =>
-          setDraft((current) => ({
-            ...current,
-            inlinePet: { ...current.inlinePet, description: value },
-          }))
-        }
-      />
-    </View>
-  );
-}
-
-function Section({
-  children,
-  title,
-}: {
-  children: React.ReactNode;
-  title: string;
-}) {
-  return (
-    <ReportCreationSection styles={styles} title={title}>
-      {children}
-    </ReportCreationSection>
-  );
-}
-
-function Field({
-  field,
-  keyboardType,
-  multiline,
-  onChangeText,
-}: {
-  field: ReportCreationFieldViewModel;
-  keyboardType?: "default" | "phone-pad";
-  multiline?: boolean;
-  onChangeText: (value: string) => void;
-}) {
-  return (
-    <ReportCreationField
-      field={field}
-      keyboardType={keyboardType}
-      multiline={multiline}
-      onChangeText={onChangeText}
-      placeholderTextColor={shellColors.muted}
-      styles={styles}
-    />
-  );
-}
-
-function ProgressSteps({
-  steps,
-}: {
-  steps: {
-    id: string;
-    isComplete: boolean;
-    label: string;
-  }[];
-}) {
-  return <ReportCreationProgressSteps steps={steps} styles={styles} />;
-}
-
-function SegmentedChoice({
-  onSelect,
-  options,
-  selectedValue,
-}: {
-  onSelect: (value: string) => void;
-  options: {
-    label: string;
-    value: string;
-  }[];
-  selectedValue: string;
-}) {
-  return (
-    <View style={styles.segmented}>
-      {options.map((option) => (
-        <Pressable
-          accessibilityRole="button"
-          key={option.value}
-          onPress={() => onSelect(option.value)}
-          style={[
-            styles.segment,
-            selectedValue === option.value ? styles.segmentSelected : null,
-          ]}
-        >
-          <Text
-            maxFontSizeMultiplier={1.1}
-            style={[
-              styles.segmentText,
-              selectedValue === option.value
-                ? styles.segmentTextSelected
-                : null,
-            ]}
-          >
-            {option.label}
-          </Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
-function ToggleRow({
-  body,
-  isSelected,
-  label,
-  onPress,
-}: {
-  body: string;
-  isSelected: boolean;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <ReportCreationToggleRow
-      body={body}
-      isSelected={isSelected}
-      label={label}
-      onPress={onPress}
-      styles={styles}
-    />
-  );
-}
-
-function InfoRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: string;
-  label: string;
-  value: string;
-}) {
-  return (
-    <ReportCreationInfoRow
-      accentColor={shellColors.primary}
-      Icon={ReportCreationIcon}
-      icon={icon}
-      label={label}
-      styles={styles}
-      value={value}
-    />
-  );
-}
-
-function ActionButton({
-  icon,
-  label,
-  onPress,
-  variant = "primary",
-}: {
-  icon: string;
-  label: string;
-  onPress?: () => void;
-  variant?: "primary" | "secondary";
-}) {
-  return (
-    <ReportCreationActionButton
-      accentColor={shellColors.primary}
-      Icon={ReportCreationIcon}
-      icon={icon}
-      label={label}
-      onPress={onPress}
-      primaryTextColor={shellColors.white}
-      styles={styles}
-      variant={variant}
-    />
-  );
-}
-
-function createFallbackPhoto(index: number): LostReportPhoto {
+function createFallbackPhoto(index: number): FoundReportPhoto {
   return {
-    id: `lost-report-photo-${index + 1}`,
+    alt: "Foto de mascota encontrada",
+    id: `found-report-photo-${index + 1}`,
     status: "ready",
-    uri: `file:///lost-report-photo-${index + 1}.jpg`,
+    uri: `file:///found-report-photo-${index + 1}.jpg`,
   };
 }
 
@@ -866,7 +749,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 16,
     borderWidth: 1,
-    flex: 1,
     flexDirection: "row",
     gap: 8,
     justifyContent: "center",
@@ -874,15 +756,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   actionButtonPrimary: {
-    backgroundColor: shellColors.primary,
-    borderColor: shellColors.primary,
+    backgroundColor: foundAccent,
+    borderColor: foundAccent,
   },
   actionButtonSecondary: {
-    backgroundColor: shellColors.primarySoft,
+    backgroundColor: foundAccentSoft,
     borderColor: shellColors.border,
   },
   actionButtonText: {
-    color: shellColors.primary,
+    color: foundAccent,
     fontSize: 14,
     fontWeight: "800",
   },
@@ -890,14 +772,14 @@ const styles = StyleSheet.create({
     color: shellColors.white,
   },
   addPhotoText: {
-    color: shellColors.primary,
+    color: foundAccent,
     fontSize: 12,
     fontWeight: "800",
   },
   addPhotoTile: {
     alignItems: "center",
     aspectRatio: 1,
-    backgroundColor: shellColors.primarySoft,
+    backgroundColor: foundAccentSoft,
     borderColor: shellColors.border,
     borderRadius: 16,
     borderWidth: 1,
@@ -938,13 +820,13 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   errorText: {
-    color: shellColors.lost,
+    color: errorAccent,
     fontSize: 13,
     fontWeight: "700",
     lineHeight: 18,
   },
   eyebrow: {
-    color: shellColors.lost,
+    color: foundAccent,
     fontSize: 12,
     fontWeight: "900",
     textTransform: "uppercase",
@@ -957,9 +839,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
   },
-  formStack: {
-    gap: 12,
-  },
   header: {
     alignItems: "center",
     flexDirection: "row",
@@ -971,7 +850,7 @@ const styles = StyleSheet.create({
   },
   headerIcon: {
     alignItems: "center",
-    backgroundColor: shellColors.lost,
+    backgroundColor: foundAccent,
     borderRadius: 18,
     height: 46,
     justifyContent: "center",
@@ -1020,7 +899,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   mapBlock: {
-    backgroundColor: "rgba(20, 108, 90, 0.10)",
+    backgroundColor: "rgba(29, 122, 82, 0.12)",
     borderRadius: 8,
     flex: 1,
     minHeight: 28,
@@ -1045,7 +924,7 @@ const styles = StyleSheet.create({
   },
   mapPin: {
     alignItems: "center",
-    backgroundColor: shellColors.lost,
+    backgroundColor: foundAccent,
     borderRadius: 20,
     height: 40,
     justifyContent: "center",
@@ -1055,7 +934,7 @@ const styles = StyleSheet.create({
     width: 40,
   },
   mapPreview: {
-    backgroundColor: "#E1EFF5",
+    backgroundColor: "#EAF3EE",
     borderColor: shellColors.border,
     borderRadius: 20,
     borderWidth: 1,
@@ -1081,29 +960,13 @@ const styles = StyleSheet.create({
   },
   permissionBox: {
     alignItems: "center",
-    backgroundColor: shellColors.primarySoft,
+    backgroundColor: foundAccentSoft,
     borderColor: shellColors.border,
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: "row",
     gap: 12,
     padding: 12,
-  },
-  petOption: {
-    alignItems: "center",
-    backgroundColor: shellColors.surface,
-    borderColor: shellColors.border,
-    borderRadius: 18,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 12,
-    padding: 10,
-  },
-  petThumb: {
-    backgroundColor: shellColors.surfaceMuted,
-    borderRadius: 14,
-    height: 56,
-    width: 56,
   },
   photoGrid: {
     flexDirection: "row",
@@ -1126,8 +989,8 @@ const styles = StyleSheet.create({
   },
   publishButton: {
     alignItems: "center",
-    backgroundColor: shellColors.primary,
-    borderColor: shellColors.primary,
+    backgroundColor: foundAccent,
+    borderColor: foundAccent,
     borderRadius: 18,
     borderWidth: 1,
     flexDirection: "row",
@@ -1183,37 +1046,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "900",
   },
-  segment: {
-    alignItems: "center",
-    borderRadius: 14,
-    flex: 1,
-    minHeight: 42,
-    justifyContent: "center",
-  },
-  segmentSelected: {
-    backgroundColor: shellColors.primary,
-  },
-  segmentText: {
-    color: shellColors.muted,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  segmentTextSelected: {
-    color: shellColors.white,
-  },
-  segmented: {
-    backgroundColor: shellColors.surfaceMuted,
-    borderRadius: 16,
-    flexDirection: "row",
-    padding: 4,
-  },
   selectedBorder: {
-    borderColor: shellColors.primary,
+    borderColor: foundAccent,
     borderWidth: 2,
   },
   selectedPill: {
-    backgroundColor: shellColors.primary,
-    borderColor: shellColors.primary,
+    backgroundColor: foundAccent,
+    borderColor: foundAccent,
   },
   selectedPillText: {
     color: shellColors.white,
@@ -1227,7 +1066,7 @@ const styles = StyleSheet.create({
     width: 28,
   },
   stepDotComplete: {
-    backgroundColor: shellColors.primary,
+    backgroundColor: foundAccent,
   },
   stepItem: {
     alignItems: "center",
@@ -1267,14 +1106,14 @@ const styles = StyleSheet.create({
   },
   successIcon: {
     alignItems: "center",
-    backgroundColor: shellColors.primary,
+    backgroundColor: foundAccent,
     borderRadius: 24,
     height: 58,
     justifyContent: "center",
     width: 58,
   },
   switchOn: {
-    backgroundColor: shellColors.primary,
+    backgroundColor: foundAccent,
   },
   switchThumb: {
     backgroundColor: shellColors.white,
@@ -1312,9 +1151,9 @@ const styles = StyleSheet.create({
     borderColor: shellColors.border,
     borderRadius: 999,
     borderWidth: 1,
+    justifyContent: "center",
     minHeight: 34,
     paddingHorizontal: 12,
-    justifyContent: "center",
   },
   typePillText: {
     color: shellColors.primaryDark,

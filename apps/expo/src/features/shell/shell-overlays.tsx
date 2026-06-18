@@ -15,7 +15,12 @@ import { Image } from "expo-image";
 
 import type { ReportIntent } from "../../i18n";
 import type { ShellAuthActionResult, ShellAuthCredentials } from "./shell-auth";
-import type { ShellAuthPrompt, ShellReportAction } from "./shell-model";
+import type {
+  ShellAuthPrompt,
+  ShellReportAction,
+  ShellSession,
+} from "./shell-model";
+import { FoundReportCreationScreen } from "../found-report-creation/found-report-creation-screen";
 import { LostReportCreationScreen } from "../lost-report-creation/lost-report-creation-screen";
 import { prepareShellAuthCredentials } from "./shell-auth";
 import { useRastroShell } from "./shell-provider";
@@ -49,6 +54,7 @@ export function ShellFabHost() {
     dismissAuthPrompt,
     model,
     openReportActions,
+    session,
     signInFromPrompt,
     state,
   } = useRastroShell();
@@ -110,6 +116,12 @@ export function ShellFabHost() {
         onClose={clearMemberIntent}
         visible={state.memberIntent?.intent === "lost"}
       />
+
+      <FoundReportCreationModal
+        onClose={clearMemberIntent}
+        session={session}
+        visible={state.memberIntent?.intent === "found"}
+      />
     </>
   );
 }
@@ -129,6 +141,38 @@ function LostReportCreationModal({
       visible={visible}
     >
       <LostReportCreationScreen onClose={onClose} />
+    </Modal>
+  );
+}
+
+function FoundReportCreationModal({
+  onClose,
+  session,
+  visible,
+}: {
+  onClose: () => void;
+  session: ShellSession;
+  visible: boolean;
+}) {
+  return (
+    <Modal
+      animationType="slide"
+      onRequestClose={onClose}
+      presentationStyle="fullScreen"
+      visible={visible}
+    >
+      <FoundReportCreationScreen
+        onClose={onClose}
+        session={
+          session.kind === "member"
+            ? {
+                displayName: session.name ?? undefined,
+                kind: "member",
+                memberId: session.id,
+              }
+            : { kind: "visitor" }
+        }
+      />
     </Modal>
   );
 }

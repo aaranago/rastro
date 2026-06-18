@@ -1,14 +1,15 @@
-import type { PublicLostReportShareTarget } from "@acme/validators";
-
 import type {
   LostPetReportSummary,
   NearbyBrowseAudience,
   NearbyBrowseMode,
   NearbyLocationState,
   NearbyLostReportsResult,
+  NearbyPublicReportKind,
+  NearbyPublicReportSummary,
   NearbyRadiusKm,
   NearbySearchBoundary,
   NearbySearchLocation,
+  PublicReportShareTarget,
 } from "./nearby-types";
 import { nearbyRadiusOptionsKm } from "./nearby-types";
 
@@ -25,16 +26,18 @@ export interface NearbyLostReportsViewModelInput {
 }
 
 export interface NearbyPublicLostReportSummaryViewModel {
+  reportKind: NearbyPublicReportKind;
   id: string;
   title: string;
   subtitle: string;
   photoUrl?: string;
   distanceLabel?: string;
   publicLocationLabel: string;
+  eventAtLabel: string;
   lastSeenAtLabel: string;
   summary: string;
   priorityLabel: string;
-  shareTarget: PublicLostReportShareTarget;
+  shareTarget: PublicReportShareTarget;
 }
 
 export interface NearbyLostReportCardViewModel
@@ -220,15 +223,34 @@ function formatLocationSource(location: NearbySearchLocation) {
 }
 
 function toPublicSummary(
-  report: LostPetReportSummary,
+  report: NearbyPublicReportSummary,
 ): NearbyPublicLostReportSummaryViewModel {
+  if (isFoundPetReportSummary(report)) {
+    return {
+      distanceLabel: formatDistance(report.distanceMeters),
+      eventAtLabel: report.foundAtLabel,
+      id: report.id,
+      lastSeenAtLabel: report.foundAtLabel,
+      photoUrl: report.photoUrl,
+      priorityLabel: "Encontrada",
+      publicLocationLabel: formatPublicLocation(report),
+      reportKind: "found-pet-report",
+      shareTarget: report.shareTarget,
+      subtitle: [report.breed, report.condition].filter(Boolean).join(" • "),
+      summary: report.foundSummary,
+      title: report.title,
+    };
+  }
+
   return {
     distanceLabel: formatDistance(report.distanceMeters),
+    eventAtLabel: report.lastSeenAtLabel,
     id: report.id,
     lastSeenAtLabel: report.lastSeenAtLabel,
     photoUrl: report.photoUrl,
     priorityLabel: "Perdido",
     publicLocationLabel: formatPublicLocation(report),
+    reportKind: "lost-pet-report",
     shareTarget: report.shareTarget,
     subtitle: [report.breed, report.sex].filter(Boolean).join(" • "),
     summary: report.lastSeenSummary,
@@ -257,7 +279,7 @@ function toLostReportCard(
   };
 }
 
-function formatPublicLocation(report: LostPetReportSummary) {
+function formatPublicLocation(report: NearbyPublicReportSummary) {
   if (report.publicLocation.kind === "exact") {
     return report.publicLocation.label;
   }
@@ -283,9 +305,12 @@ function formatDistance(distanceMeters: number | undefined) {
 }
 
 function buildUrgentAlert(
-  reports: LostPetReportSummary[],
+  reports: NearbyPublicReportSummary[],
 ): NearbyUrgentLostPetAlertViewModel | undefined {
-  const urgent = reports.find((report) => report.alertPriority === "urgent");
+  const urgent = reports.find(
+    (report): report is LostPetReportSummary =>
+      !isFoundPetReportSummary(report) && report.alertPriority === "urgent",
+  );
 
   if (!urgent) {
     return undefined;
@@ -296,6 +321,15 @@ function buildUrgentAlert(
     reportId: urgent.id,
     title: "Alerta activa",
   };
+}
+
+function isFoundPetReportSummary(
+  report: NearbyPublicReportSummary,
+): report is Extract<
+  NearbyPublicReportSummary,
+  { reportKind: "found-pet-report" }
+> {
+  return report.reportKind === "found-pet-report";
 }
 
 function buildOfflineLabel(result: NearbyLostReportsResult) {

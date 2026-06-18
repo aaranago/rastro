@@ -12,6 +12,7 @@ import type {
   PetProfilePhotoSource,
   PetProfileRepository,
 } from "../pet-profiles/pet-profiles";
+import { findWithinRadius } from "../geo/distance";
 import {
   createInMemoryPetProfileRepository,
   createLocalPetProfileMediaAdapter,
@@ -256,16 +257,12 @@ export function createInMemoryLostPetReportRepository(
 
       const generatedAt = now();
       const radiusMeters = query.radiusKm * 1000;
-      const matchingReports = reports
-        .filter((report) => report.status === "active")
-        .map((report) => ({
-          distanceMeters: calculateDistanceMeters(
-            query.location.coordinates,
-            report.exactLocation,
-          ),
-          report,
-        }))
-        .filter((match) => match.distanceMeters <= radiusMeters)
+      const matchingReports = findWithinRadius({
+        center: query.location.coordinates,
+        getLocation: (report) => report.exactLocation,
+        items: reports.filter((report) => report.status === "active"),
+        radiusMeters,
+      })
         .sort(createLostPetReportSearchComparator(generatedAt))
         .map(({ distanceMeters, report }) =>
           toLostPetReportSearchSummary({
@@ -494,30 +491,6 @@ function isUrgentLostPetReport(report: LostPetReport, generatedAt: string) {
   const ageMs = generatedAtMs - lastSeenAtMs;
 
   return ageMs >= 0 && ageMs <= oneDayMs;
-}
-
-function calculateDistanceMeters(
-  from: LostPetReportSearchCoordinates,
-  to: LostPetReportExactLocation,
-) {
-  const earthRadiusMeters = 6_371_000;
-  const fromLatitude = toRadians(from.latitude);
-  const toLatitude = toRadians(to.latitude);
-  const latitudeDelta = toRadians(to.latitude - from.latitude);
-  const longitudeDelta = toRadians(to.longitude - from.longitude);
-  const haversine =
-    Math.sin(latitudeDelta / 2) ** 2 +
-    Math.cos(fromLatitude) *
-      Math.cos(toLatitude) *
-      Math.sin(longitudeDelta / 2) ** 2;
-  const centralAngle =
-    2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
-
-  return earthRadiusMeters * centralAngle;
-}
-
-function toRadians(degrees: number) {
-  return (degrees * Math.PI) / 180;
 }
 
 function cloneExactLocation(

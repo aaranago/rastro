@@ -1,5 +1,3 @@
-import type { PublicLostReportShareTarget } from "@acme/validators";
-
 export const nearbyRadiusOptionsKm = [5, 10, 20] as const;
 
 export type NearbyRadiusKm = (typeof nearbyRadiusOptionsKm)[number];
@@ -7,6 +5,7 @@ export type NearbyRadiusKm = (typeof nearbyRadiusOptionsKm)[number];
 export type NearbyBrowseMode = "list" | "map";
 
 export type NearbyBrowseAudience = "visitor" | "member";
+export type NearbyPublicReportKind = "found-pet-report" | "lost-pet-report";
 
 export type NearbyLocationSource = "current" | "last" | "manual";
 
@@ -38,7 +37,16 @@ export type PublicLocation =
   | { kind: "approximate" }
   | { kind: "exact"; label: string };
 
+export interface PublicReportShareTarget {
+  appDeepLink: string;
+  message: string;
+  path: string;
+  title: string;
+  webUrl: string;
+}
+
 export interface LostPetReportSummary {
+  reportKind?: "lost-pet-report";
   id: string;
   petName: string;
   species: string;
@@ -51,8 +59,28 @@ export interface LostPetReportSummary {
   lastSeenAtLabel: string;
   lastSeenSummary: string;
   alertPriority: "urgent" | "standard";
-  shareTarget: PublicLostReportShareTarget;
+  shareTarget: PublicReportShareTarget;
 }
+
+export interface FoundPetReportSummary {
+  reportKind: "found-pet-report";
+  id: string;
+  title: string;
+  species: string;
+  breed?: string;
+  photoUrl?: string;
+  distanceMeters?: number;
+  locationCellLabel: string;
+  publicLocation: PublicLocation;
+  foundAtLabel: string;
+  foundSummary: string;
+  condition: string;
+  shareTarget: PublicReportShareTarget;
+}
+
+export type NearbyPublicReportSummary =
+  | FoundPetReportSummary
+  | LostPetReportSummary;
 
 export interface NearbyLostReportsQuery {
   location: NearbySearchLocation;
@@ -72,7 +100,7 @@ export interface NearbySearchBoundary {
 export interface NearbyLostReportsResult {
   query: NearbyLostReportsQuery;
   searchBoundary: NearbySearchBoundary;
-  reports: LostPetReportSummary[];
+  reports: NearbyPublicReportSummary[];
   generatedAt: string;
   isOffline?: boolean;
   isStale?: boolean;

@@ -136,58 +136,66 @@ describe("Rastro shell", () => {
     });
   });
 
-  it("preserves a visitor's selected report intent in the sign-in prompt", () => {
-    const copy = getShellCopy();
-    const shell = createShellModel({ copy, session: { kind: "visitor" } });
-    const lostAction = shell.reportActions.find(
-      (action) => action.intent === "lost",
-    );
+  it.each([
+    ["lost", "Reportar perdida"],
+    ["found", "Reportar encontrada"],
+  ] as const)(
+    "preserves a visitor's selected %s report intent in the sign-in prompt",
+    (intent, label) => {
+      const copy = getShellCopy();
+      const shell = createShellModel({ copy, session: { kind: "visitor" } });
+      const action = shell.reportActions.find((item) => item.intent === intent);
 
-    if (!lostAction) {
-      throw new Error("Expected a lost report action");
-    }
+      if (!action) {
+        throw new Error(`Expected a ${intent} report action`);
+      }
 
-    const nextState = chooseReportAction(
-      createInitialShellState(),
-      lostAction,
-      copy,
-    );
+      const nextState = chooseReportAction(
+        createInitialShellState(),
+        action,
+        copy,
+      );
 
-    expect(nextState.authPrompt?.title).toBe("Inicia sesion para continuar");
-    expect(nextState.authPrompt?.selectedIntentLabel).toBe("Reportar perdida");
-    expect(nextState.authPrompt?.body).toContain("Reportar perdida");
-  });
+      expect(nextState.authPrompt?.title).toBe("Inicia sesion para continuar");
+      expect(nextState.authPrompt?.selectedIntentLabel).toBe(label);
+      expect(nextState.authPrompt?.body).toContain(label);
+    },
+  );
 
-  it("continues a signed-in member's lost report action into the creation flow", () => {
-    const copy = getShellCopy();
-    const shell = createShellModel({
-      copy,
-      session: {
-        email: "ana@example.com",
-        id: "member_123",
-        kind: "member",
-        name: "Ana",
-      },
-    });
-    const lostAction = shell.reportActions.find(
-      (action) => action.intent === "lost",
-    );
+  it.each([
+    ["lost", "Reportar perdida"],
+    ["found", "Reportar encontrada"],
+  ] as const)(
+    "continues a signed-in member's %s report action into the creation flow",
+    (intent, label) => {
+      const copy = getShellCopy();
+      const shell = createShellModel({
+        copy,
+        session: {
+          email: "ana@example.com",
+          id: "member_123",
+          kind: "member",
+          name: "Ana",
+        },
+      });
+      const action = shell.reportActions.find((item) => item.intent === intent);
 
-    if (!lostAction) {
-      throw new Error("Expected a lost report action");
-    }
+      if (!action) {
+        throw new Error(`Expected a ${intent} report action`);
+      }
 
-    const nextState = continueReportActionAsMember(
-      createInitialShellState(),
-      lostAction,
-    );
+      const nextState = continueReportActionAsMember(
+        createInitialShellState(),
+        action,
+      );
 
-    expect(nextState.authPrompt).toBeNull();
-    expect(nextState.memberIntent).toEqual({
-      intent: "lost",
-      label: "Reportar perdida",
-    });
-  });
+      expect(nextState.authPrompt).toBeNull();
+      expect(nextState.memberIntent).toEqual({
+        intent,
+        label,
+      });
+    },
+  );
 
   it("exposes reusable Spanish app states from the shell", () => {
     const copy = getShellCopy();
