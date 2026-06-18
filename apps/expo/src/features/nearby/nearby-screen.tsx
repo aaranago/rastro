@@ -154,6 +154,7 @@ export function NearbyScreen({
         subtitle={item.subtitle}
         summary={item.summary}
         title={item.title}
+        urgency={item.urgency}
         verificationBadge={item.verificationBadge}
       />
     ),
@@ -430,6 +431,7 @@ const LostReportCard = memo(function LostReportCard({
   subtitle,
   summary,
   title,
+  urgency,
   verificationBadge,
 }: {
   distanceLabel?: string;
@@ -445,6 +447,7 @@ const LostReportCard = memo(function LostReportCard({
   subtitle: string;
   summary: string;
   title: string;
+  urgency: NearbyLostReportCardViewModel["urgency"];
   verificationBadge?: NearbyLostReportCardViewModel["verificationBadge"];
 }) {
   const handleOpenReport = useCallback(() => {
@@ -462,76 +465,165 @@ const LostReportCard = memo(function LostReportCard({
     <Pressable
       accessibilityRole="button"
       onPress={handleOpenReport}
-      style={styles.card}
+      style={getCardStyle(urgency)}
     >
-      <View style={styles.cardPhotoFrame}>
-        {photoUrl ? (
-          <Image
-            contentFit="cover"
-            recyclingKey={id}
-            source={photoUrl}
-            style={styles.cardPhoto}
-            transition={120}
-          />
-        ) : (
-          <View style={styles.photoFallback}>
-            <Text style={styles.photoFallbackText}>Sin foto</Text>
-          </View>
-        )}
-        {distanceLabel ? (
-          <View style={styles.distancePill}>
-            <Text selectable style={styles.distanceText}>
-              {distanceLabel}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
+      <ReportCardPhotoFrame
+        distanceLabel={distanceLabel}
+        id={id}
+        photoUrl={photoUrl}
+      />
       <View style={styles.cardBody}>
         <View style={styles.cardTitleRow}>
-          <View style={styles.cardTitleBlock}>
-            <Text selectable style={styles.cardTitle}>
-              {title}
-            </Text>
-            {subtitle ? (
-              <Text selectable style={styles.cardSubtitle}>
-                {subtitle}
-              </Text>
-            ) : null}
-          </View>
-          <View style={styles.priorityPill}>
-            <Text style={styles.priorityText}>{priorityLabel}</Text>
-          </View>
+          <ReportCardTitleBlock subtitle={subtitle} title={title} />
+          <PriorityPill label={priorityLabel} urgency={urgency} />
         </View>
 
         <Text selectable style={styles.locationCopy}>
           {publicLocationLabel}
         </Text>
-        {verificationBadge?.visible ? (
-          <Text selectable style={styles.verificationCopy}>
-            {verificationBadge.label}
-          </Text>
-        ) : null}
+        <VerificationBadge badge={verificationBadge} />
         <Text selectable style={styles.summaryCopy} numberOfLines={3}>
           {summary}
         </Text>
-
-        <View style={styles.cardFooter}>
-          <Text selectable style={styles.timeCopy}>
-            {lastSeenAtLabel}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleShareReport}
-            style={styles.shareButton}
-          >
-            <Text style={styles.shareText}>Compartir</Text>
-          </Pressable>
-        </View>
+        <ReportCardFooter
+          lastSeenAtLabel={lastSeenAtLabel}
+          onShareReport={handleShareReport}
+        />
       </View>
     </Pressable>
   );
 });
+
+function ReportCardPhotoFrame({
+  distanceLabel,
+  id,
+  photoUrl,
+}: {
+  distanceLabel?: string;
+  id: string;
+  photoUrl?: string;
+}) {
+  return (
+    <View style={styles.cardPhotoFrame}>
+      {photoUrl ? (
+        <Image
+          contentFit="cover"
+          recyclingKey={id}
+          source={photoUrl}
+          style={styles.cardPhoto}
+          transition={120}
+        />
+      ) : (
+        <View style={styles.photoFallback}>
+          <Text style={styles.photoFallbackText}>Sin foto</Text>
+        </View>
+      )}
+      {distanceLabel ? (
+        <View style={styles.distancePill}>
+          <Text selectable style={styles.distanceText}>
+            {distanceLabel}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function ReportCardTitleBlock({
+  subtitle,
+  title,
+}: {
+  subtitle: string;
+  title: string;
+}) {
+  return (
+    <View style={styles.cardTitleBlock}>
+      <Text selectable style={styles.cardTitle}>
+        {title}
+      </Text>
+      {subtitle ? (
+        <Text selectable style={styles.cardSubtitle}>
+          {subtitle}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+function PriorityPill({
+  label,
+  urgency,
+}: {
+  label: string;
+  urgency: NearbyLostReportCardViewModel["urgency"];
+}) {
+  return (
+    <View style={getPriorityPillStyle(urgency)}>
+      <Text style={getPriorityTextStyle(urgency)}>{label}</Text>
+    </View>
+  );
+}
+
+function VerificationBadge({
+  badge,
+}: {
+  badge?: NearbyLostReportCardViewModel["verificationBadge"];
+}) {
+  if (!badge?.visible) {
+    return null;
+  }
+
+  return (
+    <Text selectable style={styles.verificationCopy}>
+      {badge.label}
+    </Text>
+  );
+}
+
+function ReportCardFooter({
+  lastSeenAtLabel,
+  onShareReport,
+}: {
+  lastSeenAtLabel: string;
+  onShareReport: () => void;
+}) {
+  return (
+    <View style={styles.cardFooter}>
+      <Text selectable style={styles.timeCopy}>
+        {lastSeenAtLabel}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onShareReport}
+        style={styles.shareButton}
+      >
+        <Text style={styles.shareText}>Compartir</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function getCardStyle(urgency: NearbyLostReportCardViewModel["urgency"]) {
+  return [styles.card, urgency === "reduced" ? styles.cardReduced : null];
+}
+
+function getPriorityPillStyle(
+  urgency: NearbyLostReportCardViewModel["urgency"],
+) {
+  return [
+    styles.priorityPill,
+    urgency === "reduced" ? styles.priorityPillReduced : null,
+  ];
+}
+
+function getPriorityTextStyle(
+  urgency: NearbyLostReportCardViewModel["urgency"],
+) {
+  return [
+    styles.priorityText,
+    urgency === "reduced" ? styles.priorityTextReduced : null,
+  ];
+}
 
 function MapBrowse({
   cards,
@@ -576,6 +668,7 @@ function MapBrowse({
           subtitle={featuredCard.subtitle}
           summary={featuredCard.summary}
           title={featuredCard.title}
+          urgency={featuredCard.urgency}
           verificationBadge={featuredCard.verificationBadge}
         />
       ) : null}
@@ -828,6 +921,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: "hidden",
   },
+  cardReduced: {
+    backgroundColor: "#fbfcfc",
+    borderColor: "#e4e9e7",
+  },
   cardBody: {
     gap: 10,
     padding: 16,
@@ -1070,11 +1167,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
+  priorityPillReduced: {
+    backgroundColor: "#edf0f2",
+  },
   priorityText: {
     color: colors.danger,
     fontSize: 12,
     fontWeight: "900",
     textTransform: "uppercase",
+  },
+  priorityTextReduced: {
+    color: colors.inkMuted,
   },
   radiusButton: {
     alignItems: "center",

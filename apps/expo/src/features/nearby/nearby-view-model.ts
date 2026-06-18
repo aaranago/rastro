@@ -1,4 +1,8 @@
 import type {
+  ReportLifecycleSummaryViewModel,
+  ReportUrgency,
+} from "../reports/report-lifecycle-view-model";
+import type {
   LostPetReportSummary,
   NearbyBrowseAudience,
   NearbyBrowseMode,
@@ -11,6 +15,11 @@ import type {
   NearbySearchLocation,
   PublicReportShareTarget,
 } from "./nearby-types";
+import {
+  buildReportLifecycleSummary,
+  getReportUrgency,
+  isClosedReportLifecycle,
+} from "../reports/report-lifecycle-view-model";
 import { nearbyRadiusOptionsKm } from "./nearby-types";
 
 export type NearbyLostReportsLoadState =
@@ -35,9 +44,11 @@ export interface NearbyPublicLostReportSummaryViewModel {
   publicLocationLabel: string;
   eventAtLabel: string;
   lastSeenAtLabel: string;
+  lifecycle?: ReportLifecycleSummaryViewModel;
   summary: string;
   priorityLabel: string;
   shareTarget: PublicReportShareTarget;
+  urgency: ReportUrgency;
   verificationBadge?: {
     label: string;
     visible: boolean;
@@ -243,35 +254,43 @@ function toPublicSummary(
       subtitle: [report.species, report.breed].filter(Boolean).join(" • "),
       summary: report.adoptionSummary,
       title: report.petName,
+      urgency: "normal",
       verificationBadge: report.verificationBadge,
     };
   }
 
   if (isFoundPetReportSummary(report)) {
+    const lifecycle = buildReportLifecycleSummary(report);
+
     return {
       distanceLabel: formatDistance(report.distanceMeters),
       eventAtLabel: report.foundAtLabel,
       id: report.id,
       lastSeenAtLabel: report.foundAtLabel,
+      lifecycle,
       photoUrl: report.photoUrl,
-      priorityLabel: "Encontrada",
+      priorityLabel: formatReportPriority("Encontrada", lifecycle),
       publicLocationLabel: formatPublicLocation(report),
       reportKind: "found-pet-report",
       shareTarget: report.shareTarget,
       subtitle: [report.breed, report.condition].filter(Boolean).join(" • "),
       summary: report.foundSummary,
       title: report.title,
+      urgency: getReportUrgency(report),
     };
   }
 
   if (isSightingReportSummary(report)) {
+    const lifecycle = buildReportLifecycleSummary(report);
+
     return {
       distanceLabel: formatDistance(report.distanceMeters),
       eventAtLabel: report.observedAtLabel,
       id: report.id,
       lastSeenAtLabel: report.observedAtLabel,
+      lifecycle,
       photoUrl: report.photoUrl,
-      priorityLabel: "Avistamiento",
+      priorityLabel: formatReportPriority("Avistamiento", lifecycle),
       publicLocationLabel: formatPublicLocation(report),
       reportKind: "sighting-report",
       shareTarget: report.shareTarget,
@@ -280,23 +299,39 @@ function toPublicSummary(
         .join(" • "),
       summary: report.sightingSummary,
       title: report.title,
+      urgency: getReportUrgency(report),
     };
   }
+
+  const lifecycle = buildReportLifecycleSummary(report);
 
   return {
     distanceLabel: formatDistance(report.distanceMeters),
     eventAtLabel: report.lastSeenAtLabel,
     id: report.id,
     lastSeenAtLabel: report.lastSeenAtLabel,
+    lifecycle,
     photoUrl: report.photoUrl,
-    priorityLabel: "Perdido",
+    priorityLabel: formatReportPriority("Perdido", lifecycle),
     publicLocationLabel: formatPublicLocation(report),
     reportKind: "lost-pet-report",
     shareTarget: report.shareTarget,
     subtitle: [report.breed, report.sex].filter(Boolean).join(" • "),
     summary: report.lastSeenSummary,
     title: report.petName,
+    urgency: getReportUrgency(report),
   };
+}
+
+function formatReportPriority(
+  activeLabel: string,
+  lifecycle: ReportLifecycleSummaryViewModel,
+) {
+  if (lifecycle.status === "closed") {
+    return `${lifecycle.statusLabel} · ${lifecycle.outcomeLabel}`;
+  }
+
+  return activeLabel;
 }
 
 function toMapPin(
@@ -350,7 +385,9 @@ function buildUrgentAlert(
 ): NearbyUrgentLostPetAlertViewModel | undefined {
   const urgent = reports.find(
     (report): report is LostPetReportSummary =>
-      isLostPetReportSummary(report) && report.alertPriority === "urgent",
+      isLostPetReportSummary(report) &&
+      report.alertPriority === "urgent" &&
+      !isClosedReportLifecycle(report),
   );
 
   if (!urgent) {

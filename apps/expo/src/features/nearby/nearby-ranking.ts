@@ -19,6 +19,10 @@ export function compareNearbyPublicReports(
 }
 
 function priorityScore(report: NearbyPublicReportSummary) {
+  if ("status" in report && report.status === "closed") {
+    return 0;
+  }
+
   if (report.reportKind === "adoption-listing") {
     return 1;
   }

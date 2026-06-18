@@ -7,15 +7,27 @@ import type {
   PetProfilePhotoAsset,
   PetProfilePhotoSource,
 } from "../pet-profiles/pet-profiles";
+import type {
+  PublicReportLifecycle,
+  ReportLifecycleStatus,
+  ReportOutcome,
+  UpdateReportLifecycleInput,
+} from "../reports/report-lifecycle";
 import { createLocalPetProfileMediaAdapter } from "../pet-profiles/pet-profiles";
 import {
+  applyReportLifecycleUpdate,
+  toPublicReportLifecycle,
+} from "../reports/report-lifecycle";
+import {
   buildPublicReportContactOptions,
+  rejectRepositoryError,
   summarizeActiveReportsWithinRadius,
   toPublicReportDetailLocation,
 } from "../reports/report-repository-utils";
 
 export type FoundReportsSessionState = PetProfilesSessionState;
-export type FoundPetReportStatus = "active" | "closed";
+export type FoundPetReportOutcome = ReportOutcome;
+export type FoundPetReportStatus = ReportLifecycleStatus;
 export type FoundPetReportBoliviaCountryCode = "BO";
 export type FoundPetReportSearchLocationSource = "current" | "last" | "manual";
 export type FoundPetReportAlertRadiusKm = 5 | 10 | 20;
@@ -106,6 +118,7 @@ export interface PublicFoundReportShareTarget {
 }
 
 export interface FoundPetReport {
+  closedAt?: string;
   condition: string;
   contactOption: FoundPetReportStoredContactOption;
   createdAt: string;
@@ -113,6 +126,8 @@ export interface FoundPetReport {
   foundAt: string;
   foundDescription: string;
   id: string;
+  lifecycleConfirmedAt: string;
+  outcome: FoundPetReportOutcome;
   petSnapshot: FoundPetReportPetSnapshot;
   photos: PetProfilePhotoAsset[];
   publicLocation: FoundPetReportPublicLocation;
@@ -182,6 +197,8 @@ export interface PublicFoundPetReportDetail {
         privacyNote: string;
         type: "exact";
       };
+  lifecycle: PublicReportLifecycle;
+  outcomeLabel: string;
   reportLabel: string;
   shareTarget: PublicFoundReportShareTarget;
   statusLabel: string;
@@ -203,8 +220,10 @@ export type PublicFoundPetReportContactOption =
 
 type FoundPetReportRepositoryErrorCode =
   | "exact_location_required"
+  | "found_report_not_found"
   | "found_report_photo_required"
   | "search_location_required"
+  | "visitor_cannot_manage_found_report"
   | "visitor_cannot_publish_found_report"
   | "whatsapp_phone_required";
 
@@ -231,6 +250,11 @@ export interface FoundPetReportRepository {
     session: FoundReportsSessionState,
     query: SearchActiveFoundPetReportsQuery,
   ) => Promise<SearchActiveFoundPetReportsResult>;
+  updateFoundPetReportLifecycle: (
+    session: FoundReportsSessionState,
+    reportId: string,
+    input: UpdateReportLifecycleInput,
+  ) => Promise<FoundPetReport>;
 }
 
 export interface InMemoryFoundPetReportRepositoryOptions {
@@ -275,10 +299,7 @@ export function createInMemoryFoundPetReportRepository(
 
   return {
     getPublicFoundPetReport(_session, reportId) {
-      const report = reports.find(
-        (candidate) =>
-          candidate.id === reportId && candidate.status === "active",
-      );
+      const report = reports.find((candidate) => candidate.id === reportId);
 
       return Promise.resolve(
         report ? toPublicFoundPetReportDetail(report) : null,
@@ -303,6 +324,8 @@ export function createInMemoryFoundPetReportRepository(
         foundAt: input.foundAt,
         foundDescription: input.foundDescription.trim(),
         id,
+        lifecycleConfirmedAt: createdAt,
+        outcome: "still-missing",
         petSnapshot,
         photos: await mediaAdapter.normalizePhotos(input.photos),
         publicLocation: buildPublicLocation(input),
@@ -341,6 +364,47 @@ export function createInMemoryFoundPetReportRepository(
         searchStrategy: "postgis_radius",
       });
     },
+    updateFoundPetReportLifecycle(session, reportId, input) {
+      try {
+        assertMemberCanManageFoundPetReport(session);
+
+        const reportIndex = reports.findIndex(
+          (candidate) =>
+            candidate.id === reportId &&
+            candidate.reporterMemberId === session.memberId,
+        );
+
+        if (reportIndex === -1) {
+          throw new FoundPetReportRepositoryError(
+            "found_report_not_found",
+            "Found Pet Report was not found for this Member.",
+          );
+        }
+
+        const current = reports[reportIndex];
+
+        if (!current) {
+          throw new FoundPetReportRepositoryError(
+            "found_report_not_found",
+            "Found Pet Report was not found for this Member.",
+          );
+        }
+
+        const next: FoundPetReport = {
+          ...current,
+          ...applyReportLifecycleUpdate({
+            input,
+            updatedAt: now(),
+          }),
+        };
+
+        reports[reportIndex] = next;
+
+        return Promise.resolve(cloneFoundPetReport(next));
+      } catch (error) {
+        return rejectRepositoryError<FoundPetReport>(error);
+      }
+    },
   };
 }
 
@@ -351,6 +415,17 @@ function assertMemberCanPublishFoundPetReport(
     throw new FoundPetReportRepositoryError(
       "visitor_cannot_publish_found_report",
       "Visitors cannot publish Found Pet Reports.",
+    );
+  }
+}
+
+function assertMemberCanManageFoundPetReport(
+  session: FoundReportsSessionState,
+): asserts session is Extract<FoundReportsSessionState, { kind: "member" }> {
+  if (session.kind === "visitor") {
+    throw new FoundPetReportRepositoryError(
+      "visitor_cannot_manage_found_report",
+      "Visitors cannot manage Found Pet Reports.",
     );
   }
 }
@@ -435,6 +510,8 @@ function normalizeContactOption(
 function toPublicFoundPetReportDetail(
   report: FoundPetReport,
 ): PublicFoundPetReportDetail {
+  const lifecycle = toPublicReportLifecycle(report);
+
   return {
     condition: {
       label: "Condicion",
@@ -450,9 +527,11 @@ function toPublicFoundPetReportDetail(
     pet: { ...report.petSnapshot },
     photos: report.photos.map(clonePhotoAsset),
     publicLocation: toPublicDetailLocation(report.publicLocation),
+    lifecycle,
+    outcomeLabel: lifecycle.outcomeLabel,
     reportLabel: "Reporte de mascota encontrada",
     shareTarget: { ...report.shareTarget },
-    statusLabel: "Reporte activo",
+    statusLabel: lifecycle.statusLabel,
     title: `${report.petSnapshot.type} encontrado`,
   };
 }

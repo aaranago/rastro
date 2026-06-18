@@ -14,6 +14,12 @@ const member: MemberSession = {
   memberId: "member-camila",
 };
 
+const otherMember: MemberSession = {
+  displayName: "Diego",
+  kind: "member",
+  memberId: "member-diego",
+};
+
 describe("Found Pet Report public detail", () => {
   it("lets a visitor read a published Found Pet Report without exposing exact coordinates by default", async () => {
     const reports = createInMemoryFoundPetReportRepository({
@@ -224,6 +230,102 @@ describe("Found Pet Report nearby browsing", () => {
     });
     expect(foundSummary?.publicLocation).not.toHaveProperty("latitude");
     expect(foundSummary?.publicLocation).not.toHaveProperty("longitude");
+  });
+});
+
+describe("Found Pet Report lifecycle", () => {
+  it("only lets the reporting caretaker close an owned report and removes it from active search while keeping public detail readable", async () => {
+    const reports = createInMemoryFoundPetReportRepository({
+      now: () => "2026-06-18T12:00:00.000Z",
+    });
+
+    const published = await reports.publishFoundPetReport(member, {
+      condition: "Seguro, con sed y sin heridas visibles.",
+      contactOption: { kind: "in-app-chat" },
+      exactLocation: {
+        addressLabel: "Plaza Abaroa, La Paz",
+        countryCode: "BO",
+        latitude: -16.5103,
+        locationCellLabel: "Sopocachi",
+        longitude: -68.1299,
+      },
+      foundAt: "2026-06-18T09:20:00.000Z",
+      foundDescription:
+        "Estaba esperando cerca de la puerta. Tiene collar verde sin placa.",
+      pet: {
+        breed: "Mestizo",
+        description: "Patas blancas, collar verde y orejas caidas.",
+        type: "Perro",
+      },
+      photos: [{ id: "found-photo-1", uri: "file:///found-dog.heic" }],
+    });
+
+    await expect(
+      reports.updateFoundPetReportLifecycle(otherMember, published.id, {
+        outcome: "transferred-to-shelter",
+      }),
+    ).rejects.toMatchObject({
+      code: "found_report_not_found",
+    });
+
+    const closed = await reports.updateFoundPetReportLifecycle(
+      member,
+      published.id,
+      {
+        outcome: "transferred-to-shelter",
+      },
+    );
+
+    expect(closed).toMatchObject({
+      outcome: "transferred-to-shelter",
+      status: "closed",
+    });
+
+    await expect(
+      reports.updateFoundPetReportLifecycle({ kind: "visitor" }, published.id, {
+        outcome: "inactive",
+      }),
+    ).rejects.toMatchObject({
+      code: "visitor_cannot_manage_found_report",
+    });
+
+    const detail = await reports.getPublicFoundPetReport(
+      { kind: "visitor" },
+      published.id,
+    );
+
+    expect(detail).toMatchObject({
+      lifecycle: {
+        outcome: "transferred-to-shelter",
+        outcomeLabel: "Trasladada a refugio",
+        status: "closed",
+        statusLabel: "Reporte cerrado",
+        urgency: "reduced",
+      },
+      outcomeLabel: "Trasladada a refugio",
+      statusLabel: "Reporte cerrado",
+      title: "Perro encontrado",
+    });
+
+    const activeSearch = await reports.searchActiveFoundPetReports(
+      { kind: "visitor" },
+      {
+        location: {
+          coordinates: {
+            latitude: -16.5103,
+            longitude: -68.1299,
+          },
+          countryCode: "BO",
+          label: "Sopocachi, La Paz",
+          locationCellLabel: "Sopocachi",
+          source: "manual",
+        },
+        radiusKm: 5,
+        strategy: "postgis_radius",
+      },
+    );
+
+    expect(activeSearch.reports).toEqual([]);
   });
 });
 

@@ -7,15 +7,27 @@ import type {
   PetProfilePhotoAsset,
   PetProfilePhotoSource,
 } from "../pet-profiles/pet-profiles";
+import type {
+  PublicReportLifecycle,
+  ReportLifecycleStatus,
+  ReportOutcome,
+  UpdateReportLifecycleInput,
+} from "../reports/report-lifecycle";
 import { createLocalPetProfileMediaAdapter } from "../pet-profiles/pet-profiles";
 import {
+  applyReportLifecycleUpdate,
+  toPublicReportLifecycle,
+} from "../reports/report-lifecycle";
+import {
   buildPublicReportContactOptions,
+  rejectRepositoryError,
   summarizeActiveReportsWithinRadius,
   toPublicReportDetailLocation,
 } from "../reports/report-repository-utils";
 
 export type SightingReportsSessionState = PetProfilesSessionState;
-export type SightingReportStatus = "active" | "closed";
+export type SightingReportOutcome = ReportOutcome;
+export type SightingReportStatus = ReportLifecycleStatus;
 export type SightingReportBoliviaCountryCode = "BO";
 export type SightingReportSearchLocationSource = "current" | "last" | "manual";
 export type SightingReportAlertRadiusKm = 5 | 10 | 20;
@@ -107,13 +119,16 @@ export interface PublicSightingReportShareTarget {
 }
 
 export interface SightingReport {
+  closedAt?: string;
   contactOption: SightingReportStoredContactOption;
   createdAt: string;
   direction: string;
   exactLocation: SightingReportExactLocation;
   id: string;
+  lifecycleConfirmedAt: string;
   observedAt: string;
   observedCondition: string;
+  outcome: SightingReportOutcome;
   petSnapshot: SightingReportPetSnapshot;
   photos: PetProfilePhotoAsset[];
   publicLocation: SightingReportPublicLocation;
@@ -189,6 +204,8 @@ export interface PublicSightingReportDetail {
         privacyNote: string;
         type: "exact";
       };
+  lifecycle: PublicReportLifecycle;
+  outcomeLabel: string;
   reportLabel: string;
   shareTarget: PublicSightingReportShareTarget;
   statusLabel: string;
@@ -211,7 +228,9 @@ export type PublicSightingReportContactOption =
 type SightingReportRepositoryErrorCode =
   | "exact_location_required"
   | "search_location_required"
+  | "sighting_report_not_found"
   | "sighting_report_details_required"
+  | "visitor_cannot_manage_sighting_report"
   | "visitor_cannot_publish_sighting_report"
   | "whatsapp_phone_required";
 
@@ -238,6 +257,11 @@ export interface SightingReportRepository {
     session: SightingReportsSessionState,
     query: SearchActiveSightingReportsQuery,
   ) => Promise<SearchActiveSightingReportsResult>;
+  updateSightingReportLifecycle: (
+    session: SightingReportsSessionState,
+    reportId: string,
+    input: UpdateReportLifecycleInput,
+  ) => Promise<SightingReport>;
 }
 
 export interface InMemorySightingReportRepositoryOptions {
@@ -282,10 +306,7 @@ export function createInMemorySightingReportRepository(
 
   return {
     getPublicSightingReport(_session, reportId) {
-      const report = reports.find(
-        (candidate) =>
-          candidate.id === reportId && candidate.status === "active",
-      );
+      const report = reports.find((candidate) => candidate.id === reportId);
 
       return Promise.resolve(
         report ? toPublicSightingReportDetail(report) : null,
@@ -308,8 +329,10 @@ export function createInMemorySightingReportRepository(
         direction: input.direction.trim(),
         exactLocation: cloneExactLocation(input.exactLocation),
         id,
+        lifecycleConfirmedAt: createdAt,
         observedAt: input.observedAt,
         observedCondition: input.observedCondition.trim(),
+        outcome: "still-missing",
         petSnapshot,
         photos: await mediaAdapter.normalizePhotos(input.photos),
         publicLocation: buildPublicLocation(input),
@@ -349,6 +372,47 @@ export function createInMemorySightingReportRepository(
         searchStrategy: "postgis_radius",
       });
     },
+    updateSightingReportLifecycle(session, reportId, input) {
+      try {
+        assertMemberCanManageSightingReport(session);
+
+        const reportIndex = reports.findIndex(
+          (candidate) =>
+            candidate.id === reportId &&
+            candidate.reporterMemberId === session.memberId,
+        );
+
+        if (reportIndex === -1) {
+          throw new SightingReportRepositoryError(
+            "sighting_report_not_found",
+            "Sighting Report was not found for this Member.",
+          );
+        }
+
+        const current = reports[reportIndex];
+
+        if (!current) {
+          throw new SightingReportRepositoryError(
+            "sighting_report_not_found",
+            "Sighting Report was not found for this Member.",
+          );
+        }
+
+        const next: SightingReport = {
+          ...current,
+          ...applyReportLifecycleUpdate({
+            input,
+            updatedAt: now(),
+          }),
+        };
+
+        reports[reportIndex] = next;
+
+        return Promise.resolve(cloneSightingReport(next));
+      } catch (error) {
+        return rejectRepositoryError<SightingReport>(error);
+      }
+    },
   };
 }
 
@@ -359,6 +423,17 @@ function assertMemberCanPublishSightingReport(
     throw new SightingReportRepositoryError(
       "visitor_cannot_publish_sighting_report",
       "Visitors cannot publish Sighting Reports.",
+    );
+  }
+}
+
+function assertMemberCanManageSightingReport(
+  session: SightingReportsSessionState,
+): asserts session is Extract<SightingReportsSessionState, { kind: "member" }> {
+  if (session.kind === "visitor") {
+    throw new SightingReportRepositoryError(
+      "visitor_cannot_manage_sighting_report",
+      "Visitors cannot manage Sighting Reports.",
     );
   }
 }
@@ -449,6 +524,8 @@ function normalizeContactOption(
 function toPublicSightingReportDetail(
   report: SightingReport,
 ): PublicSightingReportDetail {
+  const lifecycle = toPublicReportLifecycle(report);
+
   return {
     contactOptions: buildPublicContactOptions(report),
     description: report.sightingDescription,
@@ -468,9 +545,11 @@ function toPublicSightingReportDetail(
     pet: { ...report.petSnapshot },
     photos: report.photos.map(clonePhotoAsset),
     publicLocation: toPublicDetailLocation(report.publicLocation),
+    lifecycle,
+    outcomeLabel: lifecycle.outcomeLabel,
     reportLabel: "Reporte de avistamiento",
     shareTarget: { ...report.shareTarget },
-    statusLabel: "Reporte activo",
+    statusLabel: lifecycle.statusLabel,
     title: `${report.petSnapshot.type} visto`,
   };
 }

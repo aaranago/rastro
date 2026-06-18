@@ -453,3 +453,81 @@ describe("Lost Pet Report browsing", () => {
     expect(result.reports.map((report) => report.petName)).toEqual(["Coco"]);
   });
 });
+
+describe("Lost Pet Report lifecycle", () => {
+  it("lets the caretaker close an owned report and keeps the closed detail readable without active-search urgency", async () => {
+    const reports = createInMemoryLostPetReportRepository({
+      now: () => "2026-06-18T12:00:00.000Z",
+    });
+
+    const published = await reports.publishLostPetReport(member, {
+      contactOption: { kind: "in-app-chat" },
+      exactLocation: {
+        addressLabel: "Plaza Abaroa, La Paz",
+        countryCode: "BO",
+        latitude: -16.5103,
+        locationCellLabel: "Sopocachi",
+        longitude: -68.1299,
+      },
+      lastSeenAt: "2026-06-18T09:45:00.000Z",
+      lastSeenDescription: "Se escapo cerca de la plaza con collar rojo.",
+      petProfile: {
+        kind: "inline",
+        profile: petProfileInput,
+      },
+      photos: [{ id: "report-photo-1", uri: "file:///toby-lost.heic" }],
+    });
+
+    const closed = await reports.updateLostPetReportLifecycle(
+      member,
+      published.id,
+      {
+        outcome: "reunited",
+      },
+    );
+
+    expect(closed).toMatchObject({
+      outcome: "reunited",
+      status: "closed",
+      updatedAt: "2026-06-18T12:00:00.000Z",
+    });
+
+    const detail = await reports.getPublicLostPetReport(
+      { kind: "visitor" },
+      published.id,
+    );
+
+    expect(detail).toMatchObject({
+      lifecycle: {
+        outcome: "reunited",
+        outcomeLabel: "Reunida",
+        status: "closed",
+        statusLabel: "Reporte cerrado",
+        urgency: "reduced",
+      },
+      outcomeLabel: "Reunida",
+      statusLabel: "Reporte cerrado",
+      title: "Toby",
+    });
+
+    const activeSearch = await reports.searchActiveLostPetReports(
+      { kind: "visitor" },
+      {
+        location: {
+          coordinates: {
+            latitude: -16.5103,
+            longitude: -68.1299,
+          },
+          countryCode: "BO",
+          label: "Sopocachi, La Paz",
+          locationCellLabel: "Sopocachi",
+          source: "manual",
+        },
+        radiusKm: 5,
+        strategy: "postgis_radius",
+      },
+    );
+
+    expect(activeSearch.reports).toEqual([]);
+  });
+});

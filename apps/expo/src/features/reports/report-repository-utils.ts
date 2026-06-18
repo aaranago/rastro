@@ -123,3 +123,9 @@ export function summarizeActiveReportsWithinRadius<TReport, TSummary>({
       }),
     );
 }
+
+export function rejectRepositoryError<T>(error: unknown): Promise<T> {
+  return Promise.reject(
+    error instanceof Error ? error : new Error("Unknown repository error."),
+  );
+}

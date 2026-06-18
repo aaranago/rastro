@@ -1,6 +1,6 @@
 # Add report lifecycle, outcomes, and stale-report prompts
 
-Status: ready-for-agent
+Status: complete
 Type: AFK
 
 ## Parent
@@ -13,12 +13,12 @@ Add report lifecycle behavior so caretakers can keep active reports current, clo
 
 ## Acceptance criteria
 
-- [ ] Reports can be active or closed.
-- [ ] Supported report outcomes are Still Missing, Reunited, Transferred to Shelter, Unable to Locate, and Inactive.
-- [ ] Caretakers can update or close their own reports from report details.
-- [ ] Closed reports no longer trigger nearby alerts.
-- [ ] Stale active reports can prompt caretakers to confirm or update status.
-- [ ] Closed reports remain understandable in browse/detail views with reduced urgency.
+- [x] Reports can be active or closed.
+- [x] Supported report outcomes are Still Missing, Reunited, Transferred to Shelter, Unable to Locate, and Inactive.
+- [x] Caretakers can update or close their own reports from report details.
+- [x] Closed reports no longer trigger nearby alerts.
+- [x] Stale active reports can prompt caretakers to confirm or update status.
+- [x] Closed reports remain understandable in browse/detail views with reduced urgency.
 
 ## Blocked by
 

@@ -12,15 +12,31 @@ import type {
   PetProfilePhotoSource,
   PetProfileRepository,
 } from "../pet-profiles/pet-profiles";
+import type {
+  PublicReportLifecycle,
+  ReportLifecycleStatus,
+  ReportOutcome,
+  UpdateReportLifecycleInput,
+} from "../reports/report-lifecycle";
+import type { PublicReportContactOption } from "../reports/report-repository-utils";
 import { findWithinRadius } from "../geo/distance";
 import {
   createInMemoryPetProfileRepository,
   createLocalPetProfileMediaAdapter,
 } from "../pet-profiles/pet-profiles";
+import {
+  applyReportLifecycleUpdate,
+  toPublicReportLifecycle,
+} from "../reports/report-lifecycle";
+import {
+  buildPublicReportContactOptions,
+  rejectRepositoryError,
+  toPublicReportDetailLocation,
+} from "../reports/report-repository-utils";
 
 export type LostReportsSessionState = PetProfilesSessionState;
-export type LostPetReportOutcome = "still-missing";
-export type LostPetReportStatus = "active" | "closed";
+export type LostPetReportOutcome = ReportOutcome;
+export type LostPetReportStatus = ReportLifecycleStatus;
 export type LostPetReportBoliviaCountryCode = "BO";
 export type LostPetReportSearchLocationSource = "current" | "last" | "manual";
 export type LostPetReportAlertRadiusKm = 5 | 10 | 20;
@@ -109,12 +125,14 @@ export interface LostPetReportPetSnapshot {
 
 export interface LostPetReport {
   caretakerMemberId: string;
+  closedAt?: string;
   contactOption: LostPetReportStoredContactOption;
   createdAt: string;
   exactLocation: LostPetReportExactLocation;
   id: string;
   lastSeenAt: string;
   lastSeenDescription: string;
+  lifecycleConfirmedAt: string;
   outcome: LostPetReportOutcome;
   petName: string;
   petProfileId: string;
@@ -155,11 +173,49 @@ export interface SearchActiveLostPetReportsResult {
   searchStrategy: LostPetReportSearchStrategy;
 }
 
+export interface PublicLostPetReportDetail {
+  contactOptions: PublicLostPetReportContactOption[];
+  description: string;
+  kind: "lost-pet-report";
+  lastSeenAt: {
+    label: string;
+    value: string;
+  };
+  lifecycle: PublicReportLifecycle;
+  outcomeLabel: string;
+  pet: LostPetReportPetSnapshot;
+  photos: PetProfilePhotoAsset[];
+  publicLocation:
+    | {
+        label: string;
+        privacyNote: string;
+        type: "approximate";
+      }
+    | {
+        address?: string;
+        coordinates: {
+          latitude: number;
+          longitude: number;
+        };
+        label: string;
+        privacyNote: string;
+        type: "exact";
+      };
+  reportLabel: string;
+  shareTarget: PublicLostReportShareTarget;
+  statusLabel: string;
+  title: string;
+}
+
+export type PublicLostPetReportContactOption = PublicReportContactOption;
+
 type LostPetReportRepositoryErrorCode =
   | "exact_location_required"
+  | "lost_report_not_found"
   | "lost_report_photo_required"
   | "pet_profile_not_found"
   | "search_location_required"
+  | "visitor_cannot_manage_lost_report"
   | "visitor_cannot_publish_lost_report"
   | "whatsapp_phone_required";
 
@@ -174,6 +230,10 @@ class LostPetReportRepositoryError extends Error {
 }
 
 export interface LostPetReportRepository {
+  getPublicLostPetReport: (
+    session: LostReportsSessionState,
+    reportId: string,
+  ) => Promise<PublicLostPetReportDetail | null>;
   publishLostPetReport: (
     session: LostReportsSessionState,
     input: PublishLostPetReportInput,
@@ -182,6 +242,11 @@ export interface LostPetReportRepository {
     session: LostReportsSessionState,
     query: SearchActiveLostPetReportsQuery,
   ) => Promise<SearchActiveLostPetReportsResult>;
+  updateLostPetReportLifecycle: (
+    session: LostReportsSessionState,
+    reportId: string,
+    input: UpdateReportLifecycleInput,
+  ) => Promise<LostPetReport>;
 }
 
 export interface InMemoryLostPetReportRepositoryOptions {
@@ -209,6 +274,13 @@ export function createInMemoryLostPetReportRepository(
   const reports: LostPetReport[] = [];
 
   return {
+    getPublicLostPetReport(_session, reportId) {
+      const report = reports.find((candidate) => candidate.id === reportId);
+
+      return Promise.resolve(
+        report ? toPublicLostPetReportDetail(report) : null,
+      );
+    },
     async publishLostPetReport(session, input) {
       assertMemberCanPublishLostPetReport(session);
       assertPublishInput(input);
@@ -228,6 +300,7 @@ export function createInMemoryLostPetReportRepository(
         id,
         lastSeenAt: input.lastSeenAt,
         lastSeenDescription: input.lastSeenDescription.trim(),
+        lifecycleConfirmedAt: createdAt,
         outcome: "still-missing",
         petName: petProfile.name,
         petProfileId: petProfile.id,
@@ -280,6 +353,47 @@ export function createInMemoryLostPetReportRepository(
         searchStrategy: "postgis_radius",
       });
     },
+    updateLostPetReportLifecycle(session, reportId, input) {
+      try {
+        assertMemberCanManageLostPetReport(session);
+
+        const reportIndex = reports.findIndex(
+          (candidate) =>
+            candidate.id === reportId &&
+            candidate.caretakerMemberId === session.memberId,
+        );
+
+        if (reportIndex === -1) {
+          throw new LostPetReportRepositoryError(
+            "lost_report_not_found",
+            "Lost Pet Report was not found for this Member.",
+          );
+        }
+
+        const current = reports[reportIndex];
+
+        if (!current) {
+          throw new LostPetReportRepositoryError(
+            "lost_report_not_found",
+            "Lost Pet Report was not found for this Member.",
+          );
+        }
+
+        const next: LostPetReport = {
+          ...current,
+          ...applyReportLifecycleUpdate({
+            input,
+            updatedAt: now(),
+          }),
+        };
+
+        reports[reportIndex] = next;
+
+        return Promise.resolve(cloneLostPetReport(next));
+      } catch (error) {
+        return rejectRepositoryError<LostPetReport>(error);
+      }
+    },
   };
 }
 
@@ -290,6 +404,17 @@ function assertMemberCanPublishLostPetReport(
     throw new LostPetReportRepositoryError(
       "visitor_cannot_publish_lost_report",
       "Visitors cannot publish Lost Pet Reports.",
+    );
+  }
+}
+
+function assertMemberCanManageLostPetReport(
+  session: LostReportsSessionState,
+): asserts session is Extract<LostReportsSessionState, { kind: "member" }> {
+  if (session.kind === "visitor") {
+    throw new LostPetReportRepositoryError(
+      "visitor_cannot_manage_lost_report",
+      "Visitors cannot manage Lost Pet Reports.",
     );
   }
 }
@@ -400,6 +525,49 @@ function normalizeContactOption(
     kind: contactOption.kind,
     phoneNumber: contactOption.phoneNumber?.trim(),
   };
+}
+
+function toPublicLostPetReportDetail(
+  report: LostPetReport,
+): PublicLostPetReportDetail {
+  const lifecycle = toPublicReportLifecycle(report);
+
+  return {
+    contactOptions: buildPublicContactOptions(report),
+    description: report.lastSeenDescription,
+    kind: "lost-pet-report",
+    lastSeenAt: {
+      label: "Perdida",
+      value: report.lastSeenAt,
+    },
+    lifecycle,
+    outcomeLabel: lifecycle.outcomeLabel,
+    pet: { ...report.petSnapshot },
+    photos: report.photos.map(clonePhotoAsset),
+    publicLocation: toPublicDetailLocation(report.publicLocation),
+    reportLabel: "Reporte de mascota perdida",
+    shareTarget: { ...report.shareTarget },
+    statusLabel: lifecycle.statusLabel,
+    title: report.petName,
+  };
+}
+
+function buildPublicContactOptions(
+  report: LostPetReport,
+): PublicLostPetReportContactOption[] {
+  return buildPublicReportContactOptions({
+    contactOption: report.contactOption,
+    shareTarget: report.shareTarget,
+  });
+}
+
+function toPublicDetailLocation(
+  publicLocation: LostPetReportPublicLocation,
+): PublicLostPetReportDetail["publicLocation"] {
+  return toPublicReportDetailLocation(
+    publicLocation,
+    "Ubicacion exacta compartida por la persona cuidadora.",
+  );
 }
 
 function cloneLostPetReport(report: LostPetReport): LostPetReport {

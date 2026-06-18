@@ -1,3 +1,8 @@
+import type {
+  ReportLifecycleStatus,
+  ReportOutcome,
+} from "../reports/report-lifecycle";
+
 export const nearbyRadiusOptionsKm = [5, 10, 20] as const;
 
 export type NearbyRadiusKm = (typeof nearbyRadiusOptionsKm)[number];
@@ -63,7 +68,9 @@ export interface LostPetReportSummary {
   lastSeenAtLabel: string;
   lastSeenSummary: string;
   alertPriority: "urgent" | "standard";
+  outcome?: ReportOutcome;
   shareTarget: PublicReportShareTarget;
+  status?: ReportLifecycleStatus;
 }
 
 export interface FoundPetReportSummary {
@@ -79,7 +86,9 @@ export interface FoundPetReportSummary {
   foundAtLabel: string;
   foundSummary: string;
   condition: string;
+  outcome?: ReportOutcome;
   shareTarget: PublicReportShareTarget;
+  status?: ReportLifecycleStatus;
 }
 
 export interface SightingReportSummary {
@@ -96,7 +105,9 @@ export interface SightingReportSummary {
   sightingSummary: string;
   observedCondition: string;
   direction: string;
+  outcome?: ReportOutcome;
   shareTarget: PublicReportShareTarget;
+  status?: ReportLifecycleStatus;
 }
 
 export interface AdoptionListingSummary {

@@ -220,6 +220,87 @@ describe("Sighting Report public detail and nearby search", () => {
   });
 });
 
+describe("Sighting Report lifecycle", () => {
+  it("lets the reporting caretaker close a sighting as unable to locate and keeps it readable without active-search urgency", async () => {
+    const reports = createInMemorySightingReportRepository({
+      now: () => "2026-06-18T12:00:00.000Z",
+    });
+
+    const published = await reports.publishSightingReport(member, {
+      contactOption: { kind: "in-app-chat" },
+      direction: "Iba hacia la avenida 20 de Octubre.",
+      exactLocation: {
+        addressLabel: "Plaza Abaroa, La Paz",
+        countryCode: "BO",
+        latitude: -16.5103,
+        locationCellLabel: "Sopocachi",
+        longitude: -68.1299,
+      },
+      observedAt: "2026-06-18T10:15:00.000Z",
+      observedCondition: "Asustado, caminando rapido, sin heridas visibles.",
+      pet: {
+        breed: "Mestizo",
+        description: "Patas blancas, collar verde y orejas caidas.",
+        type: "Perro",
+      },
+      photos: [],
+      sightingDescription:
+        "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.",
+    });
+
+    const closed = await reports.updateSightingReportLifecycle(
+      member,
+      published.id,
+      {
+        outcome: "unable-to-locate",
+      },
+    );
+
+    expect(closed).toMatchObject({
+      outcome: "unable-to-locate",
+      status: "closed",
+    });
+
+    const detail = await reports.getPublicSightingReport(
+      { kind: "visitor" },
+      published.id,
+    );
+
+    expect(detail).toMatchObject({
+      lifecycle: {
+        outcome: "unable-to-locate",
+        outcomeLabel: "No se pudo ubicar",
+        status: "closed",
+        statusLabel: "Reporte cerrado",
+        urgency: "reduced",
+      },
+      outcomeLabel: "No se pudo ubicar",
+      statusLabel: "Reporte cerrado",
+      title: "Perro visto",
+    });
+
+    const activeSearch = await reports.searchActiveSightingReports(
+      { kind: "visitor" },
+      {
+        location: {
+          coordinates: {
+            latitude: -16.5103,
+            longitude: -68.1299,
+          },
+          countryCode: "BO",
+          label: "Sopocachi, La Paz",
+          locationCellLabel: "Sopocachi",
+          source: "manual",
+        },
+        radiusKm: 5,
+        strategy: "postgis_radius",
+      },
+    );
+
+    expect(activeSearch.reports).toEqual([]);
+  });
+});
+
 function assertNearbyViewModelKind<
   K extends NearbyLostReportsViewModel["kind"],
 >(

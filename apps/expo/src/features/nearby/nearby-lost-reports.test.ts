@@ -196,6 +196,64 @@ describe("nearby Lost Pet Report discovery", () => {
     expect(viewModel.locationLabel).toBe("Zona Sur, La Paz");
   });
 
+  it("keeps Closed Reports understandable with reduced urgency and does not promote them as nearby alerts", async () => {
+    const urgentReport = reports[0];
+    const activeReport = reports[1];
+
+    if (!urgentReport || !activeReport) {
+      throw new Error("Expected nearby report fixtures.");
+    }
+
+    const closedReport = {
+      ...urgentReport,
+      alertPriority: "urgent",
+      id: "lost-bruno-closed",
+      outcome: "reunited",
+      status: "closed",
+    } satisfies LostPetReportSummary;
+    const adapter = createStaticNearbyLostReportsAdapter({
+      reports: [
+        closedReport,
+        {
+          ...activeReport,
+          distanceMeters: 900,
+          id: "lost-luna-active",
+          status: "active",
+        } satisfies LostPetReportSummary,
+      ],
+    });
+
+    const result = await adapter.searchLostPetReports({
+      location: manualLocation,
+      radiusKm: 5,
+    });
+
+    const viewModel = buildNearbyLostReportsViewModel({
+      locationState: { kind: "ready", location: manualLocation },
+      mode: "list",
+      radiusKm: 5,
+      result: { kind: "success", value: result },
+    });
+
+    assertNearbyViewModelKind(viewModel, "ready");
+    expect(viewModel.urgentAlert).toBeUndefined();
+    expect(viewModel.cards.map((card) => card.id)).toEqual([
+      "lost-luna-active",
+      "lost-bruno-closed",
+    ]);
+    expect(viewModel.cards[1]).toMatchObject({
+      lifecycle: {
+        outcome: "reunited",
+        outcomeLabel: "Reunida",
+        status: "closed",
+        statusLabel: "Cerrado",
+        tone: "closed",
+      },
+      priorityLabel: "Cerrado · Reunida",
+      urgency: "reduced",
+    });
+  });
+
   it("browses Sighting Reports with sighting-specific labels and detail links without signing in", async () => {
     const adapter = createStaticNearbyLostReportsAdapter({
       reports: [sightingReport],
