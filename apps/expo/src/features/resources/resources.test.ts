@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { createInMemoryTrustSafetyRepository } from "../trust-safety";
 import {
   buildResourceProviderProfileViewModel,
   buildResourcesDirectoryViewModel,
@@ -84,11 +85,17 @@ describe("Resources directory", () => {
   });
 
   it("creates a moderation item when reporting a provider", async () => {
-    const adapter = createStaticResourcesAdapter(rastroResourceFixtures);
+    const trustSafety = createInMemoryTrustSafetyRepository({
+      now: () => "2026-06-18T13:20:00.000Z",
+    });
+    const adapter = createStaticResourcesAdapter(
+      rastroResourceFixtures,
+      trustSafety,
+    );
 
     const receipt = await adapter.reportProvider({
       providerId: "clinic-san-roque",
-      reason: "incorrect_location",
+      reason: "stolen_pet_concern",
       detail: "La dirección aproximada no coincide.",
     });
 
@@ -98,7 +105,14 @@ describe("Resources directory", () => {
         targetType: "resource_provider",
         providerId: "clinic-san-roque",
         providerName: "Clínica Veterinaria San Roque",
-        reason: "incorrect_location",
+        reason: "stolen_pet_concern",
+        reviewItem: {
+          createdAt: "2026-06-18T13:20:00.000Z",
+          reason: "stolen_pet_concern",
+          status: "pending",
+          targetId: "clinic-san-roque",
+          targetType: "resource_provider",
+        },
       },
     });
   });

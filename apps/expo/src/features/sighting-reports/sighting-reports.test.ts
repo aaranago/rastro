@@ -6,6 +6,7 @@ import type { MemberSession } from "../pet-profiles/pet-profiles";
 import { createInMemoryLostPetReportRepository } from "../lost-reports/lost-reports";
 import { createNearbyLostReportRepositoryAdapter } from "../nearby/nearby-lost-report-repository-adapter";
 import { buildNearbyLostReportsViewModel } from "../nearby/nearby-view-model";
+import { createInMemoryTrustSafetyRepository } from "../trust-safety";
 import { createInMemorySightingReportRepository } from "./sighting-reports";
 
 const member: MemberSession = {
@@ -149,6 +150,61 @@ describe("Sighting Report public detail and nearby search", () => {
     });
     expect(result.reports[0]?.publicLocation).not.toHaveProperty("latitude");
     expect(result.reports[0]?.publicLocation).not.toHaveProperty("longitude");
+  });
+
+  it("creates a pending admin-review item when a Sighting Report is reported", async () => {
+    const trustSafety = createInMemoryTrustSafetyRepository({
+      now: () => "2026-06-18T13:10:00.000Z",
+    });
+    const reports = createInMemorySightingReportRepository({
+      now: () => "2026-06-18T12:00:00.000Z",
+      trustSafety,
+    });
+    const published = await reports.publishSightingReport(member, {
+      contactOption: { kind: "in-app-chat" },
+      direction: "Iba hacia la avenida 20 de Octubre.",
+      exactLocation: {
+        countryCode: "BO",
+        latitude: -16.5103,
+        locationCellLabel: "Sopocachi",
+        longitude: -68.1299,
+      },
+      observedAt: "2026-06-18T10:15:00.000Z",
+      observedCondition: "Asustado, caminando rapido.",
+      pet: {
+        breed: "Mestizo",
+        description: "Patas blancas y collar verde.",
+        type: "Perro",
+      },
+      photos: [],
+      sightingDescription: "Paso por la esquina de la plaza.",
+    });
+
+    const receipt = await reports.reportSightingReport(
+      {
+        displayName: "Diego",
+        kind: "member",
+        memberId: "member-diego",
+      },
+      {
+        detail: "La descripcion acusa a otra persona sin evidencia.",
+        reason: "offensive_content",
+        reportId: published.id,
+      },
+    );
+
+    expect(receipt).toMatchObject({
+      reviewItem: {
+        createdAt: "2026-06-18T13:10:00.000Z",
+        detail: "La descripcion acusa a otra persona sin evidencia.",
+        reason: "offensive_content",
+        reporterMemberId: "member-diego",
+        status: "pending",
+        targetId: published.id,
+        targetType: "sighting_report",
+      },
+      status: "pending_admin_review",
+    });
   });
 
   it("includes published Sighting Reports in visitor nearby browse with sighting-specific labels", async () => {

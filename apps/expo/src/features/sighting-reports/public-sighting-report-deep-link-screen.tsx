@@ -10,8 +10,10 @@ function buildPublicSightingReportWebUrl(reportId: string) {
 }
 
 export function PublicSightingReportDeepLinkScreen({
+  onReport,
   reportId,
 }: {
+  onReport?: (reportId: string) => void;
   reportId?: string;
 }) {
   const safeReportId = reportId?.trim() ?? "avistamiento";
@@ -20,6 +22,7 @@ export function PublicSightingReportDeepLinkScreen({
     <PublicReportDeepLinkScreen
       accentColor={shellColors.sighting}
       body="Este enlace abre un reporte de avistamiento compartido en la app. Si el detalle aun no esta sincronizado en tu telefono, puedes abrir la pagina publica."
+      onReport={onReport}
       reportId={safeReportId}
       title="Reporte de avistamiento"
       webUrl={buildPublicSightingReportWebUrl(safeReportId)}

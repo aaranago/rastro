@@ -21,6 +21,7 @@ export function PublicReportDeepLinkScreen({
   body,
   lifecycle,
   onLifecycleAction,
+  onReport,
   reportId,
   title,
   webUrl,
@@ -29,6 +30,7 @@ export function PublicReportDeepLinkScreen({
   body: string;
   lifecycle?: PublicReportLifecycleViewModel;
   onLifecycleAction?: (actionId: ReportLifecycleActionId) => void;
+  onReport?: (reportId: string) => void;
   reportId: string;
   title: string;
   webUrl: string;
@@ -69,6 +71,16 @@ export function PublicReportDeepLinkScreen({
         >
           <Text style={styles.buttonText}>Abrir pagina publica</Text>
         </Pressable>
+        {onReport ? (
+          <Pressable
+            accessibilityLabel={`Reportar ${title}`}
+            accessibilityRole="button"
+            onPress={() => onReport(reportId)}
+            style={styles.reportButton}
+          >
+            <Text style={styles.reportButtonText}>Reportar</Text>
+          </Pressable>
+        ) : null}
       </View>
     </ScrollView>
   );
@@ -277,6 +289,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontVariant: ["tabular-nums"],
     fontWeight: "700",
+  },
+  reportButton: {
+    alignItems: "center",
+    borderColor: shellColors.border,
+    borderCurve: "continuous",
+    borderRadius: 14,
+    borderWidth: 1,
+    minHeight: 46,
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  reportButtonText: {
+    color: shellColors.muted,
+    fontSize: 15,
+    fontWeight: "900",
   },
   staleBody: {
     color: shellColors.muted,

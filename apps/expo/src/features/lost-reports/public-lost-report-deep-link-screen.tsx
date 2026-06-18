@@ -13,12 +13,14 @@ const publicWebBaseUrl = "https://rastro.bo";
 export function PublicLostReportDeepLinkScreen({
   lifecycle,
   onLifecycleAction,
+  onReport,
   reportId,
 }: {
   lifecycle?: Omit<PublicReportLifecycleViewModelInput, "reportTitle"> & {
     reportTitle?: string;
   };
   onLifecycleAction?: (actionId: ReportLifecycleActionId) => void;
+  onReport?: (reportId: string) => void;
   reportId?: string;
 }) {
   const safeReportId = reportId?.trim() ?? "reporte";
@@ -42,6 +44,7 @@ export function PublicLostReportDeepLinkScreen({
           : undefined
       }
       onLifecycleAction={onLifecycleAction}
+      onReport={onReport}
       reportId={safeReportId}
       title="Reporte de mascota perdida"
       webUrl={shareTarget.webUrl}

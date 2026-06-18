@@ -12,6 +12,11 @@ import type {
   PetProfilePhotoSource,
   PetProfileRepository,
 } from "../pet-profiles/pet-profiles";
+import type {
+  SubmitTrustSafetyReportInput,
+  TrustSafetyReportReceipt,
+  TrustSafetyRepository,
+} from "../trust-safety";
 import {
   createInMemoryPetProfileRepository,
   createLocalPetProfileMediaAdapter,
@@ -21,6 +26,7 @@ import {
   summarizeActiveReportsWithinRadius,
   toPublicReportDetailLocation,
 } from "../reports/report-repository-utils";
+import { createInMemoryTrustSafetyRepository } from "../trust-safety";
 
 export type AdoptionListingsSessionState =
   | {
@@ -259,6 +265,10 @@ export interface AdoptionListingRepository {
     session: AdoptionListingsSessionState,
     query: SearchActiveAdoptionListingsQuery,
   ) => Promise<SearchActiveAdoptionListingsResult>;
+  reportAdoptionListing: (
+    session: AdoptionListingsSessionState,
+    input: ReportAdoptionListingInput,
+  ) => Promise<TrustSafetyReportReceipt>;
 }
 
 export interface InMemoryAdoptionListingRepositoryOptions {
@@ -266,9 +276,16 @@ export interface InMemoryAdoptionListingRepositoryOptions {
   now?: () => string;
   petProfiles?: PetProfileRepository;
   publicWebBaseUrl?: string;
+  trustSafety?: TrustSafetyRepository;
 }
 
 const defaultPublicWebBaseUrl = "https://rastro.bo";
+
+export interface ReportAdoptionListingInput {
+  detail?: string;
+  listingId: string;
+  reason: SubmitTrustSafetyReportInput["reason"];
+}
 
 export function createInMemoryAdoptionListingRepository(
   options: InMemoryAdoptionListingRepositoryOptions = {},
@@ -283,6 +300,8 @@ export function createInMemoryAdoptionListingRepository(
       now,
     });
   const publicWebBaseUrl = options.publicWebBaseUrl ?? defaultPublicWebBaseUrl;
+  const trustSafety =
+    options.trustSafety ?? createInMemoryTrustSafetyRepository({ now });
   const listings: AdoptionListing[] = [];
 
   return {
@@ -360,6 +379,16 @@ export function createInMemoryAdoptionListingRepository(
         query: cloneSearchQuery(query),
         radiusMeters,
         searchStrategy: "postgis_radius",
+      });
+    },
+    reportAdoptionListing(session, input) {
+      return trustSafety.submitReport({
+        detail: optionalTrimmed(input.detail),
+        reason: input.reason,
+        reporterMemberId:
+          session.kind === "member" ? session.memberId : undefined,
+        targetId: input.listingId,
+        targetType: "adoption_listing",
       });
     },
   };

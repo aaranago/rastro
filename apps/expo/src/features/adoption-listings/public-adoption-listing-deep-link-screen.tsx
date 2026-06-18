@@ -7,8 +7,10 @@ const publicWebBaseUrl = "https://rastro.bo";
 
 export function PublicAdoptionListingDeepLinkScreen({
   listingId,
+  onReport,
 }: {
   listingId?: string;
+  onReport?: (listingId: string) => void;
 }) {
   const safeListingId = listingId?.trim() ?? "adopcion";
   const shareTarget = buildPublicAdoptionListingShareTarget({
@@ -21,6 +23,7 @@ export function PublicAdoptionListingDeepLinkScreen({
     <PublicReportDeepLinkScreen
       accentColor={shellColors.adoption}
       body="Este enlace abre una adopcion compartida en la app. Si el detalle aun no esta sincronizado en tu telefono, puedes abrir la pagina publica."
+      onReport={onReport}
       reportId={safeListingId}
       title="Mascota en adopcion"
       webUrl={shareTarget.webUrl}

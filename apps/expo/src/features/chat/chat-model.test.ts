@@ -7,6 +7,7 @@ import type {
   ChatSubject,
   SendChatMessageInput,
 } from "./chat-model";
+import { createInMemoryTrustSafetyRepository } from "../trust-safety";
 import {
   buildChatConversationViewModel,
   createInMemoryChatRepository,
@@ -205,8 +206,12 @@ describe("Chat repository", () => {
   });
 
   it("records a conversation report and surfaces the reported control state in the view model", async () => {
+    const trustSafety = createInMemoryTrustSafetyRepository({
+      now: () => "2026-06-18T12:20:00.000Z",
+    });
     const repository = createInMemoryChatRepository({
       now: () => "2026-06-18T12:20:00.000Z",
+      trustSafety,
     });
     const conversation = await repository.getOrCreateConversation({
       participants: [caretaker, finder],
@@ -235,6 +240,15 @@ describe("Chat repository", () => {
       label: "Reportar conversacion",
       statusLabel: "Ya reportaste esta conversacion.",
     });
+    await expect(trustSafety.listAdminReviewItems()).resolves.toEqual([
+      expect.objectContaining({
+        reason: "other",
+        reporterMemberId: finder.memberId,
+        status: "pending",
+        targetId: conversation.id,
+        targetType: "chat_conversation",
+      }),
+    ]);
   });
 
   it("builds a Spanish-first view model with ordered messages, a report link, controls, and polling refresh policy", async () => {

@@ -13,6 +13,11 @@ import type {
   ReportOutcome,
   UpdateReportLifecycleInput,
 } from "../reports/report-lifecycle";
+import type {
+  SubmitTrustSafetyReportInput,
+  TrustSafetyReportReceipt,
+  TrustSafetyRepository,
+} from "../trust-safety";
 import { createLocalPetProfileMediaAdapter } from "../pet-profiles/pet-profiles";
 import {
   applyReportLifecycleUpdate,
@@ -24,6 +29,7 @@ import {
   summarizeActiveReportsWithinRadius,
   toPublicReportDetailLocation,
 } from "../reports/report-repository-utils";
+import { createInMemoryTrustSafetyRepository } from "../trust-safety";
 
 export type SightingReportsSessionState = PetProfilesSessionState;
 export type SightingReportOutcome = ReportOutcome;
@@ -262,16 +268,27 @@ export interface SightingReportRepository {
     reportId: string,
     input: UpdateReportLifecycleInput,
   ) => Promise<SightingReport>;
+  reportSightingReport: (
+    session: SightingReportsSessionState,
+    input: ReportSightingReportInput,
+  ) => Promise<TrustSafetyReportReceipt>;
 }
 
 export interface InMemorySightingReportRepositoryOptions {
   mediaAdapter?: PetProfileMediaAdapter;
   now?: () => string;
   publicWebBaseUrl?: string;
+  trustSafety?: TrustSafetyRepository;
 }
 
 const defaultPublicWebBaseUrl = "https://rastro.bo";
 const publicSightingReportPathPrefix = "/reportes/avistamientos";
+
+export interface ReportSightingReportInput {
+  detail?: string;
+  reason: SubmitTrustSafetyReportInput["reason"];
+  reportId: string;
+}
 
 function publicSightingReportPathForId(reportId: string) {
   return `${publicSightingReportPathPrefix}/${encodeURIComponent(reportId)}`;
@@ -302,6 +319,8 @@ export function createInMemorySightingReportRepository(
     options.mediaAdapter ?? createLocalPetProfileMediaAdapter();
   const now = options.now ?? (() => "2026-01-01T00:00:00.000Z");
   const publicWebBaseUrl = options.publicWebBaseUrl ?? defaultPublicWebBaseUrl;
+  const trustSafety =
+    options.trustSafety ?? createInMemoryTrustSafetyRepository({ now });
   const reports: SightingReport[] = [];
 
   return {
@@ -412,6 +431,16 @@ export function createInMemorySightingReportRepository(
       } catch (error) {
         return rejectRepositoryError<SightingReport>(error);
       }
+    },
+    reportSightingReport(session, input) {
+      return trustSafety.submitReport({
+        detail: optionalTrimmed(input.detail),
+        reason: input.reason,
+        reporterMemberId:
+          session.kind === "member" ? session.memberId : undefined,
+        targetId: input.reportId,
+        targetType: "sighting_report",
+      });
     },
   };
 }
@@ -642,4 +671,10 @@ function contactOptionNeedsWhatsappNumber(
   contactOption: SightingReportContactOption,
 ) {
   return contactOption.kind === "whatsapp" || contactOption.kind === "both";
+}
+
+function optionalTrimmed(value: string | undefined) {
+  const trimmed = value?.trim() ?? "";
+
+  return trimmed.length > 0 ? trimmed : undefined;
 }

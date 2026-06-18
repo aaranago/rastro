@@ -41,6 +41,7 @@ export interface NearbyScreenProps {
   locationState?: NearbyLocationState;
   manualLocationOptions?: readonly NearbySearchLocation[];
   onOpenReport?: (reportId: string) => void;
+  onReport?: (reportId: string) => void;
   onShareReport?: (reportId: string) => void;
   onEnableAlerts?: () => void;
   onManualLocationPress?: (selectedLocation?: NearbySearchLocation) => void;
@@ -63,6 +64,7 @@ export function NearbyScreen({
   onEnableAlerts,
   onManualLocationPress,
   onOpenReport,
+  onReport,
   onShareReport,
 }: NearbyScreenProps) {
   const [internalLocationState, setInternalLocationState] =
@@ -145,10 +147,12 @@ export function NearbyScreen({
         id={item.id}
         lastSeenAtLabel={item.lastSeenAtLabel}
         onOpenReport={onOpenReport}
+        onReport={onReport}
         onShareReport={onShareReport}
         photoUrl={item.photoUrl}
         priorityLabel={item.priorityLabel}
         publicLocationLabel={item.publicLocationLabel}
+        reportActionLabel={item.reportActionLabel}
         reportKind={item.reportKind}
         shareTarget={item.shareTarget}
         subtitle={item.subtitle}
@@ -158,7 +162,7 @@ export function NearbyScreen({
         verificationBadge={item.verificationBadge}
       />
     ),
-    [onOpenReport, onShareReport],
+    [onOpenReport, onReport, onShareReport],
   );
 
   if (viewModel.kind === "location-denied") {
@@ -189,6 +193,7 @@ export function NearbyScreen({
           cards={viewModel.cards}
           mapPins={viewModel.mapPins}
           onOpenReport={onOpenReport}
+          onReport={onReport}
           onShareReport={onShareReport}
         />
       </ScrollView>
@@ -422,10 +427,12 @@ const LostReportCard = memo(function LostReportCard({
   id,
   lastSeenAtLabel,
   onOpenReport,
+  onReport,
   onShareReport,
   photoUrl,
   priorityLabel,
   publicLocationLabel,
+  reportActionLabel,
   reportKind,
   shareTarget,
   subtitle,
@@ -438,10 +445,12 @@ const LostReportCard = memo(function LostReportCard({
   id: string;
   lastSeenAtLabel: string;
   onOpenReport?: (reportId: string) => void;
+  onReport?: (reportId: string) => void;
   onShareReport?: (reportId: string) => void;
   photoUrl?: string;
   priorityLabel: string;
   publicLocationLabel: string;
+  reportActionLabel: string;
   reportKind: NearbyLostReportCardViewModel["reportKind"];
   shareTarget: NearbyLostReportCardViewModel["shareTarget"];
   subtitle: string;
@@ -461,8 +470,13 @@ const LostReportCard = memo(function LostReportCard({
     );
   }, [id, onShareReport, reportKind, shareTarget]);
 
+  const handleReport = useCallback(() => {
+    onReport?.(id);
+  }, [id, onReport]);
+
   return (
     <Pressable
+      accessibilityLabel={`Abrir ${title}`}
       accessibilityRole="button"
       onPress={handleOpenReport}
       style={getCardStyle(urgency)}
@@ -487,7 +501,10 @@ const LostReportCard = memo(function LostReportCard({
         </Text>
         <ReportCardFooter
           lastSeenAtLabel={lastSeenAtLabel}
+          onReport={onReport ? handleReport : undefined}
           onShareReport={handleShareReport}
+          reportActionLabel={reportActionLabel}
+          title={title}
         />
       </View>
     </Pressable>
@@ -582,23 +599,42 @@ function VerificationBadge({
 
 function ReportCardFooter({
   lastSeenAtLabel,
+  onReport,
   onShareReport,
+  reportActionLabel,
+  title,
 }: {
   lastSeenAtLabel: string;
+  onReport?: () => void;
   onShareReport: () => void;
+  reportActionLabel: string;
+  title: string;
 }) {
   return (
     <View style={styles.cardFooter}>
       <Text selectable style={styles.timeCopy}>
         {lastSeenAtLabel}
       </Text>
-      <Pressable
-        accessibilityRole="button"
-        onPress={onShareReport}
-        style={styles.shareButton}
-      >
-        <Text style={styles.shareText}>Compartir</Text>
-      </Pressable>
+      <View style={styles.cardFooterActions}>
+        <Pressable
+          accessibilityLabel={`Compartir ${title}`}
+          accessibilityRole="button"
+          onPress={onShareReport}
+          style={styles.cardFooterButton}
+        >
+          <Text style={styles.shareText}>Compartir</Text>
+        </Pressable>
+        {onReport ? (
+          <Pressable
+            accessibilityLabel={`Reportar ${title}`}
+            accessibilityRole="button"
+            onPress={onReport}
+            style={[styles.cardFooterButton, styles.reportCardButton]}
+          >
+            <Text style={styles.reportCardButtonText}>{reportActionLabel}</Text>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -629,11 +665,13 @@ function MapBrowse({
   cards,
   mapPins,
   onOpenReport,
+  onReport,
   onShareReport,
 }: {
   cards: NearbyLostReportCardViewModel[];
   mapPins: NearbyLostReportMapPinViewModel[];
   onOpenReport?: (reportId: string) => void;
+  onReport?: (reportId: string) => void;
   onShareReport?: (reportId: string) => void;
 }) {
   const featuredCard = cards[0];
@@ -659,10 +697,12 @@ function MapBrowse({
           id={featuredCard.id}
           lastSeenAtLabel={featuredCard.lastSeenAtLabel}
           onOpenReport={onOpenReport}
+          onReport={onReport}
           onShareReport={onShareReport}
           photoUrl={featuredCard.photoUrl}
           priorityLabel={featuredCard.priorityLabel}
           publicLocationLabel={featuredCard.publicLocationLabel}
+          reportActionLabel={featuredCard.reportActionLabel}
           reportKind={featuredCard.reportKind}
           shareTarget={featuredCard.shareTarget}
           subtitle={featuredCard.subtitle}
@@ -932,7 +972,25 @@ const styles = StyleSheet.create({
   cardFooter: {
     alignItems: "center",
     flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
     justifyContent: "space-between",
+  },
+  cardFooterActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "flex-end",
+  },
+  cardFooterButton: {
+    alignItems: "center",
+    borderColor: colors.line,
+    borderRadius: 999,
+    borderWidth: 1,
+    minHeight: 36,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   cardPhoto: {
     height: "100%",
@@ -1250,12 +1308,13 @@ const styles = StyleSheet.create({
     gap: 4,
     padding: 4,
   },
-  shareButton: {
-    borderColor: colors.line,
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+  reportCardButton: {
+    borderColor: colors.danger,
+  },
+  reportCardButtonText: {
+    color: colors.danger,
+    fontSize: 14,
+    fontWeight: "900",
   },
   shareText: {
     color: colors.inkStrong,
@@ -1307,6 +1366,7 @@ const styles = StyleSheet.create({
   },
   timeCopy: {
     color: colors.inkSoft,
+    flexShrink: 1,
     fontSize: 13,
     fontWeight: "700",
   },

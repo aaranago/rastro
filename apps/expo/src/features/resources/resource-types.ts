@@ -1,3 +1,8 @@
+import type {
+  TrustSafetyAdminReviewItem,
+  TrustSafetyReportReason,
+} from "../trust-safety";
+
 export type ResourceCategoryId =
   | "veterinary"
   | "shelter"
@@ -82,11 +87,6 @@ export type ResourceProviderProfile = ResourceProviderSummary & {
   }[];
 };
 
-export type ResourceReportReason =
-  | "spam"
-  | "scam"
-  | "incorrect_location"
-  | "offensive_content"
-  | "animal_cruelty"
-  | "impersonation"
-  | "other";
+export type ResourceReportReason = TrustSafetyReportReason;
+
+export type ResourceProviderAdminReviewItem = TrustSafetyAdminReviewItem;

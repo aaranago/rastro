@@ -19,6 +19,11 @@ import type {
   UpdateReportLifecycleInput,
 } from "../reports/report-lifecycle";
 import type { PublicReportContactOption } from "../reports/report-repository-utils";
+import type {
+  SubmitTrustSafetyReportInput,
+  TrustSafetyReportReceipt,
+  TrustSafetyRepository,
+} from "../trust-safety";
 import { findWithinRadius } from "../geo/distance";
 import {
   createInMemoryPetProfileRepository,
@@ -33,6 +38,7 @@ import {
   rejectRepositoryError,
   toPublicReportDetailLocation,
 } from "../reports/report-repository-utils";
+import { createInMemoryTrustSafetyRepository } from "../trust-safety";
 
 export type LostReportsSessionState = PetProfilesSessionState;
 export type LostPetReportOutcome = ReportOutcome;
@@ -247,6 +253,10 @@ export interface LostPetReportRepository {
     reportId: string,
     input: UpdateReportLifecycleInput,
   ) => Promise<LostPetReport>;
+  reportLostPetReport: (
+    session: LostReportsSessionState,
+    input: ReportLostPetReportInput,
+  ) => Promise<TrustSafetyReportReceipt>;
 }
 
 export interface InMemoryLostPetReportRepositoryOptions {
@@ -254,9 +264,16 @@ export interface InMemoryLostPetReportRepositoryOptions {
   now?: () => string;
   petProfiles?: PetProfileRepository;
   publicWebBaseUrl?: string;
+  trustSafety?: TrustSafetyRepository;
 }
 
 const defaultPublicWebBaseUrl = "https://rastro.bo";
+
+export interface ReportLostPetReportInput {
+  detail?: string;
+  reason: SubmitTrustSafetyReportInput["reason"];
+  reportId: string;
+}
 
 export function createInMemoryLostPetReportRepository(
   options: InMemoryLostPetReportRepositoryOptions = {},
@@ -271,6 +288,8 @@ export function createInMemoryLostPetReportRepository(
       now,
     });
   const publicWebBaseUrl = options.publicWebBaseUrl ?? defaultPublicWebBaseUrl;
+  const trustSafety =
+    options.trustSafety ?? createInMemoryTrustSafetyRepository({ now });
   const reports: LostPetReport[] = [];
 
   return {
@@ -393,6 +412,16 @@ export function createInMemoryLostPetReportRepository(
       } catch (error) {
         return rejectRepositoryError<LostPetReport>(error);
       }
+    },
+    reportLostPetReport(session, input) {
+      return trustSafety.submitReport({
+        detail: optionalTrimmed(input.detail),
+        reason: input.reason,
+        reporterMemberId:
+          session.kind === "member" ? session.memberId : undefined,
+        targetId: input.reportId,
+        targetType: "lost_pet_report",
+      });
     },
   };
 }
@@ -680,4 +709,10 @@ function contactOptionNeedsWhatsappNumber(
   contactOption: LostPetReportContactOption,
 ) {
   return contactOption.kind === "whatsapp" || contactOption.kind === "both";
+}
+
+function optionalTrimmed(value: string | undefined) {
+  const trimmed = value?.trim() ?? "";
+
+  return trimmed.length > 0 ? trimmed : undefined;
 }

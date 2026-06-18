@@ -58,6 +58,7 @@ export interface NearbyPublicLostReportSummaryViewModel {
 export interface NearbyLostReportCardViewModel
   extends NearbyPublicLostReportSummaryViewModel {
   publicSummaryId: string;
+  reportActionLabel: string;
 }
 
 export interface NearbyLostReportMapPinViewModel {
@@ -352,6 +353,7 @@ function toLostReportCard(
   return {
     ...summary,
     publicSummaryId: summary.id,
+    reportActionLabel: "Reportar",
   };
 }
 

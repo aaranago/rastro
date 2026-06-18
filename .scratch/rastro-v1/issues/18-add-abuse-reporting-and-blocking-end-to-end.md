@@ -1,6 +1,6 @@
 # Add abuse reporting and blocking end-to-end
 
-Status: ready-for-agent
+Status: complete
 Type: AFK
 
 ## Parent
@@ -13,12 +13,12 @@ Add the end-to-end trust and safety path for members to report abusive content a
 
 ## Acceptance criteria
 
-- [ ] Every report, adoption listing, chat, and resource-provider profile has a `Reportar` action.
-- [ ] Report reasons include spam, scam, incorrect location, offensive content, animal cruelty, stolen pet concern, impersonation, and other.
-- [ ] Submitting a report creates an admin-review item.
-- [ ] Blocking a member stops future chat from that member.
-- [ ] Blocking can hide the conversation from the blocker.
-- [ ] Report/block UI is available from relevant mobile surfaces and uses Spanish copy.
+- [x] Every report, adoption listing, chat, and resource-provider profile has a `Reportar` action.
+- [x] Report reasons include spam, scam, incorrect location, offensive content, animal cruelty, stolen pet concern, impersonation, and other.
+- [x] Submitting a report creates an admin-review item.
+- [x] Blocking a member stops future chat from that member.
+- [x] Blocking can hide the conversation from the blocker.
+- [x] Report/block UI is available from relevant mobile surfaces and uses Spanish copy.
 
 ## Blocked by
 
@@ -29,3 +29,13 @@ Add the end-to-end trust and safety path for members to report abusive content a
 ## Context
 
 This is required for UGC safety and app-store review posture.
+
+## Verification notes
+
+2026-06-18:
+
+- Added a shared Expo trust-safety reporting boundary with Spanish report reasons and pending admin-review receipts.
+- Wired Lost Pet Report, Found Pet Report, Sighting Report, Adoption Listing, In-App Chat, and Resource Provider reporting into the shared admin-review item model.
+- Added mobile `Reportar` actions for nearby cards and public report/listing deep-link screens, including the missing Found Pet Report route.
+- Preserved chat blocking and hide-conversation behavior.
+- Verified with Expo tests, typecheck, lint, format, and Fallow audit.

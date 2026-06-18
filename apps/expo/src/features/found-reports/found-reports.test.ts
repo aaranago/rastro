@@ -6,6 +6,7 @@ import type { MemberSession } from "../pet-profiles/pet-profiles";
 import { createInMemoryLostPetReportRepository } from "../lost-reports/lost-reports";
 import { createNearbyLostReportRepositoryAdapter } from "../nearby/nearby-lost-report-repository-adapter";
 import { buildNearbyLostReportsViewModel } from "../nearby/nearby-view-model";
+import { createInMemoryTrustSafetyRepository } from "../trust-safety";
 import { createInMemoryFoundPetReportRepository } from "./found-reports";
 
 const member: MemberSession = {
@@ -107,6 +108,55 @@ describe("Found Pet Report public detail", () => {
       },
       status: "ready",
       uri: "file:///found-dog.heic#rastro-compressed",
+    });
+  });
+
+  it("creates a pending admin-review item when a Found Pet Report is reported", async () => {
+    const trustSafety = createInMemoryTrustSafetyRepository({
+      now: () => "2026-06-18T13:05:00.000Z",
+    });
+    const reports = createInMemoryFoundPetReportRepository({
+      now: () => "2026-06-18T12:00:00.000Z",
+      trustSafety,
+    });
+    const published = await reports.publishFoundPetReport(member, {
+      condition: "Seguro, con sed y sin heridas visibles.",
+      contactOption: { kind: "in-app-chat" },
+      exactLocation: {
+        countryCode: "BO",
+        latitude: -16.5103,
+        locationCellLabel: "Sopocachi",
+        longitude: -68.1299,
+      },
+      foundAt: "2026-06-18T09:20:00.000Z",
+      foundDescription: "Estaba esperando cerca de la puerta.",
+      pet: {
+        breed: "Mestizo",
+        description: "Patas blancas, collar verde y orejas caidas.",
+        type: "Perro",
+      },
+      photos: [{ id: "found-photo-1", uri: "file:///found-dog.heic" }],
+    });
+
+    const receipt = await reports.reportFoundPetReport(
+      { kind: "visitor" },
+      {
+        detail: "Parece un reporte duplicado.",
+        reason: "spam",
+        reportId: published.id,
+      },
+    );
+
+    expect(receipt).toMatchObject({
+      reviewItem: {
+        createdAt: "2026-06-18T13:05:00.000Z",
+        detail: "Parece un reporte duplicado.",
+        reason: "spam",
+        status: "pending",
+        targetId: published.id,
+        targetType: "found_pet_report",
+      },
+      status: "pending_admin_review",
     });
   });
 });

@@ -8,6 +8,7 @@ import {
   createInMemoryPetProfileRepository,
   createLocalPetProfileMediaAdapter,
 } from "../pet-profiles/pet-profiles";
+import { createInMemoryTrustSafetyRepository } from "../trust-safety";
 import { createInMemoryLostPetReportRepository } from "./lost-reports";
 
 const member: MemberSession = {
@@ -166,6 +167,61 @@ describe("Lost Pet Report publishing", () => {
     ).rejects.toMatchObject({
       code: "visitor_cannot_publish_lost_report",
     });
+  });
+
+  it("creates a pending admin-review item when a Lost Pet Report is reported", async () => {
+    const trustSafety = createInMemoryTrustSafetyRepository({
+      now: () => "2026-06-18T13:00:00.000Z",
+    });
+    const reports = createInMemoryLostPetReportRepository({
+      now: () => "2026-06-18T12:00:00.000Z",
+      trustSafety,
+    });
+    const published = await reports.publishLostPetReport(member, {
+      contactOption: { kind: "in-app-chat" },
+      exactLocation: {
+        countryCode: "BO",
+        latitude: -16.5103,
+        locationCellLabel: "Sopocachi",
+        longitude: -68.1299,
+      },
+      lastSeenAt: "2026-06-18T09:45:00.000Z",
+      lastSeenDescription: "Se escapo cerca de la plaza.",
+      petProfile: {
+        kind: "inline",
+        profile: petProfileInput,
+      },
+      photos: [{ id: "report-photo-1", uri: "file:///toby-lost.heic" }],
+    });
+
+    const receipt = await reports.reportLostPetReport(
+      {
+        displayName: "Diego",
+        kind: "member",
+        memberId: "member-diego",
+      },
+      {
+        detail: "La ubicacion parece incorrecta.",
+        reason: "incorrect_location",
+        reportId: published.id,
+      },
+    );
+
+    expect(receipt).toMatchObject({
+      reviewItem: {
+        createdAt: "2026-06-18T13:00:00.000Z",
+        detail: "La ubicacion parece incorrecta.",
+        reason: "incorrect_location",
+        reporterMemberId: "member-diego",
+        status: "pending",
+        targetId: published.id,
+        targetType: "lost_pet_report",
+      },
+      status: "pending_admin_review",
+    });
+    await expect(trustSafety.listAdminReviewItems()).resolves.toEqual([
+      receipt.reviewItem,
+    ]);
   });
 
   it("requires a report photo and a WhatsApp number when WhatsApp is selected", async () => {

@@ -7,6 +7,7 @@ import { createInMemoryLostPetReportRepository } from "../lost-reports/lost-repo
 import { createNearbyLostReportRepositoryAdapter } from "../nearby/nearby-lost-report-repository-adapter";
 import { shareNearbyLostReport } from "../nearby/nearby-share";
 import { buildNearbyLostReportsViewModel } from "../nearby/nearby-view-model";
+import { createInMemoryTrustSafetyRepository } from "../trust-safety";
 import { createInMemoryAdoptionListingRepository } from "./adoption-listings";
 
 const commerceTerms =
@@ -127,6 +128,64 @@ describe("Adoption Listing public detail", () => {
       uri: "file:///nala.heic#rastro-compressed",
     });
     expect(JSON.stringify(detail)).not.toMatch(commerceTerms);
+  });
+
+  it("creates a pending admin-review item when an Adoption Listing is reported", async () => {
+    const trustSafety = createInMemoryTrustSafetyRepository({
+      now: () => "2026-06-18T13:15:00.000Z",
+    });
+    const listings = createInMemoryAdoptionListingRepository({
+      now: () => "2026-06-18T12:00:00.000Z",
+      trustSafety,
+    });
+    const published = await listings.publishAdoptionListing(verifiedMember, {
+      adoptionSummary:
+        "Nala busca un hogar tranquilo donde reciba tiempo y cuidado.",
+      contactOption: { kind: "in-app-chat" },
+      exactLocation: {
+        countryCode: "BO",
+        latitude: -16.5103,
+        locationCellLabel: "Sopocachi",
+        longitude: -68.1299,
+      },
+      petProfile: {
+        kind: "inline",
+        profile: {
+          breed: "Mestizo",
+          description: "Gatita tranquila, sociable y de interior.",
+          name: "Nala",
+          photos: [{ id: "pet-photo-1", uri: "file:///nala-profile.heic" }],
+          type: "Gato",
+        },
+      },
+      photos: [{ id: "adoption-photo-1", uri: "file:///nala.heic" }],
+    });
+
+    const receipt = await listings.reportAdoptionListing(
+      {
+        displayName: "Diego",
+        kind: "member",
+        memberId: "member-diego",
+      },
+      {
+        detail: "El texto parece pedir pago fuera de la app.",
+        listingId: published.id,
+        reason: "scam",
+      },
+    );
+
+    expect(receipt).toMatchObject({
+      reviewItem: {
+        createdAt: "2026-06-18T13:15:00.000Z",
+        detail: "El texto parece pedir pago fuera de la app.",
+        reason: "scam",
+        reporterMemberId: "member-diego",
+        status: "pending",
+        targetId: published.id,
+        targetType: "adoption_listing",
+      },
+      status: "pending_admin_review",
+    });
   });
 
   it("rejects Adoption Listing publish input without at least one photo", async () => {

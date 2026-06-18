@@ -1,10 +1,13 @@
+import type { TrustSafetyRepository } from "../trust-safety";
 import type {
   ResourceCategoryId,
+  ResourceProviderAdminReviewItem,
   ResourceProviderProfile,
   ResourceProviderSummary,
   ResourceReportReason,
   ResourceSearchLocation,
 } from "./resource-types";
+import { createInMemoryTrustSafetyRepository } from "../trust-safety";
 import { rastroResourceFixtures } from "./static-resources-fixtures";
 
 export interface ResourceSearchQuery {
@@ -27,6 +30,7 @@ export interface ResourceModerationItem {
   providerName: string;
   reason: ResourceReportReason;
   detail?: string;
+  reviewItem: ResourceProviderAdminReviewItem;
 }
 
 export interface ResourceProviderReportReceipt {
@@ -51,6 +55,7 @@ export function createStaticResourcesAdapter(
     providers: readonly ResourceProviderSummary[];
     profiles: readonly ResourceProviderProfile[];
   } = rastroResourceFixtures,
+  trustSafety: TrustSafetyRepository = createInMemoryTrustSafetyRepository(),
 ): ResourcesAdapter {
   return {
     searchProviders(query) {
@@ -71,18 +76,23 @@ export function createStaticResourcesAdapter(
         fixtures.profiles.find((profile) => profile.id === providerId) ?? null,
       );
     },
-    reportProvider(input) {
+    async reportProvider(input) {
       const provider = fixtures.providers.find(
         (candidate) => candidate.id === input.providerId,
       );
 
       if (provider === undefined) {
-        return Promise.reject(
-          new Error("No se encontró el proveedor para reportar."),
-        );
+        throw new Error("No se encontró el proveedor para reportar.");
       }
 
-      return Promise.resolve({
+      const receipt = await trustSafety.submitReport({
+        detail: input.detail,
+        reason: input.reason,
+        targetId: provider.id,
+        targetType: "resource_provider",
+      });
+
+      return {
         status: "created",
         moderationItem: {
           id: `resource-provider-report:${provider.id}`,
@@ -91,8 +101,9 @@ export function createStaticResourcesAdapter(
           providerName: provider.name,
           reason: input.reason,
           detail: input.detail,
+          reviewItem: receipt.reviewItem,
         },
-      });
+      };
     },
   };
 }

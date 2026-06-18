@@ -1,3 +1,9 @@
+import type {
+  SubmitTrustSafetyReportInput,
+  TrustSafetyRepository,
+} from "../trust-safety";
+import { createInMemoryTrustSafetyRepository } from "../trust-safety";
+
 export type ChatSubjectKind =
   | "adoption-listing"
   | "found-pet-report"
@@ -46,6 +52,7 @@ export interface ChatBlockedMembership {
 export interface ChatConversationReport {
   createdAt: string;
   note?: string;
+  reason?: SubmitTrustSafetyReportInput["reason"];
   reporterMemberId: string;
 }
 
@@ -93,6 +100,7 @@ export interface RefreshChatConversationInput {
 export interface ReportChatConversationInput {
   conversationId: string;
   note?: string;
+  reason?: SubmitTrustSafetyReportInput["reason"];
   reporterMemberId: string;
 }
 
@@ -191,6 +199,7 @@ export interface BuildChatConversationViewModelInput {
 export interface InMemoryChatRepositoryOptions {
   now?: () => string;
   pushAdapter?: ChatPushNotificationAdapter;
+  trustSafety?: TrustSafetyRepository;
 }
 
 type ChatRepositoryErrorCode =
@@ -217,6 +226,8 @@ export function createInMemoryChatRepository(
 ): ChatRepository {
   const now = options.now ?? (() => "2026-01-01T00:00:00.000Z");
   const pushAdapter = options.pushAdapter;
+  const trustSafety =
+    options.trustSafety ?? createInMemoryTrustSafetyRepository({ now });
   const conversations: ChatConversation[] = [];
 
   return {
@@ -323,7 +334,7 @@ export function createInMemoryChatRepository(
     refreshConversation(input) {
       return this.getConversation(input);
     },
-    reportConversation(input) {
+    async reportConversation(input) {
       const conversation = findConversationOrThrow(
         conversations,
         input.conversationId,
@@ -341,11 +352,20 @@ export function createInMemoryChatRepository(
           createdAt,
           note: optionalTrimmed(input.note),
           reporterMemberId: input.reporterMemberId,
+          ...(input.reason ? { reason: input.reason } : {}),
         });
         conversation.updatedAt = createdAt;
       }
 
-      return Promise.resolve(cloneConversation(conversation));
+      await trustSafety.submitReport({
+        detail: optionalTrimmed(input.note),
+        reason: input.reason ?? "other",
+        reporterMemberId: input.reporterMemberId,
+        targetId: conversation.id,
+        targetType: "chat_conversation",
+      });
+
+      return cloneConversation(conversation);
     },
     async sendMessage(input) {
       if (hasUnsupportedAttachmentInput(input)) {

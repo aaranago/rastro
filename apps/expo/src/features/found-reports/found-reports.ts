@@ -13,6 +13,11 @@ import type {
   ReportOutcome,
   UpdateReportLifecycleInput,
 } from "../reports/report-lifecycle";
+import type {
+  SubmitTrustSafetyReportInput,
+  TrustSafetyReportReceipt,
+  TrustSafetyRepository,
+} from "../trust-safety";
 import { createLocalPetProfileMediaAdapter } from "../pet-profiles/pet-profiles";
 import {
   applyReportLifecycleUpdate,
@@ -24,6 +29,7 @@ import {
   summarizeActiveReportsWithinRadius,
   toPublicReportDetailLocation,
 } from "../reports/report-repository-utils";
+import { createInMemoryTrustSafetyRepository } from "../trust-safety";
 
 export type FoundReportsSessionState = PetProfilesSessionState;
 export type FoundPetReportOutcome = ReportOutcome;
@@ -255,16 +261,27 @@ export interface FoundPetReportRepository {
     reportId: string,
     input: UpdateReportLifecycleInput,
   ) => Promise<FoundPetReport>;
+  reportFoundPetReport: (
+    session: FoundReportsSessionState,
+    input: ReportFoundPetReportInput,
+  ) => Promise<TrustSafetyReportReceipt>;
 }
 
 export interface InMemoryFoundPetReportRepositoryOptions {
   mediaAdapter?: PetProfileMediaAdapter;
   now?: () => string;
   publicWebBaseUrl?: string;
+  trustSafety?: TrustSafetyRepository;
 }
 
 const defaultPublicWebBaseUrl = "https://rastro.bo";
 const publicFoundReportPathPrefix = "/reportes/encontrados";
+
+export interface ReportFoundPetReportInput {
+  detail?: string;
+  reason: SubmitTrustSafetyReportInput["reason"];
+  reportId: string;
+}
 
 function publicFoundReportPathForId(reportId: string) {
   return `${publicFoundReportPathPrefix}/${encodeURIComponent(reportId)}`;
@@ -295,6 +312,8 @@ export function createInMemoryFoundPetReportRepository(
     options.mediaAdapter ?? createLocalPetProfileMediaAdapter();
   const now = options.now ?? (() => "2026-01-01T00:00:00.000Z");
   const publicWebBaseUrl = options.publicWebBaseUrl ?? defaultPublicWebBaseUrl;
+  const trustSafety =
+    options.trustSafety ?? createInMemoryTrustSafetyRepository({ now });
   const reports: FoundPetReport[] = [];
 
   return {
@@ -404,6 +423,16 @@ export function createInMemoryFoundPetReportRepository(
       } catch (error) {
         return rejectRepositoryError<FoundPetReport>(error);
       }
+    },
+    reportFoundPetReport(session, input) {
+      return trustSafety.submitReport({
+        detail: optionalTrimmed(input.detail),
+        reason: input.reason,
+        reporterMemberId:
+          session.kind === "member" ? session.memberId : undefined,
+        targetId: input.reportId,
+        targetType: "found_pet_report",
+      });
     },
   };
 }
@@ -623,4 +652,10 @@ function contactOptionNeedsWhatsappNumber(
   contactOption: FoundPetReportContactOption,
 ) {
   return contactOption.kind === "whatsapp" || contactOption.kind === "both";
+}
+
+function optionalTrimmed(value: string | undefined) {
+  const trimmed = value?.trim() ?? "";
+
+  return trimmed.length > 0 ? trimmed : undefined;
 }

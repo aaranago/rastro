@@ -154,6 +154,7 @@ describe("nearby Lost Pet Report discovery", () => {
     expect(viewModel.cards).toHaveLength(1);
     expect(viewModel.cards[0]).toMatchObject({
       publicLocationLabel: "Sopocachi · zona aproximada",
+      reportActionLabel: "Reportar",
       shareTarget: {
         message:
           "Ayuda a encontrar a Toby en Rastro: https://rastro.bo/reportes/perdidos/lost-report-1",
