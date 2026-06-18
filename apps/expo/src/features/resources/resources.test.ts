@@ -9,6 +9,48 @@ import { createStaticResourcesAdapter } from "./static-resources-adapter";
 import { rastroResourceFixtures } from "./static-resources-fixtures";
 
 describe("Resources directory", () => {
+  it("lets visitors and members browse Resource Providers without sign-in", () => {
+    const visitorViewModel = buildResourcesDirectoryViewModel({
+      providers: rastroResourceFixtures.providers,
+      location: {
+        kind: "current",
+        label: "La Paz",
+      },
+      mode: "list",
+      status: "ready",
+      viewer: {
+        kind: "visitor",
+      },
+    });
+    const memberViewModel = buildResourcesDirectoryViewModel({
+      providers: rastroResourceFixtures.providers,
+      location: {
+        kind: "current",
+        label: "La Paz",
+      },
+      mode: "list",
+      status: "ready",
+      viewer: {
+        kind: "member",
+      },
+    });
+
+    expect(visitorViewModel.access).toEqual({
+      audienceLabel: "Visitante",
+      canBrowse: true,
+      requiresSignIn: false,
+      signInCopy: undefined,
+    });
+    expect(memberViewModel.access).toEqual({
+      audienceLabel: "Miembro",
+      canBrowse: true,
+      requiresSignIn: false,
+      signInCopy: undefined,
+    });
+    expect(visitorViewModel.results.length).toBeGreaterThan(0);
+    expect(memberViewModel.results.length).toBeGreaterThan(0);
+  });
+
   it("filters providers by category and labels a manual Bolivia search", () => {
     const viewModel = buildResourcesDirectoryViewModel({
       providers: rastroResourceFixtures.providers,
@@ -27,6 +69,56 @@ describe("Resources directory", () => {
       "Clínica Veterinaria San Roque",
       "Consultorio Dra. Marta Gómez",
     ]);
+  });
+
+  it("uses shared Rastro/PostGIS search boundary copy for list and map views", () => {
+    const listViewModel = buildResourcesDirectoryViewModel({
+      providers: rastroResourceFixtures.providers,
+      location: {
+        kind: "manual",
+        label: "Sopocachi, La Paz",
+      },
+      mode: "list",
+      status: "ready",
+    });
+    const mapViewModel = buildResourcesDirectoryViewModel({
+      providers: rastroResourceFixtures.providers,
+      location: {
+        kind: "manual",
+        label: "Sopocachi, La Paz",
+      },
+      mode: "map",
+      status: "ready",
+    });
+
+    expect(listViewModel.searchBoundary).toEqual({
+      title: "Búsqueda Rastro/PostGIS",
+      body: "Lista y mapa usan el mismo radio de Rastro; el mapa solo orienta la zona.",
+      precisionLabel: "Zonas aproximadas en Bolivia",
+    });
+    expect(mapViewModel.searchBoundary).toEqual(listViewModel.searchBoundary);
+  });
+
+  it("presents resources as a distinct local directory, not recovery reports", () => {
+    const viewModel = buildResourcesDirectoryViewModel({
+      providers: rastroResourceFixtures.providers,
+      location: {
+        kind: "current",
+        label: "La Paz",
+      },
+      mode: "list",
+      status: "ready",
+    });
+
+    expect(viewModel.presentation).toEqual({
+      sectionLabel: "Directorio de servicios",
+      resultKindLabel: "Proveedor local",
+      recoverySeparationCopy:
+        "Estos recursos no son reportes de recuperación ni cambian la prioridad de mascotas perdidas.",
+    });
+    expect(viewModel.presentation.recoverySeparationCopy).not.toMatch(
+      /perdida cerca|avistamiento|encontrada/i,
+    );
   });
 
   it("labels sponsored placements without implying recovery priority or push notifications", () => {
@@ -53,6 +145,73 @@ describe("Resources directory", () => {
     expect(sponsoredProvider?.sponsorDisclosure).not.toMatch(
       /push|notific|prioridad de recuperaci[oó]n/i,
     );
+  });
+
+  it("describes empty, denied-location, offline, and error notices with Spanish actions", () => {
+    const empty = buildResourcesDirectoryViewModel({
+      providers: [],
+      location: {
+        kind: "manual",
+        label: "Oruro",
+      },
+      mode: "list",
+      status: "ready",
+    });
+    const denied = buildResourcesDirectoryViewModel({
+      providers: rastroResourceFixtures.providers,
+      location: {
+        kind: "denied",
+      },
+      mode: "list",
+      status: "ready",
+    });
+    const offline = buildResourcesDirectoryViewModel({
+      providers: rastroResourceFixtures.providers,
+      location: {
+        kind: "last",
+        label: "Sucre",
+      },
+      mode: "list",
+      status: "ready",
+      isOffline: true,
+    });
+    const error = buildResourcesDirectoryViewModel({
+      providers: [],
+      location: {
+        kind: "manual",
+        label: "Cochabamba",
+      },
+      mode: "map",
+      status: "error",
+      errorMessage: "Falló la búsqueda de Rastro.",
+    });
+
+    expect(empty.notice).toEqual({
+      title: "No hay servicios cerca",
+      body: "Intenta buscar en otra ubicación o ampliar el radio dentro de Bolivia.",
+      actions: [
+        { kind: "manual_search", label: "Buscar en otra zona" },
+        { kind: "show_all", label: "Ver todos los recursos" },
+      ],
+    });
+    expect(denied.notice).toEqual({
+      title: "Busca por zona",
+      body: "Sin permiso de ubicación, usa una ciudad, barrio o punto manual en Bolivia.",
+      actions: [
+        { kind: "manual_search", label: "Buscar zona manual" },
+        { kind: "use_current_location", label: "Usar ubicación" },
+      ],
+    });
+    expect(offline.notice).toEqual({
+      title: "Sin conexión",
+      body: "Mostrando recursos guardados si están disponibles. La búsqueda se actualizará cuando vuelva internet.",
+      actions: [{ kind: "retry", label: "Reintentar" }],
+    });
+    expect(error.notice).toEqual({
+      title: "No pudimos cargar recursos",
+      body: "Falló la búsqueda de Rastro.",
+      actions: [{ kind: "retry", label: "Reintentar" }],
+    });
   });
 
   it("omits missing provider profile optional fields without leaving empty sections", () => {
@@ -117,7 +276,7 @@ describe("Resources directory", () => {
     });
   });
 
-  it("describes current, last, denied, and offline search states", () => {
+  it("describes current, last, manual, denied, and offline search states", () => {
     const currentLocation = buildResourcesDirectoryViewModel({
       providers: rastroResourceFixtures.providers,
       location: {
@@ -132,6 +291,15 @@ describe("Resources directory", () => {
       location: {
         kind: "last",
         label: "Santa Cruz de la Sierra",
+      },
+      mode: "list",
+      status: "ready",
+    });
+    const manualLocation = buildResourcesDirectoryViewModel({
+      providers: rastroResourceFixtures.providers,
+      location: {
+        kind: "manual",
+        label: "Tarija",
       },
       mode: "list",
       status: "ready",
@@ -156,11 +324,26 @@ describe("Resources directory", () => {
     });
 
     expect(currentLocation.location.label).toBe("Cerca de Cochabamba");
+    expect(currentLocation.location.helper).toBe(
+      "Búsqueda por radio PostGIS de Rastro en Bolivia.",
+    );
     expect(lastLocation.location.label).toBe(
       "Última ubicación: Santa Cruz de la Sierra",
     );
+    expect(lastLocation.location.helper).toBe(
+      "Usa la última zona guardada; puedes actualizarla o buscar otra zona de Bolivia.",
+    );
+    expect(manualLocation.location).toEqual({
+      kind: "manual",
+      label: "Buscando en Tarija",
+      helper: "Búsqueda manual dentro de Bolivia con radio PostGIS de Rastro.",
+    });
     expect(deniedLocation).toMatchObject({
       state: "location_denied",
+      location: {
+        label: "Ubicación desactivada",
+        helper: "Busca una ciudad, zona o punto manual en Bolivia.",
+      },
       notice: {
         title: "Busca por zona",
       },

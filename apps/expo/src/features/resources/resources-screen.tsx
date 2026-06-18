@@ -33,6 +33,10 @@ import { createStaticResourcesAdapter } from "./static-resources-adapter";
 
 const defaultResourcesAdapter = createStaticResourcesAdapter();
 
+type ResourceNoticeAction = NonNullable<
+  NonNullable<ResourcesDirectoryViewModel["notice"]>["actions"]
+>[number];
+
 interface ResourcesScreenProps {
   adapter?: ResourcesAdapter;
   initialLocation?: ResourceSearchLocation;
@@ -163,6 +167,28 @@ export function ResourcesScreen({
     });
   }, []);
 
+  const handleNoticeAction = useCallback(
+    (kind: ResourceNoticeAction["kind"]) => {
+      if (kind === "manual_search") {
+        onManualSearchPress?.();
+        return;
+      }
+
+      if (kind === "show_all") {
+        setSelectedCategoryIds([]);
+        return;
+      }
+
+      if (kind === "use_current_location") {
+        handleUseCurrentLocation();
+        return;
+      }
+
+      handleRefresh();
+    },
+    [handleRefresh, handleUseCurrentLocation, onManualSearchPress],
+  );
+
   const renderProvider = useCallback(
     ({ item }: LegendListRenderItemProps<ResourceProviderSummaryViewModel>) => (
       <ResourceProviderCard
@@ -196,6 +222,7 @@ export function ResourcesScreen({
       onUseCurrentLocationPress={handleUseCurrentLocation}
       onSelectAllCategories={handleSelectAllCategories}
       onToggleCategory={handleToggleCategory}
+      onNoticeAction={handleNoticeAction}
     />
   );
 
@@ -216,8 +243,8 @@ export function ResourcesScreen({
                 viewModel.notice?.body ??
                 "Prueba con otra ubicación o cambia los filtros."
               }
-              primaryActionLabel="Buscar otra zona"
-              onPrimaryAction={onManualSearchPress}
+              actions={viewModel.notice?.actions}
+              onAction={handleNoticeAction}
             />
           ) : null
         }
@@ -239,6 +266,7 @@ function ResourcesHeader({
   onUseCurrentLocationPress,
   onSelectAllCategories,
   onToggleCategory,
+  onNoticeAction,
 }: {
   viewModel: ResourcesDirectoryViewModel;
   mode: ResourcesDirectoryMode;
@@ -248,6 +276,7 @@ function ResourcesHeader({
   onUseCurrentLocationPress: () => void;
   onSelectAllCategories: () => void;
   onToggleCategory: (categoryId: ResourceCategoryId) => void;
+  onNoticeAction: (kind: ResourceNoticeAction["kind"]) => void;
 }) {
   const renderCategory = useCallback(
     ({ item }: LegendListRenderItemProps<ResourceCategoryOption>) => (
@@ -316,6 +345,10 @@ function ResourcesHeader({
         </Pressable>
       </View>
 
+      <DirectoryPresentation viewModel={viewModel} />
+
+      <SearchBoundaryPanel viewModel={viewModel} />
+
       <View style={styles.segmented}>
         <ModeButton
           label="Lista"
@@ -375,18 +408,64 @@ function ResourcesHeader({
         <ResourcesStatePanel
           title={viewModel.notice.title}
           body={viewModel.notice.body}
-          primaryActionLabel={
-            viewModel.state === "location_denied"
-              ? "Buscar zona manual"
-              : undefined
-          }
-          secondaryActionLabel={
-            viewModel.state === "location_denied" ? "Usar ubicación" : undefined
-          }
-          onPrimaryAction={onManualSearchPress}
-          onSecondaryAction={onUseCurrentLocationPress}
+          actions={viewModel.notice.actions}
+          onAction={onNoticeAction}
         />
       ) : null}
+    </View>
+  );
+}
+
+function DirectoryPresentation({
+  viewModel,
+}: {
+  viewModel: ResourcesDirectoryViewModel;
+}) {
+  return (
+    <View style={styles.directoryPanel}>
+      <View style={styles.directoryHeaderRow}>
+        <Text selectable style={styles.directoryLabel}>
+          {viewModel.presentation.sectionLabel}
+        </Text>
+        <Text selectable style={styles.directoryAccessLabel}>
+          {viewModel.access.requiresSignIn
+            ? "Requiere iniciar sesión"
+            : "Disponible sin iniciar sesión"}
+        </Text>
+      </View>
+      <Text selectable style={styles.directoryTitle}>
+        {viewModel.presentation.resultKindLabel}
+      </Text>
+      <Text selectable style={styles.directoryBody}>
+        {viewModel.presentation.recoverySeparationCopy}
+      </Text>
+    </View>
+  );
+}
+
+function SearchBoundaryPanel({
+  viewModel,
+}: {
+  viewModel: ResourcesDirectoryViewModel;
+}) {
+  return (
+    <View style={styles.boundaryPanel}>
+      <View style={styles.boundaryTitleRow}>
+        <Image
+          source="sf:scope"
+          style={styles.boundaryIcon}
+          tintColor={resourcesColors.tertiary}
+        />
+        <Text selectable style={styles.boundaryTitle}>
+          {viewModel.searchBoundary.title}
+        </Text>
+      </View>
+      <Text selectable style={styles.boundaryBody}>
+        {viewModel.searchBoundary.body}
+      </Text>
+      <Text selectable style={styles.boundaryPrecision}>
+        {viewModel.searchBoundary.precisionLabel}
+      </Text>
     </View>
   );
 }
@@ -495,11 +574,11 @@ function ResourcesMapPreview({
       </View>
       <View style={styles.mapPanel}>
         <Text selectable style={styles.mapTitle}>
-          Vista de mapa
+          {viewModel.searchBoundary.title}
         </Text>
         <Text selectable style={styles.mapCopy}>
-          {viewModel.results.length} recursos por radio PostGIS. Las zonas son
-          aproximadas.
+          {viewModel.results.length} recursos. {viewModel.searchBoundary.body}{" "}
+          {viewModel.searchBoundary.precisionLabel}.
         </Text>
       </View>
     </View>
@@ -509,17 +588,13 @@ function ResourcesMapPreview({
 function ResourcesStatePanel({
   title,
   body,
-  primaryActionLabel,
-  secondaryActionLabel,
-  onPrimaryAction,
-  onSecondaryAction,
+  actions,
+  onAction,
 }: {
   title: string;
   body: string;
-  primaryActionLabel?: string;
-  secondaryActionLabel?: string;
-  onPrimaryAction?: () => void;
-  onSecondaryAction?: () => void;
+  actions?: readonly ResourceNoticeAction[];
+  onAction?: (kind: ResourceNoticeAction["kind"]) => void;
 }) {
   return (
     <View style={styles.statePanel}>
@@ -529,37 +604,51 @@ function ResourcesStatePanel({
       <Text selectable style={styles.stateBody}>
         {body}
       </Text>
-      {primaryActionLabel ? (
+      {actions !== undefined && actions.length > 0 ? (
         <View style={styles.stateActions}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={onPrimaryAction}
-            style={({ pressed }) => [
-              styles.statePrimaryButton,
-              pressed ? styles.pressed : null,
-            ]}
-          >
-            <Text selectable style={styles.statePrimaryText}>
-              {primaryActionLabel}
-            </Text>
-          </Pressable>
-          {secondaryActionLabel ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={onSecondaryAction}
-              style={({ pressed }) => [
-                styles.stateSecondaryButton,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Text selectable style={styles.stateSecondaryText}>
-                {secondaryActionLabel}
-              </Text>
-            </Pressable>
-          ) : null}
+          {actions.map((action, index) => (
+            <StateActionButton
+              key={action.kind}
+              action={action}
+              isPrimary={index === 0}
+              onAction={onAction}
+            />
+          ))}
         </View>
       ) : null}
     </View>
+  );
+}
+
+function StateActionButton({
+  action,
+  isPrimary,
+  onAction,
+}: {
+  action: ResourceNoticeAction;
+  isPrimary: boolean;
+  onAction?: (kind: ResourceNoticeAction["kind"]) => void;
+}) {
+  const handlePress = useCallback(() => {
+    onAction?.(action.kind);
+  }, [action.kind, onAction]);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={handlePress}
+      style={({ pressed }) => [
+        isPrimary ? styles.statePrimaryButton : styles.stateSecondaryButton,
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      <Text
+        selectable
+        style={isPrimary ? styles.statePrimaryText : styles.stateSecondaryText}
+      >
+        {action.label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -668,6 +757,87 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
     fontWeight: "600",
+  },
+  directoryPanel: {
+    gap: 8,
+    borderRadius: 18,
+    borderCurve: "continuous",
+    borderWidth: 1,
+    borderColor: resourcesColors.border,
+    backgroundColor: resourcesColors.surface,
+    padding: 14,
+    boxShadow: resourcesShadow.soft,
+  },
+  directoryHeaderRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+  },
+  directoryLabel: {
+    borderRadius: 999,
+    overflow: "hidden",
+    backgroundColor: resourcesColors.primarySoft,
+    color: resourcesColors.primary,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: "900",
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  directoryAccessLabel: {
+    color: resourcesColors.secondary,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "800",
+  },
+  directoryTitle: {
+    color: resourcesColors.text,
+    fontSize: 18,
+    lineHeight: 22,
+    fontWeight: "900",
+  },
+  directoryBody: {
+    color: resourcesColors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  boundaryPanel: {
+    gap: 7,
+    borderRadius: 18,
+    borderCurve: "continuous",
+    borderWidth: 1,
+    borderColor: "#C9DDEB",
+    backgroundColor: "#F1F7FB",
+    padding: 14,
+  },
+  boundaryTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  boundaryIcon: {
+    width: 16,
+    height: 16,
+  },
+  boundaryTitle: {
+    flex: 1,
+    color: resourcesColors.tertiary,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: "900",
+  },
+  boundaryBody: {
+    color: resourcesColors.text,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "600",
+  },
+  boundaryPrecision: {
+    color: resourcesColors.muted,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "800",
   },
   iconButton: {
     width: 52,

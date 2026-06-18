@@ -58,6 +58,9 @@ export interface ResourcesDirectoryViewModelInput {
   location: ResourceSearchLocation;
   mode: ResourcesDirectoryMode;
   status: ResourcesDirectoryStatus;
+  viewer?: {
+    kind: "visitor" | "member";
+  };
   isOffline?: boolean;
   errorMessage?: string;
 }
@@ -96,12 +99,32 @@ export interface ResourcesDirectoryViewModel {
     label: string;
     helper: string;
   };
+  access: {
+    audienceLabel: string;
+    canBrowse: boolean;
+    requiresSignIn: boolean;
+    signInCopy: string | undefined;
+  };
+  searchBoundary: {
+    title: string;
+    body: string;
+    precisionLabel: string;
+  };
+  presentation: {
+    sectionLabel: string;
+    resultKindLabel: string;
+    recoverySeparationCopy: string;
+  };
   categories: (ResourceCategoryOption & { isSelected: boolean })[];
   selectedCategoryLabels: string[];
   results: ResourceProviderSummaryViewModel[];
   notice?: {
     title: string;
     body: string;
+    actions?: {
+      kind: "manual_search" | "show_all" | "use_current_location" | "retry";
+      label: string;
+    }[];
   };
 }
 
@@ -168,6 +191,9 @@ export function buildResourcesDirectoryViewModel(
     state,
     title: input.mode === "map" ? "Recursos en mapa" : "Recursos cerca",
     location,
+    access: buildAccessViewModel(input.viewer?.kind ?? "visitor"),
+    searchBoundary: buildSearchBoundaryViewModel(),
+    presentation: buildPresentationViewModel(),
     categories,
     selectedCategoryLabels,
     results,
@@ -225,6 +251,32 @@ export function buildResourceProviderProfileViewModel(
       label: "Reportar perfil",
       providerId: profile.id,
     },
+  };
+}
+
+function buildAccessViewModel(viewerKind: "visitor" | "member") {
+  return {
+    audienceLabel: viewerKind === "member" ? "Miembro" : "Visitante",
+    canBrowse: true,
+    requiresSignIn: false,
+    signInCopy: undefined,
+  };
+}
+
+function buildSearchBoundaryViewModel() {
+  return {
+    title: "Búsqueda Rastro/PostGIS",
+    body: "Lista y mapa usan el mismo radio de Rastro; el mapa solo orienta la zona.",
+    precisionLabel: "Zonas aproximadas en Bolivia",
+  };
+}
+
+function buildPresentationViewModel() {
+  return {
+    sectionLabel: "Directorio de servicios",
+    resultKindLabel: "Proveedor local",
+    recoverySeparationCopy:
+      "Estos recursos no son reportes de recuperación ni cambian la prioridad de mascotas perdidas.",
   };
 }
 
@@ -329,7 +381,7 @@ function buildLocationViewModel(location: ResourceSearchLocation) {
       label: location.label
         ? `Cerca de ${location.label}`
         : "Usando tu ubicación actual",
-      helper: "Búsqueda por radio con ubicación de Rastro.",
+      helper: "Búsqueda por radio PostGIS de Rastro en Bolivia.",
     };
   }
 
@@ -337,7 +389,8 @@ function buildLocationViewModel(location: ResourceSearchLocation) {
     return {
       kind: location.kind,
       label: `Última ubicación: ${location.label}`,
-      helper: "Puedes actualizarla o buscar otra zona de Bolivia.",
+      helper:
+        "Usa la última zona guardada; puedes actualizarla o buscar otra zona de Bolivia.",
     };
   }
 
@@ -345,7 +398,7 @@ function buildLocationViewModel(location: ResourceSearchLocation) {
     return {
       kind: location.kind,
       label: `Buscando en ${location.label}`,
-      helper: "Búsqueda manual dentro de Bolivia.",
+      helper: "Búsqueda manual dentro de Bolivia con radio PostGIS de Rastro.",
     };
   }
 
@@ -406,27 +459,37 @@ function buildDirectoryNotice(
     return {
       title: "No pudimos cargar recursos",
       body: errorMessage ?? "Reintenta en unos segundos.",
+      actions: [{ kind: "retry", label: "Reintentar" }],
     };
   }
 
   if (state === "location_denied") {
     return {
       title: "Busca por zona",
-      body: "Sin permiso de ubicación, puedes buscar ciudad, barrio o marcar un punto manual.",
+      body: "Sin permiso de ubicación, usa una ciudad, barrio o punto manual en Bolivia.",
+      actions: [
+        { kind: "manual_search", label: "Buscar zona manual" },
+        { kind: "use_current_location", label: "Usar ubicación" },
+      ],
     };
   }
 
   if (state === "offline") {
     return {
       title: "Sin conexión",
-      body: "Mostrando recursos guardados. Reintenta cuando vuelvas a tener internet.",
+      body: "Mostrando recursos guardados si están disponibles. La búsqueda se actualizará cuando vuelva internet.",
+      actions: [{ kind: "retry", label: "Reintentar" }],
     };
   }
 
   if (state === "empty") {
     return {
       title: "No hay servicios cerca",
-      body: "Prueba con otra ubicación o cambia los filtros.",
+      body: "Intenta buscar en otra ubicación o ampliar el radio dentro de Bolivia.",
+      actions: [
+        { kind: "manual_search", label: "Buscar en otra zona" },
+        { kind: "show_all", label: "Ver todos los recursos" },
+      ],
     };
   }
 

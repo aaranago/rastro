@@ -1,6 +1,6 @@
 # Build Resources directory with nearby provider search
 
-Status: ready-for-agent
+Status: complete
 Type: AFK
 
 ## Parent
@@ -13,12 +13,12 @@ Build the `Recursos` tab as a useful nearby local directory for pet-related serv
 
 ## Acceptance criteria
 
-- [ ] Visitors and members can browse nearby Resource Providers.
-- [ ] Categories include vets, shelters/rescues, groomers, pet food, trainers, pet stores, transport, and other.
-- [ ] Search works by current/last location and manual Bolivia place/map-pin search.
-- [ ] Results use PostGIS-backed location search.
-- [ ] Resource results are visually distinct from recovery reports.
-- [ ] Empty, denied-location, and offline states are handled.
+- [x] Visitors and members can browse nearby Resource Providers.
+- [x] Categories include vets, shelters/rescues, groomers, pet food, trainers, pet stores, transport, and other.
+- [x] Search works by current/last location and manual Bolivia place/map-pin search.
+- [x] Results use PostGIS-backed location search.
+- [x] Resource results are visually distinct from recovery reports.
+- [x] Empty, denied-location, and offline states are handled.
 
 ## Blocked by
 
