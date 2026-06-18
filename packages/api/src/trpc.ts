@@ -11,6 +11,7 @@ import superjson from "superjson";
 import { z, ZodError } from "zod/v4";
 
 import type { Auth } from "@acme/auth";
+import type { Database } from "@acme/db/client";
 import { db } from "@acme/db/client";
 
 /**
@@ -29,7 +30,11 @@ import { db } from "@acme/db/client";
 export const createTRPCContext = async (opts: {
   headers: Headers;
   auth: Auth;
-}) => {
+}): Promise<{
+  authApi: Auth["api"];
+  db: Database;
+  session: Awaited<ReturnType<Auth["api"]["getSession"]>>;
+}> => {
   const authApi = opts.auth.api;
   const session = await authApi.getSession({
     headers: opts.headers,

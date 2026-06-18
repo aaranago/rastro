@@ -1,0 +1,136 @@
+{
+  "workspaces": {
+    "patterns": ["apps/*", "packages/*", "tooling/*"]
+  },
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/.cache/**",
+    "**/.expo/**",
+    "**/.next/**",
+    "**/.turbo/**",
+    "**/android/**",
+    "**/coverage/**",
+    "**/dist/**",
+    "**/ios/**",
+    "**/*.d.ts",
+    ".scratch/ui-draft/**",
+    "apps/tanstack-start/src/routeTree.gen.ts",
+    "docs/screens/**/mocks/**",
+    "packages/db/src/auth-schema.ts"
+  ],
+  "ignoreDependencies": [
+    "@better-auth/cli",
+    "@turbo/gen",
+    "dotenv-cli",
+    "drizzle-kit",
+    "expo-dev-client",
+    "expo-splash-screen",
+    "expo-system-ui",
+    "fallow",
+    "react-native-gesture-handler",
+    "react-native-reanimated",
+    "react-native-worklets",
+    "turbo"
+  ],
+  "publicPackages": [
+    "@acme/api",
+    "@acme/auth",
+    "@acme/db",
+    "@acme/eslint-config",
+    "@acme/prettier-config",
+    "@acme/tailwind-config",
+    "@acme/ui",
+    "@acme/validators"
+  ],
+  "rules": {
+    "unused-files": "warn",
+    "unused-exports": "warn",
+    "unused-types": "warn",
+    "private-type-leaks": "warn",
+    "unused-dependencies": "warn",
+    "unused-dev-dependencies": "warn",
+    "unused-optional-dependencies": "warn",
+    "unused-enum-members": "warn",
+    "unused-class-members": "warn",
+    "duplicate-exports": "warn",
+    "type-only-dependencies": "warn",
+    "test-only-dependencies": "warn",
+    "circular-dependencies": "warn",
+    "re-export-cycle": "warn",
+    "boundary-violation": "warn",
+    "coverage-gaps": "off",
+    "unresolved-imports": "error",
+    "unlisted-dependencies": "error",
+    "unresolved-catalog-references": "error",
+    "misconfigured-dependency-overrides": "error",
+    "route-collision": "error",
+    "dynamic-segment-name-conflict": "error"
+  },
+  "duplicates": {
+    "enabled": true,
+    "mode": "mild",
+    "minTokens": 90,
+    "minLines": 8,
+    "minOccurrences": 2,
+    "ignore": [
+      "**/*.test.*",
+      "**/*.spec.*",
+      "**/__mocks__/**",
+      "**/__tests__/**",
+      "**/mocks/**",
+      "**/*.gen.*",
+      "apps/tanstack-start/src/routeTree.gen.ts",
+      "packages/db/src/auth-schema.ts"
+    ],
+    "ignoreDefaults": true,
+    "ignoreImports": true
+  },
+  "health": {
+    "maxCyclomatic": 25,
+    "maxCognitive": 20,
+    "maxCrap": 45,
+    "ignore": [
+      "**/*.test.*",
+      "**/*.spec.*",
+      "**/__mocks__/**",
+      "**/__tests__/**",
+      "**/mocks/**",
+      "**/*.gen.*",
+      "apps/tanstack-start/src/routeTree.gen.ts",
+      "packages/db/src/auth-schema.ts"
+    ],
+    "suggestInlineSuppression": false
+  },
+  "audit": {
+    "gate": "new-only",
+    "cacheMaxAgeDays": 7
+  },
+  "cache": {
+    "dir": ".cache/fallow",
+    "maxSizeMb": 250
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.spec.ts",
+        "**/*.spec.tsx",
+        "**/__mocks__/**",
+        "**/__tests__/**"
+      ],
+      "rules": {
+        "unused-files": "off",
+        "unused-exports": "off",
+        "unused-types": "off",
+        "unused-enum-members": "off",
+        "unused-class-members": "off",
+        "duplicate-exports": "off",
+        "type-only-dependencies": "off",
+        "test-only-dependencies": "off",
+        "circular-dependencies": "off",
+        "boundary-violation": "off"
+      }
+    }
+  ]
+}
