@@ -96,6 +96,85 @@ Do not enable `experiments.reactCanary` for the normal development app. It opts 
 
 Until this is set, Android commands that need an installed package id may need the placeholder package from the current config.
 
+## Auth/API Backend For Mobile QA
+
+Rastro mobile auth uses Better Auth through the Next.js API route at `/api/auth/*`. The Expo app can launch without that backend, but email/password sign-in and account creation will fail with `Network request failed` until the backend is running and reachable from the device. In the installed Better Auth version, the public session check used by the Expo client is `/api/auth/get-session`.
+
+Prepare local env and database once per checkout:
+
+```bash
+cp -n .env.example .env
+# Edit .env if your local Postgres URL, auth secret, or port differ.
+pnpm install
+pnpm db:push
+```
+
+Start the auth/API backend in its own terminal before launching the mobile app:
+
+```bash
+pnpm -F @acme/nextjs with-env next dev --hostname 0.0.0.0 --port 3000
+```
+
+Keep `BETTER_AUTH_URL=http://localhost:3000` for local Better Auth callbacks. Use `EXPO_PUBLIC_API_BASE_URL` for the API origin that the mobile runtime can reach:
+
+```bash
+# Android emulator: 10.0.2.2 is the emulator alias for the host machine.
+export EXPO_PUBLIC_API_BASE_URL="http://10.0.2.2:3000"
+
+# Physical device: use the host's LAN IP on the same network.
+export EXPO_PUBLIC_API_BASE_URL="http://<host-lan-ip>:3000"
+```
+
+Find the host LAN IP on Linux with:
+
+```bash
+hostname -I | awk '{print $1}'
+```
+
+Set `EXPO_PUBLIC_API_BASE_URL` explicitly for release-like builds, physical-device testing, and any emulator run where the fallback is ambiguous. If it is not set, `apps/expo/src/utils/base-url.ts` reads Expo's `hostUri`, removes the Metro port, and falls back to `http://<metro-host>:3000`. That fallback only works when the Next.js backend is also reachable on the same host and port. Restart Metro or the dev-client command after changing `EXPO_PUBLIC_API_BASE_URL`, because Expo reads it during app config evaluation.
+
+Before opening the auth prompt, run the backend smoke check from the host:
+
+```bash
+MOBILE_AUTH_API_BASE_URL="http://127.0.0.1:3000" scripts/mobile-auth-backend-smoke.sh
+```
+
+For a physical-device run, also verify the LAN URL that the device will use:
+
+```bash
+MOBILE_AUTH_API_BASE_URL="http://<host-lan-ip>:3000" scripts/mobile-auth-backend-smoke.sh
+```
+
+If the backend is not running or the URL points at the wrong host, the smoke check exits non-zero and prints the unreachable `/api/auth/get-session` URL. If the route is reachable, it prints the HTTP status from the Better Auth session endpoint.
+
+For Android emulator validation, the host smoke check should use `127.0.0.1`; the app should use `10.0.2.2`. To manually verify the emulator can reach the same session endpoint, open it in the emulator browser:
+
+```bash
+adb shell am start -a android.intent.action.VIEW -d "http://10.0.2.2:3000/api/auth/get-session"
+```
+
+The browser should show a Better Auth session response, usually `null` when no member is signed in. A browser connection error means the app will also show `Network request failed`.
+
+Use a unique QA member for account-creation validation:
+
+```bash
+export RASTRO_QA_EMAIL="qa+mobile-$(date +%Y%m%d%H%M%S)@example.com"
+export RASTRO_QA_PASSWORD="RastroQa123!"
+```
+
+In the protected `Reportar perdida` auth prompt:
+
+- invalid sign-in with `qa.invalid@example.com` and `wrongpassword` should return a credential-specific Better Auth error, not `Network request failed`;
+- creating an account with `$RASTRO_QA_EMAIL` and `$RASTRO_QA_PASSWORD` should either create a member session or return a specific backend validation error, such as duplicate email or password policy failure.
+
+Clean up QA members created with the documented email pattern:
+
+```bash
+scripts/mobile-auth-qa-cleanup.sh
+```
+
+Deleting matching rows from `user` also removes related Better Auth `session` and `account` rows through the auth schema cascade. Do not run this cleanup for personal test accounts or provider accounts.
+
 ## EAS CLI Setup
 
 This repo does not assume `eas` is installed globally. If `eas init` prints `Command 'eas' not found`, use the one-off CLI command instead:
@@ -153,7 +232,7 @@ For native permission, push notification, or development-client testing:
 
 ```bash
 pnpm -F @acme/expo android
-pnpm -F @acme/expo exec expo start --dev-client --clear
+EXPO_PUBLIC_API_BASE_URL="http://10.0.2.2:3000" pnpm -F @acme/expo exec expo start --dev-client --clear
 ```
 
 After adding or updating any dependency with native code, regenerate and rebuild the native app:
@@ -166,7 +245,7 @@ pnpm -F @acme/expo exec expo run:android --no-build-cache
 After the development build is installed, regular JS-only edits only need:
 
 ```bash
-pnpm -F @acme/expo exec expo start --dev-client
+EXPO_PUBLIC_API_BASE_URL="http://10.0.2.2:3000" pnpm -F @acme/expo exec expo start --dev-client
 ```
 
 ## Agent QA Artifact Folder
