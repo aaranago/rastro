@@ -1,26 +1,44 @@
 import Constants from "expo-constants";
 
 /**
- * Extend this function when going to production by
- * setting the baseUrl to your production API URL.
+ * Resolve the API origin used by the Expo tRPC and Better Auth clients.
+ * Release-like builds should set EXPO_PUBLIC_API_BASE_URL through app config;
+ * local Expo development can fall back to the Metro host.
  */
 export const getBaseUrl = () => {
-  /**
-   * Gets the IP address of your host-machine. If it cannot automatically find it,
-   * you'll have to manually set it. NOTE: Port 3000 should work for most but confirm
-   * you don't have anything else running on it, or you'd have to change it.
-   *
-   * **NOTE**: This is only for development. In production, you'll want to set the
-   * baseUrl to your production API URL.
-   */
+  const explicitBaseUrl = getExplicitBaseUrl();
+
+  if (explicitBaseUrl) {
+    return explicitBaseUrl;
+  }
+
   const debuggerHost = Constants.expoConfig?.hostUri;
   const localhost = debuggerHost?.split(":")[0];
 
   if (!localhost) {
-    // return "https://turbo.t3.gg";
     throw new Error(
-      "Failed to get localhost. Please point to your production server.",
+      "Missing Expo API base URL. Set EXPO_PUBLIC_API_BASE_URL for release-like builds or run Expo with a development host URI.",
     );
   }
   return `http://${localhost}:3000`;
 };
+
+function getExplicitBaseUrl(): string | undefined {
+  const extra = Constants.expoConfig?.extra;
+
+  if (!isRecord(extra)) {
+    return undefined;
+  }
+
+  const apiBaseUrl = extra.apiBaseUrl;
+
+  if (typeof apiBaseUrl !== "string" || apiBaseUrl.trim() === "") {
+    return undefined;
+  }
+
+  return apiBaseUrl;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}

@@ -1,9 +1,36 @@
+import * as React from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { buildChatScreenViewModel } from "./chat-screen";
+import type { ChatConversation, ChatSubject } from "./chat-model";
+import type { ChatScreenRepository } from "./chat-screen";
+import {
+  buildChatScreenViewModel,
+  ChatScreen,
+  openChatSubjectHref,
+} from "./chat-screen";
+
+vi.mock("react", async () => {
+  const actual = await vi.importActual("react");
+
+  return {
+    ...actual,
+    useCallback: <TCallback>(callback: TCallback) => callback,
+    useEffect: () => undefined,
+    useMemo: <TValue>(factory: () => TValue) => factory(),
+    useState: <TValue>(initialValue: TValue | (() => TValue)) => [
+      typeof initialValue === "function"
+        ? (initialValue as () => TValue)()
+        : initialValue,
+      () => undefined,
+    ],
+  };
+});
 
 vi.mock("expo-router", () => ({
   useFocusEffect: () => undefined,
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
 }));
 
 vi.mock("~/features/chat/chat-model", async () =>
@@ -87,4 +114,136 @@ describe("ChatScreen view model", () => {
       expect(renderedCopy).not.toContain(forbiddenCopy);
     }
   });
+
+  it("opens internal report subject links with injected navigation instead of external Linking", () => {
+    const openExternalUrl = vi.fn();
+    const routerPush = vi.fn();
+    const subject: ChatSubject = {
+      href: "rastro://reportes/encontrados/found-report-1",
+      id: "found-report-1",
+      kind: "found-pet-report",
+      subtitle: "Sopocachi",
+      title: "Perro encontrado",
+    };
+
+    openChatSubjectHref({
+      openExternalUrl,
+      routerPush,
+      subject,
+    });
+
+    expect(routerPush).toHaveBeenCalledWith(
+      "/reportes/encontrados/found-report-1",
+    );
+    expect(openExternalUrl).not.toHaveBeenCalled();
+  });
+
+  it("exposes the empty composer send button as disabled", () => {
+    const conversation = createChatConversation();
+    const repository = createStaticChatRepository(conversation);
+    const screen = renderFunctionElement(
+      ChatScreen({
+        conversationId: conversation.id,
+        initialConversation: conversation,
+        pollIntervalMs: 0,
+        repository,
+        viewerMemberId: "member-camila",
+      }),
+    );
+    const sendButton = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" && element.props.disabled === true,
+    );
+
+    expect(sendButton?.props.accessibilityLabel).toBe("Enviar");
+    expect(sendButton?.props.accessibilityRole).toBe("button");
+    expect(sendButton?.props.accessibilityState).toEqual({
+      busy: false,
+      disabled: true,
+    });
+  });
 });
+
+function createChatConversation(): ChatConversation {
+  return {
+    blockedMemberships: [],
+    createdAt: "2026-06-18T12:00:00.000Z",
+    hiddenByMemberIds: [],
+    id: "conversation-1",
+    messages: [],
+    participants: [
+      { displayName: "Camila", memberId: "member-camila" },
+      { displayName: "Diego", memberId: "member-diego" },
+    ],
+    reports: [],
+    subject: {
+      href: "rastro://reportes/perdidos/lost-report-1",
+      id: "lost-report-1",
+      kind: "lost-pet-report",
+      subtitle: "Sopocachi",
+      title: "Toby",
+    },
+    updatedAt: "2026-06-18T12:00:00.000Z",
+  };
+}
+
+function createStaticChatRepository(
+  conversation: ChatConversation,
+): ChatScreenRepository {
+  return {
+    blockMember: () => Promise.resolve(conversation),
+    getConversation: () => Promise.resolve(conversation),
+    getOrCreateConversation: () => Promise.resolve(conversation),
+    hideConversation: () => Promise.resolve(conversation),
+    listConversations: () => Promise.resolve([conversation]),
+    refreshConversation: () => Promise.resolve(conversation),
+    reportConversation: () => Promise.resolve(conversation),
+    sendMessage: () => Promise.resolve(conversation),
+  };
+}
+
+type ElementProps = Record<string, unknown> & {
+  children?: React.ReactNode;
+};
+
+type TestElement = React.ReactElement<ElementProps>;
+
+function renderFunctionElement(node: React.ReactNode): React.ReactNode {
+  if (!React.isValidElement<ElementProps>(node)) {
+    return node;
+  }
+
+  if (typeof node.type !== "function") {
+    return node;
+  }
+
+  const Component = node.type as (props: ElementProps) => React.ReactNode;
+
+  return Component(node.props);
+}
+
+function findElement(
+  node: React.ReactNode,
+  predicate: (element: TestElement) => boolean,
+): TestElement | undefined {
+  const rendered = renderFunctionElement(node);
+
+  if (!React.isValidElement<ElementProps>(rendered)) {
+    return undefined;
+  }
+
+  if (predicate(rendered)) {
+    return rendered;
+  }
+
+  for (const child of React.Children.toArray(rendered.props.children)) {
+    const found = findElement(child, predicate);
+
+    if (found) {
+      return found;
+    }
+  }
+
+  return undefined;
+}

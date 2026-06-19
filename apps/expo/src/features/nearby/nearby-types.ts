@@ -16,6 +16,13 @@ export type NearbyPublicReportKind =
   | "lost-pet-report"
   | "sighting-report";
 
+export const nearbyCategoryFilters = [
+  "lost-pet-report",
+  "found-pet-report",
+  "sighting-report",
+  "adoption-listing",
+] as const satisfies readonly NearbyPublicReportKind[];
+
 export type NearbyLocationSource = "current" | "last" | "manual";
 
 export type NearbyManualLocationKind = "place" | "map-pin";
@@ -138,6 +145,7 @@ export type NearbyPublicReportSummary =
   | SightingReportSummary;
 
 export interface NearbyLostReportsQuery {
+  categories?: readonly NearbyPublicReportKind[];
   location: NearbySearchLocation;
   radiusKm: NearbyRadiusKm;
   limit?: number;

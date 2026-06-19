@@ -1,3 +1,9 @@
+import type {
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  TextInputProps,
+} from "react-native";
 import * as React from "react";
 import {
   KeyboardAvoidingView,
@@ -12,15 +18,20 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useRouter, useSegments } from "expo-router";
 
 import type { ReportIntent } from "../../i18n";
 import type { ShellAuthActionResult, ShellAuthCredentials } from "./shell-auth";
 import type {
   ShellAuthPrompt,
+  ShellMemberCreationSession,
   ShellReportAction,
-  ShellSession,
 } from "./shell-model";
+import type {
+  ShellFirstRunTourCompletionReason,
+  ShellFirstRunTourModel,
+  ShellFirstRunTourStore,
+} from "./shell-onboarding";
 import { AdoptionListingCreationScreen } from "../adoption-listing-creation/adoption-listing-creation-screen";
 import { FoundReportCreationScreen } from "../found-report-creation/found-report-creation-screen";
 import { LostReportCreationScreen } from "../lost-report-creation/lost-report-creation-screen";
@@ -32,16 +43,48 @@ import {
 } from "../resources";
 import { SightingReportCreationScreen } from "../sighting-report-creation/sighting-report-creation-screen";
 import { prepareShellAuthCredentials } from "./shell-auth";
+import {
+  shouldShowGlobalFabForSegments,
+  toShellMemberCreationSession,
+} from "./shell-model";
+import {
+  createShellFirstRunTourModel,
+  createShellFirstRunTourStore,
+  loadShellFirstRunTourModel,
+} from "./shell-onboarding";
 import { useRastroShell } from "./shell-provider";
 import { reportIntentColors, shellColors } from "./shell-theme";
 
 interface IconProps {
   name: string;
   color: string;
+  fallback?: string;
   size?: number;
 }
 
-export function ShellIcon({ name, color, size = 22 }: IconProps) {
+type ShellAuthPromptAction = "create-account" | "sign-in";
+
+export function ShellIcon({ name, color, fallback, size = 22 }: IconProps) {
+  if (Platform.OS !== "ios" && fallback) {
+    return (
+      <Text
+        maxFontSizeMultiplier={1}
+        style={[
+          styles.iconFallback,
+          {
+            color,
+            fontSize: fallback.length > 1 ? Math.max(9, size * 0.34) : size,
+            height: size,
+            lineHeight: size,
+            width: size,
+          },
+        ]}
+      >
+        {fallback}
+      </Text>
+    );
+  }
+
   return (
     <Image
       source={`sf:${name}`}
@@ -69,14 +112,25 @@ export function ShellFabHost() {
   } = useRastroShell();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const segments = useSegments();
+  const shouldShowFab = shouldShowGlobalFabForSegments(segments);
+  const secureStorage = React.useMemo(
+    () => createExpoSecureStoreKeyValueStorage(),
+    [],
+  );
   const creationDraftStore = React.useMemo(
     () =>
       createCreationDraftStore({
-        storage: createExpoSecureStoreKeyValueStorage(),
+        storage: secureStorage,
       }),
-    [],
+    [secureStorage],
+  );
+  const firstRunTourStore = React.useMemo(
+    () => createShellFirstRunTourStore({ storage: secureStorage }),
+    [secureStorage],
   );
   const draftScopeId = session.kind === "member" ? session.id : undefined;
+  const memberCreationSession = toShellMemberCreationSession(session);
   const sponsorResourcesAdapter = React.useMemo(
     () => createStaticResourcesAdapter(),
     [],
@@ -101,20 +155,32 @@ export function ShellFabHost() {
 
   return (
     <>
-      <Pressable
-        accessibilityLabel={copy.shell.reportFabLabel}
-        accessibilityRole="button"
-        onPress={openReportActions}
-        style={({ pressed }) => [
-          styles.fab,
-          {
-            bottom: Math.max(insets.bottom, 12) + 76,
-            opacity: pressed ? 0.82 : 1,
-          },
-        ]}
-      >
-        <ShellIcon name="plus" color={shellColors.white} size={28} />
-      </Pressable>
+      {shouldShowFab ? (
+        <Pressable
+          accessibilityLabel={copy.shell.reportFabLabel}
+          accessibilityRole="button"
+          onPress={openReportActions}
+          style={({ pressed }) => [
+            styles.fab,
+            {
+              bottom: Math.max(insets.bottom, 12) + 76,
+              opacity: pressed ? 0.82 : 1,
+            },
+          ]}
+        >
+          <ShellIcon
+            name="plus"
+            color={shellColors.white}
+            fallback="+"
+            size={24}
+          />
+          <Text maxFontSizeMultiplier={1} style={styles.fabLabel}>
+            Reportar
+          </Text>
+        </Pressable>
+      ) : null}
+
+      <ShellFirstRunTourHost store={firstRunTourStore} />
 
       <ReportActionSheet
         actions={model.reportActions}
@@ -157,33 +223,252 @@ export function ShellFabHost() {
         onOpenSponsorPlacement={handleOpenSponsorPlacement}
         onReportSponsorPlacement={handleReportSponsorPlacement}
         onClose={clearMemberIntent}
-        visible={state.memberIntent?.intent === "lost"}
+        visible={
+          Boolean(memberCreationSession) &&
+          state.memberIntent?.intent === "lost"
+        }
       />
 
       <FoundReportCreationModal
         draftScopeId={draftScopeId}
         draftStore={creationDraftStore}
         onClose={clearMemberIntent}
-        session={session}
-        visible={state.memberIntent?.intent === "found"}
+        session={memberCreationSession}
+        visible={
+          Boolean(memberCreationSession) &&
+          state.memberIntent?.intent === "found"
+        }
       />
 
       <SightingReportStartModal
         draftScopeId={draftScopeId}
         draftStore={creationDraftStore}
         onClose={clearMemberIntent}
-        session={session}
-        visible={state.memberIntent?.intent === "sighting"}
+        session={memberCreationSession}
+        visible={
+          Boolean(memberCreationSession) &&
+          state.memberIntent?.intent === "sighting"
+        }
       />
 
       <AdoptionListingCreationModal
         draftScopeId={draftScopeId}
         draftStore={creationDraftStore}
         onClose={clearMemberIntent}
-        session={session}
-        visible={state.memberIntent?.intent === "adoption"}
+        session={memberCreationSession}
+        visible={
+          Boolean(memberCreationSession) &&
+          state.memberIntent?.intent === "adoption"
+        }
       />
     </>
+  );
+}
+
+function ShellFirstRunTourHost({ store }: { store: ShellFirstRunTourStore }) {
+  const { copy } = useRastroShell();
+  const [tourModel, setTourModel] =
+    React.useState<ShellFirstRunTourModel | null>(null);
+  const [isVisible, setIsVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    let isActive = true;
+
+    loadShellFirstRunTourModel({ copy, store })
+      .then((model) => {
+        if (!isActive) {
+          return;
+        }
+
+        setTourModel(model);
+        setIsVisible(model.shouldShow);
+      })
+      .catch(() => {
+        if (!isActive) {
+          return;
+        }
+
+        setTourModel(createShellFirstRunTourModel({ shouldShow: true }));
+        setIsVisible(true);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [copy, store]);
+
+  const closeTour = React.useCallback(
+    async (reason: ShellFirstRunTourCompletionReason) => {
+      setIsVisible(false);
+      setTourModel((current) =>
+        current ? { ...current, shouldShow: false } : current,
+      );
+
+      try {
+        await store.markCompleted({ reason });
+      } catch {
+        // The tour should not block app use if persistence is temporarily unavailable.
+      }
+    },
+    [store],
+  );
+
+  if (!tourModel) {
+    return null;
+  }
+
+  return (
+    <ShellFirstRunTourModal
+      model={tourModel}
+      onComplete={() => {
+        void closeTour("complete");
+      }}
+      onSkip={() => {
+        void closeTour("skip");
+      }}
+      visible={isVisible && tourModel.shouldShow}
+    />
+  );
+}
+
+function ShellFirstRunTourModal({
+  model,
+  onComplete,
+  onSkip,
+  visible,
+}: {
+  model: ShellFirstRunTourModel;
+  onComplete: () => void;
+  onSkip: () => void;
+  visible: boolean;
+}) {
+  const [currentStep, setCurrentStep] = React.useState(0);
+  const [pageWidth, setPageWidth] = React.useState(1);
+  const scrollRef = React.useRef<ScrollView>(null);
+  const stepCount = model.steps.length;
+  const isLastStep = currentStep >= stepCount - 1;
+
+  React.useEffect(() => {
+    if (visible) {
+      setCurrentStep(0);
+      scrollRef.current?.scrollTo({ animated: false, x: 0 });
+    }
+  }, [visible]);
+
+  const handleLayout = React.useCallback((event: LayoutChangeEvent) => {
+    setPageWidth(Math.max(1, event.nativeEvent.layout.width));
+  }, []);
+
+  const handleMomentumScrollEnd = React.useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const width = event.nativeEvent.layoutMeasurement.width;
+
+      if (width <= 0) {
+        return;
+      }
+
+      setCurrentStep(Math.round(event.nativeEvent.contentOffset.x / width));
+    },
+    [],
+  );
+
+  const moveNext = React.useCallback(() => {
+    if (isLastStep) {
+      onComplete();
+      return;
+    }
+
+    const nextStep = Math.min(currentStep + 1, stepCount - 1);
+
+    setCurrentStep(nextStep);
+    scrollRef.current?.scrollTo({
+      animated: true,
+      x: pageWidth * nextStep,
+    });
+  }, [currentStep, isLastStep, onComplete, pageWidth, stepCount]);
+
+  return (
+    <Modal animationType="fade" transparent visible={visible}>
+      <View style={styles.tourBackdrop}>
+        <View
+          accessibilityViewIsModal
+          onLayout={handleLayout}
+          style={styles.tourCard}
+        >
+          <View style={styles.tourHeader}>
+            <Text maxFontSizeMultiplier={1.15} style={styles.tourStepLabel}>
+              {model.stepLabel(currentStep + 1, stepCount)}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={onSkip}
+              style={styles.tourSkipButton}
+            >
+              <Text maxFontSizeMultiplier={1.1} style={styles.tourSkipText}>
+                {model.skipLabel}
+              </Text>
+            </Pressable>
+          </View>
+
+          <ScrollView
+            horizontal
+            onMomentumScrollEnd={handleMomentumScrollEnd}
+            pagingEnabled
+            ref={scrollRef}
+            scrollEventThrottle={16}
+            showsHorizontalScrollIndicator={false}
+          >
+            {model.steps.map((step) => (
+              <View
+                key={step.title}
+                style={[styles.tourPage, { width: pageWidth }]}
+              >
+                <View style={styles.tourIconShell}>
+                  <ShellIcon
+                    color={shellColors.primary}
+                    fallback={step.iconFallback}
+                    name={step.iconName}
+                    size={34}
+                  />
+                </View>
+                <Text maxFontSizeMultiplier={1.15} style={styles.tourTitle}>
+                  {step.title}
+                </Text>
+                <Text maxFontSizeMultiplier={1.25} style={styles.tourBody}>
+                  {step.body}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+
+          <View style={styles.tourFooter}>
+            <View style={styles.tourDots}>
+              {model.steps.map((step, index) => (
+                <View
+                  key={step.title}
+                  style={[
+                    styles.tourDot,
+                    index === currentStep ? styles.tourDotActive : null,
+                  ]}
+                />
+              ))}
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={moveNext}
+              style={styles.tourPrimaryButton}
+            >
+              <Text
+                maxFontSizeMultiplier={1.15}
+                style={styles.tourPrimaryButtonText}
+              >
+                {isLastStep ? model.completeLabel : model.nextLabel}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -230,7 +515,7 @@ function FoundReportCreationModal({
   draftScopeId?: string;
   draftStore?: ReturnType<typeof createCreationDraftStore>;
   onClose: () => void;
-  session: ShellSession;
+  session: ShellMemberCreationSession | null;
   visible: boolean;
 }) {
   return (
@@ -244,15 +529,7 @@ function FoundReportCreationModal({
         draftScopeId={draftScopeId}
         draftStore={draftStore}
         onClose={onClose}
-        session={
-          session.kind === "member"
-            ? {
-                displayName: session.name ?? undefined,
-                kind: "member",
-                memberId: session.id,
-              }
-            : { kind: "visitor" }
-        }
+        session={session ?? { kind: "visitor" }}
       />
     </Modal>
   );
@@ -268,7 +545,7 @@ function SightingReportStartModal({
   draftScopeId?: string;
   draftStore?: ReturnType<typeof createCreationDraftStore>;
   onClose: () => void;
-  session: ShellSession;
+  session: ShellMemberCreationSession | null;
   visible: boolean;
 }) {
   return (
@@ -282,15 +559,7 @@ function SightingReportStartModal({
         draftScopeId={draftScopeId}
         draftStore={draftStore}
         onClose={onClose}
-        session={
-          session.kind === "member"
-            ? {
-                displayName: session.name ?? undefined,
-                kind: "member",
-                memberId: session.id,
-              }
-            : { kind: "visitor" }
-        }
+        session={session ?? { kind: "visitor" }}
       />
     </Modal>
   );
@@ -306,7 +575,7 @@ function AdoptionListingCreationModal({
   draftScopeId?: string;
   draftStore?: ReturnType<typeof createCreationDraftStore>;
   onClose: () => void;
-  session: ShellSession;
+  session: ShellMemberCreationSession | null;
   visible: boolean;
 }) {
   return (
@@ -320,15 +589,7 @@ function AdoptionListingCreationModal({
         draftScopeId={draftScopeId}
         draftStore={draftStore}
         onClose={onClose}
-        session={
-          session.kind === "member"
-            ? {
-                displayName: session.name ?? undefined,
-                kind: "member",
-                memberId: session.id,
-              }
-            : { kind: "visitor" }
-        }
+        session={session ?? { kind: "visitor" }}
       />
     </Modal>
   );
@@ -498,9 +759,8 @@ export function SignInPrompt({
   const [name, setName] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [authError, setAuthError] = React.useState<string | null>(null);
-  const [pendingAction, setPendingAction] = React.useState<
-    "create-account" | "sign-in" | null
-  >(null);
+  const [pendingAction, setPendingAction] =
+    React.useState<ShellAuthPromptAction | null>(null);
 
   React.useEffect(() => {
     if (!prompt) {
@@ -513,7 +773,7 @@ export function SignInPrompt({
   }, [prompt]);
 
   const submitAuthAction = React.useCallback(
-    async (action: "create-account" | "sign-in") => {
+    async (action: ShellAuthPromptAction) => {
       const prepared = prepareShellAuthCredentials({
         email,
         name,
@@ -602,67 +862,44 @@ export function SignInPrompt({
             </Text>
 
             <View style={styles.promptFields}>
-              <View style={styles.promptFieldGroup}>
-                <Text maxFontSizeMultiplier={1.15} style={styles.promptLabel}>
-                  {emailLabel}
-                </Text>
-                <TextInput
-                  accessibilityLabel={emailLabel}
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  autoCorrect={false}
-                  editable={!isSubmitting}
-                  keyboardType="email-address"
-                  onChangeText={setEmail}
-                  placeholder={emailPlaceholder}
-                  placeholderTextColor={shellColors.muted}
-                  returnKeyType="next"
-                  style={styles.promptInput}
-                  textContentType="emailAddress"
-                  value={email}
-                />
-              </View>
-
-              <View style={styles.promptFieldGroup}>
-                <Text maxFontSizeMultiplier={1.15} style={styles.promptLabel}>
-                  {passwordLabel}
-                </Text>
-                <TextInput
-                  accessibilityLabel={passwordLabel}
-                  autoCapitalize="none"
-                  autoComplete="password"
-                  autoCorrect={false}
-                  editable={!isSubmitting}
-                  onChangeText={setPassword}
-                  placeholder={passwordPlaceholder}
-                  placeholderTextColor={shellColors.muted}
-                  returnKeyType="done"
-                  secureTextEntry
-                  style={styles.promptInput}
-                  textContentType="password"
-                  value={password}
-                />
-              </View>
-
-              <View style={styles.promptFieldGroup}>
-                <Text maxFontSizeMultiplier={1.15} style={styles.promptLabel}>
-                  {nameLabel}
-                </Text>
-                <TextInput
-                  accessibilityLabel={nameLabel}
-                  autoCapitalize="words"
-                  autoComplete="name"
-                  autoCorrect
-                  editable={!isSubmitting}
-                  onChangeText={setName}
-                  placeholder={namePlaceholder}
-                  placeholderTextColor={shellColors.muted}
-                  returnKeyType="done"
-                  style={styles.promptInput}
-                  textContentType="name"
-                  value={name}
-                />
-              </View>
+              <PromptTextField
+                autoCapitalize="none"
+                autoComplete="email"
+                autoCorrect={false}
+                editable={!isSubmitting}
+                keyboardType="email-address"
+                label={emailLabel}
+                onChangeText={setEmail}
+                placeholder={emailPlaceholder}
+                returnKeyType="next"
+                textContentType="emailAddress"
+                value={email}
+              />
+              <PromptTextField
+                autoCapitalize="none"
+                autoComplete="password"
+                autoCorrect={false}
+                editable={!isSubmitting}
+                label={passwordLabel}
+                onChangeText={setPassword}
+                placeholder={passwordPlaceholder}
+                returnKeyType="done"
+                secureTextEntry
+                textContentType="password"
+                value={password}
+              />
+              <PromptTextField
+                autoCapitalize="words"
+                autoComplete="name"
+                autoCorrect
+                editable={!isSubmitting}
+                label={nameLabel}
+                onChangeText={setName}
+                placeholder={namePlaceholder}
+                returnKeyType="done"
+                textContentType="name"
+                value={name}
+              />
             </View>
 
             {authError ? (
@@ -675,67 +912,171 @@ export function SignInPrompt({
               </Text>
             ) : null}
 
-            <View style={styles.promptActions}>
-              <Pressable
-                accessibilityRole="button"
-                disabled={isSubmitting}
-                onPress={() => {
-                  void submitAuthAction("sign-in");
-                }}
-                style={({ pressed }) => [
-                  styles.primaryPromptButton,
-                  { opacity: pressed || isSubmitting ? 0.84 : 1 },
-                ]}
-              >
-                <ShellIcon
-                  name="arrow.right.to.line"
-                  color={shellColors.white}
-                  size={20}
-                />
-                <Text
-                  maxFontSizeMultiplier={1.2}
-                  style={styles.primaryPromptButtonText}
-                >
-                  {pendingAction === "sign-in"
-                    ? signInPendingLabel
-                    : signInLabel}
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                disabled={isSubmitting}
-                onPress={() => {
-                  void submitAuthAction("create-account");
-                }}
-                style={({ pressed }) => [
-                  styles.secondaryPromptButton,
-                  { opacity: pressed || isSubmitting ? 0.84 : 1 },
-                ]}
-              >
-                <ShellIcon
-                  name="person.badge.plus"
-                  color={shellColors.primary}
-                  size={20}
-                />
-                <Text
-                  maxFontSizeMultiplier={1.2}
-                  style={styles.secondaryPromptButtonText}
-                >
-                  {pendingAction === "create-account"
-                    ? createAccountPendingLabel
-                    : createAccountLabel}
-                </Text>
-              </Pressable>
-              <Pressable disabled={isSubmitting} onPress={onContinueAsVisitor}>
-                <Text maxFontSizeMultiplier={1.2} style={styles.visitorLink}>
-                  {continueAsVisitorLabel}
-                </Text>
-              </Pressable>
-            </View>
+            <PromptActions
+              continueAsVisitorLabel={continueAsVisitorLabel}
+              createAccountLabel={createAccountLabel}
+              createAccountPendingLabel={createAccountPendingLabel}
+              isSubmitting={isSubmitting}
+              onContinueAsVisitor={onContinueAsVisitor}
+              onSubmitAuthAction={submitAuthAction}
+              pendingAction={pendingAction}
+              signInLabel={signInLabel}
+              signInPendingLabel={signInPendingLabel}
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
+  );
+}
+
+function PromptTextField({
+  autoCapitalize,
+  autoComplete,
+  autoCorrect,
+  editable,
+  keyboardType,
+  label,
+  onChangeText,
+  placeholder,
+  returnKeyType,
+  secureTextEntry,
+  textContentType,
+  value,
+}: {
+  autoCapitalize?: TextInputProps["autoCapitalize"];
+  autoComplete?: TextInputProps["autoComplete"];
+  autoCorrect?: TextInputProps["autoCorrect"];
+  editable: boolean;
+  keyboardType?: TextInputProps["keyboardType"];
+  label: string;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  returnKeyType?: TextInputProps["returnKeyType"];
+  secureTextEntry?: boolean;
+  textContentType?: TextInputProps["textContentType"];
+  value: string;
+}) {
+  return (
+    <View style={styles.promptFieldGroup}>
+      <Text maxFontSizeMultiplier={1.15} style={styles.promptLabel}>
+        {label}
+      </Text>
+      <TextInput
+        accessibilityLabel={label}
+        autoCapitalize={autoCapitalize}
+        autoComplete={autoComplete}
+        autoCorrect={autoCorrect}
+        editable={editable}
+        keyboardType={keyboardType}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={shellColors.muted}
+        returnKeyType={returnKeyType}
+        secureTextEntry={secureTextEntry}
+        style={styles.promptInput}
+        textContentType={textContentType}
+        value={value}
+      />
+    </View>
+  );
+}
+
+function PromptActions({
+  continueAsVisitorLabel,
+  createAccountLabel,
+  createAccountPendingLabel,
+  isSubmitting,
+  onContinueAsVisitor,
+  onSubmitAuthAction,
+  pendingAction,
+  signInLabel,
+  signInPendingLabel,
+}: {
+  continueAsVisitorLabel: string;
+  createAccountLabel: string;
+  createAccountPendingLabel: string;
+  isSubmitting: boolean;
+  onContinueAsVisitor: () => void;
+  onSubmitAuthAction: (action: ShellAuthPromptAction) => Promise<void>;
+  pendingAction: ShellAuthPromptAction | null;
+  signInLabel: string;
+  signInPendingLabel: string;
+}) {
+  return (
+    <View style={styles.promptActions}>
+      <PromptActionButton
+        disabled={isSubmitting}
+        iconColor={shellColors.white}
+        iconName="arrow.right.to.line"
+        label={pendingAction === "sign-in" ? signInPendingLabel : signInLabel}
+        onPress={() => {
+          void onSubmitAuthAction("sign-in");
+        }}
+        variant="primary"
+      />
+      <PromptActionButton
+        disabled={isSubmitting}
+        iconColor={shellColors.primary}
+        iconName="person.badge.plus"
+        label={
+          pendingAction === "create-account"
+            ? createAccountPendingLabel
+            : createAccountLabel
+        }
+        onPress={() => {
+          void onSubmitAuthAction("create-account");
+        }}
+        variant="secondary"
+      />
+      <Pressable disabled={isSubmitting} onPress={onContinueAsVisitor}>
+        <Text maxFontSizeMultiplier={1.2} style={styles.visitorLink}>
+          {continueAsVisitorLabel}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function PromptActionButton({
+  disabled,
+  iconColor,
+  iconName,
+  label,
+  onPress,
+  variant,
+}: {
+  disabled: boolean;
+  iconColor: string;
+  iconName: string;
+  label: string;
+  onPress: () => void;
+  variant: "primary" | "secondary";
+}) {
+  const buttonStyle =
+    variant === "primary"
+      ? styles.primaryPromptButton
+      : styles.secondaryPromptButton;
+  const textStyle =
+    variant === "primary"
+      ? styles.primaryPromptButtonText
+      : styles.secondaryPromptButtonText;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        buttonStyle,
+        { opacity: pressed || disabled ? 0.84 : 1 },
+      ]}
+    >
+      <ShellIcon name={iconName} color={iconColor} size={20} />
+      <Text maxFontSizeMultiplier={1.2} style={textStyle}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -786,12 +1127,23 @@ const styles = StyleSheet.create({
     backgroundColor: shellColors.primary,
     borderRadius: 30,
     boxShadow: "0 18px 28px rgba(20, 108, 90, 0.28)",
+    gap: 1,
     height: 60,
     justifyContent: "center",
     position: "absolute",
     right: 18,
     width: 60,
     zIndex: 30,
+  },
+  fabLabel: {
+    color: shellColors.white,
+    fontSize: 9,
+    fontWeight: "900",
+    lineHeight: 10,
+  },
+  iconFallback: {
+    fontWeight: "900",
+    textAlign: "center",
   },
   modalBackdrop: {
     backgroundColor: "rgba(23, 32, 28, 0.20)",
@@ -908,6 +1260,111 @@ const styles = StyleSheet.create({
     color: shellColors.text,
     fontSize: 27,
     fontWeight: "800",
+    textAlign: "center",
+  },
+  tourBackdrop: {
+    alignItems: "center",
+    backgroundColor: "rgba(23, 32, 28, 0.36)",
+    flex: 1,
+    justifyContent: "flex-end",
+    padding: 16,
+  },
+  tourBody: {
+    color: shellColors.muted,
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: "center",
+  },
+  tourCard: {
+    backgroundColor: shellColors.surface,
+    borderColor: shellColors.border,
+    borderRadius: 24,
+    borderWidth: 1,
+    maxWidth: 420,
+    overflow: "hidden",
+    width: "100%",
+  },
+  tourDot: {
+    backgroundColor: shellColors.border,
+    borderRadius: 4,
+    height: 8,
+    width: 8,
+  },
+  tourDotActive: {
+    backgroundColor: shellColors.primary,
+    width: 18,
+  },
+  tourDots: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+  },
+  tourFooter: {
+    alignItems: "center",
+    borderTopColor: shellColors.border,
+    borderTopWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 14,
+  },
+  tourHeader: {
+    alignItems: "center",
+    borderBottomColor: shellColors.border,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  tourIconShell: {
+    alignItems: "center",
+    backgroundColor: shellColors.primarySoft,
+    borderColor: "#A9D4C9",
+    borderRadius: 34,
+    borderWidth: 1,
+    height: 68,
+    justifyContent: "center",
+    width: 68,
+  },
+  tourPage: {
+    alignItems: "center",
+    gap: 12,
+    minHeight: 220,
+    padding: 20,
+  },
+  tourPrimaryButton: {
+    alignItems: "center",
+    backgroundColor: shellColors.primary,
+    borderRadius: 999,
+    justifyContent: "center",
+    minHeight: 44,
+    minWidth: 116,
+    paddingHorizontal: 18,
+  },
+  tourPrimaryButtonText: {
+    color: shellColors.white,
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  tourSkipButton: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  tourSkipText: {
+    color: shellColors.primary,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  tourStepLabel: {
+    color: shellColors.muted,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  tourTitle: {
+    color: shellColors.text,
+    fontSize: 21,
+    fontWeight: "900",
     textAlign: "center",
   },
   secondaryPromptButton: {

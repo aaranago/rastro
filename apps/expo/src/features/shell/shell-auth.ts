@@ -1,4 +1,4 @@
-import type { ShellSession } from "./shell-model";
+import type { ShellModelSession } from "./shell-model";
 
 export interface ShellAuthSessionState {
   data:
@@ -59,8 +59,12 @@ export interface ShellAuthAdapter {
 
 export function deriveShellSessionFromAuthState(
   authState: ShellAuthSessionState,
-): ShellSession {
+): ShellModelSession {
   const user = authState.data?.user;
+
+  if (authState.isPending && !user) {
+    return { kind: "loading" };
+  }
 
   return user
     ? {

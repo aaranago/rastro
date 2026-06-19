@@ -22,9 +22,15 @@ export function createStaticNearbyLostReportsAdapter(
       query: NearbyLostReportsQuery,
     ): Promise<NearbyLostReportsResult> {
       const radiusMeters = query.radiusKm * 1000;
+      const categories =
+        query.categories && query.categories.length > 0
+          ? new Set(query.categories)
+          : undefined;
       const reports = [
         ...options.reports.filter(
-          (report) => (report.distanceMeters ?? 0) <= radiusMeters,
+          (report) =>
+            (report.distanceMeters ?? 0) <= radiusMeters &&
+            (!categories || categories.has(getReportKind(report))),
         ),
       ].sort(compareNearbyPublicReports);
 
@@ -38,6 +44,10 @@ export function createStaticNearbyLostReportsAdapter(
       });
     },
   };
+}
+
+function getReportKind(report: NearbyPublicReportSummary) {
+  return report.reportKind ?? "lost-pet-report";
 }
 
 function buildSearchBoundary(

@@ -2,6 +2,7 @@ import type {
   ReportLifecycleSummaryViewModel,
   ReportUrgency,
 } from "../reports/report-lifecycle-view-model";
+import type { NearbyReportRouteTarget } from "./nearby-navigation";
 import type {
   LostPetReportSummary,
   NearbyBrowseAudience,
@@ -20,6 +21,7 @@ import {
   getReportUrgency,
   isClosedReportLifecycle,
 } from "../reports/report-lifecycle-view-model";
+import { buildNearbyReportRouteTarget } from "./nearby-navigation";
 import { nearbyRadiusOptionsKm } from "./nearby-types";
 
 export type NearbyLostReportsLoadState =
@@ -47,6 +49,7 @@ export interface NearbyPublicLostReportSummaryViewModel {
   lifecycle?: ReportLifecycleSummaryViewModel;
   summary: string;
   priorityLabel: string;
+  routeTarget: NearbyReportRouteTarget;
   shareTarget: PublicReportShareTarget;
   urgency: ReportUrgency;
   verificationBadge?: {
@@ -64,6 +67,8 @@ export interface NearbyLostReportCardViewModel
 export interface NearbyLostReportMapPinViewModel {
   id: string;
   publicSummaryId: string;
+  reportKind: NearbyPublicReportKind;
+  routeTarget: NearbyReportRouteTarget;
   title: string;
   label: string;
   distanceLabel?: string;
@@ -87,10 +92,18 @@ interface NearbyViewModelBase {
 
 export type NearbyLostReportsViewModel =
   | (NearbyViewModelBase & {
+      kind: "location-needed";
+      title: string;
+      message: string;
+      manualLocationActionLabel: string;
+      useCurrentLocationActionLabel: string;
+    })
+  | (NearbyViewModelBase & {
       kind: "location-denied";
       title: string;
       message: string;
       manualLocationActionLabel: string;
+      useCurrentLocationActionLabel: string;
     })
   | (NearbyViewModelBase & {
       kind: "loading";
@@ -110,6 +123,7 @@ export type NearbyLostReportsViewModel =
       message: string;
       locationLabel: string;
       locationSourceLabel: string;
+      offlineLabel?: string;
       radiusActionLabel: string;
       searchBoundaryLabel: string;
     })
@@ -142,14 +156,27 @@ export function buildNearbyLostReportsViewModel(
   };
   const location = resolveLocation(input.locationState);
 
+  if (input.locationState.kind === "not-requested") {
+    return {
+      ...base,
+      kind: "location-needed",
+      manualLocationActionLabel: "Elegir una zona en Bolivia",
+      message:
+        "Usa tu ubicacion solo cuando lo pidas o elige una ciudad, zona o pin manual.",
+      title: "Busca reportes cerca",
+      useCurrentLocationActionLabel: "Usar mi ubicacion",
+    };
+  }
+
   if (!location) {
     return {
       ...base,
       kind: "location-denied",
-      manualLocationActionLabel: "Ingresar ubicacion manualmente",
+      manualLocationActionLabel: "Elegir una zona en Bolivia",
       message:
         "Usa una ciudad, zona o pin manual en Bolivia para ver reportes cercanos.",
       title: "Ubicacion no disponible",
+      useCurrentLocationActionLabel: "Usar mi ubicacion",
     };
   }
 
@@ -187,6 +214,7 @@ export function buildNearbyLostReportsViewModel(
       locationSourceLabel: formatLocationSource(location),
       message:
         "No hay reportes de mascotas perdidas en este radio. Prueba ampliando la busqueda.",
+      offlineLabel: buildOfflineLabel(input.result.value),
       radiusActionLabel: "Cambiar radio",
       searchBoundaryLabel,
       title: "No hay reportes cerca",
@@ -251,6 +279,10 @@ function toPublicSummary(
       priorityLabel: "Adopcion",
       publicLocationLabel: formatPublicLocation(report),
       reportKind: "adoption-listing",
+      routeTarget: buildNearbyReportRouteTarget({
+        id: report.id,
+        reportKind: "adoption-listing",
+      }),
       shareTarget: report.shareTarget,
       subtitle: [report.species, report.breed].filter(Boolean).join(" • "),
       summary: report.adoptionSummary,
@@ -273,6 +305,10 @@ function toPublicSummary(
       priorityLabel: formatReportPriority("Encontrada", lifecycle),
       publicLocationLabel: formatPublicLocation(report),
       reportKind: "found-pet-report",
+      routeTarget: buildNearbyReportRouteTarget({
+        id: report.id,
+        reportKind: "found-pet-report",
+      }),
       shareTarget: report.shareTarget,
       subtitle: [report.breed, report.condition].filter(Boolean).join(" • "),
       summary: report.foundSummary,
@@ -294,6 +330,10 @@ function toPublicSummary(
       priorityLabel: formatReportPriority("Avistamiento", lifecycle),
       publicLocationLabel: formatPublicLocation(report),
       reportKind: "sighting-report",
+      routeTarget: buildNearbyReportRouteTarget({
+        id: report.id,
+        reportKind: "sighting-report",
+      }),
       shareTarget: report.shareTarget,
       subtitle: [report.breed, report.observedCondition]
         .filter(Boolean)
@@ -316,6 +356,10 @@ function toPublicSummary(
     priorityLabel: formatReportPriority("Perdido", lifecycle),
     publicLocationLabel: formatPublicLocation(report),
     reportKind: "lost-pet-report",
+    routeTarget: buildNearbyReportRouteTarget({
+      id: report.id,
+      reportKind: "lost-pet-report",
+    }),
     shareTarget: report.shareTarget,
     subtitle: [report.breed, report.sex].filter(Boolean).join(" • "),
     summary: report.lastSeenSummary,
@@ -343,6 +387,8 @@ function toMapPin(
     id: summary.id,
     label: summary.publicLocationLabel,
     publicSummaryId: summary.id,
+    reportKind: summary.reportKind,
+    routeTarget: summary.routeTarget,
     title: summary.title,
   };
 }
@@ -366,7 +412,7 @@ function formatPublicLocation(report: NearbyPublicReportSummary) {
 }
 
 function formatSearchBoundary(boundary: NearbySearchBoundary) {
-  return `Radio Rastro/PostGIS de ${boundary.radiusKm} km · ${boundary.center.locationCellLabel}`;
+  return `Radio de ${boundary.radiusKm} km · ${boundary.center.locationCellLabel}`;
 }
 
 function formatDistance(distanceMeters: number | undefined) {

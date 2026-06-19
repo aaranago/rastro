@@ -3,8 +3,12 @@ import { describe, expect, it } from "vitest";
 import { buildPublicLostReportShareTarget } from "@acme/validators";
 
 import type {
+  AdoptionListingSummary,
+  FoundPetReportSummary,
   LostPetReportSummary,
   NearbyLostReportsResult,
+  NearbyPublicReportKind,
+  NearbyPublicReportSummary,
   NearbySearchLocation,
   SightingReportSummary,
 } from "./nearby-types";
@@ -80,6 +84,49 @@ const sightingReport = {
   species: "Perro",
   title: "Avistamiento de perro",
 } satisfies SightingReportSummary;
+
+const foundReport = {
+  breed: "Criollo",
+  condition: "Con collar rojo, tranquilo.",
+  distanceMeters: 850,
+  foundAtLabel: "Hace 15 min",
+  foundSummary: "Esta resguardado con una vecina cerca de la plaza.",
+  id: "found-cat-miraflores",
+  locationCellLabel: "Miraflores",
+  publicLocation: { kind: "approximate" },
+  reportKind: "found-pet-report",
+  shareTarget: {
+    appDeepLink: "rastro://reportes/encontrados/found-cat-miraflores",
+    message:
+      "Mascota encontrada en Rastro: https://rastro.bo/reportes/encontrados/found-cat-miraflores",
+    path: "/reportes/encontrados/found-cat-miraflores",
+    title: "Mascota encontrada",
+    webUrl: "https://rastro.bo/reportes/encontrados/found-cat-miraflores",
+  },
+  species: "Gato",
+  title: "Gato encontrado",
+} satisfies FoundPetReportSummary;
+
+const adoptionListing = {
+  adoptionSummary: "Nala busca un hogar tranquilo y responsable.",
+  breed: "Mestizo",
+  distanceMeters: 1_400,
+  id: "adoption-nala-sopocachi",
+  locationCellLabel: "Sopocachi",
+  petName: "Nala",
+  publicLocation: { kind: "approximate" },
+  publishedAtLabel: "Hoy",
+  reportKind: "adoption-listing",
+  shareTarget: {
+    appDeepLink: "rastro://adopciones/adoption-nala-sopocachi",
+    message:
+      "Adopcion de Nala en Rastro: https://rastro.bo/adopciones/adoption-nala-sopocachi",
+    path: "/adopciones/adoption-nala-sopocachi",
+    title: "Adopcion: Nala",
+    webUrl: "https://rastro.bo/adopciones/adoption-nala-sopocachi",
+  },
+  species: "Gato",
+} satisfies AdoptionListingSummary;
 
 function buildTestShareTarget(reportId: string, title: string) {
   return buildPublicLostReportShareTarget({
@@ -305,6 +352,55 @@ describe("nearby Lost Pet Report discovery", () => {
     });
   });
 
+  it("selects matching detail route targets for lost, found, sighting, and adoption cards and map pins", async () => {
+    const lostReport = reports[0];
+
+    if (!lostReport) {
+      throw new Error("Expected nearby lost report fixture.");
+    }
+
+    const mixedReports = [
+      lostReport,
+      foundReport,
+      sightingReport,
+      adoptionListing,
+    ] satisfies NearbyPublicReportSummary[];
+    const adapter = createStaticNearbyLostReportsAdapter({
+      reports: mixedReports,
+    });
+
+    const result = await adapter.searchLostPetReports({
+      location: manualLocation,
+      radiusKm: 5,
+    });
+    const viewModel = buildNearbyLostReportsViewModel({
+      locationState: { kind: "ready", location: manualLocation },
+      mode: "map",
+      radiusKm: 5,
+      result: { kind: "success", value: result },
+    });
+
+    assertNearbyViewModelKind(viewModel, "ready");
+
+    const cardHrefsByKind = Object.fromEntries(
+      viewModel.cards.map((card) => [card.reportKind, card.routeTarget.href]),
+    ) as Partial<Record<NearbyPublicReportKind, string>>;
+    const pinHrefsByKind = Object.fromEntries(
+      viewModel.mapPins.map((pin) => [pin.reportKind, pin.routeTarget.href]),
+    ) as Partial<Record<NearbyPublicReportKind, string>>;
+
+    expect(cardHrefsByKind).toEqual({
+      "adoption-listing": "/adopciones/adoption-nala-sopocachi",
+      "found-pet-report": "/reportes/encontrados/found-cat-miraflores",
+      "lost-pet-report": "/reportes/perdidos/lost-bruno",
+      "sighting-report": "/reportes/avistamientos/sighting-dog-sopocachi",
+    });
+    expect(pinHrefsByKind).toEqual(cardHrefsByKind);
+    expect(viewModel.mapPins.map((pin) => pin.routeTarget)).toEqual(
+      viewModel.cards.map((card) => card.routeTarget),
+    );
+  });
+
   it("shares a Nearby Lost Pet Report card through the native share sheet with Spanish copy and the stable web URL", async () => {
     const adapter = createStaticNearbyLostReportsAdapter({ reports });
     const shareCalls: unknown[] = [];
@@ -386,8 +482,8 @@ describe("nearby Lost Pet Report discovery", () => {
       audiences: ["visitor", "member"],
       requiresSignIn: false,
     });
-    expect(viewModel.searchBoundaryLabel).toContain("Rastro");
-    expect(viewModel.searchBoundaryLabel).toContain("10 km");
+    expect(viewModel.searchBoundaryLabel).toBe("Radio de 10 km · Achumani");
+    expect(viewModel.searchBoundaryLabel).not.toContain("Rastro/PostGIS");
     expect(viewModel.publicSummaries.map((summary) => summary.id)).toEqual(
       viewModel.cards.map((card) => card.publicSummaryId),
     );
@@ -540,6 +636,62 @@ describe("nearby Lost Pet Report discovery", () => {
     ]);
   });
 
+  it("applies category and radius filters to the nearby query and labels empty stale results", async () => {
+    const lostReport = reports[0];
+
+    if (!lostReport) {
+      throw new Error("Expected nearby lost report fixture.");
+    }
+
+    const farAdoptionListing = {
+      ...adoptionListing,
+      distanceMeters: 8_400,
+    } satisfies AdoptionListingSummary;
+    const filteredReports = [
+      lostReport,
+      foundReport,
+      sightingReport,
+      farAdoptionListing,
+    ] satisfies NearbyPublicReportSummary[];
+    const adapter = createStaticNearbyLostReportsAdapter({
+      isOffline: true,
+      isStale: true,
+      reports: filteredReports,
+    });
+
+    const filteredResult = await adapter.searchLostPetReports({
+      categories: ["found-pet-report", "sighting-report"],
+      location: manualLocation,
+      radiusKm: 5,
+    });
+
+    expect(filteredResult.query).toMatchObject({
+      categories: ["found-pet-report", "sighting-report"],
+      radiusKm: 5,
+    });
+    expect(filteredResult.reports.map(getNearbyReportKind)).toEqual([
+      "sighting-report",
+      "found-pet-report",
+    ]);
+
+    const emptyResult = await adapter.searchLostPetReports({
+      categories: ["adoption-listing"],
+      location: manualLocation,
+      radiusKm: 5,
+    });
+    const viewModel = buildNearbyLostReportsViewModel({
+      locationState: { kind: "ready", location: manualLocation },
+      mode: "list",
+      radiusKm: 5,
+      result: { kind: "success", value: emptyResult },
+    });
+
+    assertNearbyViewModelKind(viewModel, "empty");
+    expect(viewModel.offlineLabel).toBe("Sin conexion · resultados guardados");
+    expect(viewModel.searchBoundaryLabel).toBe("Radio de 5 km · Zona Sur");
+    expect(JSON.stringify(viewModel)).not.toContain("Rastro/PostGIS");
+  });
+
   it("renders the last loaded nearby list when a later offline search fails", async () => {
     const cache = createInMemoryLastLoadedCache<NearbyLostReportsResult>();
     const onlineAdapter = createCachedNearbyLostReportsAdapter({
@@ -597,8 +749,9 @@ describe("nearby Lost Pet Report discovery", () => {
     assertNearbyViewModelKind(viewModel, "location-denied");
     expect(viewModel.title).toBe("Ubicacion no disponible");
     expect(viewModel.manualLocationActionLabel).toBe(
-      "Ingresar ubicacion manualmente",
+      "Elegir una zona en Bolivia",
     );
+    expect(viewModel.useCurrentLocationActionLabel).toBe("Usar mi ubicacion");
     expect(viewModel.message).toContain("Bolivia");
   });
 });
@@ -610,4 +763,10 @@ function assertNearbyViewModelKind<
   kind: K,
 ): asserts viewModel is Extract<NearbyLostReportsViewModel, { kind: K }> {
   expect(viewModel.kind).toBe(kind);
+}
+
+function getNearbyReportKind(
+  report: NearbyPublicReportSummary,
+): NearbyPublicReportKind {
+  return report.reportKind ?? "lost-pet-report";
 }

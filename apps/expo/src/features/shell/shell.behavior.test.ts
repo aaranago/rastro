@@ -7,12 +7,36 @@ import {
 } from "./shell-auth";
 import {
   chooseReportAction,
+  completeAuthPromptWithPendingMemberIntent,
   continueReportActionAsMember,
   createInitialShellState,
   createShellModel,
   createShellProfileModel,
+  promotePendingMemberIntentForSession,
+  shouldShowGlobalFabForSegments,
+  toShellMemberCreationSession,
 } from "./shell-model";
+import {
+  createShellFirstRunTourStore,
+  loadShellFirstRunTourModel,
+} from "./shell-onboarding";
 import { reportIntentColors, shellColors } from "./shell-theme";
+
+function createMemoryStorage() {
+  const values = new Map<string, string>();
+
+  return {
+    getItem: (key: string) => Promise.resolve(values.get(key) ?? null),
+    removeItem: (key: string) => {
+      values.delete(key);
+      return Promise.resolve();
+    },
+    setItem: (key: string, value: string) => {
+      values.set(key, value);
+      return Promise.resolve();
+    },
+  };
+}
 
 describe("Rastro shell", () => {
   it("opens with Spanish Rastro tabs and report actions", () => {
@@ -71,6 +95,23 @@ describe("Rastro shell", () => {
 
     expect(visitorShell.session.kind).toBe("visitor");
     expect(memberShell.session.kind).toBe("member");
+  });
+
+  it("derives pending auth as app loading instead of visitor browsing", () => {
+    const copy = getShellCopy();
+
+    const pendingShell = createShellModel({
+      copy,
+      session: deriveShellSessionFromAuthState({
+        data: undefined,
+        error: null,
+        isPending: true,
+      }),
+    });
+
+    expect(pendingShell.session.kind).toBe("loading");
+    expect(pendingShell.session.kind).not.toBe("visitor");
+    expect(pendingShell.appStates.states.loading.title).toBe("Cargando Rastro");
   });
 
   it("shows member account settings from Perfil", () => {
@@ -210,6 +251,114 @@ describe("Rastro shell", () => {
     },
   );
 
+  it("hands a protected visitor FAB action to the member creation flow after successful sign-in", () => {
+    const copy = getShellCopy();
+    const shell = createShellModel({ copy, session: { kind: "visitor" } });
+    const action = shell.reportActions.find((item) => item.intent === "found");
+
+    if (!action) {
+      throw new Error("Expected a found report action");
+    }
+
+    const promptedState = chooseReportAction(
+      createInitialShellState(),
+      action,
+      copy,
+    );
+    const signedInState =
+      completeAuthPromptWithPendingMemberIntent(promptedState);
+
+    expect(signedInState.authPrompt).toBeNull();
+    expect(signedInState.memberIntent).toBeNull();
+    expect(signedInState.pendingMemberIntent).toEqual({
+      intent: "found",
+      label: "Reportar encontrada",
+    });
+
+    expect(
+      promotePendingMemberIntentForSession(signedInState, {
+        kind: "visitor",
+      }).memberIntent,
+    ).toBeNull();
+    expect(
+      promotePendingMemberIntentForSession(signedInState, {
+        kind: "loading",
+      }).memberIntent,
+    ).toBeNull();
+
+    const memberSession = {
+      email: "ana@example.com",
+      id: "member_123",
+      kind: "member",
+      name: "Ana",
+    } as const;
+    const readyState = promotePendingMemberIntentForSession(
+      signedInState,
+      memberSession,
+    );
+
+    expect(readyState.pendingMemberIntent).toBeNull();
+    expect(readyState.memberIntent).toEqual({
+      intent: "found",
+      label: "Reportar encontrada",
+    });
+    expect(toShellMemberCreationSession(memberSession)).toEqual({
+      displayName: "Ana",
+      kind: "member",
+      memberId: "member_123",
+    });
+  });
+
+  it("shows the three-step first-run tour once and persists skip or completion", async () => {
+    const copy = getShellCopy();
+    const storage = createMemoryStorage();
+    const store = createShellFirstRunTourStore({ storage });
+
+    const firstRun = await loadShellFirstRunTourModel({ copy, store });
+
+    expect(firstRun.shouldShow).toBe(true);
+    expect(firstRun.steps.map((step) => step.title)).toEqual([
+      "Encuentra reportes cerca",
+      "Reporta con datos utiles",
+      "Activa ayuda local",
+    ]);
+    expect(firstRun.skipLabel).toBe("Omitir");
+    expect(firstRun.completeLabel).toBe("Empezar");
+
+    await store.markCompleted({ reason: "skip" });
+
+    const nextStore = createShellFirstRunTourStore({ storage });
+    const nextRun = await loadShellFirstRunTourModel({
+      copy,
+      store: nextStore,
+    });
+
+    expect(await nextStore.hasCompleted()).toBe(true);
+    expect(nextRun.shouldShow).toBe(false);
+  });
+
+  it("shows the global FAB only on main tab routes", () => {
+    expect(shouldShowGlobalFabForSegments(["(tabs)", "(nearby)"])).toBe(true);
+    expect(shouldShowGlobalFabForSegments(["(tabs)", "(profile)"])).toBe(true);
+    expect(
+      shouldShowGlobalFabForSegments([
+        "(tabs)",
+        "(nearby)",
+        "reportes",
+        "perdidos",
+        "[reportId]",
+      ]),
+    ).toBe(false);
+    expect(
+      shouldShowGlobalFabForSegments([
+        "(tabs)",
+        "(activity)",
+        "chats",
+        "[conversationId]",
+      ]),
+    ).toBe(false);
+  });
+
   it("exposes reusable Spanish app states from the shell", () => {
     const copy = getShellCopy();
     const shell = createShellModel({ copy, session: { kind: "visitor" } });
@@ -248,16 +397,18 @@ describe("Rastro shell", () => {
       context: "nearby",
       kind: "permission-education",
       permission: "location",
+      title: "Encuentra reportes cerca de ti",
+      body: "Usamos tu ubicacion solo para ordenar reportes por distancia.",
     });
     expect(shell.appStates.permissionEducation.location.actions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: "request-permission",
-          label: "Usar mi ubicacion",
+          label: "Usar mi ubicacion actual",
         }),
         expect.objectContaining({
           id: "manual-search",
-          label: "Buscar por zona",
+          label: "Buscar ciudad o zona",
         }),
       ]),
     );

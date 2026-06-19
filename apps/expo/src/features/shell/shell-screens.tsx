@@ -3,7 +3,11 @@ import * as React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Link } from "expo-router";
 
-import type { AppStateDescriptor } from "../app-states";
+import type {
+  AppStateActionDescriptor,
+  AppStateDescriptor,
+  PermissionEducationAppStateDescriptor,
+} from "../app-states";
 import type { ShellAuthActionResult } from "./shell-auth";
 import type { ShellProfileAccountSettings } from "./shell-model";
 import { AppStatePanel } from "../app-states";
@@ -271,11 +275,7 @@ export function ProfileScreen() {
 }
 
 export function NearbyShellStateBridge() {
-  return (
-    <View style={styles.routeBridge}>
-      <NearbyPermissionEducation compact />
-    </View>
-  );
+  return null;
 }
 
 function SessionBadge() {
@@ -631,17 +631,6 @@ function StateCard({
   );
 }
 
-function NearbyPermissionEducation({ compact }: { compact: boolean }) {
-  const { model } = useRastroShell();
-
-  return (
-    <ShellAppStateCard
-      compact={compact}
-      descriptor={model.appStates.permissionEducation.location}
-    />
-  );
-}
-
 function PermissionEducationStack() {
   const { model } = useRastroShell();
 
@@ -650,19 +639,135 @@ function PermissionEducationStack() {
       <Text maxFontSizeMultiplier={1.2} selectable style={styles.sectionTitle}>
         Permisos sin sorpresa
       </Text>
-      <ShellAppStateCard
+      <ShellPermissionEducationCard
         compact
         descriptor={model.appStates.permissionEducation.notifications}
       />
-      <ShellAppStateCard
+      <ShellPermissionEducationCard
         compact
         descriptor={model.appStates.permissionEducation["photos-camera"]}
       />
-      <ShellAppStateCard
+      <ShellPermissionEducationCard
         compact
         descriptor={model.appStates.permissionEducation["background-location"]}
       />
     </View>
+  );
+}
+
+function ShellPermissionEducationCard({
+  compact,
+  descriptor,
+  onActionPress,
+  statusMessage,
+}: {
+  compact?: boolean;
+  descriptor: PermissionEducationAppStateDescriptor;
+  onActionPress?: (action: AppStateActionDescriptor) => void;
+  statusMessage?: string | null;
+}) {
+  return (
+    <View
+      style={[
+        styles.permissionCard,
+        compact ? styles.permissionCardCompact : null,
+      ]}
+    >
+      <View style={styles.permissionHeader}>
+        <View style={styles.permissionIcon}>
+          <ShellIcon
+            color={shellColors.sighting}
+            fallback={getPermissionIconFallback(descriptor.iconName)}
+            name={descriptor.iconName ?? "info.circle.fill"}
+            size={26}
+          />
+        </View>
+        <View style={styles.permissionTitleGroup}>
+          <Text maxFontSizeMultiplier={1.15} style={styles.permissionTitle}>
+            {descriptor.title}
+          </Text>
+          <Text maxFontSizeMultiplier={1.2} style={styles.permissionBody}>
+            {descriptor.body}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.permissionReasons}>
+        {descriptor.reasons.map((reason) => (
+          <View key={reason} style={styles.permissionReasonRow}>
+            <View style={styles.permissionReasonDot} />
+            <Text maxFontSizeMultiplier={1.15} style={styles.permissionReason}>
+              {reason}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      {statusMessage ? (
+        <Text maxFontSizeMultiplier={1.15} style={styles.permissionStatus}>
+          {statusMessage}
+        </Text>
+      ) : null}
+
+      {onActionPress ? (
+        <View style={styles.permissionActions}>
+          {descriptor.actions.map((action) => (
+            <Pressable
+              accessibilityLabel={action.accessibilityLabel ?? action.label}
+              accessibilityRole="button"
+              key={action.id}
+              onPress={() => onActionPress(action)}
+              style={({ pressed }) => [
+                styles.permissionAction,
+                action.variant === "secondary"
+                  ? styles.permissionActionSecondary
+                  : styles.permissionActionPrimary,
+                pressed ? styles.permissionActionPressed : null,
+              ]}
+            >
+              {action.iconName ? (
+                <ShellIcon
+                  color={
+                    action.variant === "secondary"
+                      ? shellColors.primary
+                      : shellColors.white
+                  }
+                  fallback={getPermissionIconFallback(action.iconName)}
+                  name={action.iconName}
+                  size={18}
+                />
+              ) : null}
+              <Text
+                maxFontSizeMultiplier={1.1}
+                numberOfLines={2}
+                style={
+                  action.variant === "secondary"
+                    ? styles.permissionActionTextSecondary
+                    : styles.permissionActionTextPrimary
+                }
+              >
+                {action.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+const permissionIconFallbacks = [
+  ["location", "GPS"],
+  ["magnifyingglass", "BUS"],
+  ["camera", "IMG"],
+  ["bell", "!"],
+  ["figure", "MOV"],
+] as const;
+
+function getPermissionIconFallback(iconName?: string) {
+  return (
+    permissionIconFallbacks.find(([needle]) => iconName?.includes(needle))?.[1] ??
+    "i"
   );
 }
 
@@ -1034,6 +1139,118 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 60,
   },
+  permissionAction: {
+    alignItems: "center",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 7,
+    justifyContent: "center",
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  permissionActionPressed: {
+    opacity: 0.82,
+  },
+  permissionActionPrimary: {
+    backgroundColor: shellColors.sighting,
+    borderColor: shellColors.sighting,
+  },
+  permissionActionSecondary: {
+    backgroundColor: shellColors.surface,
+    borderColor: "#B9D7EA",
+  },
+  permissionActionTextPrimary: {
+    color: shellColors.white,
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  permissionActionTextSecondary: {
+    color: shellColors.primary,
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  permissionActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  permissionBody: {
+    color: shellColors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  permissionCard: {
+    backgroundColor: shellColors.surface,
+    borderColor: "#B9D7EA",
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 12,
+    padding: 14,
+  },
+  permissionCardCompact: {
+    borderRadius: 18,
+    gap: 10,
+    padding: 12,
+  },
+  permissionHeader: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  permissionIcon: {
+    alignItems: "center",
+    backgroundColor: "#E5F0F8",
+    borderColor: "#B9D7EA",
+    borderRadius: 24,
+    borderWidth: 1,
+    height: 48,
+    justifyContent: "center",
+    width: 48,
+  },
+  permissionReason: {
+    color: shellColors.text,
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  permissionReasonDot: {
+    backgroundColor: shellColors.sighting,
+    borderRadius: 3,
+    height: 6,
+    marginTop: 7,
+    width: 6,
+  },
+  permissionReasonRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  permissionReasons: {
+    gap: 6,
+  },
+  permissionStatus: {
+    backgroundColor: shellColors.surfaceMuted,
+    borderRadius: 14,
+    color: shellColors.primaryDark,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 18,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  permissionTitle: {
+    color: shellColors.text,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  permissionTitleGroup: {
+    flex: 1,
+    gap: 3,
+  },
   profileList: {
     gap: 10,
   },
@@ -1120,11 +1337,6 @@ const styles = StyleSheet.create({
     gap: 18,
     padding: 18,
     paddingBottom: 32,
-  },
-  routeBridge: {
-    backgroundColor: shellColors.background,
-    paddingHorizontal: 14,
-    paddingTop: 12,
   },
   sectionTitle: {
     color: shellColors.text,

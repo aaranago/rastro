@@ -17,9 +17,11 @@ import { getShellCopy } from "../../i18n";
 import { deriveShellSessionFromAuthState } from "./shell-auth";
 import {
   chooseReportAction,
+  completeAuthPromptWithPendingMemberIntent,
   continueReportActionAsMember,
   createInitialShellState,
   createShellModel,
+  promotePendingMemberIntentForSession,
 } from "./shell-model";
 
 interface RastroShellContextValue {
@@ -71,13 +73,24 @@ export function RastroShellProvider({
   const copy = React.useMemo(() => getShellCopy(), []);
   const authSession = authAdapter.useSession();
   const refetchAuthSession = authSession.refetch;
-  const session = deriveShellSessionFromAuthState(authSession);
+  const modelSession = deriveShellSessionFromAuthState(authSession);
+  const session = React.useMemo<ShellSession>(
+    () =>
+      modelSession.kind === "loading" ? { kind: "visitor" } : modelSession,
+    [modelSession],
+  );
   const [state, setState] = React.useState(createInitialShellState);
 
   const model = React.useMemo(
-    () => createShellModel({ copy, session }),
-    [copy, session],
+    () => createShellModel({ copy, session: modelSession }),
+    [copy, modelSession],
   );
+
+  React.useEffect(() => {
+    setState((current) =>
+      promotePendingMemberIntentForSession(current, modelSession),
+    );
+  }, [modelSession]);
 
   const openReportActions = React.useCallback(() => {
     setState((current) => ({
@@ -125,21 +138,13 @@ export function RastroShellProvider({
     setState((current) => ({
       ...current,
       memberIntent: null,
+      pendingMemberIntent: null,
     }));
   }, []);
 
   const completeAuthPrompt = React.useCallback(() => {
     refetchAuthSession?.();
-    setState((current) => ({
-      ...current,
-      authPrompt: null,
-      memberIntent: current.authPrompt
-        ? {
-            intent: current.authPrompt.intent,
-            label: current.authPrompt.selectedIntentLabel,
-          }
-        : current.memberIntent,
-    }));
+    setState(completeAuthPromptWithPendingMemberIntent);
   }, [refetchAuthSession]);
 
   const signInFromPrompt = React.useCallback(
@@ -215,6 +220,7 @@ export function RastroShellProvider({
           ...current,
           authPrompt: null,
           memberIntent: null,
+          pendingMemberIntent: null,
         }));
       }
 

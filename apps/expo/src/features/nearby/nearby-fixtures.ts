@@ -14,7 +14,7 @@ import { createInMemoryLastLoadedCache } from "../resilience/last-loaded-cache";
 import { createCachedNearbyLostReportsAdapter } from "./nearby-stale-cache-adapter";
 import { createStaticNearbyLostReportsAdapter } from "./nearby-static-adapter";
 
-export const nearbyBoliviaLocations = {
+const nearbyBoliviaLocations = {
   current: {
     coordinates: { latitude: -16.5405, longitude: -68.0889 },
     countryCode: "BO",
@@ -28,6 +28,22 @@ export const nearbyBoliviaLocations = {
     label: "Zona Sur, La Paz",
     locationCellLabel: "Zona Sur",
     source: "last",
+  },
+  manualZonaSur: {
+    coordinates: { latitude: -16.5, longitude: -68.1193 },
+    countryCode: "BO",
+    label: "Zona Sur, La Paz",
+    locationCellLabel: "Zona Sur",
+    manualLocationKind: "place",
+    source: "manual",
+  },
+  manualSopocachi: {
+    coordinates: { latitude: -16.5103, longitude: -68.1299 },
+    countryCode: "BO",
+    label: "Sopocachi, La Paz",
+    locationCellLabel: "Sopocachi",
+    manualLocationKind: "place",
+    source: "manual",
   },
   manualCochabamba: {
     coordinates: { latitude: -17.3895, longitude: -66.1568 },
@@ -48,7 +64,8 @@ export const nearbyBoliviaLocations = {
 } satisfies Record<string, NearbySearchLocation>;
 
 export const nearbyManualLocationOptions = [
-  nearbyBoliviaLocations.lastDetected,
+  nearbyBoliviaLocations.manualZonaSur,
+  nearbyBoliviaLocations.manualSopocachi,
   nearbyBoliviaLocations.manualCochabamba,
   nearbyBoliviaLocations.manualSantaCruz,
 ] as const;
@@ -229,6 +246,7 @@ function buildNearbyLostReportsCacheKey(query: NearbyLostReportsQuery) {
   return [
     "nearby-lost-reports",
     query.radiusKm,
+    query.categories?.join(",") ?? "all-categories",
     query.limit ?? "no-limit",
     query.cursor ?? "no-cursor",
     query.location.source,

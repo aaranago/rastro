@@ -11,10 +11,13 @@ import {
 import { Image } from "expo-image";
 import { LegendList } from "@legendapp/list";
 
+import type { NearbyLocationAdapter } from "./nearby-location-adapter";
+import type { NearbyReportRouteTarget } from "./nearby-navigation";
 import type {
   NearbyBrowseMode,
   NearbyLocationState,
   NearbyLostReportsAdapter,
+  NearbyPublicReportKind,
   NearbyRadiusKm,
   NearbySearchLocation,
 } from "./nearby-types";
@@ -25,12 +28,20 @@ import type {
   NearbyLostReportsViewModel,
   NearbyUrgentLostPetAlertViewModel,
 } from "./nearby-view-model";
+import { expoNearbyLocationAdapter } from "./nearby-expo-location-adapter";
 import {
   defaultNearbyLostReportsAdapter,
-  nearbyBoliviaLocations,
   nearbyManualLocationOptions,
 } from "./nearby-fixtures";
+import {
+  applyManualNearbySearchLocation,
+  buildNearbySearchQuery,
+  getNearbyManualLocationOptionLabel,
+  getNearbySearchLocation,
+  toNearbyLocationState,
+} from "./nearby-location-state";
 import { shareNearbyLostReport } from "./nearby-share";
+import { nearbyCategoryFilters, nearbyRadiusOptionsKm } from "./nearby-types";
 import { buildNearbyLostReportsViewModel } from "./nearby-view-model";
 
 export interface NearbyScreenProps {
@@ -38,9 +49,10 @@ export interface NearbyScreenProps {
   initialLocationState?: NearbyLocationState;
   initialMode?: NearbyBrowseMode;
   initialRadiusKm?: NearbyRadiusKm;
+  locationAdapter?: NearbyLocationAdapter;
   locationState?: NearbyLocationState;
   manualLocationOptions?: readonly NearbySearchLocation[];
-  onOpenReport?: (reportId: string) => void;
+  onOpenReport?: (target: NearbyReportRouteTarget) => void;
   onReport?: (reportId: string) => void;
   onShareReport?: (reportId: string) => void;
   onEnableAlerts?: () => void;
@@ -48,17 +60,23 @@ export interface NearbyScreenProps {
 }
 
 const defaultInitialLocationState: NearbyLocationState = {
-  kind: "ready",
-  location: nearbyBoliviaLocations.lastDetected,
+  kind: "not-requested",
 };
 
 const keyExtractor = (item: NearbyLostReportCardViewModel) => item.id;
 
-export function NearbyScreen({
+export function NearbyScreen(props: NearbyScreenProps) {
+  const controller = useNearbyScreenController(props);
+
+  return <NearbyScreenContent {...controller} />;
+}
+
+function useNearbyScreenController({
   adapter = defaultNearbyLostReportsAdapter,
   initialLocationState = defaultInitialLocationState,
   initialMode = "list",
   initialRadiusKm = 5,
+  locationAdapter = expoNearbyLocationAdapter,
   locationState,
   manualLocationOptions = nearbyManualLocationOptions,
   onEnableAlerts,
@@ -71,24 +89,40 @@ export function NearbyScreen({
     useState<NearbyLocationState>(initialLocationState);
   const [mode, setMode] = useState<NearbyBrowseMode>(initialMode);
   const [radiusKm, setRadiusKm] = useState<NearbyRadiusKm>(initialRadiusKm);
+  const [selectedCategories, setSelectedCategories] = useState<
+    readonly NearbyPublicReportKind[]
+  >(nearbyCategoryFilters);
   const [reloadKey, setReloadKey] = useState(0);
+  const [reportFeedback, setReportFeedback] = useState<string | undefined>();
+  const [isResolvingLocation, setIsResolvingLocation] = useState(false);
   const [loadState, setLoadState] = useState<NearbyLostReportsLoadState>({
     kind: "loading",
   });
 
   const effectiveLocationState = locationState ?? internalLocationState;
-  const searchLocation = getSearchLocation(effectiveLocationState);
+  const searchLocation = getNearbySearchLocation(effectiveLocationState);
   const locationQueryKey = getLocationQueryKey(searchLocation);
+  const searchQuery = useMemo(
+    () =>
+      buildNearbySearchQuery({
+        categories: selectedCategories,
+        locationState: effectiveLocationState,
+        radiusKm,
+      }),
+    [effectiveLocationState, radiusKm, selectedCategories],
+  );
 
   useEffect(() => {
-    if (!searchLocation) {
+    if (!searchQuery) {
       return;
     }
 
     let isActive = true;
 
+    setLoadState({ kind: "loading" });
+
     adapter
-      .searchLostPetReports({ location: searchLocation, radiusKm })
+      .searchLostPetReports(searchQuery)
       .then((value) => {
         if (isActive) {
           setLoadState({ kind: "success", value });
@@ -109,7 +143,7 @@ export function NearbyScreen({
     return () => {
       isActive = false;
     };
-  }, [adapter, locationQueryKey, radiusKm, reloadKey, searchLocation]);
+  }, [adapter, locationQueryKey, reloadKey, searchQuery]);
 
   const viewModel = useMemo(
     () =>
@@ -126,18 +160,79 @@ export function NearbyScreen({
     setReloadKey((key) => key + 1);
   }, []);
 
+  const handleExpandRadius = useCallback(() => {
+    setRadiusKm((currentRadiusKm) => {
+      const currentIndex = nearbyRadiusOptionsKm.indexOf(currentRadiusKm);
+      const nextIndex = (currentIndex + 1) % nearbyRadiusOptionsKm.length;
+
+      return nearbyRadiusOptionsKm[nextIndex] ?? currentRadiusKm;
+    });
+  }, []);
+
+  const handleCategoryToggle = useCallback(
+    (category: NearbyPublicReportKind) => {
+      setSelectedCategories((currentCategories) => {
+        const isSelected = currentCategories.includes(category);
+        const isAllSelected =
+          currentCategories.length === nearbyCategoryFilters.length;
+
+        if (isSelected && isAllSelected) {
+          return [category];
+        }
+
+        if (isSelected && currentCategories.length === 1) {
+          return nearbyCategoryFilters;
+        }
+
+        if (isSelected) {
+          return currentCategories.filter((selected) => selected !== category);
+        }
+
+        return nearbyCategoryFilters.filter(
+          (candidate) =>
+            candidate === category || currentCategories.includes(candidate),
+        );
+      });
+    },
+    [],
+  );
+
   const handleManualLocationPress = useCallback(
     (selectedLocation?: NearbySearchLocation) => {
       if (selectedLocation && !locationState) {
-        setInternalLocationState({
-          kind: "ready",
-          location: selectedLocation,
-        });
+        setInternalLocationState(
+          applyManualNearbySearchLocation(selectedLocation),
+        );
       }
 
       onManualLocationPress?.(selectedLocation);
     },
     [locationState, onManualLocationPress],
+  );
+
+  const handleUseCurrentLocationPress = useCallback(async () => {
+    setIsResolvingLocation(true);
+
+    try {
+      const result = await locationAdapter.resolveForegroundLocation({
+        requestPermission: true,
+      });
+      const nextLocationState = toNearbyLocationState(result);
+
+      if (!locationState) {
+        setInternalLocationState(nextLocationState);
+      }
+    } finally {
+      setIsResolvingLocation(false);
+    }
+  }, [locationAdapter, locationState]);
+
+  const handleReportPress = useCallback(
+    (reportId: string) => {
+      onReport?.(reportId);
+      setReportFeedback("Reporte enviado para revision.");
+    },
+    [onReport],
   );
 
   const renderCard = useCallback(
@@ -147,13 +242,14 @@ export function NearbyScreen({
         id={item.id}
         lastSeenAtLabel={item.lastSeenAtLabel}
         onOpenReport={onOpenReport}
-        onReport={onReport}
+        onReport={handleReportPress}
         onShareReport={onShareReport}
         photoUrl={item.photoUrl}
         priorityLabel={item.priorityLabel}
         publicLocationLabel={item.publicLocationLabel}
         reportActionLabel={item.reportActionLabel}
         reportKind={item.reportKind}
+        routeTarget={item.routeTarget}
         shareTarget={item.shareTarget}
         subtitle={item.subtitle}
         summary={item.summary}
@@ -162,14 +258,63 @@ export function NearbyScreen({
         verificationBadge={item.verificationBadge}
       />
     ),
-    [onOpenReport, onReport, onShareReport],
+    [handleReportPress, onOpenReport, onShareReport],
   );
 
-  if (viewModel.kind === "location-denied") {
+  return {
+    handleCategoryToggle,
+    handleExpandRadius,
+    handleManualLocationPress,
+    handleReportPress,
+    handleRetry,
+    handleUseCurrentLocationPress,
+    isResolvingLocation,
+    manualLocationOptions,
+    mode,
+    onEnableAlerts,
+    onOpenReport,
+    onShareReport,
+    radiusKm,
+    renderCard,
+    reportFeedback,
+    selectedCategories,
+    setMode,
+    setRadiusKm,
+    viewModel,
+  };
+}
+
+function NearbyScreenContent({
+  handleCategoryToggle,
+  handleExpandRadius,
+  handleManualLocationPress,
+  handleReportPress,
+  handleRetry,
+  handleUseCurrentLocationPress,
+  isResolvingLocation,
+  manualLocationOptions,
+  mode,
+  onEnableAlerts,
+  onOpenReport,
+  onShareReport,
+  radiusKm,
+  renderCard,
+  reportFeedback,
+  selectedCategories,
+  setMode,
+  setRadiusKm,
+  viewModel,
+}: ReturnType<typeof useNearbyScreenController>) {
+  if (
+    viewModel.kind === "location-denied" ||
+    viewModel.kind === "location-needed"
+  ) {
     return (
       <LocationFallbackState
+        isResolvingLocation={isResolvingLocation}
         manualLocationOptions={manualLocationOptions}
         onManualLocationPress={handleManualLocationPress}
+        onUseCurrentLocationPress={handleUseCurrentLocationPress}
         viewModel={viewModel}
       />
     );
@@ -184,23 +329,30 @@ export function NearbyScreen({
       >
         <Header
           mode={mode}
+          onCategoryToggle={handleCategoryToggle}
           onModeChange={setMode}
           onRadiusChange={setRadiusKm}
           radiusKm={radiusKm}
+          reportFeedback={reportFeedback}
+          selectedCategories={selectedCategories}
           viewModel={viewModel}
         />
         <MapBrowse
           cards={viewModel.cards}
           mapPins={viewModel.mapPins}
           onOpenReport={onOpenReport}
-          onReport={onReport}
+          onReport={handleReportPress}
           onShareReport={onShareReport}
         />
       </ScrollView>
     );
   }
 
-  const content = getListStateContent(viewModel, handleRetry);
+  const content = getListStateContent(
+    viewModel,
+    handleRetry,
+    handleExpandRadius,
+  );
 
   return (
     <LegendList
@@ -214,10 +366,13 @@ export function NearbyScreen({
       ListHeaderComponent={
         <Header
           mode={mode}
+          onCategoryToggle={handleCategoryToggle}
           onEnableAlerts={onEnableAlerts}
           onModeChange={setMode}
           onRadiusChange={setRadiusKm}
           radiusKm={radiusKm}
+          reportFeedback={reportFeedback}
+          selectedCategories={selectedCategories}
           viewModel={viewModel}
         />
       }
@@ -227,51 +382,41 @@ export function NearbyScreen({
   );
 }
 
-function Header({
-  mode,
-  onEnableAlerts,
-  onModeChange,
-  onRadiusChange,
-  radiusKm,
-  viewModel,
-}: {
+type NearbyHeaderViewModel = Exclude<
+  NearbyLostReportsViewModel,
+  { kind: "location-denied" | "location-needed" }
+>;
+
+interface HeaderProps {
   mode: NearbyBrowseMode;
+  onCategoryToggle: (category: NearbyPublicReportKind) => void;
   onEnableAlerts?: () => void;
   onModeChange: (mode: NearbyBrowseMode) => void;
   onRadiusChange: (radiusKm: NearbyRadiusKm) => void;
   radiusKm: NearbyRadiusKm;
-  viewModel: Exclude<NearbyLostReportsViewModel, { kind: "location-denied" }>;
-}) {
+  reportFeedback?: string;
+  selectedCategories: readonly NearbyPublicReportKind[];
+  viewModel: NearbyHeaderViewModel;
+}
+
+function Header({
+  mode,
+  onCategoryToggle,
+  onEnableAlerts,
+  onModeChange,
+  onRadiusChange,
+  radiusKm,
+  reportFeedback,
+  selectedCategories,
+  viewModel,
+}: HeaderProps) {
   return (
     <View style={styles.header}>
-      <View style={styles.titleRow}>
-        <View>
-          <Text selectable style={styles.eyebrow}>
-            Cerca
-          </Text>
-          <Text selectable style={styles.screenTitle}>
-            {viewModel.title}
-          </Text>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onEnableAlerts}
-          style={styles.alertIconButton}
-        >
-          <Text style={styles.alertIconText}>!</Text>
-        </Pressable>
-      </View>
-
-      {viewModel.kind === "ready" && viewModel.urgentAlert ? (
-        <UrgentAlert alert={viewModel.urgentAlert} />
-      ) : null}
-
-      {"offlineLabel" in viewModel && viewModel.offlineLabel ? (
-        <Text selectable style={styles.offlineLabel}>
-          {viewModel.offlineLabel}
-        </Text>
-      ) : null}
-
+      <HeaderTitleRow onEnableAlerts={onEnableAlerts} title={viewModel.title} />
+      <HeaderStatusMessages
+        reportFeedback={reportFeedback}
+        viewModel={viewModel}
+      />
       <HeaderLocationBlock viewModel={viewModel} />
 
       <View style={styles.controls}>
@@ -282,14 +427,74 @@ function Header({
           radiusOptionsKm={viewModel.radiusOptionsKm}
         />
       </View>
+      <CategoryFilterControl
+        onCategoryToggle={onCategoryToggle}
+        selectedCategories={selectedCategories}
+      />
     </View>
+  );
+}
+
+function HeaderTitleRow({
+  onEnableAlerts,
+  title,
+}: {
+  onEnableAlerts?: () => void;
+  title: string;
+}) {
+  return (
+    <View style={styles.titleRow}>
+      <View style={styles.titleBlock}>
+        <Text selectable style={styles.screenTitle}>
+          {title}
+        </Text>
+      </View>
+      {onEnableAlerts ? (
+        <Pressable
+          accessibilityLabel="Activar alertas cercanas"
+          accessibilityRole="button"
+          onPress={onEnableAlerts}
+          style={styles.alertIconButton}
+        >
+          <Text style={styles.alertIconText}>!</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+function HeaderStatusMessages({
+  reportFeedback,
+  viewModel,
+}: {
+  reportFeedback?: string;
+  viewModel: NearbyHeaderViewModel;
+}) {
+  const urgentAlert = viewModel.kind === "ready" ? viewModel.urgentAlert : null;
+  const offlineLabel =
+    "offlineLabel" in viewModel ? viewModel.offlineLabel : undefined;
+
+  return (
+    <>
+      {urgentAlert ? <UrgentAlert alert={urgentAlert} /> : null}
+      {offlineLabel ? (
+        <Text selectable style={styles.offlineLabel}>
+          {offlineLabel}
+        </Text>
+      ) : null}
+      {reportFeedback ? (
+        <Text selectable style={styles.feedbackLabel}>
+          {reportFeedback}
+        </Text>
+      ) : null}
+    </>
   );
 }
 
 function HeaderLocationBlock({
   viewModel,
 }: {
-  viewModel: Exclude<NearbyLostReportsViewModel, { kind: "location-denied" }>;
+  viewModel: NearbyHeaderViewModel;
 }) {
   if (!("locationLabel" in viewModel)) {
     return null;
@@ -404,6 +609,57 @@ function RadiusControl({
   );
 }
 
+function CategoryFilterControl({
+  onCategoryToggle,
+  selectedCategories,
+}: {
+  onCategoryToggle: (category: NearbyPublicReportKind) => void;
+  selectedCategories: readonly NearbyPublicReportKind[];
+}) {
+  return (
+    <View style={styles.categoryFilters}>
+      {nearbyCategoryFilters.map((category) => {
+        const isActive = selectedCategories.includes(category);
+
+        return (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: isActive }}
+            key={category}
+            onPress={() => onCategoryToggle(category)}
+            style={[
+              styles.categoryButton,
+              isActive ? styles.categoryButtonActive : null,
+            ]}
+          >
+            <Text
+              style={[
+                styles.categoryText,
+                isActive ? styles.categoryTextActive : null,
+              ]}
+            >
+              {formatCategoryFilterLabel(category)}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function formatCategoryFilterLabel(category: NearbyPublicReportKind) {
+  switch (category) {
+    case "adoption-listing":
+      return "Adopcion";
+    case "found-pet-report":
+      return "Encontradas";
+    case "lost-pet-report":
+      return "Perdidas";
+    case "sighting-report":
+      return "Vistas";
+  }
+}
+
 function UrgentAlert({ alert }: { alert: NearbyUrgentLostPetAlertViewModel }) {
   return (
     <View style={styles.urgentAlert}>
@@ -434,6 +690,7 @@ const LostReportCard = memo(function LostReportCard({
   publicLocationLabel,
   reportActionLabel,
   reportKind,
+  routeTarget,
   shareTarget,
   subtitle,
   summary,
@@ -444,7 +701,7 @@ const LostReportCard = memo(function LostReportCard({
   distanceLabel?: string;
   id: string;
   lastSeenAtLabel: string;
-  onOpenReport?: (reportId: string) => void;
+  onOpenReport?: (target: NearbyReportRouteTarget) => void;
   onReport?: (reportId: string) => void;
   onShareReport?: (reportId: string) => void;
   photoUrl?: string;
@@ -452,6 +709,7 @@ const LostReportCard = memo(function LostReportCard({
   publicLocationLabel: string;
   reportActionLabel: string;
   reportKind: NearbyLostReportCardViewModel["reportKind"];
+  routeTarget: NearbyReportRouteTarget;
   shareTarget: NearbyLostReportCardViewModel["shareTarget"];
   subtitle: string;
   summary: string;
@@ -460,8 +718,8 @@ const LostReportCard = memo(function LostReportCard({
   verificationBadge?: NearbyLostReportCardViewModel["verificationBadge"];
 }) {
   const handleOpenReport = useCallback(() => {
-    onOpenReport?.(id);
-  }, [id, onOpenReport]);
+    onOpenReport?.(routeTarget);
+  }, [onOpenReport, routeTarget]);
 
   const handleShareReport = useCallback(() => {
     onShareReport?.(id);
@@ -670,7 +928,7 @@ function MapBrowse({
 }: {
   cards: NearbyLostReportCardViewModel[];
   mapPins: NearbyLostReportMapPinViewModel[];
-  onOpenReport?: (reportId: string) => void;
+  onOpenReport?: (target: NearbyReportRouteTarget) => void;
   onReport?: (reportId: string) => void;
   onShareReport?: (reportId: string) => void;
 }) {
@@ -704,6 +962,7 @@ function MapBrowse({
           publicLocationLabel={featuredCard.publicLocationLabel}
           reportActionLabel={featuredCard.reportActionLabel}
           reportKind={featuredCard.reportKind}
+          routeTarget={featuredCard.routeTarget}
           shareTarget={featuredCard.shareTarget}
           subtitle={featuredCard.subtitle}
           summary={featuredCard.summary}
@@ -722,12 +981,12 @@ function MapPin({
   pin,
 }: {
   index: number;
-  onOpenReport?: (reportId: string) => void;
+  onOpenReport?: (target: NearbyReportRouteTarget) => void;
   pin: NearbyLostReportMapPinViewModel;
 }) {
   const handlePress = useCallback(() => {
-    onOpenReport?.(pin.id);
-  }, [onOpenReport, pin.id]);
+    onOpenReport?.(pin.routeTarget);
+  }, [onOpenReport, pin.routeTarget]);
   const position =
     mapPinPositions[index % mapPinPositions.length] ?? mapPinPositions[0];
 
@@ -741,20 +1000,31 @@ function MapPin({
         {pin.title}
       </Text>
       <Text selectable style={styles.mapPinMeta}>
-        {pin.distanceLabel ?? pin.label}
+        {formatMapPinMeta(pin)}
       </Text>
     </Pressable>
   );
 }
 
+function formatMapPinMeta(pin: NearbyLostReportMapPinViewModel) {
+  return [pin.distanceLabel, pin.label].filter(Boolean).join(" · ");
+}
+
 function LocationFallbackState({
+  isResolvingLocation,
   manualLocationOptions,
   onManualLocationPress,
+  onUseCurrentLocationPress,
   viewModel,
 }: {
+  isResolvingLocation: boolean;
   manualLocationOptions: readonly NearbySearchLocation[];
   onManualLocationPress: (selectedLocation?: NearbySearchLocation) => void;
-  viewModel: Extract<NearbyLostReportsViewModel, { kind: "location-denied" }>;
+  onUseCurrentLocationPress: () => void;
+  viewModel: Extract<
+    NearbyLostReportsViewModel,
+    { kind: "location-denied" | "location-needed" }
+  >;
 }) {
   return (
     <ScrollView
@@ -773,13 +1043,19 @@ function LocationFallbackState({
       </Text>
       <Pressable
         accessibilityRole="button"
-        onPress={() => onManualLocationPress()}
+        disabled={isResolvingLocation}
+        onPress={onUseCurrentLocationPress}
         style={styles.primaryButton}
       >
         <Text style={styles.primaryButtonText}>
-          {viewModel.manualLocationActionLabel}
+          {isResolvingLocation
+            ? "Buscando ubicacion"
+            : viewModel.useCurrentLocationActionLabel}
         </Text>
       </Pressable>
+      <Text selectable style={styles.manualOptionsTitle}>
+        {viewModel.manualLocationActionLabel}
+      </Text>
       <View style={styles.manualOptions}>
         {manualLocationOptions.map((option) => (
           <Pressable
@@ -789,7 +1065,7 @@ function LocationFallbackState({
             style={styles.manualOptionButton}
           >
             <Text selectable style={styles.manualOptionText}>
-              {option.label}
+              {getNearbyManualLocationOptionLabel(option)}
             </Text>
           </Pressable>
         ))}
@@ -799,8 +1075,12 @@ function LocationFallbackState({
 }
 
 function getListStateContent(
-  viewModel: Exclude<NearbyLostReportsViewModel, { kind: "location-denied" }>,
+  viewModel: Exclude<
+    NearbyLostReportsViewModel,
+    { kind: "location-denied" | "location-needed" }
+  >,
   onRetry: () => void,
+  onExpandRadius: () => void,
 ) {
   if (viewModel.kind === "loading") {
     return (
@@ -829,6 +1109,8 @@ function getListStateContent(
       <StatusPanel
         actionLabel={viewModel.radiusActionLabel}
         body={viewModel.message}
+        meta={viewModel.offlineLabel}
+        onAction={onExpandRadius}
         title={viewModel.title}
         variant="empty"
       />
@@ -841,12 +1123,14 @@ function getListStateContent(
 function StatusPanel({
   actionLabel,
   body,
+  meta,
   onAction,
   title,
   variant,
 }: {
   actionLabel?: string;
   body: string;
+  meta?: string;
   onAction?: () => void;
   title: string;
   variant: "loading" | "error" | "empty";
@@ -868,6 +1152,11 @@ function StatusPanel({
       <Text selectable style={styles.statusBody}>
         {body}
       </Text>
+      {meta ? (
+        <Text selectable style={styles.statusMeta}>
+          {meta}
+        </Text>
+      ) : null}
       {actionLabel ? (
         <Pressable
           accessibilityRole="button"
@@ -883,20 +1172,6 @@ function StatusPanel({
 
 function ListSeparator() {
   return <View style={styles.listSeparator} />;
-}
-
-function getSearchLocation(
-  locationState: NearbyLocationState,
-): NearbySearchLocation | undefined {
-  if (locationState.kind === "ready") {
-    return locationState.location;
-  }
-
-  if (locationState.kind === "denied" || locationState.kind === "unavailable") {
-    return locationState.manualLocation;
-  }
-
-  return undefined;
 }
 
 function getLocationQueryKey(location: NearbySearchLocation | undefined) {
@@ -1025,6 +1300,33 @@ const styles = StyleSheet.create({
   controls: {
     gap: 12,
   },
+  categoryButton: {
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderColor: colors.line,
+    borderRadius: 999,
+    borderWidth: 1,
+    minHeight: 40,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  categoryButtonActive: {
+    backgroundColor: colors.inkStrong,
+    borderColor: colors.inkStrong,
+  },
+  categoryFilters: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  categoryText: {
+    color: colors.inkMuted,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  categoryTextActive: {
+    color: colors.white,
+  },
   distancePill: {
     backgroundColor: colors.card,
     borderRadius: 999,
@@ -1040,17 +1342,11 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
     fontWeight: "800",
   },
-  eyebrow: {
-    color: colors.inkStrong,
-    fontSize: 13,
-    fontWeight: "800",
-    letterSpacing: 0,
-    textTransform: "uppercase",
-  },
   fallbackContent: {
     alignItems: "center",
     gap: 18,
     padding: 24,
+    paddingBottom: 140,
     paddingTop: 54,
   },
   fallbackIllustration: {
@@ -1082,13 +1378,23 @@ const styles = StyleSheet.create({
     maxWidth: 320,
     textAlign: "center",
   },
+  feedbackLabel: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.chip,
+    borderRadius: 999,
+    color: colors.inkStrong,
+    fontSize: 13,
+    fontWeight: "800",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
   header: {
     gap: 16,
   },
   listContent: {
     gap: 18,
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: 140,
   },
   listSeparator: {
     height: 18,
@@ -1139,6 +1445,13 @@ const styles = StyleSheet.create({
     gap: 10,
     justifyContent: "center",
   },
+  manualOptionsTitle: {
+    color: colors.inkMuted,
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 20,
+    textAlign: "center",
+  },
   mapCanvas: {
     aspectRatio: 0.9,
     backgroundColor: colors.mapGreen,
@@ -1152,7 +1465,7 @@ const styles = StyleSheet.create({
   mapContent: {
     gap: 18,
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: 140,
   },
   mapPanel: {
     gap: 14,
@@ -1341,6 +1654,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "900",
   },
+  statusMeta: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 18,
+    textAlign: "center",
+  },
   statusPanel: {
     alignItems: "center",
     backgroundColor: colors.card,
@@ -1375,6 +1695,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 14,
     justifyContent: "space-between",
+  },
+  titleBlock: {
+    flex: 1,
+    minWidth: 0,
   },
   urgentAlert: {
     alignItems: "center",

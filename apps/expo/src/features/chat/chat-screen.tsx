@@ -1,3 +1,4 @@
+import type { Href } from "expo-router";
 import * as React from "react";
 import {
   ActivityIndicator,
@@ -11,7 +12,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 
 import type {
   ChatConversation,
@@ -20,6 +21,7 @@ import type {
   ChatSubject,
 } from "~/features/chat/chat-model";
 import { buildChatConversationViewModel } from "~/features/chat/chat-model";
+import { openInternalRastroHref } from "../navigation/internal-rastro-links";
 import { shellColors } from "../shell/shell-theme";
 
 export type ChatScreenConversation = ChatConversation;
@@ -32,6 +34,7 @@ export interface ChatScreenProps {
     conversation: ChatScreenConversation;
     participant?: ChatParticipant;
   }) => void;
+  onOpenHref?: (href: string) => void;
   onOpenSubject?: (subject: ChatSubject) => void;
   onReportConversation?: (conversation: ChatScreenConversation) => void;
   pollIntervalMs?: number;
@@ -69,6 +72,13 @@ export interface ChatMessageViewModel {
   id: string;
   isMine: boolean;
   senderLabel: string;
+}
+
+export interface OpenChatSubjectHrefInput {
+  onOpenHref?: (href: string) => void;
+  openExternalUrl: (href: string) => Promise<void> | void;
+  routerPush: (href: Href) => void;
+  subject: ChatSubject;
 }
 
 const bottomInset = 28;
@@ -147,12 +157,14 @@ export function ChatScreen({
   conversationId,
   initialConversation,
   onBlockParticipant,
+  onOpenHref,
   onOpenSubject,
   onReportConversation,
   pollIntervalMs = defaultPollIntervalMs,
   repository,
   viewerMemberId,
 }: ChatScreenProps) {
+  const router = useRouter();
   const [conversation, setConversation] = React.useState<
     ChatScreenConversation | null | undefined
   >(initialConversation);
@@ -262,8 +274,15 @@ export function ChatScreen({
       return;
     }
 
-    void Linking.openURL(conversation.subject.href);
-  }, [conversation, onOpenSubject]);
+    openChatSubjectHref({
+      onOpenHref,
+      openExternalUrl: (url) => Linking.openURL(url),
+      routerPush: (href) => {
+        router.push(href);
+      },
+      subject: conversation.subject,
+    });
+  }, [conversation, onOpenHref, onOpenSubject, router]);
 
   const handleReportConversation = React.useCallback(async () => {
     if (!conversation) {
@@ -399,6 +418,7 @@ export function ChatScreen({
       />
       <View style={styles.composer}>
         <TextInput
+          accessibilityLabel="Mensaje"
           maxFontSizeMultiplier={1.2}
           multiline
           onChangeText={setDraftMessage}
@@ -408,7 +428,12 @@ export function ChatScreen({
           value={draftMessage}
         />
         <Pressable
+          accessibilityLabel={viewModel.actions.sendLabel}
           accessibilityRole="button"
+          accessibilityState={{
+            busy: isSending,
+            disabled: !canSend || isSending,
+          }}
           disabled={!canSend || isSending}
           onPress={handleSendMessage}
           style={[
@@ -450,6 +475,20 @@ async function loadChatConversation({
   return repository.getConversation({
     conversationId,
     viewerMemberId,
+  });
+}
+
+export function openChatSubjectHref({
+  onOpenHref,
+  openExternalUrl,
+  routerPush,
+  subject,
+}: OpenChatSubjectHrefInput) {
+  openInternalRastroHref({
+    href: subject.href,
+    onOpenHref,
+    openExternalUrl,
+    routerPush,
   });
 }
 

@@ -19,6 +19,8 @@ import type {
   FoundPetReportSummary,
   LostPetReportSummary,
   NearbyLostReportsAdapter,
+  NearbyPublicReportKind,
+  NearbyPublicReportSummary,
   PublicLocation,
   SightingReportSummary,
 } from "./nearby-types";
@@ -114,7 +116,7 @@ export function createNearbyLostReportRepositoryAdapter({
             strategy: "postgis_radius",
           })
         : undefined;
-      const reports = [
+      const reports = filterReportsByCategory(query.categories, [
         ...lostResult.reports.map((report) =>
           toNearbyLostPetReportSummary({
             generatedAt: lostResult.generatedAt,
@@ -139,7 +141,7 @@ export function createNearbyLostReportRepositoryAdapter({
             listing,
           }),
         ) ?? []),
-      ].sort(compareNearbyPublicReports);
+      ]).sort(compareNearbyPublicReports);
 
       return {
         generatedAt: lostResult.generatedAt,
@@ -155,6 +157,27 @@ export function createNearbyLostReportRepositoryAdapter({
       };
     },
   };
+}
+
+function filterReportsByCategory(
+  categories: readonly NearbyPublicReportKind[] | undefined,
+  reports: NearbyPublicReportSummary[],
+) {
+  if (!categories || categories.length === 0) {
+    return reports;
+  }
+
+  const selectedCategories = new Set(categories);
+
+  return reports.filter((report) =>
+    selectedCategories.has(getReportKind(report)),
+  );
+}
+
+function getReportKind(
+  report: NearbyPublicReportSummary,
+): NearbyPublicReportKind {
+  return report.reportKind ?? "lost-pet-report";
 }
 
 function toNearbyAdoptionListingSummary({

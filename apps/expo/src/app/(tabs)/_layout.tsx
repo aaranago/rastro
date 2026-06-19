@@ -1,6 +1,7 @@
 import { StyleSheet, View } from "react-native";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 
+import { AppStateScreen } from "~/features/app-states";
 import { ShellFabHost } from "~/features/shell/shell-overlays";
 import {
   RastroShellProvider,
@@ -22,6 +23,10 @@ export default function TabLayout() {
 
 function RastroTabs() {
   const { model } = useRastroShell();
+
+  if (model.session.kind === "loading") {
+    return <AppStateScreen descriptor={model.appStates.states.loading} />;
+  }
 
   return (
     <View style={styles.container}>

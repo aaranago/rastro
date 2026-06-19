@@ -14,6 +14,10 @@ import type {
   ActivityMemberViewModel,
   BuildActivityViewModelInput,
 } from "./activity-model";
+import {
+  openInternalRastroHref,
+  resolveInternalRastroHref,
+} from "../navigation/internal-rastro-links";
 import { ShellIcon } from "../shell/shell-overlays";
 import { useRastroShell } from "../shell/shell-provider";
 import { shellColors } from "../shell/shell-theme";
@@ -76,6 +80,13 @@ export interface ActivityScreenProps {
   onOpenHref?: (href: string) => void;
 }
 
+export interface OpenActivityHrefInput {
+  href: string;
+  onOpenHref?: (href: string) => void;
+  openExternalUrl: (href: string) => Promise<void> | void;
+  routerPush: (href: Href) => void;
+}
+
 const bottomInset = 140;
 const defaultEstimatedItemSize = 96;
 const activityDateFormatter = new Intl.DateTimeFormat("es-BO", {
@@ -111,19 +122,14 @@ export function ActivityScreen({ onOpenHref }: ActivityScreenProps) {
 
   const openHref = React.useCallback(
     (href: string) => {
-      if (onOpenHref) {
-        onOpenHref(href);
-        return;
-      }
-
-      const routerHref = getRouterHref(href);
-
-      if (routerHref) {
-        router.push(routerHref);
-        return;
-      }
-
-      void Linking.openURL(href);
+      openActivityHref({
+        href,
+        onOpenHref,
+        openExternalUrl: (url) => Linking.openURL(url),
+        routerPush: (routerHref) => {
+          router.push(routerHref);
+        },
+      });
     },
     [onOpenHref, router],
   );
@@ -398,7 +404,10 @@ const SignedOutState = React.memo(function SignedOutState({
         {body}
       </Text>
       <Pressable
+        accessibilityHint="Abre el perfil para iniciar sesion o crear una cuenta."
+        accessibilityLabel={action.label}
         accessibilityRole="button"
+        accessibilityState={{ disabled: false }}
         onPress={handlePress}
         style={({ pressed }) => [
           styles.primaryButton,
@@ -479,7 +488,7 @@ function normalizeMemberViewModel(
 function getActivityModelSession(
   session: ShellSession,
 ): BuildActivityViewModelInput["session"] {
-  if (session.kind === "visitor") {
+  if (session.kind !== "member") {
     return { kind: "visitor" as const };
   }
 
@@ -495,7 +504,7 @@ function getActivityModelInput(
 ): BuildActivityViewModelInput {
   const modelSession = getActivityModelSession(session);
 
-  if (session.kind === "visitor") {
+  if (session.kind !== "member") {
     return {
       session: modelSession,
     };
@@ -693,26 +702,23 @@ function formatActivityTime(value: string) {
   return activityDateFormatter.format(new Date(timestamp));
 }
 
-function getRouterHref(href: string): Href | null {
-  if (href.startsWith("/")) {
-    return href as Href;
-  }
-
-  for (const pattern of internalDeepLinkPatterns) {
-    if (pattern.test(href)) {
-      return href.replace("rastro://", "/") as Href;
-    }
-  }
-
-  return null;
+export function openActivityHref({
+  href,
+  onOpenHref,
+  openExternalUrl,
+  routerPush,
+}: OpenActivityHrefInput) {
+  openInternalRastroHref({
+    href,
+    onOpenHref,
+    openExternalUrl,
+    routerPush,
+  });
 }
 
-const internalDeepLinkPatterns = [
-  /^rastro:\/\/adopciones\/[^/]+$/,
-  /^rastro:\/\/chats\/[^/]+$/,
-  /^rastro:\/\/reportes\/avistamientos\/[^/]+$/,
-  /^rastro:\/\/reportes\/perdidos\/[^/]+$/,
-] as const;
+export function resolveActivityRouterHref(href: string): Href | null {
+  return resolveInternalRastroHref(href);
+}
 
 function getActivityAccessibilityLabel({
   body,

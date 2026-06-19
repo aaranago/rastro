@@ -1,6 +1,10 @@
 import type { ReportIntent, ShellCopy, ShellTabKey } from "../../i18n";
 import type { AppStateCatalog } from "../app-states";
 
+export interface ShellLoadingSession {
+  kind: "loading";
+}
+
 export type ShellSession =
   | {
       kind: "visitor";
@@ -11,6 +15,8 @@ export type ShellSession =
       kind: "member";
       name?: string | null;
     };
+
+export type ShellModelSession = ShellLoadingSession | ShellSession;
 
 export interface ShellTab {
   key: ShellTabKey;
@@ -35,7 +41,7 @@ export interface ShellModel {
   appStates: AppStateCatalog;
   brand: ShellCopy["brand"];
   locale: ShellCopy["locale"];
-  session: ShellSession;
+  session: ShellModelSession;
   tabs: ShellTab[];
   reportActions: ShellReportAction[];
 }
@@ -78,6 +84,13 @@ export interface ShellState {
   activeSheet: "report-actions" | null;
   authPrompt: ShellAuthPrompt | null;
   memberIntent: Pick<ShellReportAction, "intent" | "label"> | null;
+  pendingMemberIntent: Pick<ShellReportAction, "intent" | "label"> | null;
+}
+
+export interface ShellMemberCreationSession {
+  displayName?: string;
+  kind: "member";
+  memberId: string;
 }
 
 const tabs = [
@@ -150,11 +163,19 @@ const reportActions = [
   tone: ShellReportAction["tone"];
 }[];
 
+const mainTabRouteSegments = new Set([
+  "(nearby)",
+  "(activity)",
+  "(resources)",
+  "(profile)",
+]);
+
 export function createInitialShellState(): ShellState {
   return {
     activeSheet: null,
     authPrompt: null,
     memberIntent: null,
+    pendingMemberIntent: null,
   };
 }
 
@@ -163,10 +184,10 @@ export function createShellModel({
   session,
 }: {
   copy: ShellCopy;
-  session: ShellSession;
+  session: ShellModelSession;
 }): ShellModel {
   return {
-    appStates: copy.appStates,
+    appStates: createShellAppStates(copy.appStates),
     brand: copy.brand,
     locale: copy.locale,
     session,
@@ -182,14 +203,60 @@ export function createShellModel({
   };
 }
 
+function createShellAppStates(appStates: AppStateCatalog): AppStateCatalog {
+  const locationPermissionEducation = appStates.permissionEducation.location;
+
+  return {
+    ...appStates,
+    permissionEducation: {
+      ...appStates.permissionEducation,
+      location: {
+        ...locationPermissionEducation,
+        title: "Encuentra reportes cerca de ti",
+        body: "Usamos tu ubicacion solo para ordenar reportes por distancia.",
+        reasons: [
+          "No solicitamos ubicacion al abrir la app.",
+          "Puedes buscar por ciudad o zona en Bolivia.",
+        ],
+        actions: locationPermissionEducation.actions.map((action) => {
+          if (action.id === "request-permission") {
+            return {
+              ...action,
+              label: "Usar mi ubicacion actual",
+            };
+          }
+
+          if (action.id === "manual-search") {
+            return {
+              ...action,
+              label: "Buscar ciudad o zona",
+            };
+          }
+
+          return action;
+        }),
+      },
+    },
+  };
+}
+
 export function createShellProfileModel({
   copy,
   session,
 }: {
   copy: ShellCopy;
-  session: ShellSession;
+  session: ShellModelSession;
 }): ShellProfileModel {
   const profileCopy = copy.screens.profile;
+
+  if (session.kind === "loading") {
+    return {
+      accountSettings: null,
+      body: copy.appStates.states.loading.body ?? "",
+      isMember: false,
+      title: copy.appStates.states.loading.title,
+    };
+  }
 
   if (session.kind === "visitor") {
     return {
@@ -238,6 +305,7 @@ export function chooseReportAction(
       ...state,
       activeSheet: null,
       authPrompt: null,
+      pendingMemberIntent: null,
     };
   }
 
@@ -251,6 +319,7 @@ export function chooseReportAction(
       body: copy.authPrompt.bodyForIntent(action.label),
     },
     memberIntent: null,
+    pendingMemberIntent: null,
   };
 }
 
@@ -266,5 +335,65 @@ export function continueReportActionAsMember(
       intent: action.intent,
       label: action.label,
     },
+    pendingMemberIntent: null,
   };
+}
+
+export function completeAuthPromptWithPendingMemberIntent(
+  state: ShellState,
+): ShellState {
+  return {
+    ...state,
+    authPrompt: null,
+    memberIntent: null,
+    pendingMemberIntent: state.authPrompt
+      ? {
+          intent: state.authPrompt.intent,
+          label: state.authPrompt.selectedIntentLabel,
+        }
+      : state.pendingMemberIntent,
+  };
+}
+
+export function promotePendingMemberIntentForSession(
+  state: ShellState,
+  session: ShellModelSession,
+): ShellState {
+  if (!state.pendingMemberIntent || session.kind !== "member") {
+    return state;
+  }
+
+  return {
+    ...state,
+    memberIntent: state.pendingMemberIntent,
+    pendingMemberIntent: null,
+  };
+}
+
+export function toShellMemberCreationSession(
+  session: ShellModelSession,
+): ShellMemberCreationSession | null {
+  if (session.kind !== "member") {
+    return null;
+  }
+
+  return {
+    displayName: session.name ?? undefined,
+    kind: "member",
+    memberId: session.id,
+  };
+}
+
+export function shouldShowGlobalFabForSegments(
+  segments: readonly string[],
+): boolean {
+  const tabIndex = segments.findIndex((segment) =>
+    mainTabRouteSegments.has(segment),
+  );
+
+  if (tabIndex === -1) {
+    return false;
+  }
+
+  return segments.slice(tabIndex + 1).every((segment) => segment === "index");
 }
