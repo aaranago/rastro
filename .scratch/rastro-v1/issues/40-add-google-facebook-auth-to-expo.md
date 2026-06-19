@@ -1,8 +1,7 @@
 # Add Google and Facebook auth to the Expo mobile prompt
 
-Status: ready-for-human
+Status: complete
 Type: AFK
-Labels: ready-for-human
 Issue ID: AUTH-1
 Severity: P1
 Journey: Auth and protected creation handoff
@@ -37,6 +36,7 @@ An urgent visitor cannot use the promised low-friction Google/Facebook login pat
 
 ## Evidence
 
+- Independent final verification passed on 2026-06-19. Evidence: `.scratch/mobile-qa/20260619-175022-auth1-finalverify/screenshots/06-auth-prompt-report-lost.png`, `.scratch/mobile-qa/20260619-175022-auth1-finalverify/screenshots/08-google-cancel-return.png`, `.scratch/mobile-qa/20260619-175022-auth1-finalverify/screenshots/10-facebook-cancel-return.png`, and `.scratch/mobile-qa/20260619-175022-auth1-finalverify/screenshots/22-pending-provider-google-cancel-return-attempt-1.png`.
 - Repair follow-up on 2026-06-19: the first-run tour is now suppressed while the auth prompt is active, so a provider cancellation recovery message is not hidden by onboarding.
 - Failed independent verification on 2026-06-19: Google handoff opened `/api/auth/expo-authorization-proxy`, but closing the Google Custom Tab returned to the preserved auth prompt without a visible `Cancelaste el ingreso...` cancellation error.
 - `.scratch/mobile-qa/20260619-152033/screenshots/auth-prompt-report-lost.png`
@@ -76,13 +76,14 @@ The Expo auth contract and shell UI were implemented as email/password only. `Sh
 
 ## Required Manual Verification
 
-- Pending human/device verification with backend/provider credentials.
-- Launch the mobile app with a reachable auth backend.
-- Open the auth prompt from `Reportar perdida`.
-- Verify Google and Facebook buttons are visible on Android.
-- Start each provider flow far enough to confirm the external provider handoff begins.
-- Where human provider credentials are available, complete login and verify the app returns to the protected report flow.
-- Capture screenshots/logs under `.scratch/mobile-qa/<timestamp>/`.
+- [x] Launch the mobile app with a reachable auth backend.
+- [x] Open the auth prompt from `Reportar perdida`.
+- [x] Verify Google and Facebook buttons are visible on Android.
+- [x] Start each provider flow far enough to confirm the external provider handoff begins.
+- [x] Verify Google and Facebook cancellation return to the auth prompt with the specific recovery message visible.
+- [x] Verify a pending first-run tour does not cover the returned auth prompt after provider cancellation.
+- [x] Capture screenshots/logs under `.scratch/mobile-qa/20260619-175022-auth1-finalverify/`.
+- [ ] Complete real Google/Facebook account login and verify the app returns to the protected report flow when human provider credentials are available.
 
 ## Affected Components And Likely Files
 
