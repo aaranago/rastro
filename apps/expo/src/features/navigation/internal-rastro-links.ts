@@ -3,18 +3,32 @@ import type { Href } from "expo-router";
 export interface OpenInternalRastroHrefInput {
   href: string;
   onOpenHref?: (href: string) => void;
+  openAuthPrompt?: (request: InternalAuthPromptRequest) => void;
   openExternalUrl: (href: string) => Promise<void> | void;
   routerPush: (href: Href) => void;
+}
+
+export interface InternalAuthPromptRequest {
+  returnTo?: string;
+  sourceHref: string;
 }
 
 export function openInternalRastroHref({
   href,
   onOpenHref,
+  openAuthPrompt,
   openExternalUrl,
   routerPush,
 }: OpenInternalRastroHrefInput) {
   if (onOpenHref) {
     onOpenHref(href);
+    return;
+  }
+
+  const authPromptRequest = resolveInternalAuthPromptRequest(href);
+
+  if (authPromptRequest) {
+    openAuthPrompt?.(authPromptRequest);
     return;
   }
 
@@ -33,8 +47,8 @@ export function resolveInternalRastroHref(href: string): Href | null {
     return href as Href;
   }
 
-  if (authSignInDeepLinkPattern.test(href)) {
-    return "/(tabs)/(profile)" as Href;
+  if (resolveInternalAuthPromptRequest(href)) {
+    return null;
   }
 
   const reportUpdateHref = resolveReportUpdateHref(href);
@@ -52,6 +66,23 @@ export function resolveInternalRastroHref(href: string): Href | null {
   return null;
 }
 
+function resolveInternalAuthPromptRequest(
+  href: string,
+): InternalAuthPromptRequest | null {
+  const url = parseInternalUrl(href);
+
+  if (url?.hostname !== "auth" || url.pathname !== "/sign-in") {
+    return null;
+  }
+
+  const returnTo = normalizeAuthReturnTo(url.searchParams.get("returnTo"));
+
+  return {
+    ...(returnTo ? { returnTo } : {}),
+    sourceHref: href,
+  };
+}
+
 function resolveReportUpdateHref(href: string): Href | null {
   const match = reportUpdateDeepLinkPattern.exec(href);
   const reportKind = match?.[1];
@@ -64,7 +95,33 @@ function resolveReportUpdateHref(href: string): Href | null {
   return `/reportes/${reportKind}/${reportId}` as Href;
 }
 
-const authSignInDeepLinkPattern = /^rastro:\/\/auth\/sign-in(?:\?.*)?$/;
+function parseInternalUrl(href: string): URL | null {
+  try {
+    const url = new URL(href);
+
+    return url.protocol === "rastro:" ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeAuthReturnTo(value: string | null): string | undefined {
+  const returnTo = value?.trim();
+
+  if (!returnTo || !returnTo.startsWith("/") || returnTo.startsWith("//")) {
+    return undefined;
+  }
+
+  return authReturnToAliases[returnTo] ?? returnTo;
+}
+
+const authReturnToAliases: Record<string, string> = {
+  "/actividad": "/(tabs)/(activity)",
+  "/cerca": "/(tabs)/(nearby)",
+  "/perfil": "/(tabs)/(profile)",
+  "/recursos": "/(tabs)/(resources)",
+};
+
 const reportUpdateDeepLinkPattern =
   /^rastro:\/\/reportes\/(avistamientos|encontrados|perdidos)\/([^/?#]+)\/actualizar(?:[?#].*)?$/;
 

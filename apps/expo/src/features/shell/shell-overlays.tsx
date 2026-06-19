@@ -1,3 +1,4 @@
+import type { Href } from "expo-router";
 import type {
   LayoutChangeEvent,
   NativeScrollEvent,
@@ -98,6 +99,7 @@ export function ShellIcon({ name, color, fallback, size = 22 }: IconProps) {
 export function ShellFabHost() {
   const {
     chooseReportIntent,
+    clearAuthReturnTo,
     clearMemberIntent,
     closeReportActions,
     continueAsVisitor,
@@ -152,6 +154,15 @@ export function ShellFabHost() {
     },
     [sponsorResourcesAdapter],
   );
+
+  React.useEffect(() => {
+    if (!state.authReturnTo) {
+      return;
+    }
+
+    router.push(state.authReturnTo as Href);
+    clearAuthReturnTo();
+  }, [clearAuthReturnTo, router, state.authReturnTo]);
 
   return (
     <>

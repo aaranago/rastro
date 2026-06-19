@@ -1,11 +1,16 @@
 import * as React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   ActivityScreen,
   openActivityHref,
   resolveActivityRouterHref,
 } from "./activity-screen";
+
+const shellContext = vi.hoisted(() => ({
+  requestAuthPrompt: vi.fn(),
+  session: { kind: "visitor" as const },
+}));
 
 vi.mock("react", async () => {
   const actual = await vi.importActual("react");
@@ -46,29 +51,43 @@ vi.mock("../shell/shell-overlays", () => ({
 }));
 
 vi.mock("../shell/shell-provider", () => ({
-  useRastroShell: () => ({
-    session: { kind: "visitor" },
-  }),
+  useRastroShell: () => shellContext,
 }));
 
 describe("Activity screen links", () => {
+  beforeEach(() => {
+    shellContext.requestAuthPrompt.mockReset();
+  });
+
   it("converts found report deep links to the existing found-report route", () => {
     expect(
       resolveActivityRouterHref("rastro://reportes/encontrados/found-report-1"),
     ).toBe("/reportes/encontrados/found-report-1");
   });
 
-  it("routes signed-out auth actions in app instead of opening an external URL", () => {
+  it("does not resolve auth sign-in links to a Profile route", () => {
+    expect(
+      resolveActivityRouterHref("rastro://auth/sign-in?returnTo=/actividad"),
+    ).toBeNull();
+  });
+
+  it("opens the shell auth prompt for signed-out auth actions instead of routing to Perfil", () => {
+    const openAuthPrompt = vi.fn();
     const openExternalUrl = vi.fn();
     const routerPush = vi.fn();
 
     openActivityHref({
       href: "rastro://auth/sign-in?returnTo=/actividad",
+      openAuthPrompt,
       openExternalUrl,
       routerPush,
     });
 
-    expect(routerPush).toHaveBeenCalledWith("/(tabs)/(profile)");
+    expect(openAuthPrompt).toHaveBeenCalledWith({
+      returnTo: "/(tabs)/(activity)",
+      sourceHref: "rastro://auth/sign-in?returnTo=/actividad",
+    });
+    expect(routerPush).not.toHaveBeenCalled();
     expect(openExternalUrl).not.toHaveBeenCalled();
   });
 
@@ -99,9 +118,22 @@ describe("Activity screen links", () => {
 
     expect(button?.props.accessibilityRole).toBe("button");
     expect(button?.props.accessibilityHint).toBe(
-      "Abre el perfil para iniciar sesion o crear una cuenta.",
+      "Abre el ingreso o la creacion de cuenta.",
     );
     expect(button?.props.accessibilityState).toEqual({ disabled: false });
+
+    const onPress = button?.props.onPress;
+
+    if (typeof onPress !== "function") {
+      throw new Error("Expected signed-out CTA to be pressable.");
+    }
+
+    (onPress as () => void)();
+
+    expect(shellContext.requestAuthPrompt).toHaveBeenCalledWith({
+      returnTo: "/(tabs)/(activity)",
+      sourceHref: "rastro://auth/sign-in?returnTo=/actividad",
+    });
   });
 });
 

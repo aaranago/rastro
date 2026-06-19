@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import { LegendList } from "@legendapp/list";
 
 import type { ChatConversation } from "../chat/chat-model";
+import type { InternalAuthPromptRequest } from "../navigation/internal-rastro-links";
 import type { ShellSession } from "../shell/shell-model";
 import type {
   ActivityActionViewModel,
@@ -83,6 +84,7 @@ export interface ActivityScreenProps {
 export interface OpenActivityHrefInput {
   href: string;
   onOpenHref?: (href: string) => void;
+  openAuthPrompt?: (request: InternalAuthPromptRequest) => void;
   openExternalUrl: (href: string) => Promise<void> | void;
   routerPush: (href: Href) => void;
 }
@@ -112,7 +114,7 @@ function ListSeparator() {
 }
 
 export function ActivityScreen({ onOpenHref }: ActivityScreenProps) {
-  const { session } = useRastroShell();
+  const { requestAuthPrompt, session } = useRastroShell();
   const router = useRouter();
   const viewModel = React.useMemo(
     () => buildScreenViewModel(session),
@@ -125,13 +127,14 @@ export function ActivityScreen({ onOpenHref }: ActivityScreenProps) {
       openActivityHref({
         href,
         onOpenHref,
+        openAuthPrompt: requestAuthPrompt,
         openExternalUrl: (url) => Linking.openURL(url),
         routerPush: (routerHref) => {
           router.push(routerHref);
         },
       });
     },
-    [onOpenHref, router],
+    [onOpenHref, requestAuthPrompt, router],
   );
 
   const renderItem = React.useCallback(
@@ -404,7 +407,7 @@ const SignedOutState = React.memo(function SignedOutState({
         {body}
       </Text>
       <Pressable
-        accessibilityHint="Abre el perfil para iniciar sesion o crear una cuenta."
+        accessibilityHint="Abre el ingreso o la creacion de cuenta."
         accessibilityLabel={action.label}
         accessibilityRole="button"
         accessibilityState={{ disabled: false }}
@@ -705,12 +708,14 @@ function formatActivityTime(value: string) {
 export function openActivityHref({
   href,
   onOpenHref,
+  openAuthPrompt,
   openExternalUrl,
   routerPush,
 }: OpenActivityHrefInput) {
   openInternalRastroHref({
     href,
     onOpenHref,
+    openAuthPrompt,
     openExternalUrl,
     routerPush,
   });

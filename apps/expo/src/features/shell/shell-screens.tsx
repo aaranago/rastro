@@ -220,6 +220,7 @@ export function ProfileScreen() {
   const {
     copy,
     initiateAccountDeletion,
+    requestAuthPrompt,
     requestMemberPasswordReset,
     session,
     signOutMember,
@@ -246,6 +247,17 @@ export function ProfileScreen() {
         }
         title={profile.title}
       />
+      {!profile.isMember ? (
+        <ProfileVisitorAuthEntry
+          label={copy.authPrompt.signIn}
+          onPress={() =>
+            requestAuthPrompt({
+              returnTo: "/(tabs)/(profile)",
+              sourceHref: "rastro://auth/sign-in?returnTo=/perfil",
+            })
+          }
+        />
+      ) : null}
       <View style={styles.profileList}>
         <ProfileRow
           href="/mis-mascotas"
@@ -276,6 +288,36 @@ export function ProfileScreen() {
 
 export function NearbyShellStateBridge() {
   return null;
+}
+
+function ProfileVisitorAuthEntry({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityHint="Abre el ingreso o la creacion de cuenta."
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.profileAuthButton,
+        pressed ? styles.profileAuthButtonPressed : null,
+      ]}
+    >
+      <ShellIcon
+        color={shellColors.white}
+        name="arrow.right.to.line"
+        size={18}
+      />
+      <Text maxFontSizeMultiplier={1.15} style={styles.profileAuthButtonText}>
+        {label}
+      </Text>
+    </Pressable>
+  );
 }
 
 function SessionBadge() {
@@ -766,8 +808,9 @@ const permissionIconFallbacks = [
 
 function getPermissionIconFallback(iconName?: string) {
   return (
-    permissionIconFallbacks.find(([needle]) => iconName?.includes(needle))?.[1] ??
-    "i"
+    permissionIconFallbacks.find(([needle]) =>
+      iconName?.includes(needle),
+    )?.[1] ?? "i"
   );
 }
 
@@ -1253,6 +1296,27 @@ const styles = StyleSheet.create({
   },
   profileList: {
     gap: 10,
+  },
+  profileAuthButton: {
+    alignItems: "center",
+    backgroundColor: shellColors.primary,
+    borderRadius: 18,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 50,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  profileAuthButtonPressed: {
+    opacity: 0.84,
+  },
+  profileAuthButtonText: {
+    color: shellColors.white,
+    flexShrink: 1,
+    fontSize: 15,
+    fontWeight: "900",
+    textAlign: "center",
   },
   permissionStack: {
     gap: 10,

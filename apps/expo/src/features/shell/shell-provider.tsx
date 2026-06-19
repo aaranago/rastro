@@ -7,6 +7,7 @@ import type {
   ShellAuthCredentials,
 } from "./shell-auth";
 import type {
+  ShellAuthPromptRequest,
   ShellModel,
   ShellReportAction,
   ShellSession,
@@ -22,6 +23,7 @@ import {
   createInitialShellState,
   createShellModel,
   promotePendingMemberIntentForSession,
+  requestShellAuthPrompt,
 } from "./shell-model";
 
 interface RastroShellContextValue {
@@ -30,6 +32,8 @@ interface RastroShellContextValue {
   session: ShellSession;
   state: ShellState;
   clearMemberIntent: () => void;
+  clearAuthReturnTo: () => void;
+  requestAuthPrompt: (request?: ShellAuthPromptRequest) => void;
   openReportActions: () => void;
   closeReportActions: () => void;
   chooseReportIntent: (intent: ReportIntent) => void;
@@ -120,6 +124,22 @@ export function RastroShellProvider({
     [copy, model, session.kind],
   );
 
+  const requestAuthPrompt = React.useCallback(
+    (request: ShellAuthPromptRequest = {}) => {
+      setState((current) =>
+        session.kind === "member" && request.returnTo
+          ? {
+              ...current,
+              activeSheet: null,
+              authReturnTo: request.returnTo,
+              authPrompt: null,
+            }
+          : requestShellAuthPrompt(current, copy, request),
+      );
+    },
+    [copy, session.kind],
+  );
+
   const dismissAuthPrompt = React.useCallback(() => {
     setState((current) => ({
       ...current,
@@ -139,6 +159,13 @@ export function RastroShellProvider({
       ...current,
       memberIntent: null,
       pendingMemberIntent: null,
+    }));
+  }, []);
+
+  const clearAuthReturnTo = React.useCallback(() => {
+    setState((current) => ({
+      ...current,
+      authReturnTo: null,
     }));
   }, []);
 
@@ -233,10 +260,12 @@ export function RastroShellProvider({
       model,
       session,
       state,
+      clearAuthReturnTo,
       clearMemberIntent,
       openReportActions,
       closeReportActions,
       chooseReportIntent,
+      requestAuthPrompt,
       dismissAuthPrompt,
       signInFromPrompt,
       createAccountFromPrompt,
@@ -247,6 +276,7 @@ export function RastroShellProvider({
     }),
     [
       chooseReportIntent,
+      clearAuthReturnTo,
       clearMemberIntent,
       closeReportActions,
       continueAsVisitor,
@@ -256,6 +286,7 @@ export function RastroShellProvider({
       initiateAccountDeletion,
       model,
       openReportActions,
+      requestAuthPrompt,
       requestMemberPasswordReset,
       session,
       signInFromPrompt,

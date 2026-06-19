@@ -25,6 +25,7 @@ export interface ShellCopy {
   reportActions: Record<ReportIntent, string>;
   authPrompt: {
     title: string;
+    body: string;
     bodyForIntent: (intentLabel: string) => string;
     emailLabel: string;
     emailPlaceholder: string;
@@ -140,6 +141,7 @@ const esBO: ShellCopy = {
   },
   authPrompt: {
     title: "Inicia sesion para continuar",
+    body: "Inicia sesion o crea una cuenta para guardar tu actividad y continuar en Rastro.",
     bodyForIntent: (intentLabel) =>
       `Guardamos tu seleccion: ${intentLabel}. Inicia sesion para reportar o ver tu actividad.`,
     emailLabel: "Correo",

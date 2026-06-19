@@ -13,6 +13,7 @@ import {
   createShellModel,
   createShellProfileModel,
   promotePendingMemberIntentForSession,
+  requestShellAuthPrompt,
   shouldShowGlobalFabForSegments,
   toShellMemberCreationSession,
 } from "./shell-model";
@@ -307,6 +308,33 @@ describe("Rastro shell", () => {
       kind: "member",
       memberId: "member_123",
     });
+  });
+
+  it("opens a reusable auth prompt for Activity/Profile links and preserves returnTo after successful auth", () => {
+    const copy = getShellCopy();
+    const promptedState = requestShellAuthPrompt(
+      createInitialShellState(),
+      copy,
+      {
+        returnTo: "/(tabs)/(activity)",
+        sourceHref: "rastro://auth/sign-in?returnTo=/actividad",
+      },
+    );
+
+    expect(promptedState.authPrompt).toMatchObject({
+      body: "Inicia sesion o crea una cuenta para guardar tu actividad y continuar en Rastro.",
+      returnTo: "/(tabs)/(activity)",
+      title: "Inicia sesion para continuar",
+    });
+    expect(promptedState.memberIntent).toBeNull();
+    expect(promptedState.pendingMemberIntent).toBeNull();
+
+    const signedInState =
+      completeAuthPromptWithPendingMemberIntent(promptedState);
+
+    expect(signedInState.authPrompt).toBeNull();
+    expect(signedInState.authReturnTo).toBe("/(tabs)/(activity)");
+    expect(signedInState.pendingMemberIntent).toBeNull();
   });
 
   it("shows the three-step first-run tour once and persists skip or completion", async () => {

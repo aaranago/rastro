@@ -74,14 +74,21 @@ export interface ShellProfileModel {
 }
 
 export interface ShellAuthPrompt {
-  intent: ReportIntent;
-  selectedIntentLabel: string;
+  intent?: ReportIntent;
+  returnTo?: string;
+  selectedIntentLabel?: string;
   title: string;
   body: string;
 }
 
+export interface ShellAuthPromptRequest {
+  returnTo?: string;
+  sourceHref?: string;
+}
+
 export interface ShellState {
   activeSheet: "report-actions" | null;
+  authReturnTo: string | null;
   authPrompt: ShellAuthPrompt | null;
   memberIntent: Pick<ShellReportAction, "intent" | "label"> | null;
   pendingMemberIntent: Pick<ShellReportAction, "intent" | "label"> | null;
@@ -173,6 +180,7 @@ const mainTabRouteSegments = new Set([
 export function createInitialShellState(): ShellState {
   return {
     activeSheet: null,
+    authReturnTo: null,
     authPrompt: null,
     memberIntent: null,
     pendingMemberIntent: null,
@@ -304,6 +312,7 @@ export function chooseReportAction(
     return {
       ...state,
       activeSheet: null,
+      authReturnTo: null,
       authPrompt: null,
       pendingMemberIntent: null,
     };
@@ -312,6 +321,7 @@ export function chooseReportAction(
   return {
     ...state,
     activeSheet: null,
+    authReturnTo: null,
     authPrompt: {
       intent: action.intent,
       selectedIntentLabel: action.label,
@@ -330,6 +340,7 @@ export function continueReportActionAsMember(
   return {
     ...state,
     activeSheet: null,
+    authReturnTo: null,
     authPrompt: null,
     memberIntent: {
       intent: action.intent,
@@ -339,19 +350,43 @@ export function continueReportActionAsMember(
   };
 }
 
-export function completeAuthPromptWithPendingMemberIntent(
+export function requestShellAuthPrompt(
   state: ShellState,
+  copy: ShellCopy,
+  request: ShellAuthPromptRequest = {},
 ): ShellState {
   return {
     ...state,
+    activeSheet: null,
+    authReturnTo: null,
+    authPrompt: {
+      body: copy.authPrompt.body,
+      returnTo: request.returnTo,
+      title: copy.authPrompt.title,
+    },
+    memberIntent: null,
+    pendingMemberIntent: null,
+  };
+}
+
+export function completeAuthPromptWithPendingMemberIntent(
+  state: ShellState,
+): ShellState {
+  const prompt = state.authPrompt;
+  const pendingMemberIntent =
+    prompt?.intent && prompt.selectedIntentLabel
+      ? {
+          intent: prompt.intent,
+          label: prompt.selectedIntentLabel,
+        }
+      : state.pendingMemberIntent;
+
+  return {
+    ...state,
+    authReturnTo: prompt?.returnTo ?? null,
     authPrompt: null,
     memberIntent: null,
-    pendingMemberIntent: state.authPrompt
-      ? {
-          intent: state.authPrompt.intent,
-          label: state.authPrompt.selectedIntentLabel,
-        }
-      : state.pendingMemberIntent,
+    pendingMemberIntent,
   };
 }
 
