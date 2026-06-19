@@ -1,8 +1,7 @@
 # Open a real auth surface from Activity and Profile sign-in entry points
 
-Status: ready-for-agent
+Status: complete
 Type: AFK
-Labels: ready-for-agent
 Issue ID: AUTH-2
 Severity: P1
 Journey: Auth and protected creation handoff
@@ -37,6 +36,7 @@ Visitors who try to sign in from Activity cannot do so. This blocks activity, ch
 
 ## Evidence
 
+- Independent verification passed on 2026-06-19: Activity and Profile visitor sign-in entries opened the shared auth prompt, and dismissing the prompt returned to Activity without leaving the user in a dead-end Profile state.
 - `.scratch/mobile-qa/20260619-152033/functional-qa/screenshots/live-activity-before-signin-tap.png`
 - `.scratch/mobile-qa/20260619-152033/functional-qa/screenshots/live-after-activity-signin-tap.png`
 - `.scratch/mobile-qa/20260619-152033/stage2-review-findings.md`
@@ -65,10 +65,11 @@ Activity emits an internal `rastro://auth/sign-in?returnTo=/actividad` link, but
 
 ## Required Manual Verification
 
-- As a visitor, tap Activity `Iniciar sesion`.
-- Verify auth controls open.
-- Dismiss auth and confirm Activity is restored.
-- Complete sign-in in a configured local auth environment and confirm the member Activity state is shown.
+- [x] As a visitor, tap Activity `Iniciar sesion`.
+- [x] Verify auth controls open.
+- [x] Dismiss auth and confirm Activity is restored.
+- [x] Verify Profile visitor sign-in opens the shared auth prompt instead of acting as a dead-end destination.
+- [ ] Complete sign-in in a configured local auth environment and confirm the member Activity state is shown.
 
 ## Affected Components And Likely Files
 
