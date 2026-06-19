@@ -37,6 +37,7 @@ An urgent visitor cannot use the promised low-friction Google/Facebook login pat
 
 ## Evidence
 
+- Repair follow-up on 2026-06-19: the first-run tour is now suppressed while the auth prompt is active, so a provider cancellation recovery message is not hidden by onboarding.
 - Failed independent verification on 2026-06-19: Google handoff opened `/api/auth/expo-authorization-proxy`, but closing the Google Custom Tab returned to the preserved auth prompt without a visible `Cancelaste el ingreso...` cancellation error.
 - `.scratch/mobile-qa/20260619-152033/screenshots/auth-prompt-report-lost.png`
 - `.scratch/mobile-qa/20260619-152033/ui/auth-prompt-report-lost.xml`
@@ -71,6 +72,7 @@ The Expo auth contract and shell UI were implemented as email/password only. `Sh
 - Add a mounted shell test for `Reportar` -> provider sign-in success -> selected member creation intent is retained.
 - Add regression coverage that email/password auth remains available.
 - Added repair regression coverage proving provider cancellation preserves the selected auth prompt with the specific error and that a preserved prompt-level error is rendered.
+- Added repair regression coverage proving a pending first-run tour is not displayed over an active auth prompt.
 
 ## Required Manual Verification
 

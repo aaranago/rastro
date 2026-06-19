@@ -201,7 +201,10 @@ export function ShellFabHost() {
         </Pressable>
       ) : null}
 
-      <ShellFirstRunTourHost store={firstRunTourStore} />
+      <ShellFirstRunTourHost
+        isSuppressed={Boolean(state.authPrompt)}
+        store={firstRunTourStore}
+      />
 
       <ReportActionSheet
         actions={model.reportActions}
@@ -294,7 +297,25 @@ export function ShellFabHost() {
   );
 }
 
-function ShellFirstRunTourHost({ store }: { store: ShellFirstRunTourStore }) {
+export function shouldDisplayShellFirstRunTour({
+  isSuppressed,
+  isVisible,
+  shouldShow,
+}: {
+  isSuppressed: boolean;
+  isVisible: boolean;
+  shouldShow: boolean;
+}) {
+  return isVisible && shouldShow && !isSuppressed;
+}
+
+function ShellFirstRunTourHost({
+  isSuppressed,
+  store,
+}: {
+  isSuppressed: boolean;
+  store: ShellFirstRunTourStore;
+}) {
   const { copy } = useRastroShell();
   const [tourModel, setTourModel] =
     React.useState<ShellFirstRunTourModel | null>(null);
@@ -355,7 +376,11 @@ function ShellFirstRunTourHost({ store }: { store: ShellFirstRunTourStore }) {
       onSkip={() => {
         void closeTour("skip");
       }}
-      visible={isVisible && tourModel.shouldShow}
+      visible={shouldDisplayShellFirstRunTour({
+        isSuppressed,
+        isVisible,
+        shouldShow: tourModel.shouldShow,
+      })}
     />
   );
 }

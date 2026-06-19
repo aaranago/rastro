@@ -1,7 +1,7 @@
 import * as React from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { SignInPrompt } from "./shell-overlays";
+import { shouldDisplayShellFirstRunTour, SignInPrompt } from "./shell-overlays";
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof React>("react");
@@ -165,6 +165,28 @@ describe("SignInPrompt", () => {
     );
 
     expect(findText(screen, cancellationMessage)).toBeTruthy();
+  });
+});
+
+describe("ShellFirstRunTourHost", () => {
+  it("suppresses a pending first-run tour while an auth prompt is active", () => {
+    expect(
+      shouldDisplayShellFirstRunTour({
+        isSuppressed: true,
+        isVisible: true,
+        shouldShow: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps the first-run tour visible when pending and not suppressed", () => {
+    expect(
+      shouldDisplayShellFirstRunTour({
+        isSuppressed: false,
+        isVisible: true,
+        shouldShow: true,
+      }),
+    ).toBe(true);
   });
 });
 
