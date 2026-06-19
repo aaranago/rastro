@@ -37,6 +37,11 @@ export interface ShellCopy {
     signingIn: string;
     createAccount: string;
     creatingAccount: string;
+    socialProviderLabels: Record<"facebook" | "google", string>;
+    socialProviderHelp: string;
+    socialProviderPending: (providerLabel: string) => string;
+    socialProviderUnavailable: string;
+    socialAuthCanceled: string;
     continueAsVisitor: string;
     formHelp: string;
     missingCredentials: string;
@@ -154,6 +159,16 @@ const esBO: ShellCopy = {
     signingIn: "Iniciando sesion",
     createAccount: "Crear cuenta",
     creatingAccount: "Creando cuenta",
+    socialProviderLabels: {
+      facebook: "Continuar con Facebook",
+      google: "Continuar con Google",
+    },
+    socialProviderHelp: "Tambien puedes acceder con:",
+    socialProviderPending: (providerLabel) => `${providerLabel}...`,
+    socialProviderUnavailable:
+      "Ese proveedor de acceso no esta disponible en este momento. Usa correo y contrasena o intenta mas tarde.",
+    socialAuthCanceled:
+      "Cancelaste el ingreso con proveedor. Puedes intentar otra vez o usar correo y contrasena.",
     continueAsVisitor: "Continuar como visitante",
     formHelp: "Usa correo y contrasena para una cuenta Rastro en Bolivia.",
     missingCredentials: "Ingresa correo y contrasena para continuar.",

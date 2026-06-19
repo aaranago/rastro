@@ -23,6 +23,16 @@ export interface ShellAuthCredentials {
   password: string;
 }
 
+export const shellSocialAuthProviders = ["google", "facebook"] as const;
+
+export type ShellSocialAuthProvider =
+  (typeof shellSocialAuthProviders)[number];
+
+export interface ShellSocialAuthAction {
+  label: string;
+  provider: ShellSocialAuthProvider;
+}
+
 export type ShellAuthActionResult =
   | {
       ok: true;
@@ -30,6 +40,7 @@ export type ShellAuthActionResult =
   | {
       message?: string;
       ok: false;
+      reason?: "canceled" | "failed" | "unavailable";
     };
 
 export type ShellAuthCredentialsResult =
@@ -43,6 +54,7 @@ export type ShellAuthCredentialsResult =
     };
 
 export interface ShellAuthAdapter {
+  availableSocialAuthProviders: readonly ShellSocialAuthProvider[];
   createAccountWithEmail: (
     credentials: ShellAuthCredentials,
   ) => Promise<ShellAuthActionResult>;
@@ -52,6 +64,9 @@ export interface ShellAuthAdapter {
   ) => Promise<ShellAuthActionResult>;
   signInWithEmail: (
     credentials: ShellAuthCredentials,
+  ) => Promise<ShellAuthActionResult>;
+  signInWithSocialProvider: (
+    provider: ShellSocialAuthProvider,
   ) => Promise<ShellAuthActionResult>;
   signOut: () => Promise<ShellAuthActionResult>;
   useSession: () => ShellAuthSessionState;

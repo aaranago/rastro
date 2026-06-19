@@ -88,7 +88,7 @@ export interface InitAuthOptions<
   extraPlugins?: TExtraPlugins | undefined;
 }
 
-const DEFAULT_TRUSTED_ORIGINS = ["expo://"];
+const DEFAULT_TRUSTED_ORIGINS = ["expo://", "rastro://"];
 
 export function createDrizzleAuthDatabase(database: DrizzleDatabase) {
   return drizzleAdapter(database, {

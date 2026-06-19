@@ -5,6 +5,8 @@ import type {
   ShellAuthActionResult,
   ShellAuthAdapter,
   ShellAuthCredentials,
+  ShellSocialAuthAction,
+  ShellSocialAuthProvider,
 } from "./shell-auth";
 import type {
   ShellAuthPromptRequest,
@@ -13,9 +15,12 @@ import type {
   ShellSession,
   ShellState,
 } from "./shell-model";
-import { shellAuthAdapter } from "~/utils/auth";
 import { getShellCopy } from "../../i18n";
-import { deriveShellSessionFromAuthState } from "./shell-auth";
+import { shellAuthAdapter } from "../../utils/auth";
+import {
+  deriveShellSessionFromAuthState,
+  shellSocialAuthProviders,
+} from "./shell-auth";
 import {
   chooseReportAction,
   completeAuthPromptWithPendingMemberIntent,
@@ -31,6 +36,7 @@ interface RastroShellContextValue {
   model: ShellModel;
   session: ShellSession;
   state: ShellState;
+  socialProviderActions: ShellSocialAuthAction[];
   clearMemberIntent: () => void;
   clearAuthReturnTo: () => void;
   requestAuthPrompt: (request?: ShellAuthPromptRequest) => void;
@@ -40,6 +46,9 @@ interface RastroShellContextValue {
   dismissAuthPrompt: () => void;
   signInFromPrompt: (
     credentials: ShellAuthCredentials,
+  ) => Promise<ShellAuthActionResult>;
+  signInWithSocialProviderFromPrompt: (
+    provider: ShellSocialAuthProvider,
   ) => Promise<ShellAuthActionResult>;
   createAccountFromPrompt: (
     credentials: ShellAuthCredentials,
@@ -89,6 +98,18 @@ export function RastroShellProvider({
     () => createShellModel({ copy, session: modelSession }),
     [copy, modelSession],
   );
+  const socialProviderActions = React.useMemo<ShellSocialAuthAction[]>(() => {
+    const availableProviders = new Set(
+      authAdapter.availableSocialAuthProviders,
+    );
+
+    return shellSocialAuthProviders
+      .filter((provider) => availableProviders.has(provider))
+      .map((provider) => ({
+        label: copy.authPrompt.socialProviderLabels[provider],
+        provider,
+      }));
+  }, [authAdapter.availableSocialAuthProviders, copy]);
 
   React.useEffect(() => {
     setState((current) =>
@@ -200,6 +221,33 @@ export function RastroShellProvider({
     [authAdapter, completeAuthPrompt],
   );
 
+  const signInWithSocialProviderFromPrompt = React.useCallback(
+    async (
+      provider: ShellSocialAuthProvider,
+    ): Promise<ShellAuthActionResult> => {
+      if (!authAdapter.availableSocialAuthProviders.includes(provider)) {
+        return {
+          message: copy.authPrompt.socialProviderUnavailable,
+          ok: false,
+          reason: "unavailable",
+        };
+      }
+
+      const result = await authAdapter.signInWithSocialProvider(provider);
+
+      if (result.ok) {
+        completeAuthPrompt();
+      }
+
+      return result;
+    },
+    [
+      authAdapter,
+      completeAuthPrompt,
+      copy.authPrompt.socialProviderUnavailable,
+    ],
+  );
+
   const requestMemberPasswordReset =
     React.useCallback(async (): Promise<ShellAuthActionResult> => {
       if (session.kind !== "member" || !session.email) {
@@ -260,6 +308,7 @@ export function RastroShellProvider({
       model,
       session,
       state,
+      socialProviderActions,
       clearAuthReturnTo,
       clearMemberIntent,
       openReportActions,
@@ -268,6 +317,7 @@ export function RastroShellProvider({
       requestAuthPrompt,
       dismissAuthPrompt,
       signInFromPrompt,
+      signInWithSocialProviderFromPrompt,
       createAccountFromPrompt,
       requestMemberPasswordReset,
       initiateAccountDeletion,
@@ -290,7 +340,9 @@ export function RastroShellProvider({
       requestMemberPasswordReset,
       session,
       signInFromPrompt,
+      signInWithSocialProviderFromPrompt,
       signOutMember,
+      socialProviderActions,
       state,
     ],
   );

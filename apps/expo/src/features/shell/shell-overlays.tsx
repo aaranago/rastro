@@ -22,7 +22,12 @@ import { Image } from "expo-image";
 import { useRouter, useSegments } from "expo-router";
 
 import type { ReportIntent } from "../../i18n";
-import type { ShellAuthActionResult, ShellAuthCredentials } from "./shell-auth";
+import type {
+  ShellAuthActionResult,
+  ShellAuthCredentials,
+  ShellSocialAuthAction,
+  ShellSocialAuthProvider,
+} from "./shell-auth";
 import type {
   ShellAuthPrompt,
   ShellMemberCreationSession,
@@ -64,6 +69,9 @@ interface IconProps {
 }
 
 type ShellAuthPromptAction = "create-account" | "sign-in";
+type ShellAuthPromptPendingAction =
+  | ShellAuthPromptAction
+  | ShellSocialAuthProvider;
 
 export function ShellIcon({ name, color, fallback, size = 22 }: IconProps) {
   if (Platform.OS !== "ios" && fallback) {
@@ -110,6 +118,8 @@ export function ShellFabHost() {
     openReportActions,
     session,
     signInFromPrompt,
+    signInWithSocialProviderFromPrompt,
+    socialProviderActions,
     state,
   } = useRastroShell();
   const insets = useSafeAreaInsets();
@@ -206,26 +216,34 @@ export function ShellFabHost() {
 
       <SignInPrompt
         bottomInset={insets.bottom}
-        authFailedLabel={copy.authPrompt.authFailed}
-        closeLabel={copy.shell.close}
-        createAccountPendingLabel={copy.authPrompt.creatingAccount}
-        createAccountLabel={copy.authPrompt.createAccount}
-        continueAsVisitorLabel={copy.authPrompt.continueAsVisitor}
-        emailLabel={copy.authPrompt.emailLabel}
-        emailPlaceholder={copy.authPrompt.emailPlaceholder}
-        formHelp={copy.authPrompt.formHelp}
-        missingCredentialsLabel={copy.authPrompt.missingCredentials}
-        nameLabel={copy.authPrompt.nameLabel}
-        namePlaceholder={copy.authPrompt.namePlaceholder}
-        onClose={dismissAuthPrompt}
-        onContinueAsVisitor={continueAsVisitor}
-        onCreateAccount={createAccountFromPrompt}
-        onSignIn={signInFromPrompt}
-        passwordLabel={copy.authPrompt.passwordLabel}
-        passwordPlaceholder={copy.authPrompt.passwordPlaceholder}
+        actions={{
+          onClose: dismissAuthPrompt,
+          onContinueAsVisitor: continueAsVisitor,
+          onCreateAccount: createAccountFromPrompt,
+          onSignIn: signInFromPrompt,
+          onSignInWithSocialProvider: signInWithSocialProviderFromPrompt,
+        }}
+        copy={{
+          authFailedLabel: copy.authPrompt.authFailed,
+          closeLabel: copy.shell.close,
+          createAccountLabel: copy.authPrompt.createAccount,
+          createAccountPendingLabel: copy.authPrompt.creatingAccount,
+          continueAsVisitorLabel: copy.authPrompt.continueAsVisitor,
+          emailLabel: copy.authPrompt.emailLabel,
+          emailPlaceholder: copy.authPrompt.emailPlaceholder,
+          formHelp: copy.authPrompt.formHelp,
+          missingCredentialsLabel: copy.authPrompt.missingCredentials,
+          nameLabel: copy.authPrompt.nameLabel,
+          namePlaceholder: copy.authPrompt.namePlaceholder,
+          passwordLabel: copy.authPrompt.passwordLabel,
+          passwordPlaceholder: copy.authPrompt.passwordPlaceholder,
+          signInLabel: copy.authPrompt.signIn,
+          signInPendingLabel: copy.authPrompt.signingIn,
+          socialAuthHelp: copy.authPrompt.socialProviderHelp,
+          socialProviderPendingLabel: copy.authPrompt.socialProviderPending,
+        }}
         prompt={state.authPrompt}
-        signInPendingLabel={copy.authPrompt.signingIn}
-        signInLabel={copy.authPrompt.signIn}
+        socialProviderActions={socialProviderActions}
       />
 
       <LostReportCreationModal
@@ -718,60 +736,214 @@ export function ReportActionSheet({
 }
 
 export function SignInPrompt({
-  authFailedLabel,
+  actions,
   bottomInset,
-  closeLabel,
-  createAccountLabel,
-  createAccountPendingLabel,
-  continueAsVisitorLabel,
-  emailLabel,
-  emailPlaceholder,
-  formHelp,
-  missingCredentialsLabel,
-  nameLabel,
-  namePlaceholder,
-  onClose,
-  onContinueAsVisitor,
-  onCreateAccount,
-  onSignIn,
-  passwordLabel,
-  passwordPlaceholder,
+  copy,
   prompt,
-  signInLabel,
-  signInPendingLabel,
+  socialProviderActions,
 }: {
-  authFailedLabel: string;
+  actions: {
+    onClose: () => void;
+    onContinueAsVisitor: () => void;
+    onCreateAccount: (
+      credentials: ShellAuthCredentials,
+    ) => Promise<ShellAuthActionResult>;
+    onSignIn: (
+      credentials: ShellAuthCredentials,
+    ) => Promise<ShellAuthActionResult>;
+    onSignInWithSocialProvider: (
+      provider: ShellSocialAuthProvider,
+    ) => Promise<ShellAuthActionResult>;
+  };
   bottomInset: number;
-  closeLabel: string;
-  createAccountLabel: string;
-  createAccountPendingLabel: string;
-  continueAsVisitorLabel: string;
-  emailLabel: string;
-  emailPlaceholder: string;
-  formHelp: string;
+  copy: {
+    authFailedLabel: string;
+    closeLabel: string;
+    createAccountLabel: string;
+    createAccountPendingLabel: string;
+    continueAsVisitorLabel: string;
+    emailLabel: string;
+    emailPlaceholder: string;
+    formHelp: string;
+    missingCredentialsLabel: string;
+    nameLabel: string;
+    namePlaceholder: string;
+    passwordLabel: string;
+    passwordPlaceholder: string;
+    signInLabel: string;
+    signInPendingLabel: string;
+    socialAuthHelp: string;
+    socialProviderPendingLabel: (providerLabel: string) => string;
+  };
+  prompt: ShellAuthPrompt | null;
+  socialProviderActions: ShellSocialAuthAction[];
+}) {
+  const promptState = useSignInPromptState({
+    authFailedLabel: copy.authFailedLabel,
+    missingCredentialsLabel: copy.missingCredentialsLabel,
+    onCreateAccount: actions.onCreateAccount,
+    onSignIn: actions.onSignIn,
+    onSignInWithSocialProvider: actions.onSignInWithSocialProvider,
+    prompt,
+  });
+  const isSubmitting = promptState.pendingAction !== null;
+
+  return (
+    <Modal
+      animationType="fade"
+      onRequestClose={actions.onClose}
+      transparent
+      visible={Boolean(prompt)}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.promptBackdrop}
+      >
+        <ScrollView
+          contentContainerStyle={styles.promptScrollContent}
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
+        >
+          <View
+            accessibilityViewIsModal
+            style={[
+              styles.promptCard,
+              { marginBottom: Math.max(bottomInset, 16) },
+            ]}
+          >
+            <Pressable
+              accessibilityLabel={copy.closeLabel}
+              accessibilityRole="button"
+              onPress={actions.onClose}
+              style={styles.promptCloseButton}
+            >
+              <ShellIcon name="xmark" color={shellColors.muted} size={20} />
+            </Pressable>
+
+            <View style={styles.promptIcon}>
+              <ShellIcon
+                name="person.crop.circle.badge.plus"
+                color={shellColors.primary}
+                size={42}
+              />
+            </View>
+            <Text maxFontSizeMultiplier={1.2} style={styles.promptTitle}>
+              {prompt?.title}
+            </Text>
+            <Text maxFontSizeMultiplier={1.25} style={styles.promptBody}>
+              {prompt?.body}
+            </Text>
+            <Text maxFontSizeMultiplier={1.2} style={styles.promptHelp}>
+              {copy.formHelp}
+            </Text>
+
+            <PromptSocialProviders
+              actions={socialProviderActions}
+              disabled={isSubmitting}
+              helpLabel={copy.socialAuthHelp}
+              onSubmit={promptState.submitSocialProviderAction}
+              pendingAction={promptState.pendingAction}
+              pendingLabel={copy.socialProviderPendingLabel}
+            />
+
+            <View style={styles.promptFields}>
+              <PromptTextField
+                autoCapitalize="none"
+                autoComplete="email"
+                autoCorrect={false}
+                editable={!isSubmitting}
+                keyboardType="email-address"
+                label={copy.emailLabel}
+                onChangeText={promptState.setEmail}
+                placeholder={copy.emailPlaceholder}
+                returnKeyType="next"
+                textContentType="emailAddress"
+                value={promptState.email}
+              />
+              <PromptTextField
+                autoCapitalize="none"
+                autoComplete="password"
+                autoCorrect={false}
+                editable={!isSubmitting}
+                label={copy.passwordLabel}
+                onChangeText={promptState.setPassword}
+                placeholder={copy.passwordPlaceholder}
+                returnKeyType="done"
+                secureTextEntry
+                textContentType="password"
+                value={promptState.password}
+              />
+              <PromptTextField
+                autoCapitalize="words"
+                autoComplete="name"
+                autoCorrect
+                editable={!isSubmitting}
+                label={copy.nameLabel}
+                onChangeText={promptState.setName}
+                placeholder={copy.namePlaceholder}
+                returnKeyType="done"
+                textContentType="name"
+                value={promptState.name}
+              />
+            </View>
+
+            {promptState.authError ? (
+              <Text
+                accessibilityRole="alert"
+                maxFontSizeMultiplier={1.2}
+                style={styles.promptError}
+              >
+                {promptState.authError}
+              </Text>
+            ) : null}
+
+            <PromptActions
+              continueAsVisitorLabel={copy.continueAsVisitorLabel}
+              createAccountLabel={copy.createAccountLabel}
+              createAccountPendingLabel={copy.createAccountPendingLabel}
+              isSubmitting={isSubmitting}
+              onContinueAsVisitor={actions.onContinueAsVisitor}
+              onSubmitAuthAction={promptState.submitAuthAction}
+              pendingAction={promptState.pendingAction}
+              signInLabel={copy.signInLabel}
+              signInPendingLabel={copy.signInPendingLabel}
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+interface SignInPromptStateInput {
+  authFailedLabel: string;
   missingCredentialsLabel: string;
-  nameLabel: string;
-  namePlaceholder: string;
-  onClose: () => void;
-  onContinueAsVisitor: () => void;
   onCreateAccount: (
     credentials: ShellAuthCredentials,
   ) => Promise<ShellAuthActionResult>;
   onSignIn: (
     credentials: ShellAuthCredentials,
   ) => Promise<ShellAuthActionResult>;
-  passwordLabel: string;
-  passwordPlaceholder: string;
+  onSignInWithSocialProvider: (
+    provider: ShellSocialAuthProvider,
+  ) => Promise<ShellAuthActionResult>;
   prompt: ShellAuthPrompt | null;
-  signInLabel: string;
-  signInPendingLabel: string;
-}) {
+}
+
+function useSignInPromptState({
+  authFailedLabel,
+  missingCredentialsLabel,
+  onCreateAccount,
+  onSignIn,
+  onSignInWithSocialProvider,
+  prompt,
+}: SignInPromptStateInput) {
   const [email, setEmail] = React.useState("");
   const [name, setName] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [authError, setAuthError] = React.useState<string | null>(null);
   const [pendingAction, setPendingAction] =
-    React.useState<ShellAuthPromptAction | null>(null);
+    React.useState<ShellAuthPromptPendingAction | null>(null);
 
   React.useEffect(() => {
     if (!prompt) {
@@ -821,123 +993,75 @@ export function SignInPrompt({
     ],
   );
 
-  const isSubmitting = pendingAction !== null;
+  const submitSocialProviderAction = React.useCallback(
+    async (action: ShellSocialAuthAction) => {
+      setAuthError(null);
+      setPendingAction(action.provider);
+
+      const result = await onSignInWithSocialProvider(action.provider);
+
+      setPendingAction(null);
+
+      if (!result.ok) {
+        setAuthError(result.message ?? authFailedLabel);
+      }
+    },
+    [authFailedLabel, onSignInWithSocialProvider],
+  );
+
+  return {
+    authError,
+    email,
+    name,
+    password,
+    pendingAction,
+    setEmail,
+    setName,
+    setPassword,
+    submitAuthAction,
+    submitSocialProviderAction,
+  };
+}
+
+function PromptSocialProviders({
+  actions,
+  disabled,
+  helpLabel,
+  onSubmit,
+  pendingAction,
+  pendingLabel,
+}: {
+  actions: ShellSocialAuthAction[];
+  disabled: boolean;
+  helpLabel: string;
+  onSubmit: (action: ShellSocialAuthAction) => Promise<void>;
+  pendingAction: ShellAuthPromptPendingAction | null;
+  pendingLabel: (providerLabel: string) => string;
+}) {
+  if (actions.length === 0) {
+    return null;
+  }
 
   return (
-    <Modal
-      animationType="fade"
-      onRequestClose={onClose}
-      transparent
-      visible={Boolean(prompt)}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.promptBackdrop}
-      >
-        <ScrollView
-          contentContainerStyle={styles.promptScrollContent}
-          contentInsetAdjustmentBehavior="automatic"
-          keyboardShouldPersistTaps="handled"
-        >
-          <View
-            accessibilityViewIsModal
-            style={[
-              styles.promptCard,
-              { marginBottom: Math.max(bottomInset, 16) },
-            ]}
-          >
-            <Pressable
-              accessibilityLabel={closeLabel}
-              accessibilityRole="button"
-              onPress={onClose}
-              style={styles.promptCloseButton}
-            >
-              <ShellIcon name="xmark" color={shellColors.muted} size={20} />
-            </Pressable>
-
-            <View style={styles.promptIcon}>
-              <ShellIcon
-                name="person.crop.circle.badge.plus"
-                color={shellColors.primary}
-                size={42}
-              />
-            </View>
-            <Text maxFontSizeMultiplier={1.2} style={styles.promptTitle}>
-              {prompt?.title}
-            </Text>
-            <Text maxFontSizeMultiplier={1.25} style={styles.promptBody}>
-              {prompt?.body}
-            </Text>
-            <Text maxFontSizeMultiplier={1.2} style={styles.promptHelp}>
-              {formHelp}
-            </Text>
-
-            <View style={styles.promptFields}>
-              <PromptTextField
-                autoCapitalize="none"
-                autoComplete="email"
-                autoCorrect={false}
-                editable={!isSubmitting}
-                keyboardType="email-address"
-                label={emailLabel}
-                onChangeText={setEmail}
-                placeholder={emailPlaceholder}
-                returnKeyType="next"
-                textContentType="emailAddress"
-                value={email}
-              />
-              <PromptTextField
-                autoCapitalize="none"
-                autoComplete="password"
-                autoCorrect={false}
-                editable={!isSubmitting}
-                label={passwordLabel}
-                onChangeText={setPassword}
-                placeholder={passwordPlaceholder}
-                returnKeyType="done"
-                secureTextEntry
-                textContentType="password"
-                value={password}
-              />
-              <PromptTextField
-                autoCapitalize="words"
-                autoComplete="name"
-                autoCorrect
-                editable={!isSubmitting}
-                label={nameLabel}
-                onChangeText={setName}
-                placeholder={namePlaceholder}
-                returnKeyType="done"
-                textContentType="name"
-                value={name}
-              />
-            </View>
-
-            {authError ? (
-              <Text
-                accessibilityRole="alert"
-                maxFontSizeMultiplier={1.2}
-                style={styles.promptError}
-              >
-                {authError}
-              </Text>
-            ) : null}
-
-            <PromptActions
-              continueAsVisitorLabel={continueAsVisitorLabel}
-              createAccountLabel={createAccountLabel}
-              createAccountPendingLabel={createAccountPendingLabel}
-              isSubmitting={isSubmitting}
-              onContinueAsVisitor={onContinueAsVisitor}
-              onSubmitAuthAction={submitAuthAction}
-              pendingAction={pendingAction}
-              signInLabel={signInLabel}
-              signInPendingLabel={signInPendingLabel}
-            />
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </Modal>
+    <View style={styles.socialProviderGroup}>
+      <Text maxFontSizeMultiplier={1.15} style={styles.socialProviderHelp}>
+        {helpLabel}
+      </Text>
+      <View style={styles.socialProviderActions}>
+        {actions.map((action) => (
+          <SocialProviderButton
+            action={action}
+            disabled={disabled}
+            isPending={pendingAction === action.provider}
+            key={action.provider}
+            onPress={() => {
+              void onSubmit(action);
+            }}
+            pendingLabel={pendingLabel(action.label)}
+          />
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -1010,7 +1134,7 @@ function PromptActions({
   isSubmitting: boolean;
   onContinueAsVisitor: () => void;
   onSubmitAuthAction: (action: ShellAuthPromptAction) => Promise<void>;
-  pendingAction: ShellAuthPromptAction | null;
+  pendingAction: ShellAuthPromptPendingAction | null;
   signInLabel: string;
   signInPendingLabel: string;
 }) {
@@ -1046,6 +1170,49 @@ function PromptActions({
         </Text>
       </Pressable>
     </View>
+  );
+}
+
+function SocialProviderButton({
+  action,
+  disabled,
+  isPending,
+  onPress,
+  pendingLabel,
+}: {
+  action: ShellSocialAuthAction;
+  disabled: boolean;
+  isPending: boolean;
+  onPress: () => void;
+  pendingLabel: string;
+}) {
+  const icon = getSocialProviderIcon(action.provider);
+
+  return (
+    <Pressable
+      accessibilityLabel={action.label}
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.socialProviderButton,
+        { opacity: pressed || disabled ? 0.84 : 1 },
+      ]}
+    >
+      <ShellIcon
+        color={shellColors.primary}
+        fallback={icon.fallback}
+        name={icon.name}
+        size={20}
+      />
+      <Text
+        maxFontSizeMultiplier={1.15}
+        numberOfLines={2}
+        style={styles.socialProviderButtonText}
+      >
+        {isPending ? pendingLabel : action.label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -1089,6 +1256,18 @@ function PromptActionButton({
       </Text>
     </Pressable>
   );
+}
+
+function getSocialProviderIcon(provider: ShellSocialAuthProvider) {
+  return provider === "google"
+    ? {
+        fallback: "G",
+        name: "globe",
+      }
+    : {
+        fallback: "f",
+        name: "person.2.fill",
+      };
 }
 
 const styles = StyleSheet.create({
@@ -1392,6 +1571,39 @@ const styles = StyleSheet.create({
     color: shellColors.primary,
     fontSize: 17,
     fontWeight: "700",
+  },
+  socialProviderActions: {
+    alignSelf: "stretch",
+    gap: 10,
+  },
+  socialProviderButton: {
+    alignItems: "center",
+    backgroundColor: shellColors.surfaceMuted,
+    borderColor: shellColors.border,
+    borderRadius: 24,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 9,
+    justifyContent: "center",
+    minHeight: 52,
+    paddingHorizontal: 16,
+  },
+  socialProviderButtonText: {
+    color: shellColors.primary,
+    flexShrink: 1,
+    fontSize: 16,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  socialProviderGroup: {
+    alignSelf: "stretch",
+    gap: 10,
+  },
+  socialProviderHelp: {
+    color: shellColors.muted,
+    fontSize: 13,
+    fontWeight: "800",
+    textAlign: "center",
   },
   sheetHeader: {
     alignItems: "center",
