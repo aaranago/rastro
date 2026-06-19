@@ -1,8 +1,7 @@
 # Document and validate the mobile auth backend runbook
 
-Status: ready-for-human
+Status: complete
 Type: AFK
-Labels: ready-for-human
 Issue ID: AUTH-3
 Severity: P1
 Journey: Auth and protected creation handoff
@@ -39,6 +38,7 @@ Member-only flows cannot be tested or used locally from the documented mobile se
 
 ## Evidence
 
+- Independent final verification passed on 2026-06-19. Evidence: `.scratch/mobile-qa/20260619-180540-auth3-finalverify/screenshots/22-invalid-signin-final-result.png`, `.scratch/mobile-qa/20260619-180540-auth3-finalverify/logs/next-backend-after-invalid-final.txt`, `.scratch/mobile-qa/20260619-180540-auth3-finalverify/screenshots/29-create-account-final-result.png`, and `.scratch/mobile-qa/20260619-180540-auth3-finalverify/logs/next-backend-after-create-final.txt`.
 - `.scratch/mobile-qa/20260619-152033/functional-qa/screenshots/live-auth-invalid-signin-result-3.png`
 - `.scratch/mobile-qa/20260619-152033/functional-qa/screenshots/live-auth-create-network-result.png`
 - `.scratch/mobile-qa/20260619-152033/stage2-review-findings.md`
@@ -64,11 +64,11 @@ Member-only flows cannot be tested or used locally from the documented mobile se
 
 ## Required Manual Verification
 
-- [ ] Launch the app exactly as documented in `docs/dev/mobile-runbook.md`.
-- [ ] Open the protected `Reportar perdida` auth prompt.
-- [ ] Verify invalid sign-in no longer produces `Network request failed`.
-- [ ] Verify create-account behavior reaches the backend.
-- [ ] Capture screenshot/log evidence under `.scratch/mobile-qa/<timestamp>/`.
+- [x] Launch the app exactly as documented in `docs/dev/mobile-runbook.md`.
+- [x] Open the protected `Reportar perdida` auth prompt.
+- [x] Verify invalid sign-in no longer produces `Network request failed`.
+- [x] Verify create-account behavior reaches the backend.
+- [x] Capture screenshot/log evidence under `.scratch/mobile-qa/20260619-180540-auth3-finalverify/`.
 
 ## Implementation Notes
 
@@ -80,7 +80,9 @@ Member-only flows cannot be tested or used locally from the documented mobile se
 - Confirmed the Android emulator can reach host port `3000` through `10.0.2.2`; the Next.js log recorded `/api/auth/get-session` returning HTTP 200 after an Android `nc` request.
 - Confirmed invalid email/password sign-in returns HTTP 401 with `Invalid email or password`.
 - Confirmed account creation with `qa+mobile-<timestamp>@example.com` returns HTTP 200, then deleted the created QA member row.
-- Full in-app `Reportar perdida` auth-prompt verification was not completed in this pass.
+- Independent in-app verification confirmed invalid sign-in shows `Invalid email or password` instead of `Network request failed`; the backend logged `POST /api/auth/sign-in/email 401`.
+- Independent in-app verification confirmed creating `qa+mobile-20260619182039@example.com` reached the backend; the backend logged `POST /api/auth/sign-up/email 200` followed by `/api/auth/get-session` HTTP 200.
+- Cleanup deleted 1 documented QA auth member with `scripts/mobile-auth-qa-cleanup.sh`.
 
 ## Affected Components And Likely Files
 
