@@ -25,8 +25,7 @@ export interface ShellAuthCredentials {
 
 export const shellSocialAuthProviders = ["google", "facebook"] as const;
 
-export type ShellSocialAuthProvider =
-  (typeof shellSocialAuthProviders)[number];
+export type ShellSocialAuthProvider = (typeof shellSocialAuthProviders)[number];
 
 export interface ShellSocialAuthAction {
   label: string;

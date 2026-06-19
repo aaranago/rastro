@@ -1,8 +1,8 @@
+import * as Linking from "expo-linking";
 import * as SecureStore from "expo-secure-store";
+import * as WebBrowser from "expo-web-browser";
 import { expoClient, getSetCookie } from "@better-auth/expo/client";
 import { createAuthClient } from "better-auth/react";
-import * as Linking from "expo-linking";
-import * as WebBrowser from "expo-web-browser";
 
 import { createAccountClientAdapter } from "@acme/auth/client";
 
@@ -131,7 +131,7 @@ function createMobileAuthCallbackURL() {
 }
 
 function createMobileAuthProxyURL(authorizationURL: string) {
-  const proxyURL = new URL("/expo-authorization-proxy", getBaseUrl());
+  const proxyURL = new URL("/api/auth/expo-authorization-proxy", getBaseUrl());
 
   proxyURL.searchParams.set("authorizationURL", authorizationURL);
 

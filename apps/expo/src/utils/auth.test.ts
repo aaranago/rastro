@@ -55,7 +55,7 @@ describe("signInWithShellSocialProvider", () => {
       availableProviders: ["google", "facebook"],
       createCallbackURL: () => "rastro://auth/callback",
       createProxyURL: (authorizationURL) =>
-        `https://auth.example.test/expo-authorization-proxy?authorizationURL=${encodeURIComponent(authorizationURL)}`,
+        `https://auth.example.test/api/auth/expo-authorization-proxy?authorizationURL=${encodeURIComponent(authorizationURL)}`,
       messages: {
         canceled: "Cancelaste el ingreso.",
         failed: "No pudimos iniciar sesion con ese proveedor.",
@@ -95,7 +95,7 @@ describe("signInWithShellSocialProvider", () => {
     expect(browserSessions).toEqual([
       {
         callbackURL: "rastro://auth/callback",
-        url: "https://auth.example.test/expo-authorization-proxy?authorizationURL=https%3A%2F%2Fauth.example.test%2Foauth%2Fgoogle",
+        url: "https://auth.example.test/api/auth/expo-authorization-proxy?authorizationURL=https%3A%2F%2Fauth.example.test%2Foauth%2Fgoogle",
       },
     ]);
     expect(persistedCookies).toEqual(["better-auth.session_token=abc"]);
@@ -108,7 +108,7 @@ describe("signInWithShellSocialProvider", () => {
       availableProviders: ["google", "facebook"],
       createCallbackURL: () => "rastro://auth/callback",
       createProxyURL: (authorizationURL) =>
-        `https://auth.example.test/expo-authorization-proxy?authorizationURL=${encodeURIComponent(authorizationURL)}`,
+        `https://auth.example.test/api/auth/expo-authorization-proxy?authorizationURL=${encodeURIComponent(authorizationURL)}`,
       messages: {
         canceled: "Cancelaste el ingreso.",
         failed: "No pudimos iniciar sesion con ese proveedor.",
@@ -144,7 +144,7 @@ describe("signInWithShellSocialProvider", () => {
       availableProviders: ["google", "facebook"],
       createCallbackURL: () => "rastro://auth/callback",
       createProxyURL: (authorizationURL) =>
-        `https://auth.example.test/expo-authorization-proxy?authorizationURL=${encodeURIComponent(authorizationURL)}`,
+        `https://auth.example.test/api/auth/expo-authorization-proxy?authorizationURL=${encodeURIComponent(authorizationURL)}`,
       messages: {
         canceled: "Cancelaste el ingreso.",
         failed: "No pudimos iniciar sesion con ese proveedor.",

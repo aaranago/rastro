@@ -160,7 +160,9 @@ function renderProvider(authAdapter: ShellAuthAdapter): ShellProviderValue {
   });
 
   if (!React.isValidElement<{ value: ShellProviderValue }>(node)) {
-    throw new Error("Expected RastroShellProvider to render a context provider.");
+    throw new Error(
+      "Expected RastroShellProvider to render a context provider.",
+    );
   }
 
   return node.props.value;
