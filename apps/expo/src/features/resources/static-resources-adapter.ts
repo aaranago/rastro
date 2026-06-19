@@ -1,3 +1,4 @@
+import type { LastLoadedCache } from "../resilience/last-loaded-cache";
 import type { TrustSafetyRepository } from "../trust-safety";
 import type {
   LocalSponsorPlacement,
@@ -49,6 +50,21 @@ export interface ResourceProviderSearchResult {
   searchStrategy: ResourceProviderSearchStrategy;
 }
 
+export interface ResourceProviderDirectoryResult {
+  generatedAt?: string;
+  isOffline?: boolean;
+  isStale?: boolean;
+  providers: readonly ResourceProviderSummary[];
+}
+
+export interface ResourceProviderProfileResult {
+  generatedAt?: string;
+  isOffline?: boolean;
+  isStale?: boolean;
+  profile: ResourceProviderProfile | null;
+  providerId: string;
+}
+
 export interface ResourceProviderReportInput {
   providerId: string;
   reason: ResourceReportReason;
@@ -71,6 +87,12 @@ export interface ResourceProviderReportReceipt {
 }
 
 export interface ResourcesAdapter {
+  getProviderProfileDetail?: (
+    providerId: string,
+  ) => Promise<ResourceProviderProfileResult>;
+  searchProviderDirectory?: (
+    query: ResourceSearchQuery,
+  ) => Promise<ResourceProviderDirectoryResult>;
   searchProviders: (
     query: ResourceSearchQuery,
   ) => Promise<readonly ResourceProviderSummary[]>;
@@ -171,31 +193,52 @@ export function createStaticResourcesAdapter(
 ): ResourcesAdapter {
   const repository = createStaticResourceProviderRepository({ fixtures });
 
+  const searchProviderDirectory = async (
+    query: ResourceSearchQuery,
+  ): Promise<ResourceProviderDirectoryResult> => {
+    const location = toResolvedResourceProviderSearchLocation(query.location);
+
+    if (!location) {
+      return {
+        providers: [],
+      };
+    }
+
+    const result = await repository.searchResourceProviders(
+      {
+        kind: "visitor",
+      },
+      {
+        categoryIds: query.categoryIds,
+        location,
+        radiusMeters: query.radiusMeters,
+        strategy: query.strategy,
+      },
+    );
+
+    return {
+      generatedAt: result.generatedAt,
+      providers: result.providers,
+    };
+  };
+  const getProviderProfileDetail = (
+    providerId: string,
+  ): Promise<ResourceProviderProfileResult> =>
+    Promise.resolve({
+      providerId,
+      profile:
+        fixtures.profiles.find((profile) => profile.id === providerId) ?? null,
+    });
+
   return {
+    getProviderProfileDetail,
+    searchProviderDirectory,
     searchProviders(query) {
-      const location = toResolvedResourceProviderSearchLocation(query.location);
-
-      if (!location) {
-        return Promise.resolve([]);
-      }
-
-      return repository
-        .searchResourceProviders(
-          {
-            kind: "visitor",
-          },
-          {
-            categoryIds: query.categoryIds,
-            location,
-            radiusMeters: query.radiusMeters,
-            strategy: query.strategy,
-          },
-        )
-        .then((result) => result.providers);
+      return searchProviderDirectory(query).then((result) => result.providers);
     },
     getProviderProfile(providerId) {
-      return Promise.resolve(
-        fixtures.profiles.find((profile) => profile.id === providerId) ?? null,
+      return getProviderProfileDetail(providerId).then(
+        (result) => result.profile,
       );
     },
     async reportProvider(input) {
@@ -228,6 +271,137 @@ export function createStaticResourcesAdapter(
       };
     },
   };
+}
+
+export function createCachedResourcesAdapter({
+  cache,
+  cacheKey,
+  profileCache,
+  profileCacheKey,
+  source,
+}: {
+  cache: LastLoadedCache<ResourceProviderDirectoryResult>;
+  cacheKey: string | ((query: ResourceSearchQuery) => string);
+  profileCache?: LastLoadedCache<ResourceProviderProfileResult>;
+  profileCacheKey?: string | ((providerId: string) => string);
+  source: ResourcesAdapter;
+}): ResourcesAdapter & {
+  getProviderProfileDetail: (
+    providerId: string,
+  ) => Promise<ResourceProviderProfileResult>;
+  searchProviderDirectory: (
+    query: ResourceSearchQuery,
+  ) => Promise<ResourceProviderDirectoryResult>;
+} {
+  const searchProviderDirectory = async (
+    query: ResourceSearchQuery,
+  ): Promise<ResourceProviderDirectoryResult> => {
+    const key = resolveResourceCacheKey(cacheKey, query);
+
+    try {
+      const result =
+        source.searchProviderDirectory !== undefined
+          ? await source.searchProviderDirectory(query)
+          : {
+              providers: await source.searchProviders(query),
+            };
+      await cache.write(key, toFreshResourceDirectoryResult(result));
+      return result;
+    } catch (error) {
+      const cached = await cache.read(key);
+
+      if (cached === null) {
+        throw error;
+      }
+
+      return {
+        ...cached,
+        isOffline: true,
+        isStale: true,
+      };
+    }
+  };
+  const getProviderProfileDetail = async (
+    providerId: string,
+  ): Promise<ResourceProviderProfileResult> => {
+    const key = resolveResourceProfileCacheKey(profileCacheKey, providerId);
+
+    try {
+      const result =
+        source.getProviderProfileDetail !== undefined
+          ? await source.getProviderProfileDetail(providerId)
+          : {
+              profile: await source.getProviderProfile(providerId),
+              providerId,
+            };
+
+      if (profileCache !== undefined) {
+        await profileCache.write(key, toFreshResourceProfileResult(result));
+      }
+
+      return result;
+    } catch (error) {
+      const cached = await profileCache?.read(key);
+
+      if (cached === undefined || cached === null) {
+        throw error;
+      }
+
+      return {
+        ...cached,
+        isOffline: true,
+        isStale: true,
+      };
+    }
+  };
+
+  return {
+    ...source,
+    getProviderProfileDetail,
+    getProviderProfile(providerId) {
+      return getProviderProfileDetail(providerId).then(
+        (result) => result.profile,
+      );
+    },
+    searchProviderDirectory,
+    searchProviders(query) {
+      return searchProviderDirectory(query).then((result) => result.providers);
+    },
+  };
+}
+
+function resolveResourceCacheKey(
+  cacheKey: string | ((query: ResourceSearchQuery) => string),
+  query: ResourceSearchQuery,
+) {
+  return typeof cacheKey === "function" ? cacheKey(query) : cacheKey;
+}
+
+function toFreshResourceDirectoryResult(
+  result: ResourceProviderDirectoryResult,
+): ResourceProviderDirectoryResult {
+  const { isOffline: _isOffline, isStale: _isStale, ...freshResult } = result;
+
+  return freshResult;
+}
+
+function resolveResourceProfileCacheKey(
+  cacheKey: string | ((providerId: string) => string) | undefined,
+  providerId: string,
+) {
+  if (typeof cacheKey === "function") {
+    return cacheKey(providerId);
+  }
+
+  return cacheKey ?? `resource-provider-profile:${providerId}`;
+}
+
+function toFreshResourceProfileResult(
+  result: ResourceProviderProfileResult,
+): ResourceProviderProfileResult {
+  const { isOffline: _isOffline, isStale: _isStale, ...freshResult } = result;
+
+  return freshResult;
 }
 
 function assertResourceProviderSearchQuery(query: ResourceProviderSearchQuery) {

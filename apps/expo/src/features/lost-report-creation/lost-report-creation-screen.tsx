@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 
 import type { PublishLostPetReportInput } from "../lost-reports/lost-reports";
 import type { ReportCreationFieldViewModel } from "../report-creation/report-creation-ui";
+import type { CreationDraftStore } from "../resilience/creation-drafts";
 import type {
   LostReportDraft,
   LostReportPetProfileOption,
@@ -21,6 +22,7 @@ import {
   ReportCreationSection,
   ReportCreationToggleRow,
 } from "../report-creation/report-creation-ui";
+import { useDurableCreationDraft } from "../resilience/use-durable-creation-draft";
 import { shellColors } from "../shell/shell-theme";
 import { lostReportCreationFixtures } from "./lost-report-creation-fixtures";
 import {
@@ -56,6 +58,8 @@ function ReportCreationIcon({
 }
 
 export interface LostReportCreationScreenProps {
+  draftScopeId?: string;
+  draftStore?: CreationDraftStore;
   initialDraft?: LostReportDraft;
   onClose?: () => void;
   onOpenSponsorPlacement?: (sponsorPlacementId: string) => void;
@@ -70,6 +74,8 @@ type LostReportCreationViewModel = ReturnType<
 >;
 
 export function LostReportCreationScreen({
+  draftScopeId,
+  draftStore,
   initialDraft,
   onClose,
   onOpenSponsorPlacement,
@@ -77,14 +83,21 @@ export function LostReportCreationScreen({
   onReportSponsorPlacement,
   petProfiles = lostReportCreationFixtures.petProfiles,
 }: LostReportCreationScreenProps) {
-  const [draft, setDraft] = React.useState<LostReportDraft>(
+  const defaultDraft = React.useMemo(
     () =>
       initialDraft ??
       createLostReportDraft({
         ...createInitialLostReportDraft({ petProfiles }),
         exactLocation: lostReportCreationFixtures.defaultLocation,
       }),
+    [initialDraft, petProfiles],
   );
+  const { clearDraft, draft, setDraft } = useDurableCreationDraft({
+    initialDraft: defaultDraft,
+    kind: "lost-report",
+    scopeId: draftScopeId,
+    store: draftStore,
+  });
   const [publishState, setPublishState] =
     React.useState<PublishState>("editing");
   const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -108,7 +121,7 @@ export function LostReportCreationScreen({
         photo: nextPhoto,
       }),
     );
-  }, [draft.photos.length]);
+  }, [draft.photos.length, setDraft]);
 
   const publish = React.useCallback(async () => {
     if (!viewModel.canPublish || publishState === "publishing") {
@@ -125,12 +138,20 @@ export function LostReportCreationScreen({
           petProfiles,
         }),
       );
+      await clearDraft();
       setPublishState("success");
     } catch {
       setSubmitError("No pudimos publicar. Tu informacion sigue aqui.");
       setPublishState("editing");
     }
-  }, [draft, onPublishLostReport, petProfiles, publishState, viewModel]);
+  }, [
+    clearDraft,
+    draft,
+    onPublishLostReport,
+    petProfiles,
+    publishState,
+    viewModel,
+  ]);
 
   if (publishState === "success") {
     return (

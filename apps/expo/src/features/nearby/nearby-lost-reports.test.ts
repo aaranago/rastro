@@ -4,13 +4,16 @@ import { buildPublicLostReportShareTarget } from "@acme/validators";
 
 import type {
   LostPetReportSummary,
+  NearbyLostReportsResult,
   NearbySearchLocation,
   SightingReportSummary,
 } from "./nearby-types";
 import type { NearbyLostReportsViewModel } from "./nearby-view-model";
 import { createInMemoryLostPetReportRepository } from "../lost-reports/lost-reports";
+import { createInMemoryLastLoadedCache } from "../resilience/last-loaded-cache";
 import { createNearbyLostReportRepositoryAdapter } from "./nearby-lost-report-repository-adapter";
 import { shareNearbyLostReport } from "./nearby-share";
+import { createCachedNearbyLostReportsAdapter } from "./nearby-stale-cache-adapter";
 import { createStaticNearbyLostReportsAdapter } from "./nearby-static-adapter";
 import { buildNearbyLostReportsViewModel } from "./nearby-view-model";
 
@@ -531,6 +534,52 @@ describe("nearby Lost Pet Report discovery", () => {
     assertNearbyViewModelKind(viewModel, "ready");
     expect(viewModel.offlineLabel).toBe("Sin conexion · resultados guardados");
     expect(viewModel.radiusOptionsKm).toEqual([5, 10, 20]);
+    expect(viewModel.cards.map((card) => card.title)).toEqual([
+      "Bruno",
+      "Luna",
+    ]);
+  });
+
+  it("renders the last loaded nearby list when a later offline search fails", async () => {
+    const cache = createInMemoryLastLoadedCache<NearbyLostReportsResult>();
+    const onlineAdapter = createCachedNearbyLostReportsAdapter({
+      cache,
+      cacheKey: "nearby:manual-zona-sur:20",
+      source: createStaticNearbyLostReportsAdapter({
+        generatedAt: "2026-06-18T12:00:00.000Z",
+        reports,
+      }),
+    });
+    const cachedOnlineResult = await onlineAdapter.searchLostPetReports({
+      location: manualLocation,
+      radiusKm: 20,
+    });
+
+    expect(cachedOnlineResult.isOffline).toBeUndefined();
+    expect(cachedOnlineResult.isStale).toBeUndefined();
+
+    const offlineAdapter = createCachedNearbyLostReportsAdapter({
+      cache,
+      cacheKey: "nearby:manual-zona-sur:20",
+      source: {
+        searchLostPetReports: () =>
+          Promise.reject(new Error("Sin conexion de prueba.")),
+      },
+    });
+
+    const staleResult = await offlineAdapter.searchLostPetReports({
+      location: manualLocation,
+      radiusKm: 20,
+    });
+    const viewModel = buildNearbyLostReportsViewModel({
+      locationState: { kind: "ready", location: manualLocation },
+      mode: "list",
+      radiusKm: 20,
+      result: { kind: "success", value: staleResult },
+    });
+
+    assertNearbyViewModelKind(viewModel, "ready");
+    expect(viewModel.offlineLabel).toBe("Sin conexion · resultados guardados");
     expect(viewModel.cards.map((card) => card.title)).toEqual([
       "Bruno",
       "Luna",

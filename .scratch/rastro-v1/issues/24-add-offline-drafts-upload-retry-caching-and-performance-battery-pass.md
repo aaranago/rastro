@@ -1,6 +1,6 @@
 # Add offline drafts, upload retry, caching, and performance/battery pass
 
-Status: ready-for-agent
+Status: complete
 Type: AFK
 
 ## Parent
@@ -13,14 +13,14 @@ Add the v1 resilience and performance pass: preserve in-progress drafts, retry s
 
 ## Acceptance criteria
 
-- [ ] In-progress pet/report/listing drafts survive connectivity drops and app backgrounding.
-- [ ] Media uploads and report submissions can retry safely.
-- [ ] Last-loaded lists/details are cached and clearly marked when stale/offline.
-- [ ] List-heavy surfaces use virtualized rendering.
-- [ ] Images are compressed before upload and do not block the UI unnecessarily.
-- [ ] The app avoids continuous GPS polling and always-on sockets.
-- [ ] Background location is used only when the member explicitly enables moving alerts.
-- [ ] A short performance/battery checklist is added for iOS and Android verification.
+- [x] In-progress pet/report/listing drafts survive connectivity drops and app backgrounding.
+- [x] Media uploads and report submissions can retry safely.
+- [x] Last-loaded lists/details are cached and clearly marked when stale/offline.
+- [x] List-heavy surfaces use virtualized rendering.
+- [x] Images are compressed before upload and do not block the UI unnecessarily.
+- [x] The app avoids continuous GPS polling and always-on sockets.
+- [x] Background location is used only when the member explicitly enables moving alerts.
+- [x] A short performance/battery checklist is added for iOS and Android verification.
 
 ## Blocked by
 
@@ -31,3 +31,13 @@ Add the v1 resilience and performance pass: preserve in-progress drafts, retry s
 ## Context
 
 This slice should enforce the PRD's "do not build a sluggish battery-draining app" constraint.
+
+## Verification notes
+
+- `pnpm -F @acme/expo format`
+- `pnpm -F @acme/expo lint`
+- `pnpm -F @acme/expo typecheck`
+- `pnpm -F @acme/expo test` (29 files, 138 tests)
+- `pnpm exec fallow audit --base HEAD --format json --quiet 2>/dev/null || true`
+
+Fallow verdict: pass. Remaining findings were inherited from `HEAD`: three unused exports, two private type leaks, one `pg` dependency placement issue, and two complexity findings.

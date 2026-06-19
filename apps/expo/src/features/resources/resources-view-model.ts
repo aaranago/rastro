@@ -63,6 +63,7 @@ export interface ResourcesDirectoryViewModelInput {
     kind: "visitor" | "member";
   };
   isOffline?: boolean;
+  isStale?: boolean;
   errorMessage?: string;
 }
 
@@ -200,7 +201,10 @@ export function buildResourcesDirectoryViewModel(
     categories,
     selectedCategoryLabels,
     results,
-    notice: buildDirectoryNotice(state, input.errorMessage),
+    notice: buildDirectoryNotice(state, {
+      errorMessage: input.errorMessage,
+      isStale: input.isStale === true,
+    }),
   };
 }
 
@@ -466,7 +470,10 @@ function getDirectoryState(
 
 function buildDirectoryNotice(
   state: ResourcesDirectoryViewModel["state"],
-  errorMessage?: string,
+  options: {
+    errorMessage?: string;
+    isStale: boolean;
+  },
 ): ResourcesDirectoryViewModel["notice"] {
   if (state === "loading") {
     return {
@@ -478,7 +485,7 @@ function buildDirectoryNotice(
   if (state === "error") {
     return {
       title: "No pudimos cargar recursos",
-      body: errorMessage ?? "Reintenta en unos segundos.",
+      body: options.errorMessage ?? "Reintenta en unos segundos.",
       actions: [{ kind: "retry", label: "Reintentar" }],
     };
   }
@@ -495,6 +502,14 @@ function buildDirectoryNotice(
   }
 
   if (state === "offline") {
+    if (options.isStale) {
+      return {
+        title: "Datos guardados",
+        body: "Sin conexion. Mostrando recursos guardados; pueden estar desactualizados.",
+        actions: [{ kind: "retry", label: "Reintentar" }],
+      };
+    }
+
     return {
       title: "Sin conexión",
       body: "Mostrando recursos guardados si están disponibles. La búsqueda se actualizará cuando vuelva internet.",

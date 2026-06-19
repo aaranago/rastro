@@ -6,9 +6,12 @@ import {
 import type {
   AdoptionListingSummary,
   LostPetReportSummary,
+  NearbyLostReportsQuery,
   NearbySearchLocation,
   SightingReportSummary,
 } from "./nearby-types";
+import { createInMemoryLastLoadedCache } from "../resilience/last-loaded-cache";
+import { createCachedNearbyLostReportsAdapter } from "./nearby-stale-cache-adapter";
 import { createStaticNearbyLostReportsAdapter } from "./nearby-static-adapter";
 
 export const nearbyBoliviaLocations = {
@@ -201,7 +204,7 @@ function buildAdoptionFixtureShareTarget(listingId: string, title: string) {
   });
 }
 
-export const defaultNearbyLostReportsAdapter =
+const defaultStaticNearbyLostReportsAdapter =
   createStaticNearbyLostReportsAdapter({
     generatedAt: "2026-06-17T00:00:00.000Z",
     reports: [
@@ -210,3 +213,27 @@ export const defaultNearbyLostReportsAdapter =
       ...nearbyAdoptionListingFixtures,
     ],
   });
+
+export const defaultNearbyLostReportsAdapter =
+  createCachedNearbyLostReportsAdapter({
+    cache: createInMemoryLastLoadedCache(),
+    cacheKey: buildNearbyLostReportsCacheKey,
+    source: defaultStaticNearbyLostReportsAdapter,
+  });
+
+function buildNearbyLostReportsCacheKey(query: NearbyLostReportsQuery) {
+  const coordinate = query.location.coordinates
+    ? `${query.location.coordinates.latitude.toFixed(5)},${query.location.coordinates.longitude.toFixed(5)}`
+    : "no-coordinate";
+
+  return [
+    "nearby-lost-reports",
+    query.radiusKm,
+    query.limit ?? "no-limit",
+    query.cursor ?? "no-cursor",
+    query.location.source,
+    query.location.label,
+    query.location.locationCellLabel,
+    coordinate,
+  ].join(":");
+}

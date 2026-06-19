@@ -1,15 +1,15 @@
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { useRouter } from "expo-router";
 
 import {
   buildResourceProviderProfileHref,
-  createStaticResourcesAdapter,
   ResourcesScreen,
 } from "~/features/resources";
+import { defaultCachedResourcesAdapter } from "~/features/resources/default-resources-adapter";
 
 export default function ResourcesRoute() {
   const router = useRouter();
-  const adapter = useMemo(() => createStaticResourcesAdapter(), []);
+  const adapter = defaultCachedResourcesAdapter;
 
   const handleOpenProvider = useCallback(
     (providerId: string) => {

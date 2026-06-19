@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 
 import type { PublishAdoptionListingInput } from "../adoption-listings/adoption-listings";
 import type { ReportCreationFieldViewModel } from "../report-creation/report-creation-ui";
+import type { CreationDraftStore } from "../resilience/creation-drafts";
 import type {
   AdoptionListingCreationSession,
   AdoptionListingDraft,
@@ -25,6 +26,7 @@ import {
   ReportCreationSection,
   ReportCreationToggleRow,
 } from "../report-creation/report-creation-ui";
+import { useDurableCreationDraft } from "../resilience/use-durable-creation-draft";
 import { shellColors } from "../shell/shell-theme";
 import { adoptionListingCreationFixtures } from "./adoption-listing-creation-fixtures";
 import {
@@ -50,6 +52,8 @@ type AdoptionListingCreationViewModel = ReturnType<
 >;
 
 export interface AdoptionListingCreationScreenProps {
+  draftScopeId?: string;
+  draftStore?: CreationDraftStore;
   initialDraft?: AdoptionListingDraft;
   onClose?: () => void;
   onPublishAdoptionListing?: (
@@ -79,20 +83,29 @@ function AdoptionListingCreationIcon({
 }
 
 export function AdoptionListingCreationScreen({
+  draftScopeId,
+  draftStore,
   initialDraft,
   onClose,
   onPublishAdoptionListing,
   petProfiles = adoptionListingCreationFixtures.petProfiles,
   session = { kind: "member", memberId: "member-preview" },
 }: AdoptionListingCreationScreenProps) {
-  const [draft, setDraft] = React.useState<AdoptionListingDraft>(
+  const defaultDraft = React.useMemo(
     () =>
       initialDraft ??
       createAdoptionListingDraft({
         ...createInitialAdoptionListingDraft({ petProfiles }),
         exactLocation: adoptionListingCreationFixtures.defaultLocation,
       }),
+    [initialDraft, petProfiles],
   );
+  const { clearDraft, draft, setDraft } = useDurableCreationDraft({
+    initialDraft: defaultDraft,
+    kind: "adoption-listing",
+    scopeId: draftScopeId,
+    store: draftStore,
+  });
   const [publishState, setPublishState] =
     React.useState<PublishState>("editing");
   const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -117,7 +130,7 @@ export function AdoptionListingCreationScreen({
         photo: nextPhoto,
       }),
     );
-  }, [draft.photos.length]);
+  }, [draft.photos.length, setDraft]);
 
   const publish = React.useCallback(async () => {
     if (!viewModel.canPublish || publishState === "publishing") {
@@ -131,6 +144,7 @@ export function AdoptionListingCreationScreen({
       await onPublishAdoptionListing?.(
         toPublishAdoptionListingInput({ draft, petProfiles }),
       );
+      await clearDraft();
       setPublishState("success");
     } catch {
       setSubmitError("No pudimos publicar. Tu informacion sigue aqui.");
@@ -138,6 +152,7 @@ export function AdoptionListingCreationScreen({
     }
   }, [
     draft,
+    clearDraft,
     onPublishAdoptionListing,
     petProfiles,
     publishState,

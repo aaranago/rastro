@@ -2,6 +2,7 @@ import * as React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 
+import type { CreationDraftStore } from "../resilience/creation-drafts";
 import type {
   PublishSightingReportInput,
   SightingReportCreationSession,
@@ -23,6 +24,7 @@ import {
   ReportCreationToggleRow,
   useReportCreationPetDraftUpdaters,
 } from "../report-creation/report-creation-ui";
+import { useDurableCreationDraft } from "../resilience/use-durable-creation-draft";
 import { shellColors } from "../shell/shell-theme";
 import { sightingReportCreationFixtures } from "./sighting-report-creation-fixtures";
 import { sightingReportPetTypeOptions } from "./sighting-report-creation-types";
@@ -47,6 +49,8 @@ type SightingReportCreationViewModel = ReturnType<
 >;
 
 export interface SightingReportCreationScreenProps {
+  draftScopeId?: string;
+  draftStore?: CreationDraftStore;
   initialDraft?: SightingReportDraft;
   onChooseSightingLocation?: () => void;
   onClose?: () => void;
@@ -77,6 +81,8 @@ function SightingReportCreationIcon({
 }
 
 export function SightingReportCreationScreen({
+  draftScopeId,
+  draftStore,
   initialDraft,
   onChooseSightingLocation,
   onClose,
@@ -84,13 +90,20 @@ export function SightingReportCreationScreen({
   onRequestMemberSignIn,
   session = { kind: "member", memberId: "member-preview" },
 }: SightingReportCreationScreenProps) {
-  const [draft, setDraft] = React.useState<SightingReportDraft>(
+  const defaultDraft = React.useMemo(
     () =>
       initialDraft ??
       createSightingReportDraft({
         exactSightingLocation: sightingReportCreationFixtures.defaultLocation,
       }),
+    [initialDraft],
   );
+  const { clearDraft, draft, setDraft } = useDurableCreationDraft({
+    initialDraft: defaultDraft,
+    kind: "sighting-report",
+    scopeId: draftScopeId,
+    store: draftStore,
+  });
   const [publishState, setPublishState] =
     React.useState<PublishState>("editing");
   const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -114,7 +127,7 @@ export function SightingReportCreationScreen({
         photo: nextPhoto,
       }),
     );
-  }, [draft.photos.length]);
+  }, [draft.photos.length, setDraft]);
 
   const publish = React.useCallback(async () => {
     if (!viewModel.canPublish || publishState === "publishing") {
@@ -126,12 +139,19 @@ export function SightingReportCreationScreen({
 
     try {
       await onPublishSightingReport?.(toPublishSightingReportInput({ draft }));
+      await clearDraft();
       setPublishState("success");
     } catch {
       setSubmitError("No pudimos publicar. Tu informacion sigue aqui.");
       setPublishState("editing");
     }
-  }, [draft, onPublishSightingReport, publishState, viewModel.canPublish]);
+  }, [
+    clearDraft,
+    draft,
+    onPublishSightingReport,
+    publishState,
+    viewModel.canPublish,
+  ]);
 
   if (viewModel.kind === "visitor") {
     return (

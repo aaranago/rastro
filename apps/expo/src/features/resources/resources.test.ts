@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import type { ResourceProviderFixture } from "./resource-types";
+import type {
+  ResourceProviderDirectoryResult,
+  ResourceProviderProfileResult,
+} from "./static-resources-adapter";
+import { createInMemoryLastLoadedCache } from "../resilience/last-loaded-cache";
 import { createInMemoryTrustSafetyRepository } from "../trust-safety";
 import {
   buildResourceProviderProfileViewModel,
   buildResourcesDirectoryViewModel,
 } from "./resources-view-model";
-import { createStaticResourcesAdapter } from "./static-resources-adapter";
+import {
+  createCachedResourcesAdapter,
+  createStaticResourcesAdapter,
+} from "./static-resources-adapter";
 import { rastroResourceFixtures } from "./static-resources-fixtures";
 
 describe("Resources directory", () => {
@@ -568,6 +576,119 @@ describe("Resources directory", () => {
       "report_success",
       "contextual_care_resources",
     ]);
+  });
+
+  it("renders the last loaded resources directory when a later offline search fails", async () => {
+    const cache =
+      createInMemoryLastLoadedCache<ResourceProviderDirectoryResult>();
+    const query = {
+      location: {
+        coordinate: {
+          latitude: -16.5103,
+          longitude: -68.1299,
+        },
+        countryCode: "BO",
+        kind: "manual",
+        label: "Sopocachi, La Paz",
+        locationCellLabel: "Sopocachi",
+        manualLocationKind: "place",
+      },
+      radiusMeters: 2_000,
+      strategy: "postgis_radius",
+    } as const;
+    const onlineAdapter = createCachedResourcesAdapter({
+      cache,
+      cacheKey: "resources:sopocachi:2000",
+      source: createStaticResourcesAdapter(),
+    });
+    const onlineResult = await onlineAdapter.searchProviderDirectory(query);
+
+    expect(onlineResult.isOffline).toBeUndefined();
+    expect(onlineResult.isStale).toBeUndefined();
+
+    const offlineAdapter = createCachedResourcesAdapter({
+      cache,
+      cacheKey: "resources:sopocachi:2000",
+      source: {
+        getProviderProfile: () =>
+          Promise.reject(new Error("Sin conexion de prueba.")),
+        reportProvider: () =>
+          Promise.reject(new Error("Sin conexion de prueba.")),
+        searchProviders: () =>
+          Promise.reject(new Error("Sin conexion de prueba.")),
+      },
+    });
+
+    const staleResult = await offlineAdapter.searchProviderDirectory(query);
+    const viewModel = buildResourcesDirectoryViewModel({
+      providers: staleResult.providers,
+      location: {
+        kind: "manual",
+        label: "Sopocachi, La Paz",
+      },
+      mode: "list",
+      status: "ready",
+      isOffline: staleResult.isOffline,
+      isStale: staleResult.isStale,
+    });
+
+    expect(viewModel).toMatchObject({
+      state: "offline",
+      notice: {
+        title: "Datos guardados",
+        body: "Sin conexion. Mostrando recursos guardados; pueden estar desactualizados.",
+      },
+    });
+    expect(viewModel.results.length).toBeGreaterThan(0);
+  });
+
+  it("renders the last loaded resource provider profile when a later offline detail load fails", async () => {
+    const directoryCache =
+      createInMemoryLastLoadedCache<ResourceProviderDirectoryResult>();
+    const profileCache =
+      createInMemoryLastLoadedCache<ResourceProviderProfileResult>();
+    const onlineAdapter = createCachedResourcesAdapter({
+      cache: directoryCache,
+      cacheKey: "resources:sopocachi:2000",
+      profileCache,
+      source: createStaticResourcesAdapter(),
+    });
+    const onlineResult =
+      await onlineAdapter.getProviderProfileDetail("clinic-san-roque");
+
+    expect(onlineResult.isOffline).toBeUndefined();
+    expect(onlineResult.isStale).toBeUndefined();
+    expect(onlineResult).toMatchObject({
+      profile: {
+        id: "clinic-san-roque",
+        name: "Clínica Veterinaria San Roque",
+      },
+    });
+
+    const offlineAdapter = createCachedResourcesAdapter({
+      cache: directoryCache,
+      cacheKey: "resources:sopocachi:2000",
+      profileCache,
+      source: {
+        getProviderProfile: () =>
+          Promise.reject(new Error("Sin conexion de prueba.")),
+        reportProvider: () =>
+          Promise.reject(new Error("Sin conexion de prueba.")),
+        searchProviders: () =>
+          Promise.reject(new Error("Sin conexion de prueba.")),
+      },
+    });
+    const staleResult =
+      await offlineAdapter.getProviderProfileDetail("clinic-san-roque");
+
+    expect(staleResult).toMatchObject({
+      isOffline: true,
+      isStale: true,
+      profile: {
+        id: "clinic-san-roque",
+        name: "Clínica Veterinaria San Roque",
+      },
+    });
   });
 
   it("describes current, last, manual, denied, and offline search states", () => {

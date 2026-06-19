@@ -137,6 +137,63 @@ describe("Alert Subscription native adapter", () => {
     expect(native.location.watchPositionAsync).not.toHaveBeenCalled();
     expect(native.removeAppStateListener).toHaveBeenCalled();
   });
+
+  it("samples location only when a foreground snapshot is requested", async () => {
+    const native = createNativeBoundary();
+    native.location.getCurrentPositionAsync.mockResolvedValueOnce({
+      coords: {
+        accuracy: 25,
+        latitude: -16.5103,
+        longitude: -68.1299,
+      },
+      timestamp: Date.parse("2026-06-18T12:01:00.000Z"),
+    });
+    const adapter = createAlertSubscriptionNativeAdapter(native);
+
+    const unsubscribe = adapter.subscribeToRefreshTriggers(() => undefined);
+
+    native.emitAppStateChange("inactive");
+    native.emitAppStateChange("active");
+    native.emitAppStateChange("background");
+    native.emitAppStateChange("active");
+
+    expect(
+      native.location.getForegroundPermissionsAsync,
+    ).not.toHaveBeenCalled();
+    expect(native.location.getCurrentPositionAsync).not.toHaveBeenCalled();
+    expect(
+      native.location.requestForegroundPermissionsAsync,
+    ).not.toHaveBeenCalled();
+    expect(
+      native.location.requestBackgroundPermissionsAsync,
+    ).not.toHaveBeenCalled();
+    expect(native.location.startLocationUpdatesAsync).not.toHaveBeenCalled();
+
+    const snapshot = await adapter.getForegroundLocationSnapshot({
+      requestPermission: true,
+    });
+
+    expect(snapshot).toMatchObject({
+      coordinates: {
+        capturedAt: "2026-06-18T12:01:00.000Z",
+        latitude: -16.5103,
+        longitude: -68.1299,
+      },
+      kind: "available",
+      source: "current",
+    });
+    expect(native.location.getForegroundPermissionsAsync).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(native.location.getCurrentPositionAsync).toHaveBeenCalledTimes(1);
+    expect(native.location.watchPositionAsync).not.toHaveBeenCalled();
+    expect(
+      native.location.requestBackgroundPermissionsAsync,
+    ).not.toHaveBeenCalled();
+    expect(native.location.startLocationUpdatesAsync).not.toHaveBeenCalled();
+
+    unsubscribe();
+  });
 });
 
 function createNativeBoundary({
@@ -212,8 +269,10 @@ function createNativeBoundary({
         Promise.resolve(foregroundLocationPermission),
       ),
       getLastKnownPositionAsync: vi.fn(),
+      requestBackgroundPermissionsAsync: vi.fn(),
       watchPositionAsync: vi.fn(),
       requestForegroundPermissionsAsync: vi.fn(),
+      startLocationUpdatesAsync: vi.fn(),
     },
     notifications: {
       getExpoPushTokenAsync: vi.fn(),

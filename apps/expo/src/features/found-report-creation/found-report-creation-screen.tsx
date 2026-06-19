@@ -2,6 +2,7 @@ import * as React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 
+import type { CreationDraftStore } from "../resilience/creation-drafts";
 import type {
   FoundReportCreationSession,
   FoundReportCreationVisitorAction,
@@ -23,6 +24,7 @@ import {
   ReportCreationToggleRow,
   useReportCreationPetDraftUpdaters,
 } from "../report-creation/report-creation-ui";
+import { useDurableCreationDraft } from "../resilience/use-durable-creation-draft";
 import { shellColors } from "../shell/shell-theme";
 import { foundReportCreationFixtures } from "./found-report-creation-fixtures";
 import { foundReportPetTypeOptions } from "./found-report-creation-types";
@@ -47,6 +49,8 @@ type FoundReportCreationViewModel = ReturnType<
 >;
 
 export interface FoundReportCreationScreenProps {
+  draftScopeId?: string;
+  draftStore?: CreationDraftStore;
   initialDraft?: FoundReportDraft;
   onChooseFoundLocation?: () => void;
   onClose?: () => void;
@@ -77,6 +81,8 @@ function FoundReportCreationIcon({
 }
 
 export function FoundReportCreationScreen({
+  draftScopeId,
+  draftStore,
   initialDraft,
   onChooseFoundLocation,
   onClose,
@@ -84,13 +90,20 @@ export function FoundReportCreationScreen({
   onRequestMemberSignIn,
   session = { kind: "member", memberId: "member-preview" },
 }: FoundReportCreationScreenProps) {
-  const [draft, setDraft] = React.useState<FoundReportDraft>(
+  const defaultDraft = React.useMemo(
     () =>
       initialDraft ??
       createFoundReportDraft({
         exactFoundLocation: foundReportCreationFixtures.defaultLocation,
       }),
+    [initialDraft],
   );
+  const { clearDraft, draft, setDraft } = useDurableCreationDraft({
+    initialDraft: defaultDraft,
+    kind: "found-report",
+    scopeId: draftScopeId,
+    store: draftStore,
+  });
   const [publishState, setPublishState] =
     React.useState<PublishState>("editing");
   const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -114,7 +127,7 @@ export function FoundReportCreationScreen({
         photo: nextPhoto,
       }),
     );
-  }, [draft.photos.length]);
+  }, [draft.photos.length, setDraft]);
 
   const publish = React.useCallback(async () => {
     if (!viewModel.canPublish || publishState === "publishing") {
@@ -126,12 +139,19 @@ export function FoundReportCreationScreen({
 
     try {
       await onPublishFoundReport?.(toPublishFoundPetReportInput({ draft }));
+      await clearDraft();
       setPublishState("success");
     } catch {
       setSubmitError("No pudimos publicar. Tu informacion sigue aqui.");
       setPublishState("editing");
     }
-  }, [draft, onPublishFoundReport, publishState, viewModel.canPublish]);
+  }, [
+    clearDraft,
+    draft,
+    onPublishFoundReport,
+    publishState,
+    viewModel.canPublish,
+  ]);
 
   if (viewModel.kind === "visitor") {
     return (

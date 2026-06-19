@@ -15,11 +15,11 @@ import type {
   ResourceProviderProfile as ResourceProviderProfileData,
 } from "./resource-types";
 import type { ResourcesAdapter } from "./static-resources-adapter";
+import { defaultCachedResourcesAdapter } from "./default-resources-adapter";
 import { ResourceProviderProfile } from "./resource-provider-profile";
 import { resourcesColors, resourcesShadow } from "./resources-theme";
-import { createStaticResourcesAdapter } from "./static-resources-adapter";
 
-const defaultResourcesAdapter = createStaticResourcesAdapter();
+const defaultResourcesAdapter = defaultCachedResourcesAdapter;
 const bottomInset = 36;
 
 type ProfileLoadState =
@@ -28,6 +28,8 @@ type ProfileLoadState =
       providerId?: string;
     }
   | {
+      isOffline?: boolean;
+      isStale?: boolean;
       kind: "ready";
       profile: ResourceProviderProfileData;
       providerId: string;
@@ -89,16 +91,21 @@ export function ResourceProviderProfileScreen({
 
     let isCurrent = true;
 
-    adapter
-      .getProviderProfile(resolvedProviderId)
-      .then((profile) => {
+    loadProviderProfile({ adapter, providerId: resolvedProviderId })
+      .then((result) => {
         if (!isCurrent) {
           return;
         }
 
         setLoadState(
-          profile
-            ? { kind: "ready", profile, providerId: resolvedProviderId }
+          result.profile
+            ? {
+                isOffline: result.isOffline,
+                isStale: result.isStale,
+                kind: "ready",
+                profile: result.profile,
+                providerId: resolvedProviderId,
+              }
             : { kind: "missing", providerId: resolvedProviderId },
         );
       })
@@ -222,9 +229,26 @@ export function ResourceProviderProfileScreen({
       onOpenLink={handleOpenLink}
       onReportProvider={handleReportProvider}
       profile={currentLoadState.profile}
-      reportFeedback={buildReportFeedback(reportState)}
+      reportFeedback={buildReportFeedback(reportState, currentLoadState)}
     />
   );
+}
+
+async function loadProviderProfile({
+  adapter,
+  providerId,
+}: {
+  adapter: ResourcesAdapter;
+  providerId: string;
+}) {
+  if (adapter.getProviderProfileDetail !== undefined) {
+    return adapter.getProviderProfileDetail(providerId);
+  }
+
+  return {
+    profile: await adapter.getProviderProfile(providerId),
+    providerId,
+  };
 }
 
 function getCurrentLoadState(
@@ -299,7 +323,10 @@ function ResourceProviderProfileStateScreen({
   );
 }
 
-function buildReportFeedback(reportState: ReportState) {
+function buildReportFeedback(
+  reportState: ReportState,
+  loadState: Extract<ProfileLoadState, { kind: "ready" }>,
+) {
   if (reportState.kind === "reporting") {
     return {
       body: "Estamos enviando el reporte para revisión.",
@@ -321,6 +348,14 @@ function buildReportFeedback(reportState: ReportState) {
       body: reportState.message,
       title: "No pudimos reportar",
       tone: "error" as const,
+    };
+  }
+
+  if (loadState.isOffline === true && loadState.isStale === true) {
+    return {
+      body: "Sin conexion. Mostrando el perfil guardado; puede estar desactualizado.",
+      title: "Datos guardados",
+      tone: "info" as const,
     };
   }
 

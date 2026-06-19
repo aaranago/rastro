@@ -24,6 +24,8 @@ import type {
 import { AdoptionListingCreationScreen } from "../adoption-listing-creation/adoption-listing-creation-screen";
 import { FoundReportCreationScreen } from "../found-report-creation/found-report-creation-screen";
 import { LostReportCreationScreen } from "../lost-report-creation/lost-report-creation-screen";
+import { createCreationDraftStore } from "../resilience/creation-drafts";
+import { createExpoSecureStoreKeyValueStorage } from "../resilience/storage";
 import {
   buildResourceProviderProfileHref,
   createStaticResourcesAdapter,
@@ -67,6 +69,14 @@ export function ShellFabHost() {
   } = useRastroShell();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const creationDraftStore = React.useMemo(
+    () =>
+      createCreationDraftStore({
+        storage: createExpoSecureStoreKeyValueStorage(),
+      }),
+    [],
+  );
+  const draftScopeId = session.kind === "member" ? session.id : undefined;
   const sponsorResourcesAdapter = React.useMemo(
     () => createStaticResourcesAdapter(),
     [],
@@ -142,6 +152,8 @@ export function ShellFabHost() {
       />
 
       <LostReportCreationModal
+        draftScopeId={draftScopeId}
+        draftStore={creationDraftStore}
         onOpenSponsorPlacement={handleOpenSponsorPlacement}
         onReportSponsorPlacement={handleReportSponsorPlacement}
         onClose={clearMemberIntent}
@@ -149,18 +161,24 @@ export function ShellFabHost() {
       />
 
       <FoundReportCreationModal
+        draftScopeId={draftScopeId}
+        draftStore={creationDraftStore}
         onClose={clearMemberIntent}
         session={session}
         visible={state.memberIntent?.intent === "found"}
       />
 
       <SightingReportStartModal
+        draftScopeId={draftScopeId}
+        draftStore={creationDraftStore}
         onClose={clearMemberIntent}
         session={session}
         visible={state.memberIntent?.intent === "sighting"}
       />
 
       <AdoptionListingCreationModal
+        draftScopeId={draftScopeId}
+        draftStore={creationDraftStore}
         onClose={clearMemberIntent}
         session={session}
         visible={state.memberIntent?.intent === "adoption"}
@@ -170,11 +188,15 @@ export function ShellFabHost() {
 }
 
 function LostReportCreationModal({
+  draftScopeId,
+  draftStore,
   onClose,
   onOpenSponsorPlacement,
   onReportSponsorPlacement,
   visible,
 }: {
+  draftScopeId?: string;
+  draftStore?: ReturnType<typeof createCreationDraftStore>;
   onClose: () => void;
   onOpenSponsorPlacement: (sponsorPlacementId: string) => void;
   onReportSponsorPlacement: (sponsorPlacementId: string) => void;
@@ -188,6 +210,8 @@ function LostReportCreationModal({
       visible={visible}
     >
       <LostReportCreationScreen
+        draftScopeId={draftScopeId}
+        draftStore={draftStore}
         onClose={onClose}
         onOpenSponsorPlacement={onOpenSponsorPlacement}
         onReportSponsorPlacement={onReportSponsorPlacement}
@@ -197,10 +221,14 @@ function LostReportCreationModal({
 }
 
 function FoundReportCreationModal({
+  draftScopeId,
+  draftStore,
   onClose,
   session,
   visible,
 }: {
+  draftScopeId?: string;
+  draftStore?: ReturnType<typeof createCreationDraftStore>;
   onClose: () => void;
   session: ShellSession;
   visible: boolean;
@@ -213,6 +241,8 @@ function FoundReportCreationModal({
       visible={visible}
     >
       <FoundReportCreationScreen
+        draftScopeId={draftScopeId}
+        draftStore={draftStore}
         onClose={onClose}
         session={
           session.kind === "member"
@@ -229,10 +259,14 @@ function FoundReportCreationModal({
 }
 
 function SightingReportStartModal({
+  draftScopeId,
+  draftStore,
   onClose,
   session,
   visible,
 }: {
+  draftScopeId?: string;
+  draftStore?: ReturnType<typeof createCreationDraftStore>;
   onClose: () => void;
   session: ShellSession;
   visible: boolean;
@@ -245,6 +279,8 @@ function SightingReportStartModal({
       visible={visible}
     >
       <SightingReportCreationScreen
+        draftScopeId={draftScopeId}
+        draftStore={draftStore}
         onClose={onClose}
         session={
           session.kind === "member"
@@ -261,10 +297,14 @@ function SightingReportStartModal({
 }
 
 function AdoptionListingCreationModal({
+  draftScopeId,
+  draftStore,
   onClose,
   session,
   visible,
 }: {
+  draftScopeId?: string;
+  draftStore?: ReturnType<typeof createCreationDraftStore>;
   onClose: () => void;
   session: ShellSession;
   visible: boolean;
@@ -277,6 +317,8 @@ function AdoptionListingCreationModal({
       visible={visible}
     >
       <AdoptionListingCreationScreen
+        draftScopeId={draftScopeId}
+        draftStore={draftStore}
         onClose={onClose}
         session={
           session.kind === "member"

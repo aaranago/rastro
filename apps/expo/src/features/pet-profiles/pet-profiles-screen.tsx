@@ -11,6 +11,7 @@ import {
 import { Image } from "expo-image";
 import { LegendList } from "@legendapp/list";
 
+import type { CreationDraftStore } from "../resilience/creation-drafts";
 import type {
   PetProfileDraft,
   PetProfilePhoto,
@@ -24,6 +25,7 @@ import type {
   PetProfileDetailViewModel,
   PetProfileFormViewModel,
 } from "./pet-profiles-view-model";
+import { useDurableCreationDraft } from "../resilience/use-durable-creation-draft";
 import { ShellIcon } from "../shell/shell-overlays";
 import { shellColors } from "../shell/shell-theme";
 import { draftPhotoSamples, petProfileFixtures } from "./pet-profiles-fixtures";
@@ -37,6 +39,8 @@ import {
 const bottomInset = 140;
 
 export interface MisMascotasScreenProps {
+  draftScopeId?: string;
+  draftStore?: CreationDraftStore;
   initialProfiles?: readonly PetProfileSummary[];
   onOpenRelatedRecord?: (recordId: string) => void;
   onRequestAddPhoto?: (draft: PetProfileDraft) => PetProfilePhoto | void;
@@ -85,6 +89,8 @@ export function MisMascotasScreen(props: MisMascotasScreenProps) {
 }
 
 function useMisMascotasController({
+  draftScopeId,
+  draftStore,
   initialProfiles = petProfileFixtures.profiles,
   onOpenRelatedRecord,
   onRequestAddPhoto,
@@ -98,7 +104,21 @@ function useMisMascotasController({
     () => initialProfiles[0]?.id,
   );
   const [formMode, setFormMode] = useState<FormMode | null>(null);
-  const [draft, setDraft] = useState<PetProfileDraft>(createEmptyDraft);
+  const emptyDraft = useMemo(() => createEmptyDraft(), []);
+  const { clearDraft, draft, restoredDraft, setDraft } =
+    useDurableCreationDraft({
+      initialDraft: emptyDraft,
+      kind: "pet-profile",
+      scopeId: draftScopeId,
+      store: draftStore,
+    });
+  const activeFormMode =
+    formMode ??
+    (restoredDraft === null
+      ? null
+      : restoredDraft.draft.id === undefined
+        ? "create"
+        : "edit");
   const viewModel = useMemo(
     () =>
       buildMisMascotasViewModel({
@@ -110,19 +130,19 @@ function useMisMascotasController({
   );
   const formViewModel = useMemo(
     () =>
-      formMode
+      activeFormMode
         ? buildPetProfileFormViewModel({
             draft,
-            mode: formMode,
+            mode: activeFormMode,
           })
         : undefined,
-    [draft, formMode],
+    [activeFormMode, draft],
   );
 
   const beginCreate = useCallback(() => {
     setDraft(createEmptyDraft());
     setFormMode("create");
-  }, []);
+  }, [setDraft]);
 
   const beginEdit = useCallback(
     (profileId: string) => {
@@ -136,12 +156,13 @@ function useMisMascotasController({
       setDraft(toDraft(profile));
       setFormMode("edit");
     },
-    [profiles],
+    [profiles, setDraft],
   );
 
   const cancelForm = useCallback(() => {
+    void clearDraft();
     setFormMode(null);
-  }, []);
+  }, [clearDraft]);
 
   const selectProfile = useCallback((profileId: string) => {
     setSelectedProfileId(profileId);
@@ -166,23 +187,26 @@ function useMisMascotasController({
     setDraft((current) =>
       appendDraftPhoto(current, createLocalDraftPhoto(current.photos.length)),
     );
-  }, [draft, formViewModel?.canAddPhoto, onRequestAddPhoto]);
+  }, [draft, formViewModel?.canAddPhoto, onRequestAddPhoto, setDraft]);
 
-  const removeDraftPhoto = useCallback((photoId: string) => {
-    setDraft((current) => ({
-      ...current,
-      photos: current.photos.filter((photo) => photo.id !== photoId),
-    }));
-  }, []);
+  const removeDraftPhoto = useCallback(
+    (photoId: string) => {
+      setDraft((current) => ({
+        ...current,
+        photos: current.photos.filter((photo) => photo.id !== photoId),
+      }));
+    },
+    [setDraft],
+  );
 
   const submitDraft = useCallback(() => {
-    if (session.kind !== "member" || !formMode) {
+    if (session.kind !== "member" || !activeFormMode) {
       return;
     }
 
     const currentForm = buildPetProfileFormViewModel({
       draft,
-      mode: formMode,
+      mode: activeFormMode,
     });
 
     if (!currentForm.canSubmit) {
@@ -200,7 +224,7 @@ function useMisMascotasController({
     };
 
     setProfiles((current) => {
-      if (formMode === "edit") {
+      if (activeFormMode === "edit") {
         return current.map((profile) =>
           profile.id === id
             ? {
@@ -215,7 +239,8 @@ function useMisMascotasController({
     });
     setSelectedProfileId(id);
     setFormMode(null);
-  }, [draft, formMode, session]);
+    void clearDraft();
+  }, [activeFormMode, clearDraft, draft, session]);
 
   return {
     addDraftPhoto,

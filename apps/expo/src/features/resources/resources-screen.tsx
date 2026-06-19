@@ -22,16 +22,19 @@ import type {
   ResourceProviderSummaryViewModel,
   ResourcesDirectoryViewModel,
 } from "./resources-view-model";
-import type { ResourcesAdapter } from "./static-resources-adapter";
+import type {
+  ResourceProviderDirectoryResult,
+  ResourcesAdapter,
+} from "./static-resources-adapter";
+import { defaultCachedResourcesAdapter } from "./default-resources-adapter";
 import { ResourceProviderCard } from "./resource-provider-card";
 import { resourcesColors, resourcesShadow } from "./resources-theme";
 import {
   buildResourcesDirectoryViewModel,
   resourceCategoryOptions,
 } from "./resources-view-model";
-import { createStaticResourcesAdapter } from "./static-resources-adapter";
 
-const defaultResourcesAdapter = createStaticResourcesAdapter();
+const defaultResourcesAdapter = defaultCachedResourcesAdapter;
 
 type ResourceNoticeAction = NonNullable<
   NonNullable<ResourcesDirectoryViewModel["notice"]>["actions"]
@@ -73,6 +76,8 @@ export function ResourcesScreen({
   >([]);
   const [status, setStatus] = useState<ResourcesDirectoryStatus>("loading");
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
+  const [isOfflineContent, setIsOfflineContent] = useState(false);
+  const [isStaleContent, setIsStaleContent] = useState(false);
   const [reloadVersion, setReloadVersion] = useState(0);
 
   const searchQuery = useMemo(
@@ -88,17 +93,27 @@ export function ResourcesScreen({
   useEffect(() => {
     let isCurrent = true;
 
-    adapter
-      .searchProviders(searchQuery)
-      .then((nextProviders) => {
+    const searchProviders: Promise<ResourceProviderDirectoryResult> =
+      adapter.searchProviderDirectory !== undefined
+        ? adapter.searchProviderDirectory(searchQuery)
+        : adapter.searchProviders(searchQuery).then((nextProviders) => ({
+            providers: nextProviders,
+          }));
+
+    searchProviders
+      .then((result) => {
         if (isCurrent) {
-          setProviders(nextProviders);
+          setProviders(result.providers);
+          setIsOfflineContent(result.isOffline === true);
+          setIsStaleContent(result.isStale === true);
           setStatus("ready");
         }
       })
       .catch((error: unknown) => {
         if (isCurrent) {
           setStatus("error");
+          setIsOfflineContent(false);
+          setIsStaleContent(false);
           setErrorMessage(
             error instanceof Error
               ? error.message
@@ -120,12 +135,15 @@ export function ResourcesScreen({
         location,
         mode,
         status,
-        isOffline,
+        isOffline: isOffline || isOfflineContent,
+        isStale: isStaleContent,
         errorMessage,
       }),
     [
       errorMessage,
       isOffline,
+      isOfflineContent,
+      isStaleContent,
       location,
       mode,
       providers,
