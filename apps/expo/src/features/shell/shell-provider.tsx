@@ -76,6 +76,33 @@ function findReportAction(
   return action;
 }
 
+function clearAuthPromptError(state: ShellState): ShellState {
+  if (!state.authPrompt?.error) {
+    return state;
+  }
+
+  const { error: _error, ...authPrompt } = state.authPrompt;
+
+  return {
+    ...state,
+    authPrompt,
+  };
+}
+
+function showAuthPromptError(state: ShellState, message: string): ShellState {
+  if (!state.authPrompt) {
+    return state;
+  }
+
+  return {
+    ...state,
+    authPrompt: {
+      ...state.authPrompt,
+      error: message,
+    },
+  };
+}
+
 export function RastroShellProvider({
   authAdapter = shellAuthAdapter,
   children,
@@ -225,18 +252,31 @@ export function RastroShellProvider({
     async (
       provider: ShellSocialAuthProvider,
     ): Promise<ShellAuthActionResult> => {
+      setState(clearAuthPromptError);
+
       if (!authAdapter.availableSocialAuthProviders.includes(provider)) {
-        return {
+        const result = {
           message: copy.authPrompt.socialProviderUnavailable,
           ok: false,
           reason: "unavailable",
-        };
+        } as const;
+
+        setState((current) => showAuthPromptError(current, result.message));
+
+        return result;
       }
 
       const result = await authAdapter.signInWithSocialProvider(provider);
 
       if (result.ok) {
         completeAuthPrompt();
+      } else {
+        setState((current) =>
+          showAuthPromptError(
+            current,
+            result.message ?? copy.authPrompt.authFailed,
+          ),
+        );
       }
 
       return result;
@@ -244,6 +284,7 @@ export function RastroShellProvider({
     [
       authAdapter,
       completeAuthPrompt,
+      copy.authPrompt.authFailed,
       copy.authPrompt.socialProviderUnavailable,
     ],
   );

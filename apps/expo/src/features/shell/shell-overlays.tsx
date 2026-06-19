@@ -941,18 +941,23 @@ function useSignInPromptState({
   const [email, setEmail] = React.useState("");
   const [name, setName] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [authError, setAuthError] = React.useState<string | null>(null);
+  const [authError, setAuthError] = React.useState<string | null | undefined>(
+    undefined,
+  );
   const [pendingAction, setPendingAction] =
     React.useState<ShellAuthPromptPendingAction | null>(null);
 
   React.useEffect(() => {
     if (!prompt) {
-      setAuthError(null);
+      setAuthError(undefined);
       setEmail("");
       setName("");
       setPassword("");
       setPendingAction(null);
+      return;
     }
+
+    setAuthError(undefined);
   }, [prompt]);
 
   const submitAuthAction = React.useCallback(
@@ -1010,7 +1015,7 @@ function useSignInPromptState({
   );
 
   return {
-    authError,
+    authError: authError === undefined ? (prompt?.error ?? null) : authError,
     email,
     name,
     password,

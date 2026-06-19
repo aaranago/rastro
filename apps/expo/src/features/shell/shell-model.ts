@@ -74,6 +74,7 @@ export interface ShellProfileModel {
 }
 
 export interface ShellAuthPrompt {
+  error?: string;
   intent?: ReportIntent;
   returnTo?: string;
   selectedIntentLabel?: string;

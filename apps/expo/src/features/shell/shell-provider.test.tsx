@@ -1,7 +1,12 @@
 import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ShellAuthAdapter, ShellAuthSessionState } from "./shell-auth";
+import type {
+  ShellAuthActionResult,
+  ShellAuthAdapter,
+  ShellAuthSessionState,
+  ShellSocialAuthProvider,
+} from "./shell-auth";
 import { RastroShellProvider } from "./shell-provider";
 
 const reactState = vi.hoisted(() => ({
@@ -126,19 +131,73 @@ describe("RastroShellProvider social auth handoff", () => {
       label: "Reportar perdida",
     });
   });
+
+  it("keeps the selected auth prompt recoverable with a visible error after provider cancellation", async () => {
+    const cancellationMessage =
+      "Cancelaste el ingreso con proveedor. Puedes intentar otra vez o usar correo y contrasena.";
+    const authAdapter: ShellAuthAdapter = {
+      availableSocialAuthProviders: ["google", "facebook"],
+      createAccountWithEmail: () => Promise.resolve({ ok: true }),
+      initiateAccountDeletion: () => Promise.resolve({ ok: true }),
+      requestPasswordResetForEmail: () => Promise.resolve({ ok: true }),
+      signInWithEmail: () => Promise.resolve({ ok: true }),
+      signInWithSocialProvider: () =>
+        Promise.resolve({
+          message: cancellationMessage,
+          ok: false,
+          reason: "canceled",
+        }),
+      signOut: () => Promise.resolve({ ok: true }),
+      useSession: () => ({
+        data: null,
+        error: null,
+        isPending: false,
+        refetch: vi.fn(),
+      }),
+    };
+
+    let shell = renderProvider(authAdapter);
+
+    shell.chooseReportIntent("lost");
+    shell = renderProvider(authAdapter);
+
+    expect(shell.state.authPrompt).toMatchObject({
+      intent: "lost",
+      selectedIntentLabel: "Reportar perdida",
+    });
+
+    await expect(
+      shell.signInWithSocialProviderFromPrompt("google"),
+    ).resolves.toEqual({
+      message: cancellationMessage,
+      ok: false,
+      reason: "canceled",
+    });
+
+    shell = renderProvider(authAdapter);
+
+    expect(shell.state.authPrompt).toMatchObject({
+      error: cancellationMessage,
+      intent: "lost",
+      selectedIntentLabel: "Reportar perdida",
+    });
+    expect(shell.state.memberIntent).toBeNull();
+    expect(shell.state.pendingMemberIntent).toBeNull();
+  });
 });
 
 interface ShellProviderValue {
   chooseReportIntent: (intent: "lost") => void;
   signInWithSocialProviderFromPrompt: (
-    provider: "google",
-  ) => Promise<{ ok: boolean }>;
+    provider: ShellSocialAuthProvider,
+  ) => Promise<ShellAuthActionResult>;
   socialProviderActions: {
     label: string;
     provider: string;
   }[];
   state: {
     authPrompt: {
+      error?: string;
       intent?: string;
       selectedIntentLabel?: string;
     } | null;

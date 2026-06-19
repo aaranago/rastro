@@ -139,6 +139,33 @@ describe("SignInPrompt", () => {
     expect(findText(screen, "Contrasena")).toBeTruthy();
     expect(findText(screen, "Iniciar sesion")).toBeTruthy();
   });
+
+  it("renders a preserved provider cancellation error on the auth prompt", () => {
+    const cancellationMessage =
+      "Cancelaste el ingreso con proveedor. Puedes intentar otra vez o usar correo y contrasena.";
+    const screen = renderFunctionElement(
+      <SignInPrompt
+        actions={createPromptActions()}
+        bottomInset={0}
+        copy={createPromptCopy()}
+        prompt={{
+          body: "Guardamos tu seleccion: Reportar perdida.",
+          error: cancellationMessage,
+          intent: "lost",
+          selectedIntentLabel: "Reportar perdida",
+          title: "Inicia sesion para continuar",
+        }}
+        socialProviderActions={[
+          {
+            label: "Continuar con Google",
+            provider: "google",
+          },
+        ]}
+      />,
+    );
+
+    expect(findText(screen, cancellationMessage)).toBeTruthy();
+  });
 });
 
 function createPromptActions() {
