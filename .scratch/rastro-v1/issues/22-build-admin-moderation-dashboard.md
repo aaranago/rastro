@@ -1,6 +1,6 @@
 # Build admin moderation dashboard
 
-Status: ready-for-agent
+Status: complete
 Type: AFK
 
 ## Parent
@@ -13,13 +13,13 @@ Build the Next.js admin dashboard path for reviewing abuse reports and controlli
 
 ## Acceptance criteria
 
-- [ ] Admins can view flagged reports, listings, chats, and resource-provider profiles.
-- [ ] Admins can hide or restore reports/listings.
-- [ ] Admins can ban or unban abusive members.
-- [ ] Admins can toggle Review Mode for adoption listings.
-- [ ] Admins can toggle verified email required to publish.
-- [ ] Admins can see basic abuse metrics by city or department.
-- [ ] Non-admin members cannot access admin surfaces.
+- [x] Admins can view flagged reports, listings, chats, and resource-provider profiles.
+- [x] Admins can hide or restore reports/listings.
+- [x] Admins can ban or unban abusive members.
+- [x] Admins can toggle Review Mode for adoption listings.
+- [x] Admins can toggle verified email required to publish.
+- [x] Admins can see basic abuse metrics by city or department.
+- [x] Non-admin members cannot access admin surfaces.
 
 ## Blocked by
 
@@ -28,3 +28,12 @@ Build the Next.js admin dashboard path for reviewing abuse reports and controlli
 ## Context
 
 Use `Review Mode` terminology from `CONTEXT.md`. Admin lives in Next.js.
+
+## Verification notes
+
+2026-06-18:
+
+- Added a fixture-backed admin moderation boundary with Spanish `es-BO` view models, admin-only access, moderation queues, settings toggles, and abuse metrics.
+- Added a reusable server-rendered Next.js dashboard and wired `/admin/moderacion` to Better Auth sessions through the `RASTRO_ADMIN_EMAILS` admin allowlist.
+- Wired dashboard form submissions to the moderation boundary for hide/restore, ban/unban, Review Mode, and verified-email-required publishing changes.
+- Verified with Next.js tests, typecheck, lint, Prettier, and Fallow audit.

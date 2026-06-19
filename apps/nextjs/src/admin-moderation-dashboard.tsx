@@ -55,6 +55,7 @@ export interface AdminModerationMetric {
 
 export interface AdminModerationDashboardProps {
   flaggedItems: readonly AdminModerationFlaggedItem[];
+  formAction?: React.ComponentProps<"form">["action"];
   metrics: readonly AdminModerationMetric[];
   settings: AdminModerationSettings;
   viewer: AdminModerationViewer;
@@ -115,11 +116,17 @@ export function AdminModerationDashboard(props: AdminModerationDashboardProps) {
         <section className="flex min-w-0 flex-col gap-6">
           <AdminDashboardHeader viewer={props.viewer} />
           <ModerationSummary stats={summaryStats} />
-          <FlaggedContentQueue items={props.flaggedItems} />
+          <FlaggedContentQueue
+            formAction={props.formAction}
+            items={props.flaggedItems}
+          />
         </section>
 
         <aside className="flex flex-col gap-6">
-          <ModerationSettings settings={props.settings} />
+          <ModerationSettings
+            formAction={props.formAction}
+            settings={props.settings}
+          />
           <AbuseMetrics metrics={props.metrics} />
         </aside>
       </div>
@@ -184,6 +191,7 @@ function ModerationSummary(props: { stats: AdminModerationSummaryStats }) {
 }
 
 function FlaggedContentQueue(props: {
+  formAction?: React.ComponentProps<"form">["action"];
   items: readonly AdminModerationFlaggedItem[];
 }) {
   return (
@@ -226,7 +234,11 @@ function FlaggedContentQueue(props: {
           </thead>
           <tbody className="divide-border divide-y">
             {props.items.map((item) => (
-              <FlaggedItemRow item={item} key={item.id} />
+              <FlaggedItemRow
+                formAction={props.formAction}
+                item={item}
+                key={item.id}
+              />
             ))}
           </tbody>
         </table>
@@ -274,7 +286,10 @@ function SummaryStat(props: { label: string; value: number }) {
   );
 }
 
-function FlaggedItemRow(props: { item: AdminModerationFlaggedItem }) {
+function FlaggedItemRow(props: {
+  formAction?: React.ComponentProps<"form">["action"];
+  item: AdminModerationFlaggedItem;
+}) {
   const item = props.item;
   const contentAction = getContentAction(item);
   const memberAction = getMemberAction(item);
@@ -287,6 +302,7 @@ function FlaggedItemRow(props: { item: AdminModerationFlaggedItem }) {
       <FlaggedItemStatusCell item={item} />
       <FlaggedItemActions
         contentAction={contentAction}
+        formAction={props.formAction}
         item={item}
         memberAction={memberAction}
       />
@@ -364,6 +380,7 @@ function FlaggedItemStatusCell(props: { item: AdminModerationFlaggedItem }) {
 
 function FlaggedItemActions(props: {
   contentAction: ContentModerationAction | null;
+  formAction?: React.ComponentProps<"form">["action"];
   item: AdminModerationFlaggedItem;
   memberAction: MemberModerationAction;
 }) {
@@ -371,11 +388,13 @@ function FlaggedItemActions(props: {
     <td className="px-5 py-4">
       <form
         aria-label={`Acciones para ${props.item.target.title}`}
+        action={props.formAction}
         className="flex flex-col items-stretch gap-2"
-        method="post"
+        method={props.formAction ? undefined : "post"}
       >
         <input name="reviewItemId" type="hidden" value={props.item.id} />
         <input name="targetId" type="hidden" value={props.item.target.id} />
+        <input name="targetType" type="hidden" value={props.item.target.type} />
         <input
           name="memberId"
           type="hidden"
@@ -409,7 +428,10 @@ function ModerationButton(props: {
   );
 }
 
-function ModerationSettings(props: { settings: AdminModerationSettings }) {
+function ModerationSettings(props: {
+  formAction?: React.ComponentProps<"form">["action"];
+  settings: AdminModerationSettings;
+}) {
   return (
     <section
       aria-labelledby="moderation-settings-heading"
@@ -418,7 +440,11 @@ function ModerationSettings(props: { settings: AdminModerationSettings }) {
       <h2 id="moderation-settings-heading" className="text-xl font-semibold">
         Ajustes de seguridad
       </h2>
-      <form className="mt-4 flex flex-col gap-4" method="post">
+      <form
+        action={props.formAction}
+        className="mt-4 flex flex-col gap-4"
+        method={props.formAction ? undefined : "post"}
+      >
         <SettingSwitch
           defaultChecked={props.settings.reviewModeEnabled}
           description={settingsCopy.reviewMode}

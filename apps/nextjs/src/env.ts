@@ -17,6 +17,7 @@ export const env = createEnv({
    */
   server: {
     POSTGRES_URL: z.url(),
+    RASTRO_ADMIN_EMAILS: z.string().optional(),
   },
 
   /**
