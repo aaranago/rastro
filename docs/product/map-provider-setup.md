@@ -129,23 +129,83 @@ Common SHA-1 fingerprints to add:
 2. EAS internal/preview build signing certificate fingerprint.
 3. Production upload/app signing fingerprint used by Google Play, if distributing through Play.
 
-Local debug SHA-1:
+### Local Debug SHA-1 For `expo run:android`
+
+Local builds installed with `pnpm exec expo run:android` or `pnpm -F @acme/expo exec expo run:android` do not use EAS credentials. They use the Android debug keystore from the generated native project.
+
+Run this from the repo root:
 
 ```bash
+cd /home/z/Personal/ai/rastro
 keytool -list -v \
-  -keystore "$HOME/.android/debug.keystore" \
+  -keystore apps/expo/android/app/debug.keystore \
   -alias androiddebugkey \
   -storepass android \
-  -keypass android | rg 'SHA1'
+  -keypass android | grep -E 'SHA1|SHA-1'
 ```
 
-EAS/production SHA-1:
+If that prints no fingerprint, first confirm which keystore files exist:
 
 ```bash
+cd /home/z/Personal/ai/rastro
+ls -l apps/expo/android/app/debug.keystore "$HOME/.android/debug.keystore"
+```
+
+If the app-local keystore exists but the filter still hides the output, print the certificate fingerprint block without filtering:
+
+```bash
+cd /home/z/Personal/ai/rastro
+keytool -list -v \
+  -keystore apps/expo/android/app/debug.keystore \
+  -alias androiddebugkey \
+  -storepass android \
+  -keypass android | sed -n '/Certificate fingerprints/,+3p'
+```
+
+`$HOME/.android/debug.keystore` is common in plain Android projects, but it may not exist on this machine. For this repo, prefer `apps/expo/android/app/debug.keystore` after the native project has been generated. Do not use `android/app/debug.keystore` at the repo root for Rastro unless the Expo app was intentionally moved to the repo root.
+
+### EAS Development, Preview, And Production SHA-1
+
+EAS credentials are used by EAS cloud builds, not by local `expo run:android` installs. Configure the EAS signing certificate for every build profile that produces an Android binary users will install.
+
+Run this from the Expo app directory because `apps/expo/eas.json` is the EAS project config:
+
+```bash
+cd /home/z/Personal/ai/rastro/apps/expo
 eas credentials -p android
 ```
 
-Record the SHA-1 fingerprint for the certificate that signs the build users will install. For Google Play App Signing, the runtime app is signed by the app signing certificate, not only the upload certificate, so verify the Play Console certificate fingerprints before final production validation.
+At `Which build profile do you want to configure?`, choose the profile that matches the binary:
+
+- `development`: EAS development-client builds installed on devices for development.
+- `preview`: internal preview builds, if this profile is used for testers.
+- `production`: release builds intended for production distribution.
+
+On the Android Credentials screen shown by EAS:
+
+1. Select `Keystore: Manage everything needed to build your project`.
+2. If no credentials exist, choose the option to generate or set up a new Android keystore. Prefer the EAS-managed/generated keystore unless you already have an existing release or upload keystore that must be preserved.
+3. After the keystore exists, open the keystore details from the same `Keystore` menu and copy the `SHA-1 Certificate Fingerprint`. EAS CLI wording changes over time; look for options such as view credentials, inspect credentials, or download credentials.
+4. In Google Cloud, add an Android app restriction entry with package `bo.rastro.app` and that SHA-1 fingerprint.
+5. Repeat `eas credentials -p android` for `development`, `preview`, and `production` when those profiles use different signing certificates.
+
+Do not select these EAS menu items when your goal is a Google Maps SHA-1 fingerprint:
+
+- `Google Service Account`: used for Google Play publishing access, not Maps runtime authorization.
+- `Push Notifications (Legacy)`: used for legacy FCM server credentials, not Maps.
+- `credentials.json`: used to upload or download EAS credentials, not to create a Google Cloud API key restriction.
+
+If EAS only lets you download credentials instead of showing the fingerprint, download the keystore and inspect it locally with `keytool`:
+
+```bash
+keytool -list -v \
+  -keystore /path/to/downloaded-keystore.jks \
+  -alias YOUR_KEY_ALIAS \
+  -storepass YOUR_STORE_PASSWORD \
+  -keypass YOUR_KEY_PASSWORD | grep -E 'SHA1|SHA-1'
+```
+
+For Google Play App Signing, the app installed from Play is signed by the Play app signing certificate, not only the EAS upload certificate. Before final production validation, also add the Play app signing SHA-1 from Play Console > Release > Setup > App integrity > App signing key certificate.
 
 ## iOS Key Restrictions
 
