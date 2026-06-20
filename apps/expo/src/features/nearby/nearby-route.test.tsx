@@ -1,7 +1,7 @@
 import * as React from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import NearbyRoute from "./index";
+import NearbyRoute from "../../app/(tabs)/(nearby)";
 
 (globalThis as { React?: typeof React }).React = React;
 
