@@ -7,6 +7,7 @@ import type {
   LostPetReportSummary,
   NearbyBrowseAudience,
   NearbyBrowseMode,
+  NearbyCoordinates,
   NearbyLocationState,
   NearbyLostReportsResult,
   NearbyPublicReportKind,
@@ -37,6 +38,7 @@ export interface NearbyLostReportsViewModelInput {
 }
 
 export interface NearbyPublicLostReportSummaryViewModel {
+  coordinates?: NearbyCoordinates;
   reportKind: NearbyPublicReportKind;
   id: string;
   title: string;
@@ -65,6 +67,7 @@ export interface NearbyLostReportCardViewModel
 }
 
 export interface NearbyLostReportMapPinViewModel {
+  coordinates: NearbyCoordinates;
   id: string;
   publicSummaryId: string;
   reportKind: NearbyPublicReportKind;
@@ -227,7 +230,7 @@ export function buildNearbyLostReportsViewModel(
     kind: "ready",
     locationLabel: location.label,
     locationSourceLabel: formatLocationSource(location),
-    mapPins: publicSummaries.map(toMapPin),
+    mapPins: publicSummaries.flatMap(toMapPin),
     offlineLabel: buildOfflineLabel(input.result.value),
     publicSummaries,
     searchBoundaryLabel,
@@ -271,6 +274,7 @@ function toPublicSummary(
 ): NearbyPublicLostReportSummaryViewModel {
   if (isAdoptionListingSummary(report)) {
     return {
+      coordinates: report.coordinates,
       distanceLabel: formatDistance(report.distanceMeters),
       eventAtLabel: report.publishedAtLabel,
       id: report.id,
@@ -296,6 +300,7 @@ function toPublicSummary(
     const lifecycle = buildReportLifecycleSummary(report);
 
     return {
+      coordinates: report.coordinates,
       distanceLabel: formatDistance(report.distanceMeters),
       eventAtLabel: report.foundAtLabel,
       id: report.id,
@@ -321,6 +326,7 @@ function toPublicSummary(
     const lifecycle = buildReportLifecycleSummary(report);
 
     return {
+      coordinates: report.coordinates,
       distanceLabel: formatDistance(report.distanceMeters),
       eventAtLabel: report.observedAtLabel,
       id: report.id,
@@ -347,6 +353,7 @@ function toPublicSummary(
   const lifecycle = buildReportLifecycleSummary(report);
 
   return {
+    coordinates: report.coordinates,
     distanceLabel: formatDistance(report.distanceMeters),
     eventAtLabel: report.lastSeenAtLabel,
     id: report.id,
@@ -381,16 +388,23 @@ function formatReportPriority(
 
 function toMapPin(
   summary: NearbyPublicLostReportSummaryViewModel,
-): NearbyLostReportMapPinViewModel {
-  return {
-    distanceLabel: summary.distanceLabel,
-    id: summary.id,
-    label: summary.publicLocationLabel,
-    publicSummaryId: summary.id,
-    reportKind: summary.reportKind,
-    routeTarget: summary.routeTarget,
-    title: summary.title,
-  };
+): NearbyLostReportMapPinViewModel[] {
+  if (!summary.coordinates) {
+    return [];
+  }
+
+  return [
+    {
+      coordinates: summary.coordinates,
+      distanceLabel: summary.distanceLabel,
+      id: summary.id,
+      label: summary.publicLocationLabel,
+      publicSummaryId: summary.id,
+      reportKind: summary.reportKind,
+      routeTarget: summary.routeTarget,
+      title: summary.title,
+    } satisfies NearbyLostReportMapPinViewModel,
+  ];
 }
 
 function toLostReportCard(

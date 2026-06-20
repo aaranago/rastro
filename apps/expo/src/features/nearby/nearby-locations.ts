@@ -39,11 +39,10 @@ const nearbyBoliviaLocations = {
     manualLocationKind: "place",
     source: "manual",
   },
-  manualSantaCruz: {
-    coordinates: { latitude: -17.7833, longitude: -63.1821 },
+  manualMapPin: {
     countryCode: "BO",
-    label: "Pin en Equipetrol, Santa Cruz",
-    locationCellLabel: "Equipetrol",
+    label: "Elegir punto en el mapa",
+    locationCellLabel: "Punto elegido",
     manualLocationKind: "map-pin",
     source: "manual",
   },
@@ -53,5 +52,5 @@ export const nearbyManualLocationOptions = [
   nearbyBoliviaLocations.manualZonaSur,
   nearbyBoliviaLocations.manualSopocachi,
   nearbyBoliviaLocations.manualCochabamba,
-  nearbyBoliviaLocations.manualSantaCruz,
+  nearbyBoliviaLocations.manualMapPin,
 ] as const;

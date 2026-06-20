@@ -152,6 +152,7 @@ export interface SearchActiveFoundPetReportsQuery {
 export interface FoundPetReportSearchSummary {
   breed: string;
   condition: string;
+  coordinates: FoundPetReportSearchCoordinates;
   distanceMeters: number;
   foundAt: string;
   foundDescription: string;
@@ -577,6 +578,10 @@ function toFoundPetReportSearchSummary({
   return {
     breed: report.petSnapshot.breed,
     condition: report.condition,
+    coordinates: {
+      latitude: report.exactLocation.latitude,
+      longitude: report.exactLocation.longitude,
+    },
     distanceMeters: Math.round(distanceMeters),
     foundAt: report.foundAt,
     foundDescription: report.foundDescription,

@@ -1,9 +1,9 @@
 # 04 - Integrate production map and manual location picking
 
-Status: ready-for-agent
+Status: needs-info
 Severity: P1
 Journey: Location selection and Cerca map browsing
-Screens: `Cerca` map mode, manual pin flow, creation location step
+Screens: `Cerca` map mode, manual pin flow
 
 ## Problem
 
@@ -97,9 +97,51 @@ Needs map provider key/config path. Persisted marker data depends on issue 02 an
 - Expo dev-client build.
 - Android/iOS permissions.
 - Nearby result rendering.
-- Creation location step.
+- Creation location step through the shared picker contract; full creation wiring remains in issue 07.
 
 ## Non-Goals
 
 - Do not use fake tiles, static screenshots, or drawn map rectangles.
 - Do not put provider secrets in the mobile client source.
+
+## Implementation Notes
+
+### 2026-06-20 implementation
+
+- Added `react-native-maps` through Expo-compatible dependency resolution and native map provider configuration in `app.config.ts`.
+- Documented `EXPO_ANDROID_GOOGLE_MAPS_API_KEY` and `EXPO_IOS_GOOGLE_MAPS_API_KEY` in `.env.example` and the mobile runbook without hardcoding secrets.
+- Replaced the old drawn `Cerca` map surface with a shared native `ReportMap` that renders provider-backed tiles, persisted report coordinates, grouped markers, selected previews, an open-detail action, recentering, provider loading/error states, and a horizontal accessible list alternative.
+- Replaced the static manual map-pin option with `ManualLocationPickerMap`, which opens a native map, supports tapping/dragging the pin, and applies the chosen coordinate as the manual search origin.
+- Propagated persisted coordinates from the API-backed nearby adapter and the legacy in-memory repositories into shared nearby summaries and map pins while preserving public-location privacy in detail payloads.
+- Kept full lost/found/sighting/adoption creation wizard location wiring in issue 07, which owns end-to-end creation, upload, submit, and draft persistence.
+
+Known blocker: this workspace currently has no `EXPO_ANDROID_GOOGLE_MAPS_API_KEY` or `EXPO_IOS_GOOGLE_MAPS_API_KEY` value outside `.env.example`, so Android native tile verification cannot honestly pass here. Without the Android Maps SDK key the app intentionally renders a map-provider configuration error and keeps the list alternative available.
+
+## Verification
+
+### 2026-06-20 independent verification
+
+Verifier: `019ee2f2-58c6-7013-abd4-69e40598b658`
+
+Result: blocked, not closed.
+
+Code-level checks passed:
+
+- Static `Cerca` map rendering and arbitrary marker positions are removed from the nearby production path.
+- Report markers now derive from API/repository report coordinates and are not emitted when coordinates are missing.
+- Marker selection, list selection, camera state, recenter wiring, provider error fallback, and list alternative are present.
+- Manual map pin opens a native map component, updates from taps/drags, and applies the selected coordinate as the manual search origin.
+- Map provider keys are read from env/app config and no hardcoded key was found.
+- Creation wizard location wiring remains in issue 07 and is not claimed complete here.
+
+Commands reported by the verifier:
+
+- `pnpm -F @acme/expo test -- ...` passed: 43 files, 188 tests.
+- `pnpm exec vitest run src/features/maps/report-map.test.tsx src/features/maps/location-picker-map.test.tsx src/features/nearby/nearby-location-adapter.test.ts src/features/nearby/nearby-lost-reports.test.ts` passed: 4 files, 25 tests.
+- `pnpm -F @acme/expo typecheck` passed.
+
+Blocking evidence:
+
+- `EXPO_ANDROID_GOOGLE_MAPS_API_KEY` is unset in the shell and absent from local `.env`.
+- `EXPO_IOS_GOOGLE_MAPS_API_KEY` is unset in the shell and absent from local `.env`.
+- Native real-tile verification of Android tiles, attribution, pan/zoom, smallest viewport, and marker-to-detail behavior remains unverified until a Maps SDK key is provided and the dev client is rebuilt.

@@ -9,9 +9,20 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const easProjectId =
     readOptionalEnv("EXPO_PUBLIC_EAS_PROJECT_ID") ?? defaultEasProjectId;
   const easConfig = isRecord(config.extra?.eas) ? config.extra.eas : {};
+  const androidGoogleMapsApiKey = readOptionalEnv(
+    "EXPO_ANDROID_GOOGLE_MAPS_API_KEY",
+  );
+  const iosGoogleMapsApiKey = readOptionalEnv("EXPO_IOS_GOOGLE_MAPS_API_KEY");
   const locationWhenInUsePermission =
     readOptionalEnv("EXPO_LOCATION_WHEN_IN_USE_PERMISSION") ??
     defaultLocationWhenInUsePermission;
+  const androidConfig = isRecord(config.android?.config)
+    ? config.android.config
+    : {};
+  const androidGoogleMapsConfig = isRecord(androidConfig.googleMaps)
+    ? androidConfig.googleMaps
+    : {};
+  const iosConfig = isRecord(config.ios?.config) ? config.ios.config : {};
 
   return {
     ...config,
@@ -34,6 +45,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         light: "./assets/icon-light.png",
         dark: "./assets/icon-dark.png",
       },
+      ...(iosGoogleMapsApiKey
+        ? {
+            config: {
+              ...iosConfig,
+              googleMapsApiKey: iosGoogleMapsApiKey,
+            },
+          }
+        : {}),
     },
     android: {
       package: "bo.rastro.app",
@@ -42,6 +61,17 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         backgroundColor: "#1F104A",
       },
       edgeToEdgeEnabled: true,
+      ...(androidGoogleMapsApiKey
+        ? {
+            config: {
+              ...androidConfig,
+              googleMaps: {
+                ...androidGoogleMapsConfig,
+                apiKey: androidGoogleMapsApiKey,
+              },
+            },
+          }
+        : {}),
     },
     extra: {
       ...config.extra,
@@ -50,6 +80,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         projectId: easProjectId,
       },
       ...(apiBaseUrl ? { apiBaseUrl } : {}),
+      maps: {
+        ...(isRecord(config.extra?.maps) ? config.extra.maps : {}),
+        androidGoogleMapsConfigured: Boolean(androidGoogleMapsApiKey),
+        iosGoogleMapsConfigured: Boolean(iosGoogleMapsApiKey),
+      },
     },
     experiments: {
       autolinkingModuleResolution: true,

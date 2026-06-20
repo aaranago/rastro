@@ -62,6 +62,7 @@ export interface PublicReportShareTarget {
 }
 
 export interface LostPetReportSummary {
+  coordinates?: NearbyCoordinates;
   reportKind?: "lost-pet-report";
   id: string;
   petName: string;
@@ -81,6 +82,7 @@ export interface LostPetReportSummary {
 }
 
 export interface FoundPetReportSummary {
+  coordinates?: NearbyCoordinates;
   reportKind: "found-pet-report";
   id: string;
   title: string;
@@ -99,6 +101,7 @@ export interface FoundPetReportSummary {
 }
 
 export interface SightingReportSummary {
+  coordinates?: NearbyCoordinates;
   reportKind: "sighting-report";
   id: string;
   title: string;
@@ -120,6 +123,7 @@ export interface SightingReportSummary {
 export interface AdoptionListingSummary {
   adoptionSummary: string;
   breed?: string;
+  coordinates?: NearbyCoordinates;
   distanceMeters?: number;
   healthNotes?: string;
   id: string;

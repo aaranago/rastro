@@ -96,6 +96,26 @@ Do not enable `experiments.reactCanary` for the normal development app. It opts 
 
 Until this is set, Android commands that need an installed package id may need the placeholder package from the current config.
 
+## Native Map Provider Keys
+
+`Cerca` map mode and manual pin picking use `react-native-maps`. Configure native provider keys through environment variables; do not hardcode keys in source:
+
+```bash
+export EXPO_ANDROID_GOOGLE_MAPS_API_KEY="<google-maps-android-sdk-key>"
+export EXPO_IOS_GOOGLE_MAPS_API_KEY="<google-maps-ios-sdk-key>"
+```
+
+Android dev-client and store builds require `EXPO_ANDROID_GOOGLE_MAPS_API_KEY` for Google Maps tiles. iOS uses Apple Maps by default; set `EXPO_IOS_GOOGLE_MAPS_API_KEY` only when building an iOS client that opts into Google Maps provider support.
+
+After changing native map keys, rebuild the development client or release binary:
+
+```bash
+pnpm -F @acme/expo exec expo prebuild --clean --platform android
+pnpm -F @acme/expo exec expo run:android --no-build-cache
+```
+
+Without the required Android key, the app shows a map-provider configuration error and keeps the report list alternative available instead of rendering a fake map.
+
 ## Auth/API Backend For Mobile QA
 
 Rastro mobile auth uses Better Auth through the Next.js API route at `/api/auth/*`. The Expo app can launch without that backend, but email/password sign-in and account creation will fail with `Network request failed` until the backend is running and reachable from the device. In the installed Better Auth version, the public session check used by the Expo client is `/api/auth/get-session`.

@@ -192,6 +192,7 @@ function toNearbyAdoptionListingSummary({
   return {
     adoptionSummary: listing.adoptionSummary,
     breed: listing.breed,
+    coordinates: listing.coordinates,
     distanceMeters: listing.distanceMeters,
     healthNotes: listing.healthNotes,
     id: listing.id,
@@ -225,6 +226,7 @@ function toNearbyLostPetReportSummary({
   return {
     alertPriority: report.alertPriority,
     breed: report.breed,
+    coordinates: report.coordinates,
     distanceMeters: report.distanceMeters,
     id: report.id,
     lastSeenAtLabel: formatLastSeenAt(report.lastSeenAt, generatedAt),
@@ -251,6 +253,7 @@ function toNearbyFoundPetReportSummary({
   return {
     breed: report.breed,
     condition: report.condition,
+    coordinates: report.coordinates,
     distanceMeters: report.distanceMeters,
     foundAtLabel: formatLastSeenAt(report.foundAt, generatedAt),
     foundSummary: report.foundDescription,
@@ -276,6 +279,7 @@ function toNearbySightingReportSummary({
 }): SightingReportSummary {
   return {
     breed: report.breed,
+    coordinates: report.coordinates,
     direction: report.direction,
     distanceMeters: report.distanceMeters,
     id: report.id,

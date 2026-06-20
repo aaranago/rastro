@@ -1,0 +1,144 @@
+import * as React from "react";
+import { describe, expect, it, vi } from "vitest";
+
+import { ManualLocationPickerMap } from "./location-picker-map";
+
+(globalThis as { React?: typeof React }).React = React;
+
+vi.mock("react-native", () => ({
+  Pressable: "Pressable",
+  StyleSheet: {
+    absoluteFillObject: {},
+    create: <TStyles extends Record<string, unknown>>(styles: TStyles) =>
+      styles,
+  },
+  Text: "Text",
+  View: "View",
+}));
+
+vi.mock("react-native-maps", () => ({
+  default: "MapView",
+  Marker: "Marker",
+}));
+
+describe("ManualLocationPickerMap", () => {
+  it("turns map taps, dragged pins, and confirm into a manual NearbySearchLocation", () => {
+    const onConfirm = vi.fn();
+    const onSelectedCoordinateChange = vi.fn();
+    const screen = renderFunctionElement(
+      <ManualLocationPickerMap
+        onConfirm={onConfirm}
+        onSelectedCoordinateChange={onSelectedCoordinateChange}
+        selectedCoordinate={{ latitude: -16.5022, longitude: -68.1213 }}
+      />,
+    );
+    const map = findElement(screen, (element) => element.type === "MapView");
+    const marker = findElement(screen, (element) => element.type === "Marker");
+    const confirmButton = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel === "Confirmar punto elegido",
+    );
+
+    const nextCoordinate = { latitude: -16.51, longitude: -68.12 };
+
+    expect(marker?.props.coordinate).toEqual({
+      latitude: -16.5022,
+      longitude: -68.1213,
+    });
+    expect(marker?.props.draggable).toBe(true);
+
+    const mapPress = map?.props.onPress;
+
+    if (typeof mapPress !== "function") {
+      throw new Error("Expected map tap handler.");
+    }
+
+    (mapPress as (event: MapCoordinateEvent) => void)({
+      nativeEvent: { coordinate: nextCoordinate },
+    });
+    expect(onSelectedCoordinateChange).toHaveBeenCalledWith(nextCoordinate);
+
+    const dragEnd = marker?.props.onDragEnd;
+
+    if (typeof dragEnd !== "function") {
+      throw new Error("Expected marker drag handler.");
+    }
+
+    (dragEnd as (event: MapCoordinateEvent) => void)({
+      nativeEvent: { coordinate: nextCoordinate },
+    });
+    expect(onSelectedCoordinateChange).toHaveBeenCalledWith(nextCoordinate);
+
+    const confirmPress = confirmButton?.props.onPress;
+
+    if (typeof confirmPress !== "function") {
+      throw new Error("Expected confirm action.");
+    }
+
+    (confirmPress as () => void)();
+    expect(onConfirm).toHaveBeenCalledWith({
+      coordinates: { latitude: -16.5022, longitude: -68.1213 },
+      countryCode: "BO",
+      label: "Pin manual -16.5022, -68.1213",
+      locationCellLabel: "Punto elegido",
+      manualLocationKind: "map-pin",
+      source: "manual",
+    });
+  });
+});
+
+interface MapCoordinateEvent {
+  nativeEvent: {
+    coordinate: {
+      latitude: number;
+      longitude: number;
+    };
+  };
+}
+
+type ElementProps = Record<string, unknown> & {
+  children?: React.ReactNode;
+};
+
+type TestElement = React.ReactElement<ElementProps>;
+
+function renderFunctionElement(node: React.ReactNode): React.ReactNode {
+  if (!React.isValidElement<ElementProps>(node)) {
+    return node;
+  }
+
+  if (typeof node.type !== "function") {
+    return node;
+  }
+
+  const Component = node.type as (props: ElementProps) => React.ReactNode;
+
+  return renderFunctionElement(Component(node.props));
+}
+
+function findElement(
+  node: React.ReactNode,
+  predicate: (element: TestElement) => boolean,
+): TestElement | undefined {
+  const rendered = renderFunctionElement(node);
+
+  if (!React.isValidElement<ElementProps>(rendered)) {
+    return undefined;
+  }
+
+  if (predicate(rendered)) {
+    return rendered;
+  }
+
+  for (const child of React.Children.toArray(rendered.props.children)) {
+    const found = findElement(child, predicate);
+
+    if (found) {
+      return found;
+    }
+  }
+
+  return undefined;
+}

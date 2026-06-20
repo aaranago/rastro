@@ -186,6 +186,7 @@ function toAdoptionListingSummary({
   return {
     adoptionSummary: report.description,
     breed: report.pet.breed ?? undefined,
+    coordinates: getReportCoordinates(report),
     distanceMeters: getDistanceMeters(origin, report),
     healthNotes: report.pet.distinguishingTraits ?? undefined,
     id: report.id,
@@ -218,6 +219,7 @@ function toFoundPetReportSummary({
   return {
     breed: report.pet.breed ?? undefined,
     condition: report.pet.distinguishingTraits ?? report.pet.color,
+    coordinates: getReportCoordinates(report),
     distanceMeters: getDistanceMeters(origin, report),
     foundAtLabel: formatEventAt(report.eventOccurredAt, generatedAt),
     foundSummary: report.description,
@@ -253,6 +255,7 @@ function toLostPetReportSummary({
   return {
     alertPriority: isUrgentReport(report, generatedAt) ? "urgent" : "standard",
     breed: report.pet.breed ?? undefined,
+    coordinates: getReportCoordinates(report),
     distanceMeters: getDistanceMeters(origin, report),
     id: report.id,
     lastSeenAtLabel: formatEventAt(report.eventOccurredAt, generatedAt),
@@ -285,6 +288,7 @@ function toSightingReportSummary({
 }): SightingReportSummary {
   return {
     breed: report.pet.breed ?? undefined,
+    coordinates: getReportCoordinates(report),
     distanceMeters: getDistanceMeters(origin, report),
     direction: report.location.label,
     id: report.id,
@@ -350,6 +354,13 @@ function getDistanceMeters(
     latitude: report.location.latitude,
     longitude: report.location.longitude,
   });
+}
+
+function getReportCoordinates(report: ApiNearbyReport) {
+  return {
+    latitude: report.location.latitude,
+    longitude: report.location.longitude,
+  };
 }
 
 function buildFoundReportShareTarget({

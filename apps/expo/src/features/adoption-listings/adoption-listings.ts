@@ -158,6 +158,7 @@ export interface SearchActiveAdoptionListingsQuery {
 export interface AdoptionListingSearchSummary {
   adoptionSummary: string;
   breed: string;
+  coordinates: AdoptionListingSearchCoordinates;
   distanceMeters: number;
   healthNotes?: string;
   id: string;
@@ -570,6 +571,10 @@ function toAdoptionListingSearchSummary({
   return {
     adoptionSummary: listing.adoptionSummary,
     breed: listing.petSnapshot.breed,
+    coordinates: {
+      latitude: listing.exactLocation.latitude,
+      longitude: listing.exactLocation.longitude,
+    },
     distanceMeters: Math.round(distanceMeters),
     healthNotes: listing.healthNotes,
     id: listing.id,

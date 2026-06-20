@@ -32,6 +32,7 @@ const manualLocation: NearbySearchLocation = {
 
 const reports: LostPetReportSummary[] = [
   {
+    coordinates: { latitude: -16.5405, longitude: -68.0889 },
     id: "lost-bruno",
     petName: "Bruno",
     species: "Perro",
@@ -47,6 +48,7 @@ const reports: LostPetReportSummary[] = [
     alertPriority: "urgent",
   },
   {
+    coordinates: { latitude: -16.5103, longitude: -68.1299 },
     id: "lost-luna",
     petName: "Luna",
     species: "Gato",
@@ -65,6 +67,7 @@ const reports: LostPetReportSummary[] = [
 
 const sightingReport = {
   breed: "Mestizo",
+  coordinates: { latitude: -16.5103, longitude: -68.1299 },
   direction: "Iba hacia la avenida 20 de Octubre.",
   distanceMeters: 650,
   id: "sighting-dog-sopocachi",
@@ -90,6 +93,7 @@ const sightingReport = {
 const foundReport = {
   breed: "Criollo",
   condition: "Con collar rojo, tranquilo.",
+  coordinates: { latitude: -16.5022, longitude: -68.1213 },
   distanceMeters: 850,
   foundAtLabel: "Hace 15 min",
   foundSummary: "Esta resguardado con una vecina cerca de la plaza.",
@@ -112,6 +116,7 @@ const foundReport = {
 const adoptionListing = {
   adoptionSummary: "Nala busca un hogar tranquilo y responsable.",
   breed: "Mestizo",
+  coordinates: { latitude: -16.5103, longitude: -68.1299 },
   distanceMeters: 1_400,
   id: "adoption-nala-sopocachi",
   locationCellLabel: "Sopocachi",
@@ -341,6 +346,7 @@ describe("nearby Lost Pet Report discovery", () => {
     expect(result.reports).toMatchObject([
       {
         alertPriority: "urgent",
+        coordinates: { latitude: -16.5, longitude: -68.1193 },
         distanceMeters: 0,
         id: "api-lost-bruno",
         lastSeenAtLabel: "Hace 20 min",
@@ -357,6 +363,7 @@ describe("nearby Lost Pet Report discovery", () => {
         species: "Perro",
       },
       {
+        coordinates: { latitude: -16.5, longitude: -68.1193 },
         condition: "Con collar rojo, tranquilo.",
         distanceMeters: 0,
         foundAtLabel: "Hace 2 h",
@@ -371,6 +378,7 @@ describe("nearby Lost Pet Report discovery", () => {
         title: "Gato encontrado",
       },
       {
+        coordinates: { latitude: -16.5, longitude: -68.1193 },
         distanceMeters: 0,
         direction: "Zona Sur, La Paz",
         id: "api-sighting-dog",
@@ -387,6 +395,7 @@ describe("nearby Lost Pet Report discovery", () => {
       },
       {
         adoptionSummary: "Nala busca un hogar tranquilo y responsable.",
+        coordinates: { latitude: -16.5, longitude: -68.1193 },
         distanceMeters: 0,
         healthNotes: "Vacunada y desparasitada.",
         id: "api-adoption-nala",
@@ -398,6 +407,32 @@ describe("nearby Lost Pet Report discovery", () => {
         shareTarget: {
           path: "/adopciones/api-adoption-nala",
         },
+      },
+    ]);
+    const viewModel = buildNearbyLostReportsViewModel({
+      locationState: { kind: "ready", location: result.query.location },
+      mode: "map",
+      radiusKm: 10,
+      result: { kind: "success", value: result },
+    });
+
+    assertNearbyViewModelKind(viewModel, "ready");
+    expect(viewModel.mapPins).toMatchObject([
+      {
+        coordinates: { latitude: -16.5, longitude: -68.1193 },
+        publicSummaryId: "api-lost-bruno",
+      },
+      {
+        coordinates: { latitude: -16.5, longitude: -68.1193 },
+        publicSummaryId: "api-found-cat",
+      },
+      {
+        coordinates: { latitude: -16.5, longitude: -68.1193 },
+        publicSummaryId: "api-sighting-dog",
+      },
+      {
+        coordinates: { latitude: -16.5, longitude: -68.1193 },
+        publicSummaryId: "api-adoption-nala",
       },
     ]);
     expect(JSON.stringify(result.reports)).not.toContain("images.unsplash.com");

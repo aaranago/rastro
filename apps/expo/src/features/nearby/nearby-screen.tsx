@@ -11,10 +11,16 @@ import {
 import { Image } from "expo-image";
 import { LegendList } from "@legendapp/list";
 
+import type {
+  ReportMapPin,
+  ReportMapPreview,
+  ReportMapProviderState,
+} from "../maps/report-map";
 import type { NearbyLocationAdapter } from "./nearby-location-adapter";
 import type { NearbyReportRouteTarget } from "./nearby-navigation";
 import type {
   NearbyBrowseMode,
+  NearbyCoordinates,
   NearbyLocationState,
   NearbyLostReportsAdapter,
   NearbyPublicReportKind,
@@ -28,6 +34,9 @@ import type {
   NearbyLostReportsViewModel,
   NearbyUrgentLostPetAlertViewModel,
 } from "./nearby-view-model";
+import { ManualLocationPickerMap } from "../maps/location-picker-map";
+import { getNativeMapProviderState } from "../maps/map-provider-config";
+import { ReportMap } from "../maps/report-map";
 import { expoNearbyLocationAdapter } from "./nearby-expo-location-adapter";
 import {
   applyManualNearbySearchLocation,
@@ -59,6 +68,10 @@ export interface NearbyScreenProps {
 const defaultInitialLocationState: NearbyLocationState = {
   kind: "not-requested",
 };
+const defaultManualMapCoordinate: NearbyCoordinates = {
+  latitude: -16.5,
+  longitude: -68.1193,
+};
 
 const keyExtractor = (item: NearbyLostReportCardViewModel) => item.id;
 
@@ -89,6 +102,15 @@ function useNearbyScreenController({
   const [selectedCategories, setSelectedCategories] = useState<
     readonly NearbyPublicReportKind[]
   >(nearbyCategoryFilters);
+  const [selectedReportId, setSelectedReportId] = useState<
+    string | undefined
+  >();
+  const [mapCameraCenter, setMapCameraCenter] = useState<
+    NearbyCoordinates | undefined
+  >();
+  const [isManualMapPickerOpen, setIsManualMapPickerOpen] = useState(false);
+  const [manualMapCoordinate, setManualMapCoordinate] =
+    useState<NearbyCoordinates>(defaultManualMapCoordinate);
   const [reloadKey, setReloadKey] = useState(0);
   const [reportFeedback, setReportFeedback] = useState<string | undefined>();
   const [isResolvingLocation, setIsResolvingLocation] = useState(false);
@@ -198,6 +220,18 @@ function useNearbyScreenController({
 
   const handleManualLocationPress = useCallback(
     (selectedLocation?: NearbySearchLocation) => {
+      if (
+        selectedLocation?.manualLocationKind === "map-pin" &&
+        !selectedLocation.coordinates
+      ) {
+        setManualMapCoordinate(
+          searchLocation?.coordinates ?? defaultManualMapCoordinate,
+        );
+        setIsManualMapPickerOpen(true);
+
+        return;
+      }
+
       if (selectedLocation && !locationState) {
         setInternalLocationState(
           applyManualNearbySearchLocation(selectedLocation),
@@ -206,8 +240,26 @@ function useNearbyScreenController({
 
       onManualLocationPress?.(selectedLocation);
     },
+    [locationState, onManualLocationPress, searchLocation?.coordinates],
+  );
+
+  const handleManualMapPinConfirm = useCallback(
+    (selectedLocation: NearbySearchLocation) => {
+      if (!locationState) {
+        setInternalLocationState(
+          applyManualNearbySearchLocation(selectedLocation),
+        );
+      }
+
+      setIsManualMapPickerOpen(false);
+      onManualLocationPress?.(selectedLocation);
+    },
     [locationState, onManualLocationPress],
   );
+
+  const handleManualMapPinCancel = useCallback(() => {
+    setIsManualMapPickerOpen(false);
+  }, []);
 
   const handleUseCurrentLocationPress = useCallback(async () => {
     setIsResolvingLocation(true);
@@ -233,6 +285,12 @@ function useNearbyScreenController({
     },
     [onReport],
   );
+
+  const handleMapRecenter = useCallback(() => {
+    if (searchLocation?.coordinates) {
+      setMapCameraCenter(searchLocation.coordinates);
+    }
+  }, [searchLocation?.coordinates]);
 
   const renderCard = useCallback(
     ({ item }: { item: NearbyLostReportCardViewModel }) => (
@@ -264,21 +322,30 @@ function useNearbyScreenController({
     handleCategoryToggle,
     handleExpandRadius,
     handleManualLocationPress,
-    handleReportPress,
+    handleManualMapPinCancel,
+    handleManualMapPinConfirm,
+    handleMapRecenter,
     handleRetry,
     handleUseCurrentLocationPress,
     isResolvingLocation,
+    isManualMapPickerOpen,
+    manualMapCoordinate,
     manualLocationOptions,
+    mapCameraCenter,
     mode,
     onEnableAlerts,
     onOpenReport,
-    onShareReport,
     radiusKm,
     renderCard,
     reportFeedback,
+    searchLocation,
     selectedCategories,
+    selectedReportId,
+    setMapCameraCenter,
     setMode,
     setRadiusKm,
+    setManualMapCoordinate,
+    setSelectedReportId,
     viewModel,
   };
 }
@@ -287,21 +354,30 @@ function NearbyScreenContent({
   handleCategoryToggle,
   handleExpandRadius,
   handleManualLocationPress,
-  handleReportPress,
+  handleManualMapPinCancel,
+  handleManualMapPinConfirm,
+  handleMapRecenter,
   handleRetry,
   handleUseCurrentLocationPress,
+  isManualMapPickerOpen,
   isResolvingLocation,
+  manualMapCoordinate,
   manualLocationOptions,
+  mapCameraCenter,
   mode,
   onEnableAlerts,
   onOpenReport,
-  onShareReport,
   radiusKm,
   renderCard,
   reportFeedback,
+  searchLocation,
   selectedCategories,
+  selectedReportId,
+  setManualMapCoordinate,
+  setMapCameraCenter,
   setMode,
   setRadiusKm,
+  setSelectedReportId,
   viewModel,
 }: ReturnType<typeof useNearbyScreenController>) {
   if (
@@ -310,8 +386,14 @@ function NearbyScreenContent({
   ) {
     return (
       <LocationFallbackState
+        isManualMapPickerOpen={isManualMapPickerOpen}
         isResolvingLocation={isResolvingLocation}
+        manualMapCoordinate={manualMapCoordinate}
         manualLocationOptions={manualLocationOptions}
+        mapProviderState={getNativeMapProviderState()}
+        onManualMapPinCancel={handleManualMapPinCancel}
+        onManualMapPinConfirm={handleManualMapPinConfirm}
+        onManualMapCoordinateChange={setManualMapCoordinate}
         onManualLocationPress={handleManualLocationPress}
         onUseCurrentLocationPress={handleUseCurrentLocationPress}
         viewModel={viewModel}
@@ -337,11 +419,16 @@ function NearbyScreenContent({
           viewModel={viewModel}
         />
         <MapBrowse
+          cameraCenter={mapCameraCenter}
           cards={viewModel.cards}
+          currentLocation={searchLocation}
           mapPins={viewModel.mapPins}
+          onCameraCenterChange={setMapCameraCenter}
           onOpenReport={onOpenReport}
-          onReport={handleReportPress}
-          onShareReport={onShareReport}
+          onRecenter={handleMapRecenter}
+          onSelectReport={setSelectedReportId}
+          providerState={getNativeMapProviderState()}
+          selectedReportId={selectedReportId}
         />
       </ScrollView>
     );
@@ -919,105 +1006,130 @@ function getPriorityTextStyle(
 }
 
 function MapBrowse({
+  cameraCenter,
   cards,
+  currentLocation,
   mapPins,
+  onCameraCenterChange,
   onOpenReport,
-  onReport,
-  onShareReport,
+  onRecenter,
+  onSelectReport,
+  providerState,
+  selectedReportId,
 }: {
+  cameraCenter?: NearbyCoordinates;
   cards: NearbyLostReportCardViewModel[];
+  currentLocation?: NearbySearchLocation;
   mapPins: NearbyLostReportMapPinViewModel[];
+  onCameraCenterChange: (coordinate: NearbyCoordinates) => void;
   onOpenReport?: (target: NearbyReportRouteTarget) => void;
-  onReport?: (reportId: string) => void;
-  onShareReport?: (reportId: string) => void;
+  onRecenter: () => void;
+  onSelectReport: (reportId: string | undefined) => void;
+  providerState: ReportMapProviderState;
+  selectedReportId?: string;
 }) {
-  const featuredCard = cards[0];
+  const selectedMapReportId = cards.some((card) => card.id === selectedReportId)
+    ? selectedReportId
+    : cards[0]?.id;
+  const reportPins = mapPins.map(toReportMapPin);
+  const previews = cards.map(toReportMapPreview);
+  const currentMapLocation = currentLocation?.coordinates
+    ? {
+        coordinate: currentLocation.coordinates,
+        label: formatMapSearchOriginLabel(currentLocation),
+      }
+    : undefined;
+  const handleOpenReport = useCallback(
+    (reportId: string) => {
+      const card = cards.find((candidate) => candidate.id === reportId);
+
+      if (card) {
+        onOpenReport?.(card.routeTarget);
+      }
+    },
+    [cards, onOpenReport],
+  );
 
   return (
     <View style={styles.mapPanel}>
       <Text selectable style={styles.mapTitle}>
         Zonas aproximadas
       </Text>
-      <View style={styles.mapCanvas}>
-        {mapPins.map((pin, index) => (
-          <MapPin
-            index={index}
-            key={pin.id}
-            onOpenReport={onOpenReport}
-            pin={pin}
-          />
-        ))}
-      </View>
-      {featuredCard ? (
-        <LostReportCard
-          distanceLabel={featuredCard.distanceLabel}
-          id={featuredCard.id}
-          lastSeenAtLabel={featuredCard.lastSeenAtLabel}
-          onOpenReport={onOpenReport}
-          onReport={onReport}
-          onShareReport={onShareReport}
-          photoUrl={featuredCard.photoUrl}
-          priorityLabel={featuredCard.priorityLabel}
-          publicLocationLabel={featuredCard.publicLocationLabel}
-          reportActionLabel={featuredCard.reportActionLabel}
-          reportKind={featuredCard.reportKind}
-          routeTarget={featuredCard.routeTarget}
-          shareTarget={featuredCard.shareTarget}
-          subtitle={featuredCard.subtitle}
-          summary={featuredCard.summary}
-          title={featuredCard.title}
-          urgency={featuredCard.urgency}
-          verificationBadge={featuredCard.verificationBadge}
-        />
-      ) : null}
+      <ReportMap
+        cameraCenter={cameraCenter}
+        currentLocation={currentMapLocation}
+        onCameraCenterChange={onCameraCenterChange}
+        onOpenReport={handleOpenReport}
+        onRecenter={currentMapLocation ? onRecenter : undefined}
+        onSelectReport={onSelectReport}
+        pins={reportPins}
+        previews={previews}
+        providerState={providerState}
+        selectedReportId={selectedMapReportId}
+      />
     </View>
   );
 }
 
-function MapPin({
-  index,
-  onOpenReport,
-  pin,
-}: {
-  index: number;
-  onOpenReport?: (target: NearbyReportRouteTarget) => void;
-  pin: NearbyLostReportMapPinViewModel;
-}) {
-  const handlePress = useCallback(() => {
-    onOpenReport?.(pin.routeTarget);
-  }, [onOpenReport, pin.routeTarget]);
-  const position =
-    mapPinPositions[index % mapPinPositions.length] ?? mapPinPositions[0];
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={handlePress}
-      style={[styles.mapPin, position]}
-    >
-      <Text selectable style={styles.mapPinTitle}>
-        {pin.title}
-      </Text>
-      <Text selectable style={styles.mapPinMeta}>
-        {formatMapPinMeta(pin)}
-      </Text>
-    </Pressable>
-  );
+function toReportMapPin(pin: NearbyLostReportMapPinViewModel): ReportMapPin {
+  return {
+    coordinate: pin.coordinates,
+    distanceLabel: pin.distanceLabel,
+    id: pin.id,
+    label: pin.label,
+    title: pin.title,
+  };
 }
 
-function formatMapPinMeta(pin: NearbyLostReportMapPinViewModel) {
-  return [pin.distanceLabel, pin.label].filter(Boolean).join(" · ");
+function toReportMapPreview(
+  card: NearbyLostReportCardViewModel,
+): ReportMapPreview {
+  return {
+    id: card.id,
+    locationLabel: card.publicLocationLabel,
+    metaLabel: card.distanceLabel ?? card.priorityLabel,
+    summary: card.summary,
+    title: card.title,
+  };
+}
+
+function formatMapSearchOriginLabel(location: NearbySearchLocation) {
+  if (location.source === "current") {
+    return "Tu ubicacion";
+  }
+
+  if (location.source === "last") {
+    return "Ultima ubicacion detectada";
+  }
+
+  if (location.manualLocationKind === "map-pin") {
+    return "Punto manual de busqueda";
+  }
+
+  return `Centro de busqueda: ${location.locationCellLabel}`;
 }
 
 function LocationFallbackState({
+  isManualMapPickerOpen,
   isResolvingLocation,
+  manualMapCoordinate,
   manualLocationOptions,
+  mapProviderState,
+  onManualMapCoordinateChange,
+  onManualMapPinCancel,
+  onManualMapPinConfirm,
   onManualLocationPress,
   onUseCurrentLocationPress,
   viewModel,
 }: {
+  isManualMapPickerOpen: boolean;
   isResolvingLocation: boolean;
+  manualMapCoordinate: NearbyCoordinates;
   manualLocationOptions: readonly NearbySearchLocation[];
+  mapProviderState: ReportMapProviderState;
+  onManualMapCoordinateChange: (coordinate: NearbyCoordinates) => void;
+  onManualMapPinCancel: () => void;
+  onManualMapPinConfirm: (selectedLocation: NearbySearchLocation) => void;
   onManualLocationPress: (selectedLocation?: NearbySearchLocation) => void;
   onUseCurrentLocationPress: () => void;
   viewModel: Extract<
@@ -1069,6 +1181,15 @@ function LocationFallbackState({
           </Pressable>
         ))}
       </View>
+      {isManualMapPickerOpen ? (
+        <ManualLocationPickerMap
+          onCancel={onManualMapPinCancel}
+          onConfirm={onManualMapPinConfirm}
+          onSelectedCoordinateChange={onManualMapCoordinateChange}
+          providerState={mapProviderState}
+          selectedCoordinate={manualMapCoordinate}
+        />
+      ) : null}
     </ScrollView>
   );
 }
@@ -1200,18 +1321,8 @@ const colors = {
   inkSoft: "#8b9791",
   inkStrong: "#0f7665",
   line: "#d9e6df",
-  mapBlue: "#2f6f95",
-  mapGreen: "#b8dfc8",
-  mapRose: "#f2c6cc",
   white: "#ffffff",
 };
-
-const mapPinPositions = [
-  { left: "12%", top: "20%" },
-  { right: "12%", top: "34%" },
-  { left: "28%", bottom: "20%" },
-  { right: "26%", bottom: "12%" },
-] as const;
 
 const styles = StyleSheet.create({
   alertIconButton: {
@@ -1451,16 +1562,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: "center",
   },
-  mapCanvas: {
-    aspectRatio: 0.9,
-    backgroundColor: colors.mapGreen,
-    borderColor: colors.line,
-    borderCurve: "continuous",
-    borderRadius: 28,
-    borderWidth: 1,
-    overflow: "hidden",
-    position: "relative",
-  },
   mapContent: {
     gap: 18,
     padding: 16,
@@ -1468,28 +1569,6 @@ const styles = StyleSheet.create({
   },
   mapPanel: {
     gap: 14,
-  },
-  mapPin: {
-    backgroundColor: colors.white,
-    borderColor: colors.inkStrong,
-    borderRadius: 18,
-    borderWidth: 2,
-    gap: 2,
-    maxWidth: 126,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    position: "absolute",
-  },
-  mapPinMeta: {
-    color: colors.inkMuted,
-    fontSize: 12,
-    fontVariant: ["tabular-nums"],
-    fontWeight: "700",
-  },
-  mapPinTitle: {
-    color: colors.ink,
-    fontSize: 14,
-    fontWeight: "900",
   },
   mapTitle: {
     color: colors.ink,

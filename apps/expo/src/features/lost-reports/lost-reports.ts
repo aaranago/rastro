@@ -159,6 +159,7 @@ export interface SearchActiveLostPetReportsQuery {
 export interface LostPetReportSearchSummary {
   alertPriority: "standard" | "urgent";
   breed: string;
+  coordinates: LostPetReportSearchCoordinates;
   distanceMeters: number;
   id: string;
   lastSeenAt: string;
@@ -637,6 +638,10 @@ function toLostPetReportSearchSummary({
   return {
     alertPriority: getAlertPriority(report, generatedAt),
     breed: report.petSnapshot.breed,
+    coordinates: {
+      latitude: report.exactLocation.latitude,
+      longitude: report.exactLocation.longitude,
+    },
     distanceMeters: Math.round(distanceMeters),
     id: report.id,
     lastSeenAt: report.lastSeenAt,

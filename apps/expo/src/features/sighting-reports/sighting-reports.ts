@@ -153,6 +153,7 @@ export interface SearchActiveSightingReportsQuery {
 
 export interface SightingReportSearchSummary {
   breed: string;
+  coordinates: SightingReportSearchCoordinates;
   direction: string;
   distanceMeters: number;
   id: string;
@@ -594,6 +595,10 @@ function toSightingReportSearchSummary({
 
   return {
     breed: report.petSnapshot.breed,
+    coordinates: {
+      latitude: report.exactLocation.latitude,
+      longitude: report.exactLocation.longitude,
+    },
     direction: report.direction,
     distanceMeters: Math.round(distanceMeters),
     id: report.id,
