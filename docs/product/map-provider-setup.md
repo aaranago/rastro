@@ -31,6 +31,58 @@ EXPO_IOS_GOOGLE_MAPS_API_KEY=""
 
 Google Maps API keys are embedded in native mobile binaries. Treat them as public client keys: restrict them by application and API, monitor usage, and rotate them if exposed or misconfigured.
 
+## Command Directory And CLI Rules
+
+This repository is a pnpm monorepo. The Expo app lives at:
+
+```text
+/home/z/Personal/ai/rastro/apps/expo
+```
+
+Run workspace installs from the repo root:
+
+```bash
+cd /home/z/Personal/ai/rastro
+pnpm install
+```
+
+Do not install the legacy Expo CLI globally with `npm install -g expo-cli`. The modern Expo CLI is included with the app's local `expo` package. Use one of these command styles instead:
+
+From the repo root:
+
+```bash
+cd /home/z/Personal/ai/rastro
+pnpm -F @acme/expo exec expo --help
+pnpm -F @acme/expo exec expo run:android --help
+```
+
+Or from the Expo app directory:
+
+```bash
+cd /home/z/Personal/ai/rastro/apps/expo
+pnpm exec expo --help
+pnpm exec expo run:android --help
+```
+
+Do not type `expo run:android` directly unless you intentionally installed a global `expo` binary. If the terminal says `Command 'expo' not found`, that is expected for this repo. Use `pnpm exec expo run:android` from `apps/expo` or `pnpm -F @acme/expo exec expo run:android` from the repo root.
+
+Do not run raw `npx expo run:android` from the repo root. If using `npx expo`, run it from `apps/expo`, but prefer `pnpm -F @acme/expo exec expo ...` so the workspace uses the Expo version pinned by the app.
+
+EAS CLI is different from Expo CLI. For EAS commands such as `eas env:create`, `eas credentials`, and cloud builds, run them from `apps/expo` because `apps/expo/eas.json` is the EAS project config. Expo's docs still support installing EAS CLI globally:
+
+```bash
+npm install --global eas-cli
+cd /home/z/Personal/ai/rastro/apps/expo
+eas --version
+```
+
+If you do not want a global EAS install, use a one-shot command from `apps/expo`:
+
+```bash
+cd /home/z/Personal/ai/rastro/apps/expo
+pnpm dlx eas-cli --version
+```
+
 ## Google Cloud Setup
 
 Use separate Google Cloud projects or at least separate keys for development, preview, and production when possible. Never reuse OAuth client IDs or OAuth client secrets as map keys.
@@ -115,27 +167,56 @@ Do not use the Android key for iOS. Google Cloud application restrictions are pl
 
 ## Local Configuration
 
-1. Copy the env template if needed:
+1. Work from the repo root:
+
+   ```bash
+   cd /home/z/Personal/ai/rastro
+   ```
+
+2. Copy the env template if needed:
 
    ```bash
    cp -n .env.example .env
    ```
 
-2. Put the Android key in `.env`:
+3. Put the Android key in `.env`:
 
    ```env
    EXPO_ANDROID_GOOGLE_MAPS_API_KEY="YOUR_ANDROID_MAPS_KEY"
    ```
 
-3. Add `EXPO_IOS_GOOGLE_MAPS_API_KEY` only when testing Google Maps on iOS.
-4. Rebuild the native client after changing native map keys:
+4. Add `EXPO_IOS_GOOGLE_MAPS_API_KEY` only when testing Google Maps on iOS.
+5. Make sure an Android emulator is running or a physical Android device is connected:
+
+   ```bash
+   adb devices
+   ```
+
+6. Rebuild the native client after changing native map keys:
 
    ```bash
    pnpm -F @acme/expo exec expo prebuild --clean --platform android
    pnpm -F @acme/expo exec expo run:android --no-build-cache
    ```
 
-5. Start the API backend and Expo app as described in `docs/dev/mobile-runbook.md`.
+   Equivalent commands from the Expo app directory:
+
+   ```bash
+   cd /home/z/Personal/ai/rastro/apps/expo
+   pnpm exec expo prebuild --clean --platform android
+   pnpm exec expo run:android --no-build-cache
+   ```
+
+   `expo run:android` compiles the Android native project, installs it on the selected emulator/device, and starts Metro. It may create or update native `android/` files under `apps/expo`; review those changes before committing.
+
+7. Start or restart Metro for the installed development client when needed:
+
+   ```bash
+   cd /home/z/Personal/ai/rastro
+   pnpm -F @acme/expo exec expo start --dev-client
+   ```
+
+8. Start the API backend as described in `docs/dev/mobile-runbook.md`.
 
 Changing the env var without rebuilding the dev client is not enough for Android because the key is written into native configuration at build time.
 
@@ -144,6 +225,8 @@ Changing the env var without rebuilding the dev client is not enough for Android
 If using EAS environment variables, create the values in each EAS environment used by the build profile.
 
 ```bash
+cd /home/z/Personal/ai/rastro/apps/expo
+
 eas env:create \
   --name EXPO_ANDROID_GOOGLE_MAPS_API_KEY \
   --value "YOUR_ANDROID_MAPS_KEY" \
@@ -203,6 +286,7 @@ For iOS Google Maps, additionally verify:
 ## Troubleshooting
 
 - Blank Android map or provider error: confirm the key is present during native build, `Maps SDK for Android` is enabled, and the installed app's package/SHA-1 pair is listed on the key.
+- `Command 'expo' not found`: expected when Expo CLI is not globally installed. From `apps/expo`, run `pnpm exec expo run:android --no-build-cache`; from the repo root, run `pnpm -F @acme/expo exec expo run:android --no-build-cache`.
 - Works in one build but not another: add the SHA-1 fingerprint for the certificate that signed that specific build.
 - Works locally but not EAS: check that the EAS build profile is connected to the EAS environment containing `EXPO_ANDROID_GOOGLE_MAPS_API_KEY`.
 - 403 or authorization failure: verify both application restriction and API restriction. Do not use a web/OAuth key.

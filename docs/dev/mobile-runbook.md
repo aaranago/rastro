@@ -110,9 +110,12 @@ Android dev-client and store builds require `EXPO_ANDROID_GOOGLE_MAPS_API_KEY` f
 After changing native map keys, rebuild the development client or release binary:
 
 ```bash
+cd /home/z/Personal/ai/rastro
 pnpm -F @acme/expo exec expo prebuild --clean --platform android
 pnpm -F @acme/expo exec expo run:android --no-build-cache
 ```
+
+These commands are written for the repo root. If you are already inside `apps/expo`, use `pnpm exec expo ...` instead. Do not type `expo run:android` directly; `Command 'expo' not found` is expected unless you intentionally installed a global binary. Do not install the legacy `expo-cli` package globally; use the app-local Expo CLI through pnpm.
 
 Without the required Android key, the app shows a map-provider configuration error and keeps the report list alternative available instead of rendering a fake map.
 
