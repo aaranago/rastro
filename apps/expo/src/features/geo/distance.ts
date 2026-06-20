@@ -3,7 +3,10 @@ export interface CoordinatesLike {
   longitude: number;
 }
 
-function calculateDistanceMeters(from: CoordinatesLike, to: CoordinatesLike) {
+export function calculateDistanceMeters(
+  from: CoordinatesLike,
+  to: CoordinatesLike,
+) {
   const earthRadiusMeters = 6_371_000;
   const fromLatitude = toRadians(from.latitude);
   const toLatitude = toRadians(to.latitude);

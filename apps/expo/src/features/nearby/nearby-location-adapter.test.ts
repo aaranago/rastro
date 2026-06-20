@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { nearbyManualLocationOptions } from "./nearby-fixtures";
 import { createNearbyLocationAdapter } from "./nearby-location-adapter";
 import {
   applyManualNearbySearchLocation,
@@ -8,6 +7,7 @@ import {
   getNearbyManualLocationOptionLabel,
   toNearbyLocationState,
 } from "./nearby-location-state";
+import { nearbyManualLocationOptions } from "./nearby-locations";
 
 describe("Nearby foreground location adapter", () => {
   it("resolves explicit foreground location actions from current or last-known coordinates without watchers", async () => {

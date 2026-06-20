@@ -169,8 +169,13 @@ export interface NearbyLostReportsResult {
   isStale?: boolean;
 }
 
+export interface NearbyLostReportsRequestOptions {
+  signal?: AbortSignal;
+}
+
 export interface NearbyLostReportsAdapter {
   searchLostPetReports: (
     query: NearbyLostReportsQuery,
+    options?: NearbyLostReportsRequestOptions,
   ) => Promise<NearbyLostReportsResult>;
 }

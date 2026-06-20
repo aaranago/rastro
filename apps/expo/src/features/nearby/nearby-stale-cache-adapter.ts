@@ -17,11 +17,11 @@ export function createCachedNearbyLostReportsAdapter({
   source,
 }: CachedNearbyLostReportsAdapterOptions): NearbyLostReportsAdapter {
   return {
-    async searchLostPetReports(query) {
+    async searchLostPetReports(query, options) {
       const key = resolveCacheKey(cacheKey, query);
 
       try {
-        const result = await source.searchLostPetReports(query);
+        const result = await source.searchLostPetReports(query, options);
         await cache.write(key, toFreshCachedResult(result));
         return result;
       } catch (error) {

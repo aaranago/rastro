@@ -30,22 +30,19 @@ import type {
 } from "./nearby-view-model";
 import { expoNearbyLocationAdapter } from "./nearby-expo-location-adapter";
 import {
-  defaultNearbyLostReportsAdapter,
-  nearbyManualLocationOptions,
-} from "./nearby-fixtures";
-import {
   applyManualNearbySearchLocation,
   buildNearbySearchQuery,
   getNearbyManualLocationOptionLabel,
   getNearbySearchLocation,
   toNearbyLocationState,
 } from "./nearby-location-state";
+import { nearbyManualLocationOptions } from "./nearby-locations";
 import { shareNearbyLostReport } from "./nearby-share";
 import { nearbyCategoryFilters, nearbyRadiusOptionsKm } from "./nearby-types";
 import { buildNearbyLostReportsViewModel } from "./nearby-view-model";
 
 export interface NearbyScreenProps {
-  adapter?: NearbyLostReportsAdapter;
+  adapter: NearbyLostReportsAdapter;
   initialLocationState?: NearbyLocationState;
   initialMode?: NearbyBrowseMode;
   initialRadiusKm?: NearbyRadiusKm;
@@ -72,7 +69,7 @@ export function NearbyScreen(props: NearbyScreenProps) {
 }
 
 function useNearbyScreenController({
-  adapter = defaultNearbyLostReportsAdapter,
+  adapter,
   initialLocationState = defaultInitialLocationState,
   initialMode = "list",
   initialRadiusKm = 5,
@@ -118,11 +115,12 @@ function useNearbyScreenController({
     }
 
     let isActive = true;
+    const request = new AbortController();
 
     setLoadState({ kind: "loading" });
 
     adapter
-      .searchLostPetReports(searchQuery)
+      .searchLostPetReports(searchQuery, { signal: request.signal })
       .then((value) => {
         if (isActive) {
           setLoadState({ kind: "success", value });
@@ -142,6 +140,7 @@ function useNearbyScreenController({
 
     return () => {
       isActive = false;
+      request.abort();
     };
   }, [adapter, locationQueryKey, reloadKey, searchQuery]);
 

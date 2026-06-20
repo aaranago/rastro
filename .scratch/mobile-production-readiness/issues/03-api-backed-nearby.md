@@ -1,6 +1,6 @@
 # 03 - Replace production nearby fixtures with API-backed browsing
 
-Status: ready-for-agent
+Status: closed
 Severity: P1
 Journey: Cerca list and nearby search
 Screens: `Cerca` list and map modes
@@ -95,3 +95,11 @@ Depends on issue 02 for persisted report data and geospatial queries.
 
 - Do not implement map tiles in this issue; see issue 04.
 - Do not add fallback production fixtures.
+
+## Verification
+
+- Implementation agent: `019ee2bf-f017-7131-b87e-944a3a1c50cc`
+- Independent verifier: `019ee2d1-6954-75d0-8681-80317e93cc82`
+- Automated verification passed: `pnpm -F @acme/expo test`, `pnpm -F @acme/expo typecheck`, `pnpm -F @acme/expo lint`, `pnpm -F @acme/expo format`.
+- Fallow audit passed with no introduced findings.
+- Live `report.nearby` check against localhost:3000 returned HTTP 200 for an empty query, then returned a temporarily inserted persisted report with canonical media, and returned empty again after cleanup.

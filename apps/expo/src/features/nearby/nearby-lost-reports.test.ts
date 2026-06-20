@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { RouterInputs, RouterOutputs } from "@acme/api";
 import { buildPublicLostReportShareTarget } from "@acme/validators";
 
 import type {
@@ -15,6 +16,7 @@ import type {
 import type { NearbyLostReportsViewModel } from "./nearby-view-model";
 import { createInMemoryLostPetReportRepository } from "../lost-reports/lost-reports";
 import { createInMemoryLastLoadedCache } from "../resilience/last-loaded-cache";
+import { createApiNearbyLostReportsAdapter } from "./nearby-api-adapter";
 import { createNearbyLostReportRepositoryAdapter } from "./nearby-lost-report-repository-adapter";
 import { shareNearbyLostReport } from "./nearby-share";
 import { createCachedNearbyLostReportsAdapter } from "./nearby-stale-cache-adapter";
@@ -136,7 +138,409 @@ function buildTestShareTarget(reportId: string, title: string) {
   });
 }
 
+type ApiNearbyReport = RouterOutputs["report"]["nearby"]["results"][number];
+
+function buildApiReport({
+  createdAt = new Date("2026-06-19T19:40:00.000Z"),
+  description,
+  eventOccurredAt = createdAt,
+  id,
+  mediaUrl,
+  pet,
+  title,
+  type,
+}: {
+  createdAt?: Date;
+  description: string;
+  eventOccurredAt?: Date;
+  id: string;
+  mediaUrl?: string;
+  pet: Pick<
+    ApiNearbyReport["pet"],
+    "breed" | "color" | "distinguishingTraits" | "name" | "species"
+  >;
+  title: string;
+  type: ApiNearbyReport["type"];
+}): ApiNearbyReport {
+  return {
+    contact: {
+      hasWhatsapp: false,
+      preference: "in_app_chat",
+    },
+    createdAt,
+    description,
+    eventOccurredAt,
+    id,
+    location: {
+      label: "Zona Sur, La Paz",
+      latitude: -16.5,
+      locationCell: "bo-lpb-zona-sur",
+      longitude: -68.1193,
+      precision: "approximate",
+    },
+    media: mediaUrl
+      ? [
+          {
+            altText: title,
+            canonicalUrl: mediaUrl,
+            height: 900,
+            id: `${id}-media-1`,
+            mimeType: "image/jpeg",
+            objectKey: `reports/${id}.jpg`,
+            position: 0,
+            sizeBytes: 100_000,
+            thumbnailObjectKey: `reports/${id}-thumb.jpg`,
+            width: 1200,
+          },
+        ]
+      : [],
+    outcome: null,
+    owner: {
+      isCurrentMember: false,
+    },
+    pet: {
+      breed: pet.breed,
+      color: pet.color,
+      distinguishingTraits: pet.distinguishingTraits,
+      name: pet.name,
+      size: null,
+      species: pet.species,
+    },
+    resolvedAt: null,
+    status: "active",
+    title,
+    type,
+    updatedAt: createdAt,
+  };
+}
+
 describe("nearby Lost Pet Report discovery", () => {
+  it("maps report.nearby API results into nearby summaries while sending radius and category filters", async () => {
+    const apiCalls: {
+      input: RouterInputs["report"]["nearby"];
+      options?: { signal?: AbortSignal };
+    }[] = [];
+    const apiResponse = {
+      query: {
+        latitude: -16.5,
+        limit: 50,
+        longitude: -68.1193,
+        radiusMeters: 10_000,
+        types: ["lost_pet", "found_pet", "sighting", "adoption"],
+      },
+      results: [
+        buildApiReport({
+          description: "Collar azul con placa, visto cerca del parque.",
+          id: "api-lost-bruno",
+          mediaUrl: "https://cdn.rastro.bo/reports/bruno.jpg",
+          pet: {
+            breed: "Golden Retriever",
+            color: "Dorado",
+            distinguishingTraits: "Collar azul",
+            name: "Bruno",
+            species: "dog",
+          },
+          title: "Bruno perdido",
+          type: "lost_pet",
+        }),
+        buildApiReport({
+          description: "Esta resguardado con una vecina cerca de la plaza.",
+          eventOccurredAt: new Date("2026-06-19T18:00:00.000Z"),
+          id: "api-found-cat",
+          pet: {
+            breed: "Criollo",
+            color: "Gris",
+            distinguishingTraits: "Con collar rojo, tranquilo.",
+            name: null,
+            species: "cat",
+          },
+          title: "Gato encontrado",
+          type: "found_pet",
+        }),
+        buildApiReport({
+          description:
+            "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.",
+          eventOccurredAt: new Date("2026-06-19T19:35:00.000Z"),
+          id: "api-sighting-dog",
+          pet: {
+            breed: "Mestizo",
+            color: "Cafe",
+            distinguishingTraits: "Asustado, caminando rapido.",
+            name: null,
+            species: "dog",
+          },
+          title: "Avistamiento de perro",
+          type: "sighting",
+        }),
+        buildApiReport({
+          createdAt: new Date("2026-06-19T12:00:00.000Z"),
+          description: "Nala busca un hogar tranquilo y responsable.",
+          id: "api-adoption-nala",
+          mediaUrl: "https://cdn.rastro.bo/reports/nala.jpg",
+          pet: {
+            breed: "Mestizo",
+            color: "Negro",
+            distinguishingTraits: "Vacunada y desparasitada.",
+            name: "Nala",
+            species: "cat",
+          },
+          title: "Nala en adopcion",
+          type: "adoption",
+        }),
+      ],
+    } satisfies RouterOutputs["report"]["nearby"];
+    const abortController = new AbortController();
+    const adapter = createApiNearbyLostReportsAdapter({
+      client: {
+        report: {
+          nearby: {
+            query(input, options) {
+              apiCalls.push({ input, options });
+
+              return Promise.resolve(apiResponse);
+            },
+          },
+        },
+      },
+      now: () => "2026-06-19T20:00:00.000Z",
+      publicWebBaseUrl: "https://rastro.bo",
+    });
+
+    const result = await adapter.searchLostPetReports(
+      {
+        categories: [
+          "lost-pet-report",
+          "found-pet-report",
+          "sighting-report",
+          "adoption-listing",
+        ],
+        location: {
+          coordinates: { latitude: -16.5, longitude: -68.1193 },
+          countryCode: "BO",
+          label: "Zona Sur, La Paz",
+          locationCellLabel: "Zona Sur",
+          manualLocationKind: "place",
+          source: "manual",
+        },
+        radiusKm: 10,
+      },
+      { signal: abortController.signal },
+    );
+
+    expect(apiCalls).toHaveLength(1);
+    expect(apiCalls[0]).toMatchObject({
+      input: {
+        latitude: -16.5,
+        longitude: -68.1193,
+        radiusMeters: 10_000,
+        types: ["lost_pet", "found_pet", "sighting", "adoption"],
+      },
+    });
+    expect(apiCalls[0]?.options?.signal).toBe(abortController.signal);
+    expect(result.generatedAt).toBe("2026-06-19T20:00:00.000Z");
+    expect(result.reports).toMatchObject([
+      {
+        alertPriority: "urgent",
+        distanceMeters: 0,
+        id: "api-lost-bruno",
+        lastSeenAtLabel: "Hace 20 min",
+        lastSeenSummary: "Collar azul con placa, visto cerca del parque.",
+        locationCellLabel: "Zona Sur, La Paz",
+        petName: "Bruno",
+        photoUrl: "https://cdn.rastro.bo/reports/bruno.jpg",
+        publicLocation: { kind: "approximate" },
+        reportKind: "lost-pet-report",
+        shareTarget: {
+          path: "/reportes/perdidos/api-lost-bruno",
+          webUrl: "https://rastro.bo/reportes/perdidos/api-lost-bruno",
+        },
+        species: "Perro",
+      },
+      {
+        condition: "Con collar rojo, tranquilo.",
+        distanceMeters: 0,
+        foundAtLabel: "Hace 2 h",
+        foundSummary: "Esta resguardado con una vecina cerca de la plaza.",
+        id: "api-found-cat",
+        locationCellLabel: "Zona Sur, La Paz",
+        reportKind: "found-pet-report",
+        shareTarget: {
+          path: "/reportes/encontrados/api-found-cat",
+        },
+        species: "Gato",
+        title: "Gato encontrado",
+      },
+      {
+        distanceMeters: 0,
+        direction: "Zona Sur, La Paz",
+        id: "api-sighting-dog",
+        locationCellLabel: "Zona Sur, La Paz",
+        observedAtLabel: "Hace 25 min",
+        observedCondition: "Asustado, caminando rapido.",
+        reportKind: "sighting-report",
+        shareTarget: {
+          path: "/reportes/avistamientos/api-sighting-dog",
+        },
+        sightingSummary:
+          "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.",
+        title: "Avistamiento de perro",
+      },
+      {
+        adoptionSummary: "Nala busca un hogar tranquilo y responsable.",
+        distanceMeters: 0,
+        healthNotes: "Vacunada y desparasitada.",
+        id: "api-adoption-nala",
+        locationCellLabel: "Zona Sur, La Paz",
+        petName: "Nala",
+        photoUrl: "https://cdn.rastro.bo/reports/nala.jpg",
+        publishedAtLabel: "Hace 8 h",
+        reportKind: "adoption-listing",
+        shareTarget: {
+          path: "/adopciones/api-adoption-nala",
+        },
+      },
+    ]);
+    expect(JSON.stringify(result.reports)).not.toContain("images.unsplash.com");
+    expect(JSON.stringify(result.reports)).not.toContain("file://");
+    expect(JSON.stringify(result.reports)).not.toContain("bo-lpb-zona-sur");
+  });
+
+  it("builds a genuine empty nearby state from an empty API response", async () => {
+    const adapter = createApiNearbyLostReportsAdapter({
+      client: {
+        report: {
+          nearby: {
+            query: () =>
+              Promise.resolve({
+                query: {
+                  latitude: -16.5,
+                  limit: 50,
+                  longitude: -68.1193,
+                  radiusMeters: 5_000,
+                  types: ["lost_pet", "found_pet"],
+                },
+                results: [],
+              }),
+          },
+        },
+      },
+      now: () => "2026-06-19T20:00:00.000Z",
+    });
+
+    const result = await adapter.searchLostPetReports({
+      categories: ["lost-pet-report", "found-pet-report"],
+      location: {
+        coordinates: { latitude: -16.5, longitude: -68.1193 },
+        countryCode: "BO",
+        label: "Zona Sur, La Paz",
+        locationCellLabel: "Zona Sur",
+        source: "manual",
+      },
+      radiusKm: 5,
+    });
+    const viewModel = buildNearbyLostReportsViewModel({
+      locationState: { kind: "ready", location: result.query.location },
+      mode: "list",
+      radiusKm: 5,
+      result: { kind: "success", value: result },
+    });
+
+    assertNearbyViewModelKind(viewModel, "empty");
+    expect(result.reports).toEqual([]);
+    expect(viewModel.title).toBe("No hay reportes cerca");
+    expect(viewModel.searchBoundaryLabel).toBe("Radio de 5 km · Zona Sur");
+    expect(JSON.stringify(viewModel)).not.toContain("Bruno");
+    expect(JSON.stringify(viewModel)).not.toContain("fixture");
+  });
+
+  it("marks stale cached API results after a failed refresh", async () => {
+    const cache = createInMemoryLastLoadedCache<NearbyLostReportsResult>();
+    const location: NearbySearchLocation = {
+      coordinates: { latitude: -16.5, longitude: -68.1193 },
+      countryCode: "BO",
+      label: "Zona Sur, La Paz",
+      locationCellLabel: "Zona Sur",
+      source: "manual",
+    };
+    const onlineAdapter = createCachedNearbyLostReportsAdapter({
+      cache,
+      cacheKey: "nearby-api:zona-sur:5:lost",
+      source: createApiNearbyLostReportsAdapter({
+        client: {
+          report: {
+            nearby: {
+              query: () =>
+                Promise.resolve({
+                  query: {
+                    latitude: -16.5,
+                    limit: 50,
+                    longitude: -68.1193,
+                    radiusMeters: 5_000,
+                    types: ["lost_pet"],
+                  },
+                  results: [
+                    buildApiReport({
+                      description:
+                        "Collar azul con placa, visto cerca del parque.",
+                      id: "api-lost-bruno",
+                      pet: {
+                        breed: "Golden Retriever",
+                        color: "Dorado",
+                        distinguishingTraits: "Collar azul",
+                        name: "Bruno",
+                        species: "dog",
+                      },
+                      title: "Bruno perdido",
+                      type: "lost_pet",
+                    }),
+                  ],
+                }),
+            },
+          },
+        },
+        now: () => "2026-06-19T20:00:00.000Z",
+      }),
+    });
+
+    await onlineAdapter.searchLostPetReports({
+      categories: ["lost-pet-report"],
+      location,
+      radiusKm: 5,
+    });
+
+    const offlineAdapter = createCachedNearbyLostReportsAdapter({
+      cache,
+      cacheKey: "nearby-api:zona-sur:5:lost",
+      source: createApiNearbyLostReportsAdapter({
+        client: {
+          report: {
+            nearby: {
+              query: () => Promise.reject(new Error("Sin conexion.")),
+            },
+          },
+        },
+      }),
+    });
+
+    const staleResult = await offlineAdapter.searchLostPetReports({
+      categories: ["lost-pet-report"],
+      location,
+      radiusKm: 5,
+    });
+    const viewModel = buildNearbyLostReportsViewModel({
+      locationState: { kind: "ready", location },
+      mode: "list",
+      radiusKm: 5,
+      result: { kind: "success", value: staleResult },
+    });
+
+    assertNearbyViewModelKind(viewModel, "ready");
+    expect(staleResult.isOffline).toBe(true);
+    expect(staleResult.isStale).toBe(true);
+    expect(viewModel.offlineLabel).toBe("Sin conexion · resultados guardados");
+    expect(viewModel.cards.map((card) => card.id)).toEqual(["api-lost-bruno"]);
+  });
+
   it("browses Lost Pet Reports published through the Rastro-owned search boundary without signing in", async () => {
     const repository = createInMemoryLostPetReportRepository({
       now: () => "2026-06-18T12:00:00.000Z",
