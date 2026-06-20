@@ -185,6 +185,7 @@ Design mocks should cover:
 - Better Auth for v1 authentication: `docs/adr/0001-use-better-auth-for-v1.md`.
 - App-owned chat with Expo push notifications: `docs/adr/0002-use-app-owned-chat-with-push-for-v1.md`.
 - PostGIS-backed location search: `docs/adr/0003-use-postgis-for-geolocation-search.md`.
+- Native map provider setup: `docs/product/map-provider-setup.md`.
 - Domain language: `CONTEXT.md`.
 - UI detail source: `docs/product/ui-design-brief.md`.
 

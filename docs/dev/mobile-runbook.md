@@ -116,6 +116,8 @@ pnpm -F @acme/expo exec expo run:android --no-build-cache
 
 Without the required Android key, the app shows a map-provider configuration error and keeps the report list alternative available instead of rendering a fake map.
 
+Product and Google Cloud setup details, including API enablement, key restrictions, Android SHA-1 fingerprints, and EAS environment configuration, live in `docs/product/map-provider-setup.md`.
+
 ## Auth/API Backend For Mobile QA
 
 Rastro mobile auth uses Better Auth through the Next.js API route at `/api/auth/*`. The Expo app can launch without that backend, but email/password sign-in and account creation will fail with `Network request failed` until the backend is running and reachable from the device. In the installed Better Auth version, the public session check used by the Expo client is `/api/auth/get-session`.
