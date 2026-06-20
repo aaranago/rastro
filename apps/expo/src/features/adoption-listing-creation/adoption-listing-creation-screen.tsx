@@ -5,16 +5,19 @@ import { Image } from "expo-image";
 import type { PublishAdoptionListingInput } from "../adoption-listings/adoption-listings";
 import type { ReportCreationFieldViewModel } from "../report-creation/report-creation-ui";
 import type { CreationDraftStore } from "../resilience/creation-drafts";
+import type { DurableCreationDraftPersistence } from "../resilience/use-durable-creation-draft";
 import type {
   AdoptionListingCreationSession,
   AdoptionListingDraft,
   AdoptionListingPetProfileOption,
   AdoptionListingPhoto,
 } from "./adoption-listing-creation-types";
+import { publishReportCreation } from "../report-creation/report-creation-publish";
 import {
   ReportCreationActionButton,
   ReportCreationContactOptionSection,
   ReportCreationDetailsFieldsSection,
+  ReportCreationDraftPersistenceAlert,
   ReportCreationEditorScrollView,
   ReportCreationExistingPetProfileList,
   ReportCreationField,
@@ -100,15 +103,17 @@ export function AdoptionListingCreationScreen({
       }),
     [initialDraft, petProfiles],
   );
-  const { clearDraft, draft, setDraft } = useDurableCreationDraft({
-    initialDraft: defaultDraft,
-    kind: "adoption-listing",
-    scopeId: draftScopeId,
-    store: draftStore,
-  });
+  const { clearDraft, draft, draftPersistence, setDraft } =
+    useDurableCreationDraft({
+      initialDraft: defaultDraft,
+      kind: "adoption-listing",
+      scopeId: draftScopeId,
+      store: draftStore,
+    });
   const [publishState, setPublishState] =
     React.useState<PublishState>("editing");
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const publishLockRef = React.useRef(false);
   const viewModel = React.useMemo(
     () =>
       buildAdoptionListingCreationViewModel({
@@ -140,16 +145,24 @@ export function AdoptionListingCreationScreen({
     setSubmitError(null);
     setPublishState("publishing");
 
-    try {
-      await onPublishAdoptionListing?.(
-        toPublishAdoptionListingInput({ draft, petProfiles }),
-      );
-      await clearDraft();
+    const result = await publishReportCreation({
+      clearDraft,
+      input: toPublishAdoptionListingInput({ draft, petProfiles }),
+      publishHandler: onPublishAdoptionListing,
+      publishLock: publishLockRef,
+    });
+
+    if (result.ok) {
       setPublishState("success");
-    } catch {
-      setSubmitError("No pudimos publicar. Tu informacion sigue aqui.");
-      setPublishState("editing");
+      return;
     }
+
+    if (result.reason === "already-publishing") {
+      return;
+    }
+
+    setSubmitError(result.message);
+    setPublishState("editing");
   }, [
     draft,
     clearDraft,
@@ -169,6 +182,7 @@ export function AdoptionListingCreationScreen({
     <AdoptionListingCreationEditor
       addPhoto={addPhoto}
       draft={draft}
+      draftPersistence={draftPersistence}
       onClose={onClose}
       publish={publish}
       publishState={publishState}
@@ -236,6 +250,7 @@ function AdoptionListingCreationSuccess({
 function AdoptionListingCreationEditor({
   addPhoto,
   draft,
+  draftPersistence,
   onClose,
   publish,
   publishState,
@@ -245,6 +260,7 @@ function AdoptionListingCreationEditor({
 }: {
   addPhoto: () => void;
   draft: AdoptionListingDraft;
+  draftPersistence: DurableCreationDraftPersistence;
   onClose?: () => void;
   publish: () => void;
   publishState: PublishState;
@@ -256,6 +272,9 @@ function AdoptionListingCreationEditor({
     <ReportCreationEditorScrollView bottomInset={bottomInset} styles={styles}>
       <CreationHeader onClose={onClose} title={viewModel.title} />
       <ReportCreationProgressSteps steps={viewModel.steps} styles={styles} />
+      <ReportCreationDraftPersistenceAlert
+        draftPersistence={draftPersistence}
+      />
       <PetProfileSection
         draft={draft}
         setDraft={setDraft}

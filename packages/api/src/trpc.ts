@@ -12,7 +12,9 @@ import { z, ZodError } from "zod/v4";
 
 import type { Auth } from "@acme/auth";
 import type { Database } from "@acme/db/client";
-import { db } from "@acme/db/client";
+
+import type { ReportRepository } from "./report-repository";
+import { createDrizzleReportRepository } from "./report-repository";
 
 /**
  * 1. CONTEXT
@@ -33,16 +35,20 @@ export const createTRPCContext = async (opts: {
 }): Promise<{
   authApi: Auth["api"];
   db: Database;
+  reportRepository: ReportRepository;
   session: Awaited<ReturnType<Auth["api"]["getSession"]>>;
 }> => {
   const authApi = opts.auth.api;
   const session = await authApi.getSession({
     headers: opts.headers,
   });
+  const { db } = await import("@acme/db/client");
+
   return {
     authApi,
-    session,
     db,
+    reportRepository: createDrizzleReportRepository(db),
+    session,
   };
 };
 /**

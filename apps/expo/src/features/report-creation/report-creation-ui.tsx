@@ -11,11 +11,14 @@ import {
   ActivityIndicator,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { Image } from "expo-image";
+
+import type { DurableCreationDraftPersistence } from "../resilience/use-durable-creation-draft";
 
 export interface ReportCreationFieldViewModel {
   error?: string;
@@ -219,6 +222,28 @@ export function ReportCreationSection({
   );
 }
 
+export function ReportCreationDraftPersistenceAlert({
+  draftPersistence,
+}: {
+  draftPersistence: DurableCreationDraftPersistence;
+}) {
+  if (draftPersistence.error === null) {
+    return null;
+  }
+
+  return (
+    <View
+      accessibilityLiveRegion="polite"
+      accessibilityRole="alert"
+      style={draftPersistenceAlertStyles.container}
+    >
+      <Text selectable style={draftPersistenceAlertStyles.text}>
+        {draftPersistence.error.message}
+      </Text>
+    </View>
+  );
+}
+
 export function ReportCreationField({
   field,
   keyboardType,
@@ -256,6 +281,24 @@ export function ReportCreationField({
     </View>
   );
 }
+
+const draftPersistenceAlertStyles = StyleSheet.create({
+  container: {
+    backgroundColor: "#FFF2F1",
+    borderColor: "#D6453D",
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  text: {
+    color: "#8F1F18",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
+});
 
 export function ReportCreationPetSnapshotSection<TType extends string>({
   breedField,

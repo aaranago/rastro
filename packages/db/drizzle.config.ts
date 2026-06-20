@@ -12,5 +12,15 @@ export default {
   dbCredentials: { url: nonPoolingUrl },
   casing: "snake_case",
   // Keep PostGIS extension tables out of Drizzle's app-schema diff.
-  tablesFilter: ["post", "user", "session", "account", "verification"],
+  tablesFilter: [
+    "post",
+    "user",
+    "session",
+    "account",
+    "verification",
+    "report",
+    "report_location",
+    "report_media",
+    "report_lifecycle_event",
+  ],
 } satisfies Config;

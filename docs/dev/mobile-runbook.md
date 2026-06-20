@@ -106,8 +106,15 @@ Prepare local env and database once per checkout:
 cp -n .env.example .env
 # Edit .env if your local Postgres URL, auth secret, or port differ.
 pnpm install
-pnpm db:push
+pnpm db:migrate
 ```
+
+Use `pnpm db:push` only for intentional local schema diff experiments. With
+PostgreSQL 18, the current `drizzle-kit@0.31.5` live diff can misread cataloged
+NOT NULL constraints and attempt to drop constraints such as
+`post_id_not_null`; PostgreSQL rejects that with `42P16` because `post.id` is
+part of the primary key. The forward migrations under `packages/db/drizzle/`
+are the verified clean-database path.
 
 Start the auth/API backend in its own terminal before launching the mobile app:
 

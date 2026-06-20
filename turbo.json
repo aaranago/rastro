@@ -18,9 +18,17 @@
       "outputs": [".cache/.prettiercache"],
       "outputLogs": "new-only"
     },
+    "generate": {
+      "cache": false,
+      "interactive": true
+    },
     "lint": {
       "dependsOn": ["^topo", "^build"],
       "outputs": [".cache/.eslintcache"]
+    },
+    "migrate": {
+      "cache": false,
+      "interactive": true
     },
     "test": {
       "dependsOn": ["^topo"],
@@ -51,6 +59,7 @@
   },
   "globalEnv": [
     "POSTGRES_URL",
+    "RASTRO_DB_INTEGRATION",
     "AUTH_APPLE_APP_BUNDLE_IDENTIFIER",
     "AUTH_APPLE_CLIENT_ID",
     "AUTH_APPLE_CLIENT_SECRET",

@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 
 import type { CreationDraftStore } from "../resilience/creation-drafts";
+import type { DurableCreationDraftPersistence } from "../resilience/use-durable-creation-draft";
 import type {
   PublishSightingReportInput,
   SightingReportCreationSession,
@@ -10,10 +11,12 @@ import type {
   SightingReportDraft,
   SightingReportPhoto,
 } from "./sighting-report-creation-types";
+import { publishReportCreation } from "../report-creation/report-creation-publish";
 import {
   ReportCreationActionButton,
   ReportCreationContactOptionSection,
   ReportCreationDetailsFieldsSection,
+  ReportCreationDraftPersistenceAlert,
   ReportCreationEditorScrollView,
   ReportCreationInfoRow,
   ReportCreationPetSnapshotSection,
@@ -98,15 +101,17 @@ export function SightingReportCreationScreen({
       }),
     [initialDraft],
   );
-  const { clearDraft, draft, setDraft } = useDurableCreationDraft({
-    initialDraft: defaultDraft,
-    kind: "sighting-report",
-    scopeId: draftScopeId,
-    store: draftStore,
-  });
+  const { clearDraft, draft, draftPersistence, setDraft } =
+    useDurableCreationDraft({
+      initialDraft: defaultDraft,
+      kind: "sighting-report",
+      scopeId: draftScopeId,
+      store: draftStore,
+    });
   const [publishState, setPublishState] =
     React.useState<PublishState>("editing");
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const publishLockRef = React.useRef(false);
   const viewModel = React.useMemo(
     () =>
       buildSightingReportCreationViewModel({
@@ -137,14 +142,24 @@ export function SightingReportCreationScreen({
     setSubmitError(null);
     setPublishState("publishing");
 
-    try {
-      await onPublishSightingReport?.(toPublishSightingReportInput({ draft }));
-      await clearDraft();
+    const result = await publishReportCreation({
+      clearDraft,
+      input: toPublishSightingReportInput({ draft }),
+      publishHandler: onPublishSightingReport,
+      publishLock: publishLockRef,
+    });
+
+    if (result.ok) {
       setPublishState("success");
-    } catch {
-      setSubmitError("No pudimos publicar. Tu informacion sigue aqui.");
-      setPublishState("editing");
+      return;
     }
+
+    if (result.reason === "already-publishing") {
+      return;
+    }
+
+    setSubmitError(result.message);
+    setPublishState("editing");
   }, [
     clearDraft,
     draft,
@@ -173,6 +188,7 @@ export function SightingReportCreationScreen({
     <SightingReportCreationEditor
       addPhoto={addPhoto}
       draft={draft}
+      draftPersistence={draftPersistence}
       onChooseSightingLocation={onChooseSightingLocation}
       onClose={onClose}
       publish={publish}
@@ -299,6 +315,7 @@ function SightingReportCreationSuccess({
 function SightingReportCreationEditor({
   addPhoto,
   draft,
+  draftPersistence,
   onChooseSightingLocation,
   onClose,
   publish,
@@ -309,6 +326,7 @@ function SightingReportCreationEditor({
 }: {
   addPhoto: () => void;
   draft: SightingReportDraft;
+  draftPersistence: DurableCreationDraftPersistence;
   onChooseSightingLocation?: () => void;
   onClose?: () => void;
   publish: () => void;
@@ -327,6 +345,9 @@ function SightingReportCreationEditor({
         title={viewModel.title}
       />
       <ReportCreationProgressSteps steps={viewModel.steps} styles={styles} />
+      <ReportCreationDraftPersistenceAlert
+        draftPersistence={draftPersistence}
+      />
       <ReportCreationPetSnapshotSection
         breedField={viewModel.pet.fields.breed}
         descriptionField={viewModel.pet.fields.description}

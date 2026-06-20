@@ -12,6 +12,7 @@ import { Image } from "expo-image";
 import { LegendList } from "@legendapp/list";
 
 import type { CreationDraftStore } from "../resilience/creation-drafts";
+import type { DurableCreationDraftPersistence } from "../resilience/use-durable-creation-draft";
 import type {
   PetProfileDraft,
   PetProfilePhoto,
@@ -25,6 +26,7 @@ import type {
   PetProfileDetailViewModel,
   PetProfileFormViewModel,
 } from "./pet-profiles-view-model";
+import { ReportCreationDraftPersistenceAlert } from "../report-creation/report-creation-ui";
 import { useDurableCreationDraft } from "../resilience/use-durable-creation-draft";
 import { ShellIcon } from "../shell/shell-overlays";
 import { shellColors } from "../shell/shell-theme";
@@ -63,6 +65,7 @@ interface MisMascotasController {
   beginEdit: (profileId: string) => void;
   cancelForm: () => void;
   draft: PetProfileDraft;
+  draftPersistence: DurableCreationDraftPersistence;
   formViewModel?: PetProfileFormViewModel;
   onOpenRelatedRecord?: (recordId: string) => void;
   onStartReportFromProfile?: MisMascotasScreenProps["onStartReportFromProfile"];
@@ -105,7 +108,7 @@ function useMisMascotasController({
   );
   const [formMode, setFormMode] = useState<FormMode | null>(null);
   const emptyDraft = useMemo(() => createEmptyDraft(), []);
-  const { clearDraft, draft, restoredDraft, setDraft } =
+  const { clearDraft, draft, draftPersistence, restoredDraft, setDraft } =
     useDurableCreationDraft({
       initialDraft: emptyDraft,
       kind: "pet-profile",
@@ -248,6 +251,7 @@ function useMisMascotasController({
     beginEdit,
     cancelForm,
     draft,
+    draftPersistence,
     formViewModel,
     onOpenRelatedRecord,
     onStartReportFromProfile,
@@ -334,6 +338,7 @@ function MemberMisMascotasScreen({
       ListFooterComponent={
         <MemberPetProfilesFooter
           draft={controller.draft}
+          draftPersistence={controller.draftPersistence}
           formViewModel={controller.formViewModel}
           onAddPhoto={controller.addDraftPhoto}
           onCancelForm={controller.cancelForm}
@@ -411,6 +416,7 @@ function MemberPetProfilesHeader({
 
 function MemberPetProfilesFooter({
   draft,
+  draftPersistence,
   formViewModel,
   onAddPhoto,
   onCancelForm,
@@ -423,6 +429,7 @@ function MemberPetProfilesFooter({
   selectedProfile,
 }: {
   draft: PetProfileDraft;
+  draftPersistence: DurableCreationDraftPersistence;
   formViewModel?: PetProfileFormViewModel;
   onAddPhoto: () => void;
   onCancelForm: () => void;
@@ -451,6 +458,7 @@ function MemberPetProfilesFooter({
       {formViewModel ? (
         <PetProfileFormSurface
           draft={draft}
+          draftPersistence={draftPersistence}
           form={formViewModel}
           onAddPhoto={onAddPhoto}
           onCancel={onCancelForm}
@@ -656,6 +664,7 @@ function PetProfileDetailSurface({
 
 function PetProfileFormSurface({
   draft,
+  draftPersistence,
   form,
   onAddPhoto,
   onCancel,
@@ -664,6 +673,7 @@ function PetProfileFormSurface({
   onSubmit,
 }: {
   draft: PetProfileDraft;
+  draftPersistence: DurableCreationDraftPersistence;
   form: PetProfileFormViewModel;
   onAddPhoto: () => void;
   onCancel: () => void;
@@ -683,6 +693,9 @@ function PetProfileFormSurface({
           </Text>
         </View>
       </View>
+      <ReportCreationDraftPersistenceAlert
+        draftPersistence={draftPersistence}
+      />
 
       <LabeledInput
         error={form.fields.name.error}

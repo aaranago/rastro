@@ -15,13 +15,40 @@ export interface UseDurableCreationDraftInput<K extends CreationDraftKind>
   store?: CreationDraftStore;
 }
 
+export type DurableCreationDraftPersistenceStatus =
+  | "disabled"
+  | "error"
+  | "loading"
+  | "ready"
+  | "saved"
+  | "saving";
+
+export type DurableCreationDraftPersistenceErrorKind = "load" | "save";
+
+export interface DurableCreationDraftPersistenceError {
+  cause: unknown;
+  kind: DurableCreationDraftPersistenceErrorKind;
+  message: string;
+}
+
+export interface DurableCreationDraftPersistence {
+  error: DurableCreationDraftPersistenceError | null;
+  status: DurableCreationDraftPersistenceStatus;
+}
+
 export interface DurableCreationDraftState<K extends CreationDraftKind> {
   clearDraft: () => Promise<void>;
   draft: CreationDraftsByKind[K];
+  draftPersistence: DurableCreationDraftPersistence;
   hasLoaded: boolean;
   restoredDraft: DurableCreationDraft<K> | null;
   setDraft: React.Dispatch<React.SetStateAction<CreationDraftsByKind[K]>>;
 }
+
+const loadDraftErrorMessage =
+  "No pudimos recuperar tu borrador guardado. Puedes seguir editando.";
+const saveDraftErrorMessage =
+  "No pudimos guardar el borrador en este dispositivo. Tus cambios siguen en pantalla.";
 
 export function useDurableCreationDraft<K extends CreationDraftKind>({
   initialDraft,
@@ -34,6 +61,11 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
   const [hasLoaded, setHasLoaded] = React.useState(store === undefined);
   const [restoredDraft, setRestoredDraft] =
     React.useState<DurableCreationDraft<K> | null>(null);
+  const [draftPersistence, setDraftPersistence] =
+    React.useState<DurableCreationDraftPersistence>(() => ({
+      error: null,
+      status: store === undefined ? "disabled" : "loading",
+    }));
   const skipNextSaveRef = React.useRef(true);
 
   React.useEffect(() => {
@@ -41,12 +73,14 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
       setDraft(initialDraft);
       setHasLoaded(true);
       setRestoredDraft(null);
+      setDraftPersistence({ error: null, status: "disabled" });
       skipNextSaveRef.current = true;
       return;
     }
 
     let isCurrent = true;
     setHasLoaded(false);
+    setDraftPersistence({ error: null, status: "loading" });
 
     store
       .loadDraft(kind, { scopeId })
@@ -59,16 +93,24 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
         setRestoredDraft(savedDraft ?? null);
         skipNextSaveRef.current = true;
         setHasLoaded(true);
+        setDraftPersistence({ error: null, status: "ready" });
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!isCurrent) {
           return;
         }
 
-        setDraft(initialDraft);
         setRestoredDraft(null);
         skipNextSaveRef.current = true;
         setHasLoaded(true);
+        setDraftPersistence({
+          error: {
+            cause: error,
+            kind: "load",
+            message: loadDraftErrorMessage,
+          },
+          status: "error",
+        });
       });
 
     return () => {
@@ -86,21 +128,59 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
       return;
     }
 
-    void store.saveDraft({
-      draft,
-      kind,
-      scopeId,
-    });
+    let isCurrent = true;
+    setDraftPersistence({ error: null, status: "saving" });
+
+    store
+      .saveDraft({
+        draft,
+        kind,
+        scopeId,
+      })
+      .then(() => {
+        if (!isCurrent) {
+          return;
+        }
+
+        setDraftPersistence({ error: null, status: "saved" });
+      })
+      .catch((error: unknown) => {
+        if (!isCurrent) {
+          return;
+        }
+
+        setDraftPersistence({
+          error: {
+            cause: error,
+            kind: "save",
+            message: saveDraftErrorMessage,
+          },
+          status: "error",
+        });
+      });
+
+    return () => {
+      isCurrent = false;
+    };
   }, [draft, hasLoaded, kind, scopeId, store]);
 
   const clearDraft = React.useCallback(async () => {
     await store?.clearDraft(kind, { scopeId });
     setRestoredDraft(null);
+    setDraftPersistence((current) =>
+      current.status === "disabled"
+        ? current
+        : {
+            error: null,
+            status: "ready",
+          },
+    );
   }, [kind, scopeId, store]);
 
   return {
     clearDraft,
     draft,
+    draftPersistence,
     hasLoaded,
     restoredDraft,
     setDraft,

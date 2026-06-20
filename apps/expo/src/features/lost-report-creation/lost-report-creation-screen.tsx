@@ -5,14 +5,17 @@ import { Image } from "expo-image";
 import type { PublishLostPetReportInput } from "../lost-reports/lost-reports";
 import type { ReportCreationFieldViewModel } from "../report-creation/report-creation-ui";
 import type { CreationDraftStore } from "../resilience/creation-drafts";
+import type { DurableCreationDraftPersistence } from "../resilience/use-durable-creation-draft";
 import type {
   LostReportDraft,
   LostReportPetProfileOption,
   LostReportPhoto,
 } from "./lost-report-creation-types";
+import { publishReportCreation } from "../report-creation/report-creation-publish";
 import {
   ReportCreationActionButton,
   ReportCreationContactOptionSection,
+  ReportCreationDraftPersistenceAlert,
   ReportCreationExistingPetProfileList,
   ReportCreationField,
   ReportCreationInfoRow,
@@ -92,15 +95,17 @@ export function LostReportCreationScreen({
       }),
     [initialDraft, petProfiles],
   );
-  const { clearDraft, draft, setDraft } = useDurableCreationDraft({
-    initialDraft: defaultDraft,
-    kind: "lost-report",
-    scopeId: draftScopeId,
-    store: draftStore,
-  });
+  const { clearDraft, draft, draftPersistence, setDraft } =
+    useDurableCreationDraft({
+      initialDraft: defaultDraft,
+      kind: "lost-report",
+      scopeId: draftScopeId,
+      store: draftStore,
+    });
   const [publishState, setPublishState] =
     React.useState<PublishState>("editing");
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const publishLockRef = React.useRef(false);
   const viewModel = React.useMemo(
     () =>
       buildLostReportCreationViewModel({
@@ -131,19 +136,27 @@ export function LostReportCreationScreen({
     setSubmitError(null);
     setPublishState("publishing");
 
-    try {
-      await onPublishLostReport?.(
-        toPublishLostPetReportInput({
-          draft,
-          petProfiles,
-        }),
-      );
-      await clearDraft();
+    const result = await publishReportCreation({
+      clearDraft,
+      input: toPublishLostPetReportInput({
+        draft,
+        petProfiles,
+      }),
+      publishHandler: onPublishLostReport,
+      publishLock: publishLockRef,
+    });
+
+    if (result.ok) {
       setPublishState("success");
-    } catch {
-      setSubmitError("No pudimos publicar. Tu informacion sigue aqui.");
-      setPublishState("editing");
+      return;
     }
+
+    if (result.reason === "already-publishing") {
+      return;
+    }
+
+    setSubmitError(result.message);
+    setPublishState("editing");
   }, [
     clearDraft,
     draft,
@@ -168,6 +181,7 @@ export function LostReportCreationScreen({
     <LostReportCreationEditor
       addPhoto={addPhoto}
       draft={draft}
+      draftPersistence={draftPersistence}
       onClose={onClose}
       publish={publish}
       publishState={publishState}
@@ -336,6 +350,7 @@ function SuccessSponsorPlacement({
 function LostReportCreationEditor({
   addPhoto,
   draft,
+  draftPersistence,
   onClose,
   publish,
   publishState,
@@ -345,6 +360,7 @@ function LostReportCreationEditor({
 }: {
   addPhoto: () => void;
   draft: LostReportDraft;
+  draftPersistence: DurableCreationDraftPersistence;
   onClose?: () => void;
   publish: () => void;
   publishState: PublishState;
@@ -363,6 +379,9 @@ function LostReportCreationEditor({
     >
       <CreationHeader onClose={onClose} title={viewModel.title} />
       <ProgressSteps steps={viewModel.steps} />
+      <ReportCreationDraftPersistenceAlert
+        draftPersistence={draftPersistence}
+      />
       <PetProfileSection
         draft={draft}
         setDraft={setDraft}
