@@ -33,10 +33,10 @@ export const authClient = createAuthClient({
 const accountClientAdapter = createAccountClientAdapter(authClient);
 const socialAuthMessages = {
   canceled:
-    "Cancelaste el ingreso con proveedor. Puedes intentar otra vez o usar correo y contrasena.",
+    "Cancelaste el ingreso con proveedor. Puedes intentar otra vez o usar correo y contraseña.",
   failed: "No pudimos completar el ingreso con ese proveedor.",
   unavailable:
-    "Ese proveedor de acceso no esta disponible en este momento. Usa correo y contrasena o intenta mas tarde.",
+    "Ese proveedor de acceso no está disponible en este momento. Usa correo y contraseña o intenta más tarde.",
 };
 
 export interface ShellSocialAuthSignInRequest {
@@ -98,12 +98,54 @@ function getErrorMessage(error: unknown): string | undefined {
   return undefined;
 }
 
+export function getLocalizedAuthErrorMessage(
+  message: string | undefined,
+): string | undefined {
+  if (!message) {
+    return undefined;
+  }
+
+  const normalizedMessage = message.trim().toLowerCase();
+
+  if (
+    normalizedMessage === "invalid email" ||
+    normalizedMessage === "invalid email or password"
+  ) {
+    return "Correo o contraseña inválidos.";
+  }
+
+  if (normalizedMessage === "provider not found") {
+    return "Ese proveedor de acceso no está disponible en este momento.";
+  }
+
+  return message;
+}
+
+export function getLocalizedPasswordResetErrorMessage(
+  _message: string | undefined,
+) {
+  return "No pudimos enviar el enlace. Revisa el correo e intenta de nuevo.";
+}
+
+export function getShellCreateAccountDisplayName(
+  _email: string,
+  name: string | undefined,
+) {
+  const displayName = name?.trim();
+
+  if (displayName) {
+    return displayName;
+  }
+
+  return "Miembro Rastro";
+}
+
 function normalizeAuthActionResult(result: {
   error?: { message?: string } | null;
 }): ShellAuthActionResult {
   if (result.error) {
     return {
-      message: result.error.message,
+      message: getLocalizedAuthErrorMessage(result.error.message),
       ok: false,
     };
   }
@@ -118,7 +160,7 @@ async function runAuthAction(
     return normalizeAuthActionResult(await action());
   } catch (error) {
     return {
-      message: getErrorMessage(error),
+      message: getLocalizedAuthErrorMessage(getErrorMessage(error)),
       ok: false,
     };
   }
@@ -130,8 +172,11 @@ function createMobileAuthCallbackURL() {
   });
 }
 
-function createMobileAuthProxyURL(authorizationURL: string) {
-  const proxyURL = new URL("/api/auth/expo-authorization-proxy", getBaseUrl());
+export function createMobileAuthProxyURL(authorizationURL: string) {
+  const proxyURL = new URL(
+    "/api/auth/expo-authorization-proxy",
+    new URL(authorizationURL).origin,
+  );
 
   proxyURL.searchParams.set("authorizationURL", authorizationURL);
 
@@ -148,11 +193,14 @@ function persistMobileAuthCookie(setCookieHeader: string) {
   );
 }
 
-function getAvailableShellSocialAuthProviders(
+export function getAvailableShellSocialAuthProviders(
   configuredProviders: string | undefined = getConfiguredSocialAuthProviders(),
+  runtimeEnv: string | undefined = getRuntimeEnv(),
 ): ShellSocialAuthProvider[] {
+  void runtimeEnv;
+
   if (configuredProviders === undefined) {
-    return [...shellSocialAuthProviders];
+    return [];
   }
 
   const providerSet = new Set(
@@ -165,6 +213,18 @@ function getAvailableShellSocialAuthProviders(
   return shellSocialAuthProviders.filter((provider) =>
     providerSet.has(provider),
   );
+}
+
+function getRuntimeEnv(): string | undefined {
+  const globalWithProcess = globalThis as {
+    process?: {
+      env?: {
+        NODE_ENV?: string | undefined;
+      };
+    };
+  };
+
+  return globalWithProcess.process?.env?.NODE_ENV;
 }
 
 function getConfiguredSocialAuthProviders(): string | undefined {
@@ -203,7 +263,9 @@ export async function signInWithShellSocialProvider(
 
     if (result.error) {
       return {
-        message: result.error.message ?? dependencies.messages.failed,
+        message:
+          getLocalizedAuthErrorMessage(result.error.message) ??
+          dependencies.messages.failed,
         ok: false,
         reason: "failed",
       };
@@ -232,6 +294,14 @@ export async function signInWithShellSocialProvider(
       };
     }
 
+    if (!isTrustedMobileAuthCallbackURL(browserResult.url, callbackURL)) {
+      return {
+        message: dependencies.messages.failed,
+        ok: false,
+        reason: "failed",
+      };
+    }
+
     const callbackParameters = getSocialAuthCallbackParameters(
       browserResult.url,
     );
@@ -242,7 +312,9 @@ export async function signInWithShellSocialProvider(
 
     if (callbackError) {
       return {
-        message: callbackError,
+        message:
+          getLocalizedAuthErrorMessage(callbackError) ??
+          dependencies.messages.failed,
         ok: false,
         reason: "failed",
       };
@@ -263,10 +335,34 @@ export async function signInWithShellSocialProvider(
     return { ok: true };
   } catch (error) {
     return {
-      message: getErrorMessage(error) ?? dependencies.messages.failed,
+      message:
+        getLocalizedAuthErrorMessage(getErrorMessage(error)) ??
+        dependencies.messages.failed,
       ok: false,
       reason: "failed",
     };
+  }
+}
+
+export function isTrustedMobileAuthCallbackURL(
+  receivedURL: string | undefined,
+  expectedURL: string,
+): boolean {
+  if (!receivedURL) {
+    return false;
+  }
+
+  try {
+    const received = new URL(receivedURL);
+    const expected = new URL(expectedURL);
+
+    return (
+      received.protocol === expected.protocol &&
+      received.hostname === expected.hostname &&
+      received.pathname === expected.pathname
+    );
+  } catch {
+    return false;
   }
 }
 
@@ -290,7 +386,7 @@ export const shellAuthAdapter: ShellAuthAdapter = {
     runAuthAction(() =>
       authClient.signUp.email({
         email,
-        name: name ?? email,
+        name: getShellCreateAccountDisplayName(email, name),
         password,
       }),
     ),
@@ -298,10 +394,21 @@ export const shellAuthAdapter: ShellAuthAdapter = {
     accountClientAdapter.initiateAccountDeletion({
       callbackURL: "/",
     }),
-  requestPasswordResetForEmail: (email: string) =>
-    accountClientAdapter.requestPasswordResetForEmail(email, {
-      redirectTo: "/",
-    }),
+  requestPasswordResetForEmail: async (email: string) => {
+    const result = await accountClientAdapter.requestPasswordResetForEmail(
+      email,
+      {
+        redirectTo: "/",
+      },
+    );
+
+    return result.ok
+      ? result
+      : {
+          message: getLocalizedPasswordResetErrorMessage(result.message),
+          ok: false,
+        };
+  },
   signInWithEmail: ({ email, password }: ShellAuthCredentials) =>
     runAuthAction(() =>
       authClient.signIn.email({

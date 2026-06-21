@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { signInWithShellSocialProvider } from "./auth";
+import {
+  createMobileAuthProxyURL,
+  getAvailableShellSocialAuthProviders,
+  getLocalizedAuthErrorMessage,
+  getLocalizedPasswordResetErrorMessage,
+  getShellCreateAccountDisplayName,
+  isTrustedMobileAuthCallbackURL,
+  signInWithShellSocialProvider,
+} from "./auth";
 
 vi.mock("expo-secure-store", () => ({}));
 
@@ -58,7 +66,7 @@ describe("signInWithShellSocialProvider", () => {
         `https://auth.example.test/api/auth/expo-authorization-proxy?authorizationURL=${encodeURIComponent(authorizationURL)}`,
       messages: {
         canceled: "Cancelaste el ingreso.",
-        failed: "No pudimos iniciar sesion con ese proveedor.",
+        failed: "No pudimos iniciar sesión con ese proveedor.",
         unavailable: "Ese proveedor no esta disponible.",
       },
       openAuthSession: (url, callbackURL) => {
@@ -132,7 +140,7 @@ describe("signInWithShellSocialProvider", () => {
     });
 
     expect(result).toEqual({
-      message: "Provider not found",
+      message: "Ese proveedor de acceso no está disponible en este momento.",
       ok: false,
       reason: "failed",
     });
@@ -147,7 +155,7 @@ describe("signInWithShellSocialProvider", () => {
         `https://auth.example.test/api/auth/expo-authorization-proxy?authorizationURL=${encodeURIComponent(authorizationURL)}`,
       messages: {
         canceled: "Cancelaste el ingreso.",
-        failed: "No pudimos iniciar sesion con ese proveedor.",
+        failed: "No pudimos iniciar sesión con ese proveedor.",
         unavailable: "Ese proveedor no esta disponible.",
       },
       openAuthSession: () =>
@@ -170,5 +178,112 @@ describe("signInWithShellSocialProvider", () => {
       ok: false,
       reason: "canceled",
     });
+  });
+
+  it("rejects a successful handoff from an unexpected custom-scheme callback", async () => {
+    const persistedCookies: string[] = [];
+
+    const result = await signInWithShellSocialProvider("google", {
+      availableProviders: ["google"],
+      createCallbackURL: () => "rastro://auth/callback",
+      createProxyURL: (authorizationURL) =>
+        `https://auth.example.test/api/auth/expo-authorization-proxy?authorizationURL=${encodeURIComponent(authorizationURL)}`,
+      messages: {
+        canceled: "Cancelaste el ingreso.",
+        failed: "No pudimos iniciar sesión con ese proveedor.",
+        unavailable: "Ese proveedor no está disponible.",
+      },
+      openAuthSession: () =>
+        Promise.resolve({
+          type: "success",
+          url: "rastro://evil/callback?cookie=better-auth.session_token%3Dabc",
+        }),
+      persistCookie: (setCookieHeader) => {
+        persistedCookies.push(setCookieHeader);
+      },
+      signInSocial: () =>
+        Promise.resolve({
+          data: {
+            redirect: false,
+            url: "https://auth.example.test/oauth/google",
+          },
+          error: null,
+        }),
+    });
+
+    expect(result).toEqual({
+      message: "No pudimos iniciar sesión con ese proveedor.",
+      ok: false,
+      reason: "failed",
+    });
+    expect(persistedCookies).toEqual([]);
+  });
+});
+
+describe("mobile auth configuration helpers", () => {
+  it("builds the Expo auth proxy on the authorization URL origin", () => {
+    const authorizationURL =
+      "https://auth.example.test/api/auth/sign-in/social?provider=facebook&state=abc";
+
+    expect(createMobileAuthProxyURL(authorizationURL)).toBe(
+      `https://auth.example.test/api/auth/expo-authorization-proxy?authorizationURL=${encodeURIComponent(authorizationURL)}`,
+    );
+  });
+
+  it("requires an explicit social provider allowlist in production", () => {
+    expect(
+      getAvailableShellSocialAuthProviders(undefined, "production"),
+    ).toEqual([]);
+    expect(
+      getAvailableShellSocialAuthProviders(undefined, "development"),
+    ).toEqual([]);
+    expect(
+      getAvailableShellSocialAuthProviders("google", "production"),
+    ).toEqual(["google"]);
+    expect(
+      getAvailableShellSocialAuthProviders("google,facebook", "production"),
+    ).toEqual(["google", "facebook"]);
+  });
+
+  it("accepts only the expected mobile auth callback URL shape", () => {
+    expect(
+      isTrustedMobileAuthCallbackURL(
+        "rastro://auth/callback?cookie=session",
+        "rastro://auth/callback",
+      ),
+    ).toBe(true);
+    expect(
+      isTrustedMobileAuthCallbackURL(
+        "rastro://evil/callback?cookie=session",
+        "rastro://auth/callback",
+      ),
+    ).toBe(false);
+  });
+
+  it("maps common backend auth errors to Spanish recovery copy", () => {
+    expect(getLocalizedAuthErrorMessage("Invalid email")).toBe(
+      "Correo o contraseña inválidos.",
+    );
+    expect(getLocalizedAuthErrorMessage("Provider not found")).toBe(
+      "Ese proveedor de acceso no está disponible en este momento.",
+    );
+  });
+
+  it("keeps signup display names from falling back to the account email", () => {
+    expect(getShellCreateAccountDisplayName("ana@example.com", " Ana ")).toBe(
+      "Ana",
+    );
+    expect(getShellCreateAccountDisplayName("ana@example.com", undefined)).toBe(
+      "Miembro Rastro",
+    );
+  });
+
+  it("maps password-reset backend failures to Spanish recovery copy", () => {
+    expect(
+      getLocalizedPasswordResetErrorMessage("Reset password disabled"),
+    ).toBe("No pudimos enviar el enlace. Revisa el correo e intenta de nuevo.");
+    expect(getLocalizedPasswordResetErrorMessage(undefined)).toBe(
+      "No pudimos enviar el enlace. Revisa el correo e intenta de nuevo.",
+    );
   });
 });

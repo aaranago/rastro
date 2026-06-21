@@ -25,6 +25,7 @@ import type { ReportIntent } from "../../i18n";
 import type {
   ShellAuthActionResult,
   ShellAuthCredentials,
+  ShellAuthPromptAction,
   ShellSocialAuthAction,
   ShellSocialAuthProvider,
 } from "./shell-auth";
@@ -48,7 +49,10 @@ import {
   createStaticResourcesAdapter,
 } from "../resources";
 import { SightingReportCreationScreen } from "../sighting-report-creation/sighting-report-creation-screen";
-import { prepareShellAuthCredentials } from "./shell-auth";
+import {
+  prepareShellAuthCredentialsForAction,
+  prepareShellPasswordResetEmail,
+} from "./shell-auth";
 import {
   shouldShowGlobalFabForSegments,
   toShellMemberCreationSession,
@@ -68,13 +72,31 @@ interface IconProps {
   size?: number;
 }
 
-type ShellAuthPromptAction = "create-account" | "sign-in";
+type ShellAuthPromptMode = "create-account" | "password-reset" | "sign-in";
 type ShellAuthPromptPendingAction =
   | ShellAuthPromptAction
+  | "password-reset"
   | ShellSocialAuthProvider;
 
+const androidIconFallbacks: Record<string, string> = {
+  "arrow.right.to.line": "->",
+  "bell.fill": "!",
+  "checkmark.seal.fill": "OK",
+  "chevron.right": ">",
+  "eye.fill": "o",
+  "heart.fill": "<3",
+  "lock.fill": "*",
+  "megaphone.fill": "!",
+  "person.badge.plus": "+",
+  "person.crop.circle.badge.plus": "+",
+  sparkles: "*",
+  xmark: "x",
+};
+
 export function ShellIcon({ name, color, fallback, size = 22 }: IconProps) {
-  if (Platform.OS !== "ios" && fallback) {
+  const resolvedFallback = fallback ?? androidIconFallbacks[name];
+
+  if (Platform.OS !== "ios" && resolvedFallback) {
     return (
       <Text
         maxFontSizeMultiplier={1}
@@ -82,14 +104,15 @@ export function ShellIcon({ name, color, fallback, size = 22 }: IconProps) {
           styles.iconFallback,
           {
             color,
-            fontSize: fallback.length > 1 ? Math.max(9, size * 0.34) : size,
+            fontSize:
+              resolvedFallback.length > 1 ? Math.max(9, size * 0.34) : size,
             height: size,
             lineHeight: size,
             width: size,
           },
         ]}
       >
-        {fallback}
+        {resolvedFallback}
       </Text>
     );
   }
@@ -116,6 +139,7 @@ export function ShellFabHost() {
     dismissAuthPrompt,
     model,
     openReportActions,
+    requestPasswordResetFromPrompt,
     session,
     signInFromPrompt,
     signInWithSocialProviderFromPrompt,
@@ -125,7 +149,11 @@ export function ShellFabHost() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const segments = useSegments();
-  const shouldShowFab = shouldShowGlobalFabForSegments(segments);
+  const shouldShowFab = shouldDisplayGlobalReportFab({
+    isAuthPromptVisible: Boolean(state.authPrompt),
+    segments,
+    sessionKind: session.kind,
+  });
   const secureStorage = React.useMemo(
     () => createExpoSecureStoreKeyValueStorage(),
     [],
@@ -184,7 +212,7 @@ export function ShellFabHost() {
           style={({ pressed }) => [
             styles.fab,
             {
-              bottom: Math.max(insets.bottom, 12) + 76,
+              bottom: Math.max(insets.bottom, 12) + 92,
               opacity: pressed ? 0.82 : 1,
             },
           ]}
@@ -223,12 +251,14 @@ export function ShellFabHost() {
           onClose: dismissAuthPrompt,
           onContinueAsVisitor: continueAsVisitor,
           onCreateAccount: createAccountFromPrompt,
+          onRequestPasswordReset: requestPasswordResetFromPrompt,
           onSignIn: signInFromPrompt,
           onSignInWithSocialProvider: signInWithSocialProviderFromPrompt,
         }}
         copy={{
           authFailedLabel: copy.authPrompt.authFailed,
           closeLabel: copy.shell.close,
+          createAccountHelp: copy.authPrompt.createAccountHelp,
           createAccountLabel: copy.authPrompt.createAccount,
           createAccountPendingLabel: copy.authPrompt.creatingAccount,
           continueAsVisitorLabel: copy.authPrompt.continueAsVisitor,
@@ -236,11 +266,19 @@ export function ShellFabHost() {
           emailPlaceholder: copy.authPrompt.emailPlaceholder,
           formHelp: copy.authPrompt.formHelp,
           missingCredentialsLabel: copy.authPrompt.missingCredentials,
+          missingNameLabel: copy.authPrompt.missingName,
           nameLabel: copy.authPrompt.nameLabel,
           namePlaceholder: copy.authPrompt.namePlaceholder,
           passwordLabel: copy.authPrompt.passwordLabel,
           passwordPlaceholder: copy.authPrompt.passwordPlaceholder,
+          passwordResetBackLabel: copy.authPrompt.passwordResetBack,
+          passwordResetHelp: copy.authPrompt.passwordResetHelp,
+          passwordResetLabel: copy.authPrompt.passwordReset,
+          passwordResetPendingLabel: copy.authPrompt.passwordResetPending,
+          passwordResetSubmitLabel: copy.authPrompt.passwordResetSubmit,
+          passwordResetSuccessLabel: copy.authPrompt.passwordResetSuccess,
           signInLabel: copy.authPrompt.signIn,
+          signInModeLabel: copy.authPrompt.signInMode,
           signInPendingLabel: copy.authPrompt.signingIn,
           socialAuthHelp: copy.authPrompt.socialProviderHelp,
           socialProviderPendingLabel: copy.authPrompt.socialProviderPending,
@@ -307,6 +345,26 @@ export function shouldDisplayShellFirstRunTour({
   shouldShow: boolean;
 }) {
   return isVisible && shouldShow && !isSuppressed;
+}
+
+export function shouldDisplayGlobalReportFab({
+  isAuthPromptVisible,
+  segments,
+  sessionKind,
+}: {
+  isAuthPromptVisible: boolean;
+  segments: readonly string[];
+  sessionKind: "member" | "visitor";
+}) {
+  if (!shouldShowGlobalFabForSegments(segments)) {
+    return false;
+  }
+
+  return !(
+    sessionKind === "visitor" &&
+    !isAuthPromptVisible &&
+    segments.includes("(activity)")
+  );
 }
 
 function ShellFirstRunTourHost({
@@ -773,6 +831,7 @@ export function SignInPrompt({
     onCreateAccount: (
       credentials: ShellAuthCredentials,
     ) => Promise<ShellAuthActionResult>;
+    onRequestPasswordReset: (email: string) => Promise<ShellAuthActionResult>;
     onSignIn: (
       credentials: ShellAuthCredentials,
     ) => Promise<ShellAuthActionResult>;
@@ -784,6 +843,7 @@ export function SignInPrompt({
   copy: {
     authFailedLabel: string;
     closeLabel: string;
+    createAccountHelp: string;
     createAccountLabel: string;
     createAccountPendingLabel: string;
     continueAsVisitorLabel: string;
@@ -791,11 +851,19 @@ export function SignInPrompt({
     emailPlaceholder: string;
     formHelp: string;
     missingCredentialsLabel: string;
+    missingNameLabel: string;
     nameLabel: string;
     namePlaceholder: string;
     passwordLabel: string;
     passwordPlaceholder: string;
+    passwordResetBackLabel: string;
+    passwordResetHelp: string;
+    passwordResetLabel: string;
+    passwordResetPendingLabel: string;
+    passwordResetSubmitLabel: string;
+    passwordResetSuccessLabel: string;
     signInLabel: string;
+    signInModeLabel: string;
     signInPendingLabel: string;
     socialAuthHelp: string;
     socialProviderPendingLabel: (providerLabel: string) => string;
@@ -806,12 +874,22 @@ export function SignInPrompt({
   const promptState = useSignInPromptState({
     authFailedLabel: copy.authFailedLabel,
     missingCredentialsLabel: copy.missingCredentialsLabel,
+    missingNameLabel: copy.missingNameLabel,
     onCreateAccount: actions.onCreateAccount,
+    onRequestPasswordReset: actions.onRequestPasswordReset,
     onSignIn: actions.onSignIn,
     onSignInWithSocialProvider: actions.onSignInWithSocialProvider,
+    passwordResetSuccessLabel: copy.passwordResetSuccessLabel,
     prompt,
   });
   const isSubmitting = promptState.pendingAction !== null;
+  const isCreateAccountMode = promptState.mode === "create-account";
+  const isPasswordResetMode = promptState.mode === "password-reset";
+  const promptHelp = isCreateAccountMode
+    ? copy.createAccountHelp
+    : isPasswordResetMode
+      ? copy.passwordResetHelp
+      : copy.formHelp;
 
   return (
     <Modal
@@ -821,13 +899,19 @@ export function SignInPrompt({
       visible={Boolean(prompt)}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.promptBackdrop}
       >
         <ScrollView
-          contentContainerStyle={styles.promptScrollContent}
+          contentContainerStyle={[
+            styles.promptScrollContent,
+            { paddingBottom: Math.max(bottomInset, 16) + 16 },
+          ]}
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
+          scrollIndicatorInsets={{
+            bottom: Math.max(bottomInset, 16) + 16,
+          }}
         >
           <View
             accessibilityViewIsModal
@@ -859,17 +943,19 @@ export function SignInPrompt({
               {prompt?.body}
             </Text>
             <Text maxFontSizeMultiplier={1.2} style={styles.promptHelp}>
-              {copy.formHelp}
+              {promptHelp}
             </Text>
 
-            <PromptSocialProviders
-              actions={socialProviderActions}
-              disabled={isSubmitting}
-              helpLabel={copy.socialAuthHelp}
-              onSubmit={promptState.submitSocialProviderAction}
-              pendingAction={promptState.pendingAction}
-              pendingLabel={copy.socialProviderPendingLabel}
-            />
+            {!isPasswordResetMode ? (
+              <PromptSocialProviders
+                actions={socialProviderActions}
+                disabled={isSubmitting}
+                helpLabel={copy.socialAuthHelp}
+                onSubmit={promptState.submitSocialProviderAction}
+                pendingAction={promptState.pendingAction}
+                pendingLabel={copy.socialProviderPendingLabel}
+              />
+            ) : null}
 
             <View style={styles.promptFields}>
               <PromptTextField
@@ -885,32 +971,54 @@ export function SignInPrompt({
                 textContentType="emailAddress"
                 value={promptState.email}
               />
-              <PromptTextField
-                autoCapitalize="none"
-                autoComplete="password"
-                autoCorrect={false}
-                editable={!isSubmitting}
-                label={copy.passwordLabel}
-                onChangeText={promptState.setPassword}
-                placeholder={copy.passwordPlaceholder}
-                returnKeyType="done"
-                secureTextEntry
-                textContentType="password"
-                value={promptState.password}
-              />
-              <PromptTextField
-                autoCapitalize="words"
-                autoComplete="name"
-                autoCorrect
-                editable={!isSubmitting}
-                label={copy.nameLabel}
-                onChangeText={promptState.setName}
-                placeholder={copy.namePlaceholder}
-                returnKeyType="done"
-                textContentType="name"
-                value={promptState.name}
-              />
+              {!isPasswordResetMode ? (
+                <PromptTextField
+                  autoCapitalize="none"
+                  autoComplete="password"
+                  autoCorrect={false}
+                  editable={!isSubmitting}
+                  label={copy.passwordLabel}
+                  onChangeText={promptState.setPassword}
+                  placeholder={copy.passwordPlaceholder}
+                  returnKeyType="done"
+                  secureTextEntry
+                  textContentType="password"
+                  value={promptState.password}
+                />
+              ) : null}
+              {isCreateAccountMode ? (
+                <PromptTextField
+                  autoCapitalize="words"
+                  autoComplete="name"
+                  autoCorrect
+                  editable={!isSubmitting}
+                  label={copy.nameLabel}
+                  onChangeText={promptState.setName}
+                  placeholder={copy.namePlaceholder}
+                  returnKeyType="done"
+                  textContentType="name"
+                  value={promptState.name}
+                />
+              ) : null}
             </View>
+
+            {promptState.mode === "sign-in" ? (
+              <Pressable
+                accessibilityLabel={copy.passwordResetLabel}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: isSubmitting }}
+                disabled={isSubmitting}
+                onPress={promptState.openPasswordResetMode}
+                style={styles.promptTextButton}
+              >
+                <Text
+                  maxFontSizeMultiplier={1.15}
+                  style={styles.promptTextButtonLabel}
+                >
+                  {copy.passwordResetLabel}
+                </Text>
+              </Pressable>
+            ) : null}
 
             {promptState.authError ? (
               <Text
@@ -922,15 +1030,33 @@ export function SignInPrompt({
               </Text>
             ) : null}
 
+            {promptState.authSuccess ? (
+              <Text
+                accessibilityRole="alert"
+                maxFontSizeMultiplier={1.2}
+                style={styles.promptSuccess}
+              >
+                {promptState.authSuccess}
+              </Text>
+            ) : null}
+
             <PromptActions
               continueAsVisitorLabel={copy.continueAsVisitorLabel}
               createAccountLabel={copy.createAccountLabel}
               createAccountPendingLabel={copy.createAccountPendingLabel}
               isSubmitting={isSubmitting}
+              mode={promptState.mode}
               onContinueAsVisitor={actions.onContinueAsVisitor}
+              onOpenCreateAccountMode={promptState.openCreateAccountMode}
+              onOpenSignInMode={promptState.openSignInMode}
+              onSubmitPasswordReset={promptState.submitPasswordReset}
               onSubmitAuthAction={promptState.submitAuthAction}
+              passwordResetBackLabel={copy.passwordResetBackLabel}
+              passwordResetPendingLabel={copy.passwordResetPendingLabel}
+              passwordResetSubmitLabel={copy.passwordResetSubmitLabel}
               pendingAction={promptState.pendingAction}
               signInLabel={copy.signInLabel}
+              signInModeLabel={copy.signInModeLabel}
               signInPendingLabel={copy.signInPendingLabel}
             />
           </View>
@@ -943,32 +1069,40 @@ export function SignInPrompt({
 interface SignInPromptStateInput {
   authFailedLabel: string;
   missingCredentialsLabel: string;
+  missingNameLabel: string;
   onCreateAccount: (
     credentials: ShellAuthCredentials,
   ) => Promise<ShellAuthActionResult>;
+  onRequestPasswordReset: (email: string) => Promise<ShellAuthActionResult>;
   onSignIn: (
     credentials: ShellAuthCredentials,
   ) => Promise<ShellAuthActionResult>;
   onSignInWithSocialProvider: (
     provider: ShellSocialAuthProvider,
   ) => Promise<ShellAuthActionResult>;
+  passwordResetSuccessLabel: string;
   prompt: ShellAuthPrompt | null;
 }
 
 function useSignInPromptState({
   authFailedLabel,
   missingCredentialsLabel,
+  missingNameLabel,
   onCreateAccount,
+  onRequestPasswordReset,
   onSignIn,
   onSignInWithSocialProvider,
+  passwordResetSuccessLabel,
   prompt,
 }: SignInPromptStateInput) {
   const [email, setEmail] = React.useState("");
   const [name, setName] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [mode, setMode] = React.useState<ShellAuthPromptMode>("sign-in");
   const [authError, setAuthError] = React.useState<string | null | undefined>(
     undefined,
   );
+  const [authSuccess, setAuthSuccess] = React.useState<string | null>(null);
   const [pendingAction, setPendingAction] =
     React.useState<ShellAuthPromptPendingAction | null>(null);
 
@@ -978,27 +1112,37 @@ function useSignInPromptState({
       setEmail("");
       setName("");
       setPassword("");
+      setMode("sign-in");
       setPendingAction(null);
+      setAuthSuccess(null);
       return;
     }
 
     setAuthError(undefined);
+    setAuthSuccess(null);
+    setMode("sign-in");
   }, [prompt]);
 
   const submitAuthAction = React.useCallback(
     async (action: ShellAuthPromptAction) => {
-      const prepared = prepareShellAuthCredentials({
+      const prepared = prepareShellAuthCredentialsForAction({
+        action,
         email,
         name,
         password,
       });
 
       if (!prepared.ok) {
-        setAuthError(missingCredentialsLabel);
+        setAuthError(
+          prepared.reason === "missing-name"
+            ? missingNameLabel
+            : missingCredentialsLabel,
+        );
         return;
       }
 
       setAuthError(null);
+      setAuthSuccess(null);
       setPendingAction(action);
 
       const result =
@@ -1016,6 +1160,7 @@ function useSignInPromptState({
       authFailedLabel,
       email,
       missingCredentialsLabel,
+      missingNameLabel,
       name,
       onCreateAccount,
       onSignIn,
@@ -1023,9 +1168,41 @@ function useSignInPromptState({
     ],
   );
 
+  const submitPasswordReset = React.useCallback(async () => {
+    const prepared = prepareShellPasswordResetEmail(email);
+
+    if (!prepared.ok) {
+      setAuthSuccess(null);
+      setAuthError(missingCredentialsLabel);
+      return;
+    }
+
+    setAuthError(null);
+    setAuthSuccess(null);
+    setPendingAction("password-reset");
+
+    const result = await onRequestPasswordReset(prepared.email);
+
+    setPendingAction(null);
+
+    if (result.ok) {
+      setAuthSuccess(passwordResetSuccessLabel);
+      return;
+    }
+
+    setAuthError(result.message ?? authFailedLabel);
+  }, [
+    authFailedLabel,
+    email,
+    missingCredentialsLabel,
+    onRequestPasswordReset,
+    passwordResetSuccessLabel,
+  ]);
+
   const submitSocialProviderAction = React.useCallback(
     async (action: ShellSocialAuthAction) => {
       setAuthError(null);
+      setAuthSuccess(null);
       setPendingAction(action.provider);
 
       const result = await onSignInWithSocialProvider(action.provider);
@@ -1041,14 +1218,32 @@ function useSignInPromptState({
 
   return {
     authError: authError === undefined ? (prompt?.error ?? null) : authError,
+    authSuccess,
     email,
+    mode,
     name,
+    openCreateAccountMode: () => {
+      setAuthError(null);
+      setAuthSuccess(null);
+      setMode("create-account");
+    },
+    openPasswordResetMode: () => {
+      setAuthError(null);
+      setAuthSuccess(null);
+      setMode("password-reset");
+    },
+    openSignInMode: () => {
+      setAuthError(null);
+      setAuthSuccess(null);
+      setMode("sign-in");
+    },
     password,
     pendingAction,
     setEmail,
     setName,
     setPassword,
     submitAuthAction,
+    submitPasswordReset,
     submitSocialProviderAction,
   };
 }
@@ -1152,49 +1347,213 @@ function PromptActions({
   createAccountLabel,
   createAccountPendingLabel,
   isSubmitting,
+  mode,
   onContinueAsVisitor,
+  onOpenCreateAccountMode,
+  onOpenSignInMode,
+  onSubmitPasswordReset,
   onSubmitAuthAction,
+  passwordResetBackLabel,
+  passwordResetPendingLabel,
+  passwordResetSubmitLabel,
   pendingAction,
   signInLabel,
+  signInModeLabel,
   signInPendingLabel,
-}: {
+}: PromptActionsProps) {
+  if (mode === "password-reset") {
+    return (
+      <PromptPasswordResetActions
+        continueAsVisitorLabel={continueAsVisitorLabel}
+        isSubmitting={isSubmitting}
+        onContinueAsVisitor={onContinueAsVisitor}
+        onOpenSignInMode={onOpenSignInMode}
+        onSubmitPasswordReset={onSubmitPasswordReset}
+        passwordResetBackLabel={passwordResetBackLabel}
+        passwordResetPendingLabel={passwordResetPendingLabel}
+        passwordResetSubmitLabel={passwordResetSubmitLabel}
+        pendingAction={pendingAction}
+      />
+    );
+  }
+
+  return (
+    <PromptEmailAuthActions
+      continueAsVisitorLabel={continueAsVisitorLabel}
+      createAccountLabel={createAccountLabel}
+      createAccountPendingLabel={createAccountPendingLabel}
+      isSubmitting={isSubmitting}
+      mode={mode}
+      onContinueAsVisitor={onContinueAsVisitor}
+      onOpenCreateAccountMode={onOpenCreateAccountMode}
+      onOpenSignInMode={onOpenSignInMode}
+      onSubmitAuthAction={onSubmitAuthAction}
+      pendingAction={pendingAction}
+      signInLabel={signInLabel}
+      signInModeLabel={signInModeLabel}
+      signInPendingLabel={signInPendingLabel}
+    />
+  );
+}
+
+interface PromptActionsProps {
   continueAsVisitorLabel: string;
   createAccountLabel: string;
   createAccountPendingLabel: string;
   isSubmitting: boolean;
+  mode: ShellAuthPromptMode;
   onContinueAsVisitor: () => void;
+  onOpenCreateAccountMode: () => void;
+  onOpenSignInMode: () => void;
+  onSubmitPasswordReset: () => Promise<void>;
   onSubmitAuthAction: (action: ShellAuthPromptAction) => Promise<void>;
+  passwordResetBackLabel: string;
+  passwordResetPendingLabel: string;
+  passwordResetSubmitLabel: string;
   pendingAction: ShellAuthPromptPendingAction | null;
   signInLabel: string;
+  signInModeLabel: string;
   signInPendingLabel: string;
-}) {
+}
+
+function PromptEmailAuthActions({
+  continueAsVisitorLabel,
+  createAccountLabel,
+  createAccountPendingLabel,
+  isSubmitting,
+  mode,
+  onContinueAsVisitor,
+  onOpenCreateAccountMode,
+  onOpenSignInMode,
+  onSubmitAuthAction,
+  pendingAction,
+  signInLabel,
+  signInModeLabel,
+  signInPendingLabel,
+}: Pick<
+  PromptActionsProps,
+  | "continueAsVisitorLabel"
+  | "createAccountLabel"
+  | "createAccountPendingLabel"
+  | "isSubmitting"
+  | "mode"
+  | "onContinueAsVisitor"
+  | "onOpenCreateAccountMode"
+  | "onOpenSignInMode"
+  | "onSubmitAuthAction"
+  | "pendingAction"
+  | "signInLabel"
+  | "signInModeLabel"
+  | "signInPendingLabel"
+>) {
+  const isCreateAccountMode = mode === "create-account";
+
   return (
     <View style={styles.promptActions}>
       <PromptActionButton
         disabled={isSubmitting}
         iconColor={shellColors.white}
-        iconName="arrow.right.to.line"
-        label={pendingAction === "sign-in" ? signInPendingLabel : signInLabel}
+        iconName={
+          isCreateAccountMode ? "person.badge.plus" : "arrow.right.to.line"
+        }
+        label={
+          isCreateAccountMode
+            ? pendingAction === "create-account"
+              ? createAccountPendingLabel
+              : createAccountLabel
+            : pendingAction === "sign-in"
+              ? signInPendingLabel
+              : signInLabel
+        }
         onPress={() => {
-          void onSubmitAuthAction("sign-in");
+          void onSubmitAuthAction(
+            isCreateAccountMode ? "create-account" : "sign-in",
+          );
         }}
         variant="primary"
       />
       <PromptActionButton
         disabled={isSubmitting}
         iconColor={shellColors.primary}
-        iconName="person.badge.plus"
-        label={
-          pendingAction === "create-account"
-            ? createAccountPendingLabel
-            : createAccountLabel
+        iconName={
+          isCreateAccountMode ? "arrow.right.to.line" : "person.badge.plus"
         }
-        onPress={() => {
-          void onSubmitAuthAction("create-account");
-        }}
+        label={isCreateAccountMode ? signInModeLabel : createAccountLabel}
+        onPress={
+          isCreateAccountMode ? onOpenSignInMode : onOpenCreateAccountMode
+        }
         variant="secondary"
       />
-      <Pressable disabled={isSubmitting} onPress={onContinueAsVisitor}>
+      <Pressable
+        accessibilityLabel={continueAsVisitorLabel}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: isSubmitting }}
+        disabled={isSubmitting}
+        onPress={onContinueAsVisitor}
+        style={styles.visitorLinkButton}
+      >
+        <Text maxFontSizeMultiplier={1.2} style={styles.visitorLink}>
+          {continueAsVisitorLabel}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function PromptPasswordResetActions({
+  continueAsVisitorLabel,
+  isSubmitting,
+  onContinueAsVisitor,
+  onOpenSignInMode,
+  onSubmitPasswordReset,
+  passwordResetBackLabel,
+  passwordResetPendingLabel,
+  passwordResetSubmitLabel,
+  pendingAction,
+}: Pick<
+  PromptActionsProps,
+  | "continueAsVisitorLabel"
+  | "isSubmitting"
+  | "onContinueAsVisitor"
+  | "onOpenSignInMode"
+  | "onSubmitPasswordReset"
+  | "passwordResetBackLabel"
+  | "passwordResetPendingLabel"
+  | "passwordResetSubmitLabel"
+  | "pendingAction"
+>) {
+  return (
+    <View style={styles.promptActions}>
+      <PromptActionButton
+        disabled={isSubmitting}
+        iconColor={shellColors.white}
+        iconName="arrow.right.to.line"
+        label={
+          pendingAction === "password-reset"
+            ? passwordResetPendingLabel
+            : passwordResetSubmitLabel
+        }
+        onPress={() => {
+          void onSubmitPasswordReset();
+        }}
+        variant="primary"
+      />
+      <PromptActionButton
+        disabled={isSubmitting}
+        iconColor={shellColors.primary}
+        iconName="arrow.right.to.line"
+        label={passwordResetBackLabel}
+        onPress={onOpenSignInMode}
+        variant="secondary"
+      />
+      <Pressable
+        accessibilityLabel={continueAsVisitorLabel}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: isSubmitting }}
+        disabled={isSubmitting}
+        onPress={onContinueAsVisitor}
+        style={styles.visitorLinkButton}
+      >
         <Text maxFontSizeMultiplier={1.2} style={styles.visitorLink}>
           {continueAsVisitorLabel}
         </Text>
@@ -1378,7 +1737,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     justifyContent: "center",
-    minHeight: 58,
+    minHeight: 54,
     paddingHorizontal: 18,
   },
   primaryPromptButtonText: {
@@ -1388,8 +1747,8 @@ const styles = StyleSheet.create({
   },
   promptActions: {
     alignSelf: "stretch",
-    gap: 12,
-    marginTop: 12,
+    gap: 10,
+    marginTop: 8,
   },
   promptBackdrop: {
     backgroundColor: "rgba(20, 108, 90, 0.12)",
@@ -1398,8 +1757,9 @@ const styles = StyleSheet.create({
   promptScrollContent: {
     alignItems: "center",
     flexGrow: 1,
-    justifyContent: "center",
-    padding: 16,
+    justifyContent: "flex-start",
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   promptBody: {
     color: shellColors.muted,
@@ -1410,30 +1770,30 @@ const styles = StyleSheet.create({
   promptCard: {
     alignItems: "center",
     backgroundColor: shellColors.surface,
-    borderRadius: 28,
+    borderRadius: 24,
     boxShadow: "0 18px 40px rgba(23, 32, 28, 0.14)",
-    gap: 14,
+    gap: 10,
     maxWidth: 420,
-    padding: 26,
+    padding: 18,
     width: "100%",
   },
   promptCloseButton: {
     alignItems: "center",
-    height: 40,
+    height: 48,
     justifyContent: "center",
     position: "absolute",
     right: 14,
     top: 14,
-    width: 40,
+    width: 48,
   },
   promptIcon: {
     alignItems: "center",
     backgroundColor: shellColors.primarySoft,
-    borderRadius: 42,
-    height: 84,
+    borderRadius: 30,
+    height: 60,
     justifyContent: "center",
-    marginTop: 10,
-    width: 84,
+    marginTop: 4,
+    width: 60,
   },
   promptError: {
     alignSelf: "stretch",
@@ -1478,9 +1838,33 @@ const styles = StyleSheet.create({
   },
   promptTitle: {
     color: shellColors.text,
-    fontSize: 27,
+    fontSize: 24,
     fontWeight: "800",
     textAlign: "center",
+  },
+  promptSuccess: {
+    alignSelf: "stretch",
+    backgroundColor: "#EAF7EF",
+    borderColor: "#B7DFC5",
+    borderRadius: 16,
+    borderWidth: 1,
+    color: "#1F6B3A",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
+    padding: 12,
+  },
+  promptTextButton: {
+    alignSelf: "center",
+    justifyContent: "center",
+    minHeight: 48,
+    paddingHorizontal: 8,
+  },
+  promptTextButtonLabel: {
+    color: shellColors.primary,
+    fontSize: 14,
+    fontWeight: "800",
+    textDecorationLine: "underline",
   },
   tourBackdrop: {
     alignItems: "center",
@@ -1594,7 +1978,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     justifyContent: "center",
-    minHeight: 56,
+    minHeight: 54,
     paddingHorizontal: 18,
   },
   secondaryPromptButtonText: {
@@ -1657,8 +2041,12 @@ const styles = StyleSheet.create({
     color: shellColors.muted,
     fontSize: 15,
     fontWeight: "600",
-    paddingVertical: 8,
     textAlign: "center",
     textDecorationLine: "underline",
+  },
+  visitorLinkButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 48,
   },
 });

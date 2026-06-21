@@ -72,7 +72,7 @@ describe("Profile visitor auth entry", () => {
       screen,
       (element) =>
         element.type === "Pressable" &&
-        element.props.accessibilityLabel === "Iniciar sesion",
+        element.props.accessibilityLabel === "Iniciar sesión",
     );
 
     expect(button?.props.accessibilityRole).toBe("button");

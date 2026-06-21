@@ -53,6 +53,9 @@ interface RastroShellContextValue {
   createAccountFromPrompt: (
     credentials: ShellAuthCredentials,
   ) => Promise<ShellAuthActionResult>;
+  requestPasswordResetFromPrompt: (
+    email: string,
+  ) => Promise<ShellAuthActionResult>;
   requestMemberPasswordReset: () => Promise<ShellAuthActionResult>;
   initiateAccountDeletion: () => Promise<ShellAuthActionResult>;
   signOutMember: () => Promise<ShellAuthActionResult>;
@@ -301,6 +304,22 @@ export function RastroShellProvider({
       return authAdapter.requestPasswordResetForEmail(session.email);
     }, [authAdapter, copy, session]);
 
+  const requestPasswordResetFromPrompt = React.useCallback(
+    async (email: string): Promise<ShellAuthActionResult> => {
+      const normalizedEmail = email.trim().toLowerCase();
+
+      if (!normalizedEmail) {
+        return {
+          message: copy.authPrompt.missingCredentials,
+          ok: false,
+        };
+      }
+
+      return authAdapter.requestPasswordResetForEmail(normalizedEmail);
+    },
+    [authAdapter, copy.authPrompt.missingCredentials],
+  );
+
   const initiateAccountDeletion =
     React.useCallback(async (): Promise<ShellAuthActionResult> => {
       if (session.kind !== "member") {
@@ -360,6 +379,7 @@ export function RastroShellProvider({
       signInFromPrompt,
       signInWithSocialProviderFromPrompt,
       createAccountFromPrompt,
+      requestPasswordResetFromPrompt,
       requestMemberPasswordReset,
       initiateAccountDeletion,
       signOutMember,
@@ -379,6 +399,7 @@ export function RastroShellProvider({
       openReportActions,
       requestAuthPrompt,
       requestMemberPasswordReset,
+      requestPasswordResetFromPrompt,
       session,
       signInFromPrompt,
       signInWithSocialProviderFromPrompt,

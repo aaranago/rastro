@@ -36,10 +36,10 @@ describe("Activity view model", () => {
       signedOut: {
         action: {
           href: "rastro://auth/sign-in?returnTo=/actividad",
-          label: "Iniciar sesion",
+          label: "Iniciar sesión",
         },
-        body: "Tus alertas, mensajes y actualizaciones apareceran aqui cuando seas miembro.",
-        title: "Inicia sesion para ver tu actividad",
+        body: "Tus alertas, mensajes y actualizaciones aparecerán aquí cuando seas miembro.",
+        title: "Inicia sesión para ver tu actividad",
       },
       title: "Actividad",
     });
@@ -99,8 +99,8 @@ describe("Activity view model", () => {
 
     expect(viewModel).toMatchObject({
       emptyState: {
-        body: "Tus alertas cercanas, chats, actualizaciones y coincidencias apareceran aqui.",
-        title: "Sin actividad todavia",
+        body: "Tus alertas cercanas, chats, actualizaciones y coincidencias aparecerán aquí.",
+        title: "Sin actividad todavía",
       },
       kind: "member",
       sections: [],

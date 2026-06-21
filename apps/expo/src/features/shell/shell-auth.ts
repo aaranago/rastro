@@ -23,6 +23,8 @@ export interface ShellAuthCredentials {
   password: string;
 }
 
+export type ShellAuthPromptAction = "create-account" | "sign-in";
+
 export const shellSocialAuthProviders = ["google", "facebook"] as const;
 
 export type ShellSocialAuthProvider = (typeof shellSocialAuthProviders)[number];
@@ -49,7 +51,7 @@ export type ShellAuthCredentialsResult =
     }
   | {
       ok: false;
-      reason: "missing-credentials";
+      reason: "missing-credentials" | "missing-name";
     };
 
 export interface ShellAuthAdapter {
@@ -113,6 +115,58 @@ export function prepareShellAuthCredentials({
 
   return {
     credentials,
+    ok: true,
+  };
+}
+
+export function prepareShellAuthCredentialsForAction({
+  action,
+  email,
+  name,
+  password,
+}: ShellAuthCredentials & {
+  action: ShellAuthPromptAction;
+}): ShellAuthCredentialsResult {
+  const prepared = prepareShellAuthCredentials({
+    email,
+    name: action === "create-account" ? name : undefined,
+    password,
+  });
+
+  if (!prepared.ok) {
+    return prepared;
+  }
+
+  if (action === "create-account" && !prepared.credentials.name) {
+    return {
+      ok: false,
+      reason: "missing-name",
+    };
+  }
+
+  return prepared;
+}
+
+export function prepareShellPasswordResetEmail(email: string):
+  | {
+      email: string;
+      ok: true;
+    }
+  | {
+      ok: false;
+      reason: "missing-email";
+    } {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return {
+      ok: false,
+      reason: "missing-email",
+    };
+  }
+
+  return {
+    email: normalizedEmail,
     ok: true,
   };
 }

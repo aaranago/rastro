@@ -116,12 +116,12 @@ const activityCopy = {
   actions: {
     openChat: "Abrir chat",
     reviewMatch: "Revisar coincidencia",
-    signIn: "Iniciar sesion",
+    signIn: "Iniciar sesión",
     viewReport: "Ver reporte",
   },
   emptyMember: {
-    body: "Tus alertas cercanas, chats, actualizaciones y coincidencias apareceran aqui.",
-    title: "Sin actividad todavia",
+    body: "Tus alertas cercanas, chats, actualizaciones y coincidencias aparecerán aquí.",
+    title: "Sin actividad todavía",
   },
   memberSubtitle: "Alertas, mensajes y actualizaciones",
   sections: {
@@ -131,8 +131,8 @@ const activityCopy = {
     reportUpdates: "Actualizaciones",
   },
   signedOut: {
-    body: "Tus alertas, mensajes y actualizaciones apareceran aqui cuando seas miembro.",
-    title: "Inicia sesion para ver tu actividad",
+    body: "Tus alertas, mensajes y actualizaciones aparecerán aquí cuando seas miembro.",
+    title: "Inicia sesión para ver tu actividad",
   },
   title: "Actividad",
 } as const;

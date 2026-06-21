@@ -36,7 +36,15 @@ export interface ShellCopy {
     signIn: string;
     signingIn: string;
     createAccount: string;
+    createAccountHelp: string;
     creatingAccount: string;
+    signInMode: string;
+    passwordReset: string;
+    passwordResetBack: string;
+    passwordResetHelp: string;
+    passwordResetSubmit: string;
+    passwordResetPending: string;
+    passwordResetSuccess: string;
     socialProviderLabels: Record<"facebook" | "google", string>;
     socialProviderHelp: string;
     socialProviderPending: (providerLabel: string) => string;
@@ -45,6 +53,7 @@ export interface ShellCopy {
     continueAsVisitor: string;
     formHelp: string;
     missingCredentials: string;
+    missingName: string;
     authFailed: string;
   };
   appStates: AppStateCatalog;
@@ -121,12 +130,12 @@ const esBO: ShellCopy = {
   locale: "es-BO",
   brand: {
     name: "Rastro",
-    tagline: "Red de recuperacion de mascotas",
+    tagline: "Red de recuperación de mascotas",
   },
   shell: {
     reportFabLabel: "Abrir acciones de reporte",
     reportSheetTitle: "Crear un reporte",
-    reportSheetSubtitle: "Elige que paso quieres iniciar",
+    reportSheetSubtitle: "Elige qué paso quieres iniciar",
     close: "Cerrar",
     signedOut: "Visitante",
     signedIn: "Miembro",
@@ -139,39 +148,50 @@ const esBO: ShellCopy = {
     profile: "Perfil",
   },
   reportActions: {
-    lost: "Reportar perdida",
+    lost: "Reportar pérdida",
     found: "Reportar encontrada",
     sighting: "Reportar avistamiento",
-    adoption: "Dar en adopcion",
+    adoption: "Dar en adopción",
   },
   authPrompt: {
-    title: "Inicia sesion para continuar",
-    body: "Inicia sesion o crea una cuenta para guardar tu actividad y continuar en Rastro.",
+    title: "Inicia sesión para continuar",
+    body: "Inicia sesión o crea una cuenta para guardar tu actividad y continuar en Rastro.",
     bodyForIntent: (intentLabel) =>
-      `Guardamos tu seleccion: ${intentLabel}. Inicia sesion para reportar o ver tu actividad.`,
+      `Guardamos tu selección: ${intentLabel}. Inicia sesión para reportar o ver tu actividad.`,
     emailLabel: "Correo",
     emailPlaceholder: "tu-correo@ejemplo.com",
-    passwordLabel: "Contrasena",
-    passwordPlaceholder: "Tu contrasena",
-    nameLabel: "Nombre publico",
-    namePlaceholder: "Opcional para crear cuenta",
-    signIn: "Iniciar sesion",
-    signingIn: "Iniciando sesion",
+    passwordLabel: "Contraseña",
+    passwordPlaceholder: "Tu contraseña",
+    nameLabel: "Nombre público",
+    namePlaceholder: "Tu nombre público",
+    signIn: "Iniciar sesión",
+    signingIn: "Iniciando sesión",
     createAccount: "Crear cuenta",
+    createAccountHelp:
+      "Crea una cuenta con correo, contraseña y un nombre público para tus reportes.",
     creatingAccount: "Creando cuenta",
+    signInMode: "Ya tengo cuenta",
+    passwordReset: "Olvidé mi contraseña",
+    passwordResetBack: "Volver a iniciar sesión",
+    passwordResetHelp:
+      "Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.",
+    passwordResetSubmit: "Enviar enlace",
+    passwordResetPending: "Enviando enlace",
+    passwordResetSuccess: "Revisa tu correo para cambiar tu contraseña.",
     socialProviderLabels: {
       facebook: "Continuar con Facebook",
       google: "Continuar con Google",
     },
-    socialProviderHelp: "Tambien puedes acceder con:",
+    socialProviderHelp: "También puedes acceder con:",
     socialProviderPending: (providerLabel) => `${providerLabel}...`,
     socialProviderUnavailable:
-      "Ese proveedor de acceso no esta disponible en este momento. Usa correo y contrasena o intenta mas tarde.",
+      "Ese proveedor de acceso no está disponible en este momento. Usa correo y contraseña o intenta más tarde.",
     socialAuthCanceled:
-      "Cancelaste el ingreso con proveedor. Puedes intentar otra vez o usar correo y contrasena.",
+      "Cancelaste el ingreso con proveedor. Puedes intentar otra vez o usar correo y contraseña.",
     continueAsVisitor: "Continuar como visitante",
-    formHelp: "Usa correo y contrasena para una cuenta Rastro en Bolivia.",
-    missingCredentials: "Ingresa correo y contrasena para continuar.",
+    formHelp: "Usa correo y contraseña para una cuenta Rastro en Bolivia.",
+    missingCredentials: "Ingresa correo y contraseña para continuar.",
+    missingName: "Ingresa un nombre público para crear tu cuenta.",
     authFailed:
       "No pudimos completar el ingreso. Revisa tus datos e intenta de nuevo.",
   },
@@ -180,12 +200,12 @@ const esBO: ShellCopy = {
       loading: {
         kind: "loading",
         title: "Cargando Rastro",
-        body: "Preparando la informacion mas reciente.",
+        body: "Preparando la información más reciente.",
         progressLabel: "Un momento",
       },
       empty: {
         kind: "empty",
-        title: "Nada por aqui todavia",
+        title: "Nada por aquí todavía",
         body: "Busca por ciudad, cambia filtros o crea un reporte cuando necesites ayuda.",
         actions: [
           {
@@ -218,7 +238,7 @@ const esBO: ShellCopy = {
         actions: [
           {
             id: "manual-search",
-            label: "Usar busqueda manual",
+            label: "Usar búsqueda manual",
             iconName: "magnifyingglass",
           },
           {
@@ -292,7 +312,7 @@ const esBO: ShellCopy = {
         body: "Te avisaremos de nuevas mascotas perdidas cerca de tu zona cuando actives alertas.",
         iconName: "bell.badge.fill",
         reasons: [
-          "Solo enviamos alertas de recuperacion cercanas.",
+          "Solo enviamos alertas de recuperación cercanas.",
           "No enviamos patrocinadores como notificaciones.",
         ],
         actions: [
@@ -316,7 +336,7 @@ const esBO: ShellCopy = {
         body: "Una foto clara ayuda a reconocer a la mascota y completar el reporte.",
         iconName: "camera.fill",
         reasons: [
-          "Usa camara o galeria cuando crees un reporte.",
+          "Usa cámara o galería cuando crees un reporte.",
           "Quitamos datos EXIF antes de subir imagenes.",
         ],
         actions: [
@@ -337,7 +357,7 @@ const esBO: ShellCopy = {
         permission: "background-location",
         context: "moving-alerts",
         title: "Alertas mientras me muevo",
-        body: "Opcional: usa ubicacion en segundo plano solo para alertas mientras me muevo.",
+        body: "Opcional: usa ubicación en segundo plano solo para alertas mientras me muevo.",
         iconName: "figure.walk.motion",
         reasons: [
           "No es necesario para navegar Cerca.",
@@ -361,7 +381,7 @@ const esBO: ShellCopy = {
   screens: {
     nearby: {
       title: "Mascotas cerca de ti",
-      visitorGreeting: "Hola, estas en Rastro",
+      visitorGreeting: "Hola, estás en Rastro",
       memberGreeting: "Hola, Camila",
       subtitle: "Explora reportes y recursos cerca de tu zona.",
       alertTitle: "Alerta activa",
@@ -369,18 +389,18 @@ const esBO: ShellCopy = {
       filterLost: "Perdidas",
       filterFound: "Encontradas",
       filterSightings: "Vistas",
-      filterAdoption: "Adopcion",
-      emptyTitle: "Todavia no hay reportes cerca",
+      filterAdoption: "Adopción",
+      emptyTitle: "Todavía no hay reportes cerca",
       emptyBody:
         "Puedes revisar por ciudad, cambiar filtros o crear un reporte cuando necesites ayuda.",
       locationHint: "Zona aproximada: La Paz, Bolivia",
     },
     activity: {
       title: "Actividad",
-      visitorTitle: "Inicia sesion para ver tu actividad",
+      visitorTitle: "Inicia sesión para ver tu actividad",
       visitorBody:
-        "Tus alertas, mensajes y actualizaciones apareceran aqui cuando seas miembro.",
-      memberTitle: "Tu actividad de recuperacion",
+        "Tus alertas, mensajes y actualizaciones aparecerán aquí cuando seas miembro.",
+      memberTitle: "Tu actividad de recuperación",
       memberBody: "Alertas, mensajes y cambios importantes en tus reportes.",
       alertHistory: "Historial de alertas",
       messages: "Mensajes",
@@ -400,7 +420,7 @@ const esBO: ShellCopy = {
       title: "Perfil",
       visitorTitle: "Usas Rastro como visitante",
       visitorBody:
-        "Puedes explorar Cerca y Recursos. Inicia sesion para crear reportes y guardar tu actividad.",
+        "Puedes explorar Cerca y Recursos. Inicia sesión para crear reportes y guardar tu actividad.",
       memberTitle: "Camila Rodriguez",
       memberBody: "Miembro en La Paz con alertas cercanas activas.",
       pets: "Mis mascotas",
@@ -410,16 +430,16 @@ const esBO: ShellCopy = {
       account: {
         title: "Cuenta",
         emailLabel: "Correo de acceso",
-        passwordResetTitle: "Contrasena",
+        passwordResetTitle: "Contraseña",
         passwordResetBody: (email) =>
-          `Enviaremos un enlace a ${email} para restablecer tu contrasena.`,
+          `Enviaremos un enlace a ${email} para restablecer tu contraseña.`,
         passwordResetAction: "Enviar enlace de restablecimiento",
         passwordResetPending: "Enviando enlace",
-        passwordResetSuccess: "Revisa tu correo para cambiar tu contrasena.",
+        passwordResetSuccess: "Revisa tu correo para cambiar tu contraseña.",
         passwordResetUnavailable:
-          "Necesitas un correo en tu cuenta para restablecer la contrasena.",
-        signOutAction: "Cerrar sesion",
-        signOutPending: "Cerrando sesion",
+          "Necesitas un correo en tu cuenta para restablecer la contraseña.",
+        signOutAction: "Cerrar sesión",
+        signOutPending: "Cerrando sesión",
         deletionTitle: "Eliminar cuenta",
         deletionBody:
           "Puedes iniciar la eliminacion de tu cuenta desde Rastro. Conservamos solo lo necesario para seguridad, moderacion y recuperacion.",

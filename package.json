@@ -42,10 +42,5 @@
     "typescript": "catalog:"
   },
   "prettier": "@acme/prettier-config",
-  "version": "1.0.0",
-  "dependencies": {
-    "expo": "~56.0.12",
-    "react": "19.2.3",
-    "react-native": "0.85.3"
-  }
+  "version": "1.0.0"
 }

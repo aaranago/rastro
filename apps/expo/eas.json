@@ -14,17 +14,26 @@
     "development": {
       "extends": "base",
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS": "google,facebook"
+      }
     },
     "preview": {
       "extends": "base",
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS": "google,facebook"
+      },
       "ios": {
         "simulator": true
       }
     },
     "production": {
-      "extends": "base"
+      "extends": "base",
+      "env": {
+        "EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS": "google,facebook"
+      }
     }
   },
   "submit": {

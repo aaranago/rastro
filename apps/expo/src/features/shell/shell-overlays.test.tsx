@@ -1,7 +1,11 @@
 import * as React from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { shouldDisplayShellFirstRunTour, SignInPrompt } from "./shell-overlays";
+import {
+  shouldDisplayGlobalReportFab,
+  shouldDisplayShellFirstRunTour,
+  SignInPrompt,
+} from "./shell-overlays";
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof React>("react");
@@ -115,8 +119,68 @@ describe("SignInPrompt", () => {
     expect(findText(screen, "Continuar con Google")).toBeTruthy();
     expect(findText(screen, "Continuar con Facebook")).toBeTruthy();
     expect(findText(screen, "Correo")).toBeTruthy();
-    expect(findText(screen, "Contrasena")).toBeTruthy();
-    expect(findText(screen, "Iniciar sesion")).toBeTruthy();
+    expect(findText(screen, "Contraseña")).toBeTruthy();
+    expect(findText(screen, "Iniciar sesión")).toBeTruthy();
+  });
+
+  it("starts in sign-in mode without public-name collection and with password reset available", () => {
+    const screen = renderFunctionElement(
+      <SignInPrompt
+        actions={createPromptActions()}
+        bottomInset={0}
+        copy={createPromptCopy()}
+        prompt={{
+          body: "Inicia sesión para continuar.",
+          title: "Inicia sesión para continuar",
+        }}
+        socialProviderActions={[]}
+      />,
+    );
+
+    expect(findText(screen, "Correo")).toBeTruthy();
+    expect(findText(screen, "Contraseña")).toBeTruthy();
+    expect(findText(screen, "Nombre público")).toBe(false);
+    expect(findText(screen, "Olvidé mi contraseña")).toBeTruthy();
+  });
+
+  it("exposes secondary auth actions as accessible 48 dp touch targets", () => {
+    const screen = renderFunctionElement(
+      <SignInPrompt
+        actions={createPromptActions()}
+        bottomInset={0}
+        copy={createPromptCopy()}
+        prompt={{
+          body: "Inicia sesión para continuar.",
+          title: "Inicia sesión para continuar",
+        }}
+        socialProviderActions={[]}
+      />,
+    );
+
+    const resetAction = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel === "Olvidé mi contraseña",
+    );
+    const visitorAction = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel === "Continuar como visitante",
+    );
+
+    expect(resetAction?.props.accessibilityRole).toBe("button");
+    expect(
+      styleHasMinimumDimension(resetAction?.props.style, "minHeight", 48),
+    ).toBe(true);
+    expect(visitorAction?.props.accessibilityRole).toBe("button");
+    expect(visitorAction?.props.accessibilityState).toEqual({
+      disabled: false,
+    });
+    expect(
+      styleHasMinimumDimension(visitorAction?.props.style, "minHeight", 48),
+    ).toBe(true);
   });
 
   it("keeps email access as the fallback when no social providers are available", () => {
@@ -136,8 +200,8 @@ describe("SignInPrompt", () => {
     expect(findText(screen, "Continuar con Google")).toBe(false);
     expect(findText(screen, "Continuar con Facebook")).toBe(false);
     expect(findText(screen, "Correo")).toBeTruthy();
-    expect(findText(screen, "Contrasena")).toBeTruthy();
-    expect(findText(screen, "Iniciar sesion")).toBeTruthy();
+    expect(findText(screen, "Contraseña")).toBeTruthy();
+    expect(findText(screen, "Iniciar sesión")).toBeTruthy();
   });
 
   it("renders a preserved provider cancellation error on the auth prompt", () => {
@@ -166,6 +230,56 @@ describe("SignInPrompt", () => {
 
     expect(findText(screen, cancellationMessage)).toBeTruthy();
   });
+
+  it("keeps stacked email actions compact when a provider error is shown", () => {
+    const screen = renderFunctionElement(
+      <SignInPrompt
+        actions={createPromptActions()}
+        bottomInset={0}
+        copy={createPromptCopy()}
+        prompt={{
+          body: "Guardamos tu seleccion: Reportar perdida.",
+          error:
+            "Cancelaste el ingreso con proveedor. Puedes intentar otra vez o usar correo y contrasena.",
+          intent: "lost",
+          selectedIntentLabel: "Reportar perdida",
+          title: "Inicia sesion para continuar",
+        }}
+        socialProviderActions={[
+          {
+            label: "Continuar con Google",
+            provider: "google",
+          },
+          {
+            label: "Continuar con Facebook",
+            provider: "facebook",
+          },
+        ]}
+      />,
+    );
+
+    const signInAction = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Iniciar sesión"),
+    );
+    const createAccountAction = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Crear cuenta"),
+    );
+
+    expect(
+      styleHasMaximumDimension(signInAction?.props.style, "minHeight", 54),
+    ).toBe(true);
+    expect(
+      styleHasMaximumDimension(
+        createAccountAction?.props.style,
+        "minHeight",
+        54,
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("ShellFirstRunTourHost", () => {
@@ -190,11 +304,38 @@ describe("ShellFirstRunTourHost", () => {
   });
 });
 
+describe("ShellFabHost", () => {
+  it("keeps the visitor Activity empty-state CTA clear of the global Reportar button", () => {
+    expect(
+      shouldDisplayGlobalReportFab({
+        isAuthPromptVisible: false,
+        segments: ["(tabs)", "(activity)"],
+        sessionKind: "visitor",
+      }),
+    ).toBe(false);
+    expect(
+      shouldDisplayGlobalReportFab({
+        isAuthPromptVisible: false,
+        segments: ["(tabs)", "(activity)"],
+        sessionKind: "member",
+      }),
+    ).toBe(true);
+    expect(
+      shouldDisplayGlobalReportFab({
+        isAuthPromptVisible: false,
+        segments: ["(tabs)", "(nearby)"],
+        sessionKind: "visitor",
+      }),
+    ).toBe(true);
+  });
+});
+
 function createPromptActions() {
   return {
     onClose: vi.fn(),
     onContinueAsVisitor: vi.fn(),
     onCreateAccount: () => Promise.resolve({ ok: true }),
+    onRequestPasswordReset: () => Promise.resolve({ ok: true }),
     onSignIn: () => Promise.resolve({ ok: true }),
     onSignInWithSocialProvider: () => Promise.resolve({ ok: true }),
   };
@@ -205,19 +346,30 @@ function createPromptCopy() {
     authFailedLabel: "No pudimos completar el ingreso.",
     closeLabel: "Cerrar",
     createAccountLabel: "Crear cuenta",
+    createAccountHelp:
+      "Crea una cuenta con correo, contraseña y un nombre público para tus reportes.",
     createAccountPendingLabel: "Creando cuenta",
     continueAsVisitorLabel: "Continuar como visitante",
     emailLabel: "Correo",
     emailPlaceholder: "tu-correo@ejemplo.com",
-    formHelp: "Usa correo y contrasena para una cuenta Rastro.",
-    missingCredentialsLabel: "Ingresa correo y contrasena.",
-    nameLabel: "Nombre publico",
-    namePlaceholder: "Opcional para crear cuenta",
-    passwordLabel: "Contrasena",
-    passwordPlaceholder: "Tu contrasena",
-    signInLabel: "Iniciar sesion",
-    signInPendingLabel: "Iniciando sesion",
-    socialAuthHelp: "Tambien puedes acceder con:",
+    formHelp: "Usa correo y contraseña para una cuenta Rastro.",
+    missingCredentialsLabel: "Ingresa correo y contraseña.",
+    missingNameLabel: "Ingresa un nombre público para crear tu cuenta.",
+    nameLabel: "Nombre público",
+    namePlaceholder: "Tu nombre público",
+    passwordLabel: "Contraseña",
+    passwordPlaceholder: "Tu contraseña",
+    passwordResetBackLabel: "Volver a iniciar sesión",
+    passwordResetLabel: "Olvidé mi contraseña",
+    passwordResetPendingLabel: "Enviando enlace",
+    passwordResetSubmitLabel: "Enviar enlace",
+    passwordResetSuccessLabel: "Revisa tu correo para cambiar tu contraseña.",
+    passwordResetHelp:
+      "Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.",
+    signInLabel: "Iniciar sesión",
+    signInModeLabel: "Ya tengo cuenta",
+    signInPendingLabel: "Iniciando sesión",
+    socialAuthHelp: "También puedes acceder con:",
     socialProviderPendingLabel: (providerLabel: string) =>
       `${providerLabel}...`,
   };
@@ -230,17 +382,18 @@ type ElementProps = Record<string, unknown> & {
 type TestElement = React.ReactElement<ElementProps>;
 
 function renderFunctionElement(node: React.ReactNode): React.ReactNode {
-  if (!React.isValidElement<ElementProps>(node)) {
-    return node;
+  let current = node;
+
+  while (
+    React.isValidElement<ElementProps>(current) &&
+    typeof current.type === "function"
+  ) {
+    const Component = current.type as (props: ElementProps) => React.ReactNode;
+
+    current = Component(current.props);
   }
 
-  if (typeof node.type !== "function") {
-    return node;
-  }
-
-  const Component = node.type as (props: ElementProps) => React.ReactNode;
-
-  return Component(node.props);
+  return current;
 }
 
 function findText(node: React.ReactNode, text: string): boolean {
@@ -267,6 +420,31 @@ function findText(node: React.ReactNode, text: string): boolean {
   );
 }
 
+function findElement(
+  node: React.ReactNode,
+  predicate: (element: TestElement) => boolean,
+): TestElement | undefined {
+  const rendered = renderFunctionElement(node);
+
+  if (!React.isValidElement<ElementProps>(rendered)) {
+    return undefined;
+  }
+
+  if (predicate(rendered)) {
+    return rendered;
+  }
+
+  for (const child of React.Children.toArray(rendered.props.children)) {
+    const found = findElement(child, predicate);
+
+    if (found) {
+      return found;
+    }
+  }
+
+  return undefined;
+}
+
 function elementContainsText(element: TestElement, text: string): boolean {
   return React.Children.toArray(element.props.children).some((child) => {
     if (typeof child === "string") {
@@ -279,4 +457,66 @@ function elementContainsText(element: TestElement, text: string): boolean {
 
     return false;
   });
+}
+
+function styleHasMinimumDimension(
+  style: unknown,
+  key: "minHeight" | "minWidth",
+  minimumValue: number,
+): boolean {
+  const resolvedStyle = resolveStyle(style);
+
+  if (resolvedStyle !== style) {
+    return styleHasMinimumDimension(resolvedStyle, key, minimumValue);
+  }
+
+  if (Array.isArray(style)) {
+    return style.some((item) =>
+      styleHasMinimumDimension(item, key, minimumValue),
+    );
+  }
+
+  if (!style || typeof style !== "object") {
+    return false;
+  }
+
+  const value = (style as Record<string, unknown>)[key];
+
+  return typeof value === "number" && value >= minimumValue;
+}
+
+function styleHasMaximumDimension(
+  style: unknown,
+  key: "minHeight" | "minWidth",
+  maximumValue: number,
+): boolean {
+  const resolvedStyle = resolveStyle(style);
+
+  if (resolvedStyle !== style) {
+    return styleHasMaximumDimension(resolvedStyle, key, maximumValue);
+  }
+
+  if (Array.isArray(style)) {
+    return style.some((item) =>
+      styleHasMaximumDimension(item, key, maximumValue),
+    );
+  }
+
+  if (!style || typeof style !== "object") {
+    return false;
+  }
+
+  const value = (style as Record<string, unknown>)[key];
+
+  return typeof value === "number" && value <= maximumValue;
+}
+
+function resolveStyle(style: unknown): unknown {
+  if (typeof style === "function") {
+    return (style as (state: { pressed: boolean }) => unknown)({
+      pressed: false,
+    });
+  }
+
+  return style;
 }

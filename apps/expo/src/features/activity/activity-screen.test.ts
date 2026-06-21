@@ -1,6 +1,7 @@
 import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { ShellSession } from "../shell/shell-model";
 import {
   ActivityScreen,
   openActivityHref,
@@ -9,7 +10,7 @@ import {
 
 const shellContext = vi.hoisted(() => ({
   requestAuthPrompt: vi.fn(),
-  session: { kind: "visitor" as const },
+  session: { kind: "visitor" } as ShellSession,
 }));
 
 vi.mock("react", async () => {
@@ -57,6 +58,7 @@ vi.mock("../shell/shell-provider", () => ({
 describe("Activity screen links", () => {
   beforeEach(() => {
     shellContext.requestAuthPrompt.mockReset();
+    shellContext.session = { kind: "visitor" };
   });
 
   it("converts found report deep links to the existing found-report route", () => {
@@ -135,6 +137,44 @@ describe("Activity screen links", () => {
       sourceHref: "rastro://auth/sign-in?returnTo=/actividad",
     });
   });
+
+  it("shows an empty member Activity state instead of fixture rows for a fresh member", () => {
+    shellContext.session = {
+      email: "ana@example.com",
+      id: "member_ana",
+      kind: "member",
+      name: "Ana",
+    };
+
+    const screen = renderFunctionElement(ActivityScreen({}));
+    const listProps = getElementProps<{
+      ListEmptyComponent: React.ReactNode;
+      data: unknown[];
+    }>(screen);
+
+    expect(listProps.data).toEqual([]);
+    expect(
+      findText(listProps.ListEmptyComponent, "Sin actividad todavía"),
+    ).toBe(true);
+  });
+
+  it("keeps Activity list recycling safe while session data changes", () => {
+    const screen = renderFunctionElement(ActivityScreen({}));
+    const listProps = getElementProps<{
+      getItemType: (item: unknown) => string | undefined;
+    }>(screen);
+
+    expect(listProps.getItemType(undefined)).toBeUndefined();
+  });
+
+  it("ignores transient undefined list items while Activity data changes", () => {
+    const screen = renderFunctionElement(ActivityScreen({}));
+    const listProps = getElementProps<{
+      renderItem: (props: { item: unknown }) => React.ReactNode;
+    }>(screen);
+
+    expect(listProps.renderItem({ item: undefined })).toBeNull();
+  });
 });
 
 type ElementProps = Record<string, unknown> & {
@@ -190,4 +230,42 @@ function findElement(
   }
 
   return undefined;
+}
+
+function findText(node: React.ReactNode, text: string): boolean {
+  const rendered = renderFunctionElement(node);
+
+  if (typeof rendered === "string") {
+    return rendered.includes(text);
+  }
+
+  if (typeof rendered === "number") {
+    return String(rendered).includes(text);
+  }
+
+  if (!React.isValidElement<ElementProps>(rendered)) {
+    return false;
+  }
+
+  if (elementContainsText(rendered, text)) {
+    return true;
+  }
+
+  return React.Children.toArray(rendered.props.children).some((child) =>
+    findText(child, text),
+  );
+}
+
+function elementContainsText(element: TestElement, text: string): boolean {
+  return React.Children.toArray(element.props.children).some((child) => {
+    if (typeof child === "string") {
+      return child.includes(text);
+    }
+
+    if (typeof child === "number") {
+      return String(child).includes(text);
+    }
+
+    return false;
+  });
 }

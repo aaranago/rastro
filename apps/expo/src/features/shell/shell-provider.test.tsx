@@ -94,7 +94,7 @@ describe("RastroShellProvider social auth handoff", () => {
 
     expect(shell.state.authPrompt).toMatchObject({
       intent: "lost",
-      selectedIntentLabel: "Reportar perdida",
+      selectedIntentLabel: "Reportar pérdida",
     });
 
     await expect(
@@ -105,7 +105,7 @@ describe("RastroShellProvider social auth handoff", () => {
     shell = renderProvider(authAdapter);
     expect(shell.state.pendingMemberIntent).toEqual({
       intent: "lost",
-      label: "Reportar perdida",
+      label: "Reportar pérdida",
     });
 
     authState = {
@@ -128,7 +128,7 @@ describe("RastroShellProvider social auth handoff", () => {
     expect(shell.state.pendingMemberIntent).toBeNull();
     expect(shell.state.memberIntent).toEqual({
       intent: "lost",
-      label: "Reportar perdida",
+      label: "Reportar pérdida",
     });
   });
 
@@ -163,7 +163,7 @@ describe("RastroShellProvider social auth handoff", () => {
 
     expect(shell.state.authPrompt).toMatchObject({
       intent: "lost",
-      selectedIntentLabel: "Reportar perdida",
+      selectedIntentLabel: "Reportar pérdida",
     });
 
     await expect(
@@ -179,15 +179,48 @@ describe("RastroShellProvider social auth handoff", () => {
     expect(shell.state.authPrompt).toMatchObject({
       error: cancellationMessage,
       intent: "lost",
-      selectedIntentLabel: "Reportar perdida",
+      selectedIntentLabel: "Reportar pérdida",
     });
     expect(shell.state.memberIntent).toBeNull();
     expect(shell.state.pendingMemberIntent).toBeNull();
+  });
+
+  it("requests a password reset from a logged-out auth prompt email", async () => {
+    const resetEmails: string[] = [];
+    const authAdapter: ShellAuthAdapter = {
+      availableSocialAuthProviders: [],
+      createAccountWithEmail: () => Promise.resolve({ ok: true }),
+      initiateAccountDeletion: () => Promise.resolve({ ok: true }),
+      requestPasswordResetForEmail: (email) => {
+        resetEmails.push(email);
+        return Promise.resolve({ ok: true });
+      },
+      signInWithEmail: () => Promise.resolve({ ok: true }),
+      signInWithSocialProvider: () => Promise.resolve({ ok: true }),
+      signOut: () => Promise.resolve({ ok: true }),
+      useSession: () => ({
+        data: null,
+        error: null,
+        isPending: false,
+        refetch: vi.fn(),
+      }),
+    };
+
+    const shell = renderProvider(authAdapter);
+
+    await expect(
+      shell.requestPasswordResetFromPrompt(" ANA@EXAMPLE.COM "),
+    ).resolves.toEqual({ ok: true });
+
+    expect(resetEmails).toEqual(["ana@example.com"]);
   });
 });
 
 interface ShellProviderValue {
   chooseReportIntent: (intent: "lost") => void;
+  requestPasswordResetFromPrompt: (
+    email: string,
+  ) => Promise<ShellAuthActionResult>;
   signInWithSocialProviderFromPrompt: (
     provider: ShellSocialAuthProvider,
   ) => Promise<ShellAuthActionResult>;

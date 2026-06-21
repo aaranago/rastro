@@ -4,6 +4,8 @@ import { getShellCopy } from "../../i18n";
 import {
   deriveShellSessionFromAuthState,
   prepareShellAuthCredentials,
+  prepareShellAuthCredentialsForAction,
+  prepareShellPasswordResetEmail,
 } from "./shell-auth";
 import {
   chooseReportAction,
@@ -52,10 +54,10 @@ describe("Rastro shell", () => {
       "Perfil",
     ]);
     expect(shell.reportActions.map((action) => action.label)).toEqual([
-      "Reportar perdida",
+      "Reportar pérdida",
       "Reportar encontrada",
       "Reportar avistamiento",
-      "Dar en adopcion",
+      "Dar en adopción",
     ]);
   });
 
@@ -130,7 +132,7 @@ describe("Rastro shell", () => {
     expect(profile.accountSettings).toMatchObject({
       email: "ana@example.com",
       passwordResetAction: "Enviar enlace de restablecimiento",
-      signOutAction: "Cerrar sesion",
+      signOutAction: "Cerrar sesión",
       deletionAction: "Solicitar eliminacion de cuenta",
     });
     expect(profile.accountSettings?.deletionImpacts).toEqual(
@@ -153,7 +155,7 @@ describe("Rastro shell", () => {
 
     expect(profile).toMatchObject({
       accountSettings: null,
-      body: "Puedes explorar Cerca y Recursos. Inicia sesion para crear reportes y guardar tu actividad.",
+      body: "Puedes explorar Cerca y Recursos. Inicia sesión para crear reportes y guardar tu actividad.",
       isMember: false,
       title: "Usas Rastro como visitante",
     });
@@ -187,11 +189,68 @@ describe("Rastro shell", () => {
     });
   });
 
+  it("uses public name only for create-account submissions", () => {
+    expect(
+      prepareShellAuthCredentialsForAction({
+        action: "sign-in",
+        email: " ANA@EXAMPLE.COM ",
+        name: " Changed Name ",
+        password: "rastro123",
+      }),
+    ).toEqual({
+      credentials: {
+        email: "ana@example.com",
+        name: undefined,
+        password: "rastro123",
+      },
+      ok: true,
+    });
+
+    expect(
+      prepareShellAuthCredentialsForAction({
+        action: "create-account",
+        email: " ANA@EXAMPLE.COM ",
+        name: " Ana Nueva ",
+        password: "rastro123",
+      }),
+    ).toEqual({
+      credentials: {
+        email: "ana@example.com",
+        name: "Ana Nueva",
+        password: "rastro123",
+      },
+      ok: true,
+    });
+
+    expect(
+      prepareShellAuthCredentialsForAction({
+        action: "create-account",
+        email: " ana@example.com ",
+        name: " ",
+        password: "rastro123",
+      }),
+    ).toEqual({
+      ok: false,
+      reason: "missing-name",
+    });
+  });
+
+  it("normalizes password-reset email without requiring a password", () => {
+    expect(prepareShellPasswordResetEmail(" ANA@EXAMPLE.COM ")).toEqual({
+      email: "ana@example.com",
+      ok: true,
+    });
+    expect(prepareShellPasswordResetEmail(" ")).toEqual({
+      ok: false,
+      reason: "missing-email",
+    });
+  });
+
   it.each([
-    ["lost", "Reportar perdida"],
+    ["lost", "Reportar pérdida"],
     ["found", "Reportar encontrada"],
     ["sighting", "Reportar avistamiento"],
-    ["adoption", "Dar en adopcion"],
+    ["adoption", "Dar en adopción"],
   ] as const)(
     "preserves a visitor's selected %s report intent in the sign-in prompt",
     (intent, label) => {
@@ -209,17 +268,17 @@ describe("Rastro shell", () => {
         copy,
       );
 
-      expect(nextState.authPrompt?.title).toBe("Inicia sesion para continuar");
+      expect(nextState.authPrompt?.title).toBe("Inicia sesión para continuar");
       expect(nextState.authPrompt?.selectedIntentLabel).toBe(label);
       expect(nextState.authPrompt?.body).toContain(label);
     },
   );
 
   it.each([
-    ["lost", "Reportar perdida"],
+    ["lost", "Reportar pérdida"],
     ["found", "Reportar encontrada"],
     ["sighting", "Reportar avistamiento"],
-    ["adoption", "Dar en adopcion"],
+    ["adoption", "Dar en adopción"],
   ] as const)(
     "continues a signed-in member's %s report action into the creation flow",
     (intent, label) => {
@@ -322,9 +381,9 @@ describe("Rastro shell", () => {
     );
 
     expect(promptedState.authPrompt).toMatchObject({
-      body: "Inicia sesion o crea una cuenta para guardar tu actividad y continuar en Rastro.",
+      body: "Inicia sesión o crea una cuenta para guardar tu actividad y continuar en Rastro.",
       returnTo: "/(tabs)/(activity)",
-      title: "Inicia sesion para continuar",
+      title: "Inicia sesión para continuar",
     });
     expect(promptedState.memberIntent).toBeNull();
     expect(promptedState.pendingMemberIntent).toBeNull();
@@ -397,7 +456,7 @@ describe("Rastro shell", () => {
     });
     expect(shell.appStates.states.empty).toMatchObject({
       kind: "empty",
-      title: "Nada por aqui todavia",
+      title: "Nada por aquí todavía",
     });
     expect(shell.appStates.states.empty.actions?.[0]).toMatchObject({
       id: "manual-search",

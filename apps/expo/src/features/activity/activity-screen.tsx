@@ -5,7 +5,6 @@ import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { LegendList } from "@legendapp/list";
 
-import type { ChatConversation } from "../chat/chat-model";
 import type { InternalAuthPromptRequest } from "../navigation/internal-rastro-links";
 import type { ShellSession } from "../shell/shell-model";
 import type {
@@ -89,7 +88,7 @@ export interface OpenActivityHrefInput {
   routerPush: (href: Href) => void;
 }
 
-const bottomInset = 140;
+const bottomInset = 118;
 const defaultEstimatedItemSize = 96;
 const activityDateFormatter = new Intl.DateTimeFormat("es-BO", {
   day: "2-digit",
@@ -98,8 +97,9 @@ const activityDateFormatter = new Intl.DateTimeFormat("es-BO", {
   month: "short",
 });
 
-const activityKeyExtractor = (item: ActivityListItem) => item.id;
-const activityItemType = (item: ActivityListItem) => item.type;
+const activityKeyExtractor = (item: ActivityListItem | undefined) =>
+  item?.id ?? "activity-transition-item";
+const activityItemType = (item: ActivityListItem | undefined) => item?.type;
 
 function activityEstimatedItemSize(
   _index: number,
@@ -138,7 +138,11 @@ export function ActivityScreen({ onOpenHref }: ActivityScreenProps) {
   );
 
   const renderItem = React.useCallback(
-    ({ item }: LegendListRenderItemProps<ActivityListItem>) => {
+    ({ item }: LegendListRenderItemProps<ActivityListItem | undefined>) => {
+      if (!item) {
+        return null;
+      }
+
       if (item.type === "section-header") {
         return <ActivitySectionHeader title={item.title} />;
       }
@@ -463,10 +467,10 @@ function buildScreenViewModel(session: ShellSession): ActivityScreenViewModel {
     signedOut: {
       action: {
         href: "rastro://auth/sign-in?returnTo=/actividad",
-        label: "Iniciar sesion",
+        label: "Iniciar sesión",
       },
-      body: "Tus alertas, mensajes y actualizaciones apareceran aqui cuando seas miembro.",
-      title: "Inicia sesion para ver tu actividad",
+      body: "Tus alertas, mensajes y actualizaciones aparecerán aquí cuando seas miembro.",
+      title: "Inicia sesión para ver tu actividad",
     },
     title: "Actividad",
   };
@@ -514,115 +518,9 @@ function getActivityModelInput(
   }
 
   return {
-    candidateMatches: sampleCandidateMatches,
-    chatConversations: [createSampleChatConversation(session)],
-    nearbyLostPetAlerts: [createSampleNearbyLostPetAlert(session)],
-    ownedReportPrompts: sampleOwnedReportPrompts,
     session: modelSession,
   };
 }
-
-function createSampleNearbyLostPetAlert(
-  session: Extract<ShellSession, { kind: "member" }>,
-): NonNullable<BuildActivityViewModelInput["nearbyLostPetAlerts"]>[number] {
-  return {
-    notification: {
-      body: "Toby fue reportada cerca de Sopocachi.",
-      deepLink: "rastro://reportes/perdidos/lost-report-1",
-      memberId: session.id,
-      reportId: "lost-report-1",
-      title: "Mascota perdida cerca de ti",
-      webUrl: "https://rastro.bo/reportes/perdidos/lost-report-1",
-    },
-    receivedAt: "2026-06-18T12:10:00.000Z",
-  };
-}
-
-function createSampleChatConversation(
-  session: Extract<ShellSession, { kind: "member" }>,
-): ChatConversation {
-  return {
-    blockedMemberships: [],
-    createdAt: "2026-06-18T12:00:00.000Z",
-    hiddenByMemberIds: [],
-    id: "chat-conversation-1",
-    messages: [
-      {
-        conversationId: "chat-conversation-1",
-        createdAt: "2026-06-18T12:20:00.000Z",
-        id: "chat-message-1",
-        senderMemberId: "member-diego",
-        text: "Lo vi cerca de la plaza.",
-      },
-    ],
-    participants: [
-      {
-        displayName: session.name ?? session.email ?? "Camila",
-        memberId: session.id,
-      },
-      {
-        displayName: "Diego",
-        memberId: "member-diego",
-      },
-    ],
-    reports: [],
-    subject: {
-      href: "rastro://reportes/perdidos/lost-report-1",
-      id: "lost-report-1",
-      kind: "lost-pet-report" as const,
-      subtitle: "Sopocachi",
-      title: "Toby",
-    },
-    updatedAt: "2026-06-18T12:20:00.000Z",
-  };
-}
-
-const sampleOwnedReportPrompts: NonNullable<
-  BuildActivityViewModelInput["ownedReportPrompts"]
-> = [
-  {
-    href: "rastro://reportes/perdidos/lost-report-1",
-    promptedAt: "2026-06-18T12:00:00.000Z",
-    prompt: {
-      actionLabel: "Confirmar o actualizar",
-      message: "Confirma si este reporte sigue activo o elige un resultado.",
-      outcomeOptions: [
-        { label: "Sigue activa", outcome: "still-missing" },
-        { label: "Reunida", outcome: "reunited" },
-        {
-          label: "Trasladada a refugio",
-          outcome: "transferred-to-shelter",
-        },
-        { label: "No se pudo ubicar", outcome: "unable-to-locate" },
-        { label: "Inactiva", outcome: "inactive" },
-      ],
-      reportId: "lost-report-1",
-      title: "Toby",
-    },
-  },
-];
-
-const sampleCandidateMatches: NonNullable<
-  BuildActivityViewModelInput["candidateMatches"]
-> = [
-  {
-    candidate: {
-      href: "rastro://reportes/avistamientos/sighting-report-1",
-      id: "sighting-report-1",
-      kind: "sighting-report",
-      title: "Avistamiento en Sopocachi",
-    },
-    confidence: "possible",
-    createdAt: "2026-06-18T12:30:00.000Z",
-    id: "match-1",
-    locationLabel: "Sopocachi",
-    ownedReport: {
-      href: "rastro://reportes/perdidos/lost-report-1",
-      id: "lost-report-1",
-      title: "Toby",
-    },
-  },
-];
 
 function buildListData(viewModel: ActivityScreenViewModel): ActivityListItem[] {
   if (viewModel.kind === "visitor") {
@@ -962,30 +860,28 @@ const styles = StyleSheet.create({
   },
   signedOutBody: {
     color: shellColors.muted,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
     textAlign: "center",
   },
   signedOutCard: {
     alignItems: "center",
     backgroundColor: shellColors.surface,
-    borderColor: shellColors.border,
-    borderRadius: 28,
-    borderWidth: 1,
+    borderRadius: 20,
     gap: 12,
-    padding: 24,
+    padding: 20,
   },
   signedOutIcon: {
     alignItems: "center",
     backgroundColor: shellColors.primarySoft,
-    borderRadius: 36,
-    height: 72,
+    borderRadius: 30,
+    height: 60,
     justifyContent: "center",
-    width: 72,
+    width: 60,
   },
   signedOutTitle: {
     color: shellColors.text,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "900",
     textAlign: "center",
   },
