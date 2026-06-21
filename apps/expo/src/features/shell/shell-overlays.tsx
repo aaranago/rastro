@@ -892,6 +892,8 @@ export function SignInPrompt({
     : isPasswordResetMode
       ? copy.passwordResetHelp
       : copy.formHelp;
+  const promptTopInset = Math.max(safeAreaInsets.top, 16);
+  const promptBottomInset = Math.max(bottomInset, 16);
 
   return (
     <Modal
@@ -905,33 +907,41 @@ export function SignInPrompt({
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.promptBackdrop}
       >
+        <View
+          pointerEvents="box-none"
+          style={[
+            styles.promptNavigationHeader,
+            {
+              paddingHorizontal: 18,
+              paddingTop: promptTopInset + 10,
+            },
+          ]}
+        >
+          <Pressable
+            accessibilityLabel={copy.closeLabel}
+            accessibilityRole="button"
+            onPress={actions.onClose}
+            style={styles.promptNavigationButton}
+          >
+            <PromptBackIcon />
+          </Pressable>
+        </View>
         <ScrollView
           contentContainerStyle={[
             styles.promptScrollContent,
             {
-              paddingBottom: Math.max(bottomInset, 16) + 24,
-              paddingTop: Math.max(safeAreaInsets.top, 16) + 10,
+              paddingBottom: promptBottomInset + 24,
+              paddingTop: promptTopInset + 66,
             },
           ]}
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           scrollIndicatorInsets={{
-            bottom: Math.max(bottomInset, 16) + 16,
+            bottom: promptBottomInset + 16,
           }}
         >
           <View accessibilityViewIsModal style={styles.promptCard}>
-            <View style={styles.promptHeader}>
-              <Pressable
-                accessibilityLabel={copy.closeLabel}
-                accessibilityRole="button"
-                onPress={actions.onClose}
-                style={styles.promptNavigationButton}
-              >
-                <PromptBackIcon />
-              </Pressable>
-            </View>
-
             <View style={styles.promptHeroFrame}>
               <Image
                 accessibilityLabel="Ilustración de una persona con un perro y un gato en un mapa de alertas"
@@ -1831,11 +1841,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 48,
   },
-  promptHeader: {
-    alignItems: "center",
-    alignSelf: "stretch",
-    flexDirection: "row",
-    justifyContent: "flex-start",
+  promptNavigationHeader: {
+    alignItems: "flex-start",
+    left: 0,
+    paddingBottom: 8,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    zIndex: 2,
   },
   promptHeroFrame: {
     alignSelf: "stretch",

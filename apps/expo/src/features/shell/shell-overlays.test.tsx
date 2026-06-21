@@ -169,6 +169,14 @@ describe("SignInPrompt", () => {
           element.props.accessibilityLabel === "Cerrar",
       )?.props.accessibilityRole,
     ).toBe("button");
+    expect(
+      findElement(
+        scrollView,
+        (element) =>
+          element.type === "Pressable" &&
+          element.props.accessibilityLabel === "Cerrar",
+      ),
+    ).toBeUndefined();
   });
 
   it("starts in sign-in mode without public-name collection and with password reset available", () => {
