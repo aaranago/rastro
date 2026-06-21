@@ -11,6 +11,7 @@ import type {
   SightingReportDraft,
   SightingReportPhoto,
 } from "./sighting-report-creation-types";
+import type { SightingReportPublishConfirmation } from "./sighting-report-publish-adapter";
 import { publishReportCreation } from "../report-creation/report-creation-publish";
 import {
   ReportCreationActionButton,
@@ -35,6 +36,7 @@ import {
   appendSightingReportPhoto,
   buildSightingReportCreationViewModel,
   createSightingReportDraft,
+  ensureSightingReportDraftIdempotencyKey,
   removeSightingReportPhoto,
   selectSightingReportContactOption,
   toPublishSightingReportInput,
@@ -59,7 +61,10 @@ export interface SightingReportCreationScreenProps {
   onClose?: () => void;
   onPublishSightingReport?: (
     input: PublishSightingReportInput,
-  ) => Promise<void> | void;
+  ) =>
+    | Promise<SightingReportPublishConfirmation | void>
+    | SightingReportPublishConfirmation
+    | void;
   onRequestMemberSignIn?: (action: SightingReportCreationVisitorAction) => void;
   session?: SightingReportCreationSession;
 }
@@ -110,6 +115,8 @@ export function SightingReportCreationScreen({
     });
   const [publishState, setPublishState] =
     React.useState<PublishState>("editing");
+  const [publishedReport, setPublishedReport] =
+    React.useState<SightingReportPublishConfirmation | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const publishLockRef = React.useRef(false);
   const viewModel = React.useMemo(
@@ -142,14 +149,30 @@ export function SightingReportCreationScreen({
     setSubmitError(null);
     setPublishState("publishing");
 
-    const result = await publishReportCreation({
+    const publishDraft = ensureSightingReportDraftIdempotencyKey({ draft });
+    if (publishDraft !== draft) {
+      setDraft((current) =>
+        current.idempotencyKey
+          ? current
+          : {
+              ...current,
+              idempotencyKey: publishDraft.idempotencyKey,
+            },
+      );
+    }
+
+    const result = await publishReportCreation<
+      PublishSightingReportInput,
+      SightingReportPublishConfirmation | void
+    >({
       clearDraft,
-      input: toPublishSightingReportInput({ draft }),
+      input: toPublishSightingReportInput({ draft: publishDraft }),
       publishHandler: onPublishSightingReport,
       publishLock: publishLockRef,
     });
 
     if (result.ok) {
+      setPublishedReport(result.confirmation ?? null);
       setPublishState("success");
       return;
     }
@@ -165,6 +188,7 @@ export function SightingReportCreationScreen({
     draft,
     onPublishSightingReport,
     publishState,
+    setDraft,
     viewModel.canPublish,
   ]);
 
@@ -180,7 +204,11 @@ export function SightingReportCreationScreen({
 
   if (publishState === "success") {
     return (
-      <SightingReportCreationSuccess onClose={onClose} viewModel={viewModel} />
+      <SightingReportCreationSuccess
+        onClose={onClose}
+        publishedReport={publishedReport}
+        viewModel={viewModel}
+      />
     );
   }
 
@@ -260,9 +288,11 @@ function SightingReportVisitorHandoff({
 
 function SightingReportCreationSuccess({
   onClose,
+  publishedReport,
   viewModel,
 }: {
   onClose?: () => void;
+  publishedReport: SightingReportPublishConfirmation | null;
   viewModel: SightingReportCreationViewModel;
 }) {
   return (
@@ -287,6 +317,26 @@ function SightingReportCreationSuccess({
         <Text maxFontSizeMultiplier={1.25} style={styles.bodyText}>
           {viewModel.success.body}
         </Text>
+        {publishedReport ? (
+          <View style={styles.confirmationPanel}>
+            <View style={styles.reviewRow}>
+              <Text maxFontSizeMultiplier={1.15} style={styles.reviewLabel}>
+                ID backend
+              </Text>
+              <Text maxFontSizeMultiplier={1.15} style={styles.reviewValue}>
+                {publishedReport.id}
+              </Text>
+            </View>
+            <View style={styles.reviewRow}>
+              <Text maxFontSizeMultiplier={1.15} style={styles.reviewLabel}>
+                Estado
+              </Text>
+              <Text maxFontSizeMultiplier={1.15} style={styles.reviewValue}>
+                {publishedReport.status}
+              </Text>
+            </View>
+          </View>
+        ) : null}
       </View>
       <View style={styles.buttonRow}>
         <ReportCreationActionButton
@@ -685,6 +735,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     padding: 14,
+  },
+  confirmationPanel: {
+    alignSelf: "stretch",
+    backgroundColor: shellColors.surfaceMuted,
+    borderRadius: 16,
+    overflow: "hidden",
   },
   content: {
     gap: 14,

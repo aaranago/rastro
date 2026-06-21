@@ -13,7 +13,15 @@ import { z, ZodError } from "zod/v4";
 import type { Auth } from "@acme/auth";
 import type { Database } from "@acme/db/client";
 
+import type { MediaStorage, MediaStorageConfig } from "./media-storage";
+import type { ReportMediaRepository } from "./report-media-repository";
 import type { ReportRepository } from "./report-repository";
+import {
+  createS3MediaStorage,
+  createUnavailableMediaStorage,
+  parseOptionalMediaStorageConfig,
+} from "./media-storage";
+import { createDrizzleReportMediaRepository } from "./report-media-repository";
 import { createDrizzleReportRepository } from "./report-repository";
 
 /**
@@ -35,6 +43,9 @@ export const createTRPCContext = async (opts: {
 }): Promise<{
   authApi: Auth["api"];
   db: Database;
+  mediaRepository: ReportMediaRepository;
+  mediaStorageConfig: MediaStorageConfig | null;
+  mediaStorage: MediaStorage;
   reportRepository: ReportRepository;
   session: Awaited<ReturnType<Auth["api"]["getSession"]>>;
 }> => {
@@ -43,10 +54,18 @@ export const createTRPCContext = async (opts: {
     headers: opts.headers,
   });
   const { db } = await import("@acme/db/client");
+  const mediaStorageConfig = parseOptionalMediaStorageConfig(process.env);
 
   return {
     authApi,
     db,
+    mediaRepository: createDrizzleReportMediaRepository(db, {
+      uploadSessionExpiresInSeconds: mediaStorageConfig?.presignExpiresSeconds,
+    }),
+    mediaStorageConfig,
+    mediaStorage: mediaStorageConfig
+      ? createS3MediaStorage(mediaStorageConfig)
+      : createUnavailableMediaStorage(),
     reportRepository: createDrizzleReportRepository(db),
     session,
   };

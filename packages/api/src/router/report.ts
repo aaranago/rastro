@@ -3,16 +3,101 @@ import { TRPCError } from "@trpc/server";
 
 import {
   createReportInputSchema,
+  createUploadSessionInputSchema,
   deleteReportInputSchema,
   nearbyReportsInputSchema,
   reportDetailInputSchema,
   resolveReportInputSchema,
   updateReportInputSchema,
+  uploadSessionIdInputSchema,
 } from "@acme/validators";
 
+import type { MediaStorage, StoredObjectHead } from "../media-storage";
+import type { PersistedReportMediaUpload } from "../report-media-repository";
 import type { PersistedReport } from "../report-repository";
 import { toPublicReport } from "../report-repository";
 import { protectedProcedure, publicProcedure } from "../trpc";
+
+function normalizeContentType(contentType: string | null) {
+  return contentType?.split(";")[0]?.trim().toLowerCase() ?? null;
+}
+
+function numberMetadata(
+  metadata: Record<string, string>,
+  key: string,
+): number | null {
+  const value = metadata[key.toLowerCase()] ?? metadata[key];
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function stringMetadata(
+  metadata: Record<string, string>,
+  key: string,
+): string | null {
+  return metadata[key.toLowerCase()] ?? metadata[key] ?? null;
+}
+
+function uploadMetadataMatches(
+  storedObject: StoredObjectHead,
+  pendingMedia: PersistedReportMediaUpload,
+) {
+  const storedWidth = numberMetadata(storedObject.metadata, "width");
+  const storedHeight = numberMetadata(storedObject.metadata, "height");
+  const storedMediaId = stringMetadata(storedObject.metadata, "mediaId");
+  const storedSizeBytes = numberMetadata(storedObject.metadata, "sizeBytes");
+  const requiredChecks = [
+    normalizeContentType(storedObject.contentType) ===
+      pendingMedia.expectedMimeType,
+    storedObject.contentLength === pendingMedia.expectedSizeBytes,
+    storedMediaId === pendingMedia.id,
+    storedSizeBytes === pendingMedia.expectedSizeBytes,
+    storedWidth === pendingMedia.expectedWidth,
+    storedHeight === pendingMedia.expectedHeight,
+  ];
+
+  if (pendingMedia.expectedChecksumSha256) {
+    requiredChecks.push(
+      storedObject.checksumSha256 === pendingMedia.expectedChecksumSha256,
+    );
+  }
+
+  return requiredChecks.every(Boolean);
+}
+
+async function buildUploadSessionResponse(
+  mediaStorage: MediaStorage,
+  pendingMedia: PersistedReportMediaUpload,
+) {
+  const upload = await mediaStorage.createPresignedPut({
+    checksumSha256: pendingMedia.expectedChecksumSha256 ?? undefined,
+    contentType: pendingMedia.expectedMimeType,
+    expiresAt: pendingMedia.expiresAt,
+    metadata: {
+      height: String(pendingMedia.expectedHeight),
+      mediaId: pendingMedia.id,
+      sizeBytes: String(pendingMedia.expectedSizeBytes),
+      width: String(pendingMedia.expectedWidth),
+    },
+    objectKey: pendingMedia.objectKey,
+    sizeBytes: pendingMedia.expectedSizeBytes,
+  });
+
+  return {
+    expiresAt: upload.expiresAt,
+    mediaId: pendingMedia.id,
+    objectKey: pendingMedia.objectKey,
+    upload: {
+      headers: upload.headers,
+      method: upload.method,
+      url: upload.url,
+    },
+  };
+}
 
 function requireOwnedReport(
   report: PersistedReport | null,
@@ -30,6 +115,121 @@ function requireOwnedReport(
 }
 
 export const reportRouter = {
+  createUploadSession: protectedProcedure
+    .input(createUploadSessionInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.mediaStorageConfig) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Media storage is not configured.",
+        });
+      }
+
+      const allowedMimeTypes = ctx.mediaStorageConfig.allowedMimeTypes;
+      const maxImageBytes = ctx.mediaStorageConfig.maxImageBytes;
+
+      if (
+        !allowedMimeTypes.includes(input.mimeType) ||
+        input.sizeBytes > maxImageBytes
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Upload metadata is outside configured storage limits.",
+        });
+      }
+
+      const pendingMedia = await ctx.mediaRepository.createUploadSession({
+        metadata: input,
+        ownerId: ctx.session.user.id,
+      });
+
+      return buildUploadSessionResponse(ctx.mediaStorage, pendingMedia);
+    }),
+  completeUploadSession: protectedProcedure
+    .input(uploadSessionIdInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const pendingMedia = await ctx.mediaRepository.findUploadSessionById(
+        input.mediaId,
+      );
+
+      if (!pendingMedia) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      if (pendingMedia.ownerId !== ctx.session.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      if (pendingMedia.status === "ready") {
+        return {
+          mediaId: pendingMedia.id,
+          objectKey: pendingMedia.objectKey,
+          status: "ready" as const,
+        };
+      }
+
+      if (pendingMedia.status !== "pending") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Upload session is not pending.",
+        });
+      }
+
+      const storedObject = await ctx.mediaStorage.headObject({
+        objectKey: pendingMedia.objectKey,
+      });
+
+      if (!uploadMetadataMatches(storedObject, pendingMedia)) {
+        await ctx.mediaRepository.markUploadSessionFailed({
+          failedAt: new Date(),
+          mediaId: pendingMedia.id,
+        });
+
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Uploaded media metadata did not match the session.",
+        });
+      }
+
+      const readyMedia = await ctx.mediaRepository.markUploadSessionReady({
+        mediaId: pendingMedia.id,
+        verifiedAt: new Date(),
+      });
+
+      return {
+        mediaId: readyMedia.id,
+        objectKey: readyMedia.objectKey,
+        status: "ready" as const,
+      };
+    }),
+  refreshUploadSession: protectedProcedure
+    .input(uploadSessionIdInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const pendingMedia = await ctx.mediaRepository.findUploadSessionById(
+        input.mediaId,
+      );
+
+      if (!pendingMedia) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      if (pendingMedia.ownerId !== ctx.session.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      if (pendingMedia.status !== "pending") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only pending upload sessions can be refreshed.",
+        });
+      }
+
+      const refreshedMedia = await ctx.mediaRepository.refreshUploadSession({
+        mediaId: pendingMedia.id,
+      });
+
+      return buildUploadSessionResponse(ctx.mediaStorage, refreshedMedia);
+    }),
   create: protectedProcedure
     .input(createReportInputSchema)
     .mutation(async ({ ctx, input }) => {
@@ -39,6 +239,23 @@ export const reportRouter = {
           caretakerId,
           idempotencyKey: input.idempotencyKey,
         });
+
+      if (!existing && input.media.length > 0) {
+        try {
+          await ctx.mediaRepository.assertReadyMediaForReport({
+            draftId: input.idempotencyKey,
+            media: input.media,
+            ownerId: caretakerId,
+            reportType: input.type,
+          });
+        } catch {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Report media must be ready and owned by the member.",
+          });
+        }
+      }
+
       const report =
         existing ??
         (await ctx.reportRepository.create({

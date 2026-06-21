@@ -11,7 +11,7 @@ import type {
   ResolveReportInput,
   UpdateReportInput,
 } from "@acme/validators";
-import { and, asc, eq, inArray, isNull, sql } from "@acme/db";
+import { and, asc, eq, inArray, isNull, notInArray, or, sql } from "@acme/db";
 import {
   Report,
   ReportLifecycleEvent,
@@ -185,7 +185,7 @@ function toPersistedReport(row: ReportRow): PersistedReport {
       height: media.height,
       sizeBytes: media.sizeBytes,
       altText: media.altText,
-      position: media.position,
+      position: media.position ?? 0,
     })),
   };
 }
@@ -333,21 +333,30 @@ export function createDrizzleReportRepository(db: Database): ReportRepository {
           reportId: persisted.id,
         });
 
-        if (report.media.length > 0) {
-          await tx.insert(ReportMedia).values(
-            report.media.map((media, index) => ({
+        for (const [index, media] of report.media.entries()) {
+          const [attachedMedia] = await tx
+            .update(ReportMedia)
+            .set({
               altText: media.altText ?? null,
-              canonicalUrl: media.canonicalUrl ?? null,
-              height: media.height,
-              mimeType: media.mimeType,
-              objectKey: media.objectKey,
               position: index,
               reportId: persisted.id,
-              sizeBytes: media.sizeBytes,
-              thumbnailObjectKey: media.thumbnailObjectKey ?? null,
-              width: media.width,
-            })),
-          );
+              status: "ready",
+            })
+            .where(
+              and(
+                eq(ReportMedia.id, media.mediaId),
+                eq(ReportMedia.ownerId, caretakerId),
+                eq(ReportMedia.uploadDraftId, report.idempotencyKey),
+                eq(ReportMedia.uploadReportType, report.type),
+                eq(ReportMedia.status, "ready"),
+                isNull(ReportMedia.reportId),
+              ),
+            )
+            .returning({ id: ReportMedia.id });
+
+          if (!attachedMedia) {
+            throw new Error("Report media must be ready and owned by member.");
+          }
         }
 
         await tx.insert(ReportLifecycleEvent).values({
@@ -441,26 +450,65 @@ export function createDrizzleReportRepository(db: Database): ReportRepository {
         }
 
         if (patch.media) {
+          const [reportContext] = await tx
+            .select({ type: Report.type })
+            .from(Report)
+            .where(eq(Report.id, reportId))
+            .limit(1);
+
+          if (!reportContext) {
+            throw new Error("Report could not be found for media update.");
+          }
+
+          const replacementMediaIds = patch.media.map((media) => media.mediaId);
+          const removalFilters = [
+            eq(ReportMedia.reportId, reportId),
+            eq(ReportMedia.status, "ready"),
+            replacementMediaIds.length > 0
+              ? notInArray(ReportMedia.id, replacementMediaIds)
+              : undefined,
+          ].filter((filter) => filter !== undefined);
+
           await tx
             .update(ReportMedia)
-            .set({ status: "removed" })
-            .where(eq(ReportMedia.reportId, reportId));
+            .set({
+              removedAt: new Date(),
+              status: "removed",
+            })
+            .where(and(...removalFilters));
 
-          if (patch.media.length > 0) {
-            await tx.insert(ReportMedia).values(
-              patch.media.map((media, index) => ({
+          for (const [index, media] of patch.media.entries()) {
+            const [attachedMedia] = await tx
+              .update(ReportMedia)
+              .set({
                 altText: media.altText ?? null,
-                canonicalUrl: media.canonicalUrl ?? null,
-                height: media.height,
-                mimeType: media.mimeType,
-                objectKey: media.objectKey,
                 position: index,
                 reportId,
-                sizeBytes: media.sizeBytes,
-                thumbnailObjectKey: media.thumbnailObjectKey ?? null,
-                width: media.width,
-              })),
-            );
+                removedAt: null,
+                status: "ready",
+              })
+              .where(
+                and(
+                  eq(ReportMedia.id, media.mediaId),
+                  eq(ReportMedia.ownerId, actorId),
+                  eq(ReportMedia.status, "ready"),
+                  or(
+                    eq(ReportMedia.reportId, reportId),
+                    and(
+                      isNull(ReportMedia.reportId),
+                      eq(ReportMedia.uploadDraftId, reportId),
+                      eq(ReportMedia.uploadReportType, reportContext.type),
+                    ),
+                  ),
+                ),
+              )
+              .returning({ id: ReportMedia.id });
+
+            if (!attachedMedia) {
+              throw new Error(
+                "Report media must be ready and owned by member.",
+              );
+            }
           }
         }
 

@@ -121,6 +121,22 @@ Without the required Android key, the app shows a map-provider configuration err
 
 Product and Google Cloud setup details, including API enablement, key restrictions, Android SHA-1 fingerprints, and EAS environment configuration, live in `docs/product/map-provider-setup.md`.
 
+## Report Media Storage
+
+Photo upload sessions are owned by the backend and use S3/MinIO-compatible
+private storage. Configure the bucket, endpoints, credentials, MIME limits, and
+presign expiration in `.env`; see `docs/dev/report-media-storage.md` for local
+MinIO, Dokploy MinIO, and AWS S3 settings.
+
+For Android emulator upload testing, the API backend uses the internal storage
+endpoint, but the presigned upload endpoint must be reachable from the emulator.
+Use `10.0.2.2` for host-local MinIO, or the public Dokploy/AWS HTTPS endpoint
+for device and release-like validation.
+
+For long-running QA environments, configure the server-side
+`/api/jobs/report-media-cleanup` scheduled job with `RASTRO_JOB_SECRET` so
+expired pending uploads are deleted from object storage instead of accumulating.
+
 ## Auth/API Backend For Mobile QA
 
 Rastro mobile auth uses Better Auth through the Next.js API route at `/api/auth/*`. The Expo app can launch without that backend, but email/password sign-in and account creation will fail with `Network request failed` until the backend is running and reachable from the device. In the installed Better Auth version, the public session check used by the Expo client is `/api/auth/get-session`.

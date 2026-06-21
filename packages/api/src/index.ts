@@ -19,5 +19,18 @@ type RouterInputs = inferRouterInputs<AppRouter>;
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 
 export { type AppRouter, appRouter } from "./root";
+export { cleanupAbandonedReportMediaUploads } from "./report-media-cleanup";
+export {
+  createDrizzleReportMediaRepository,
+  type ReportMediaRepository,
+  type PersistedReportMediaUpload,
+  type ReportMediaUploadStatus,
+} from "./report-media-repository";
+export {
+  createS3MediaStorage,
+  parseMediaStorageConfig,
+  parseOptionalMediaStorageConfig,
+  redactMediaStorageConfig,
+} from "./media-storage";
 export { createTRPCContext } from "./trpc";
 export type { RouterInputs, RouterOutputs };

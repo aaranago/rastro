@@ -79,7 +79,9 @@ export const publicLocationPrecision = pgEnum("public_location_precision", [
 export const reportMediaKind = pgEnum("report_media_kind", ["photo"]);
 
 export const reportMediaStatus = pgEnum("report_media_status", [
+  "pending",
   "ready",
+  "failed",
   "removed",
 ]);
 
@@ -182,12 +184,15 @@ export const ReportMedia = pgTable(
   "report_media",
   (t) => ({
     id: t.uuid().notNull().primaryKey().defaultRandom(),
-    reportId: t
-      .uuid()
+    reportId: t.uuid().references(() => Report.id, { onDelete: "cascade" }),
+    ownerId: t
+      .text()
       .notNull()
-      .references(() => Report.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
+    uploadDraftId: t.varchar({ length: 128 }).notNull(),
+    uploadReportType: reportType().notNull(),
     kind: reportMediaKind().default("photo").notNull(),
-    status: reportMediaStatus().default("ready").notNull(),
+    status: reportMediaStatus().default("pending").notNull(),
     objectKey: t.varchar({ length: 512 }).notNull(),
     canonicalUrl: t.text(),
     thumbnailObjectKey: t.varchar({ length: 512 }),
@@ -195,19 +200,33 @@ export const ReportMedia = pgTable(
     width: t.integer().notNull(),
     height: t.integer().notNull(),
     sizeBytes: t.integer().notNull(),
+    expectedChecksumSha256: t.varchar({ length: 128 }),
     altText: t.varchar({ length: 240 }),
-    position: t.integer().notNull(),
+    position: t.integer(),
+    expiresAt: t.timestamp({ mode: "date", withTimezone: true }).notNull(),
+    verifiedAt: t.timestamp({ mode: "date", withTimezone: true }),
+    failedAt: t.timestamp({ mode: "date", withTimezone: true }),
+    removedAt: t.timestamp({ mode: "date", withTimezone: true }),
     createdAt: t
       .timestamp({ mode: "date", withTimezone: true })
       .defaultNow()
       .notNull(),
+    updatedAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
   }),
   (table) => [
     index("report_media_report_idx").on(table.reportId),
+    index("report_media_owner_status_idx").on(table.ownerId, table.status),
+    index("report_media_pending_expiry_idx")
+      .on(table.expiresAt)
+      .where(sql`${table.status} = 'pending'`),
     uniqueIndex("report_media_object_key_idx").on(table.objectKey),
     uniqueIndex("report_media_report_ready_position_idx")
       .on(table.reportId, table.position)
-      .where(sql`${table.status} = 'ready'`),
+      .where(sql`${table.status} = 'ready' AND ${table.reportId} IS NOT NULL`),
   ],
 );
 

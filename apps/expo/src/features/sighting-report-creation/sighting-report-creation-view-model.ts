@@ -11,6 +11,8 @@ import { buildReportCreationContactViewModel } from "../report-creation/report-c
 import { sightingReportPetTypeOptions } from "./sighting-report-creation-types";
 
 const sightingReportPhotoLimit = 5;
+const sightingObservedAtIsoError =
+  "Ingresa fecha y hora en formato ISO, por ejemplo 2026-06-18T10:15:00.000Z.";
 
 export interface SightingReportCreationViewModel {
   canPublish: boolean;
@@ -112,6 +114,7 @@ export function createSightingReportDraft(
       whatsappEnabled: false,
       whatsappPhone: "",
     },
+    idempotencyKey: createSightingReportDraftIdempotencyKey(),
     pet: {
       breed: "",
       description: "",
@@ -142,6 +145,23 @@ export function createSightingReportDraft(
       ...base.sightingDetails,
       ...overrides.sightingDetails,
     },
+  };
+}
+
+export function ensureSightingReportDraftIdempotencyKey({
+  createIdempotencyKey = createSightingReportDraftIdempotencyKey,
+  draft,
+}: {
+  createIdempotencyKey?: () => string;
+  draft: SightingReportDraft;
+}): SightingReportDraft {
+  if (draft.idempotencyKey) {
+    return draft;
+  }
+
+  return {
+    ...draft,
+    idempotencyKey: createIdempotencyKey(),
   };
 }
 
@@ -289,6 +309,7 @@ export function toPublishSightingReportInput({
       locationCellLabel: exactSightingLocation.locationCellLabel,
       longitude: exactSightingLocation.coordinates.longitude,
     },
+    idempotencyKey: draft.idempotencyKey,
     observedAt: draft.sightingDetails.observedAtLabel.trim(),
     observedCondition: draft.sightingDetails.observedCondition.trim(),
     pet: {
@@ -302,6 +323,21 @@ export function toPublishSightingReportInput({
   };
 }
 
+function createSightingReportDraftIdempotencyKey() {
+  const crypto = globalThis.crypto as
+    | {
+        randomUUID?: () => string;
+      }
+    | undefined;
+  const randomUUID =
+    typeof crypto?.randomUUID === "function" ? crypto.randomUUID() : undefined;
+  const uniqueValue =
+    randomUUID ??
+    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+
+  return `sighting-report-${uniqueValue}`;
+}
+
 function validateSightingReportDraft(draft: SightingReportDraft) {
   const errors: string[] = [];
 
@@ -309,8 +345,11 @@ function validateSightingReportDraft(draft: SightingReportDraft) {
     errors.push("Selecciona donde fue visto el animal.");
   }
 
-  if (draft.sightingDetails.observedAtLabel.trim().length === 0) {
-    errors.push("Indica cuando fue visto.");
+  const observedAtError = getObservedAtError(
+    draft.sightingDetails.observedAtLabel,
+  );
+  if (observedAtError) {
+    errors.push(observedAtError);
   }
 
   if (draft.sightingDetails.observedCondition.trim().length === 0) {
@@ -366,12 +405,9 @@ function buildSightingDetailsViewModel(draft: SightingReportDraft) {
         value: draft.sightingDetails.direction,
       },
       observedAtLabel: {
-        error:
-          draft.sightingDetails.observedAtLabel.trim().length === 0
-            ? "Indica cuando fue visto."
-            : undefined,
+        error: getObservedAtError(draft.sightingDetails.observedAtLabel),
         label: "Cuando la viste",
-        placeholder: "Hoy, ayer, fecha y hora aproximada",
+        placeholder: "2026-06-18T10:15:00.000Z",
         value: draft.sightingDetails.observedAtLabel,
       },
       observedCondition: {
@@ -497,7 +533,7 @@ function buildSteps({
     {
       id: "details" as const,
       isComplete:
-        draft.sightingDetails.observedAtLabel.trim().length > 0 &&
+        !getObservedAtError(draft.sightingDetails.observedAtLabel) &&
         draft.sightingDetails.observedCondition.trim().length > 0 &&
         draft.sightingDetails.direction.trim().length > 0 &&
         draft.sightingDetails.description.trim().length > 0 &&
@@ -549,6 +585,28 @@ function getContactError(contact: SightingReportContactDraft) {
   }
 
   return undefined;
+}
+
+function getObservedAtError(value: string) {
+  const trimmed = value.trim();
+
+  if (trimmed.length === 0) {
+    return "Indica cuando fue visto.";
+  }
+
+  if (!isIsoDateTime(trimmed)) {
+    return sightingObservedAtIsoError;
+  }
+
+  return undefined;
+}
+
+function isIsoDateTime(value: string) {
+  return (
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(
+      value,
+    ) && Number.isFinite(Date.parse(value))
+  );
 }
 
 function buildContactOptions(currentOption: SightingReportContactOption) {

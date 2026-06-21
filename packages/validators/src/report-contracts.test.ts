@@ -35,6 +35,24 @@ describe("report validation contracts", () => {
     );
   });
 
+  it("rejects client-supplied object storage media metadata during report creation", () => {
+    const result = createReportInputSchema.safeParse({
+      ...baseSightingInput,
+      media: [
+        {
+          canonicalUrl: "https://cdn.example.invalid/reports/forged.webp",
+          height: 900,
+          mimeType: "image/webp",
+          objectKey: "reports/someone-else/forged.webp",
+          sizeBytes: 300_000,
+          width: 1200,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it("requires photos for lost, found, and adoption reports", () => {
     for (const type of ["lost_pet", "found_pet", "adoption"] as const) {
       const result = createReportInputSchema.safeParse({

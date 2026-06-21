@@ -18,6 +18,19 @@ export const env = createEnv({
   server: {
     POSTGRES_URL: z.url(),
     RASTRO_ADMIN_EMAILS: z.string().optional(),
+    RASTRO_JOB_SECRET: z.string().optional(),
+    RASTRO_STORAGE_ACCESS_KEY_ID: z.string().optional(),
+    RASTRO_STORAGE_ALLOWED_MIME_TYPES: z.string().optional(),
+    RASTRO_STORAGE_BUCKET: z.string().optional(),
+    RASTRO_STORAGE_DELIVERY_BASE_URL: z.string().optional(),
+    RASTRO_STORAGE_FORCE_PATH_STYLE: z.string().optional(),
+    RASTRO_STORAGE_INTERNAL_ENDPOINT: z.string().optional(),
+    RASTRO_STORAGE_MAX_IMAGE_BYTES: z.string().optional(),
+    RASTRO_STORAGE_PRESIGN_ENDPOINT: z.string().optional(),
+    RASTRO_STORAGE_PRESIGN_EXPIRES_SECONDS: z.string().optional(),
+    RASTRO_STORAGE_REGION: z.string().optional(),
+    RASTRO_STORAGE_SECRET_ACCESS_KEY: z.string().optional(),
+    RASTRO_STORAGE_TLS: z.string().optional(),
   },
 
   /**

@@ -33,9 +33,26 @@ describe("report schema", () => {
     expect(ReportLocation.publicPrecision).toBeDefined();
 
     expect(ReportMedia.objectKey).toBeDefined();
+    expect(ReportMedia.ownerId).toBeDefined();
+    expect(ReportMedia.uploadDraftId).toBeDefined();
+    expect(ReportMedia.uploadReportType).toBeDefined();
+    expect(ReportMedia.expectedChecksumSha256).toBeDefined();
+    expect(ReportMedia.expiresAt).toBeDefined();
+    expect(ReportMedia.verifiedAt).toBeDefined();
+    expect(ReportMedia.failedAt).toBeDefined();
+    expect(ReportMedia.removedAt).toBeDefined();
     expect(ReportMedia.position).toBeDefined();
     expect(ReportLifecycleEvent.type).toBeDefined();
     expect(ReportLifecycleEvent.actorId).toBeDefined();
+  });
+
+  it("supports pending, ready, failed, and removed media states", () => {
+    expect(ReportMedia.status.enumValues).toEqual([
+      "pending",
+      "ready",
+      "failed",
+      "removed",
+    ]);
   });
 
   it("allows media replacement history without blocking reused display positions", () => {
@@ -52,7 +69,9 @@ describe("report schema", () => {
     expect(positionIndex?.unique).toBe(true);
     expect(
       positionIndex?.where?.toQuery(postgresQueryConfig as never).sql,
-    ).toBe(`"report_media"."status" = 'ready'`);
+    ).toBe(
+      `"report_media"."status" = 'ready' AND "report_media"."reportId" IS NOT NULL`,
+    );
   });
 
   it("uses Date values for timestamp update hooks", () => {

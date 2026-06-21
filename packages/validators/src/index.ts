@@ -40,18 +40,26 @@ export const contactPreferenceSchema = z.enum([
 ]);
 
 export const reportMediaInputSchema = z.object({
-  objectKey: z.string().min(1).max(512),
-  canonicalUrl: z.url().optional(),
-  thumbnailObjectKey: z.string().min(1).max(512).optional(),
-  mimeType: z.string().regex(/^image\/(jpeg|png|webp|heic|heif)$/),
-  width: z.number().int().positive(),
-  height: z.number().int().positive(),
-  sizeBytes: z
-    .number()
-    .int()
-    .positive()
-    .max(10 * 1024 * 1024),
+  mediaId: z.uuid(),
   altText: z.string().max(240).optional(),
+});
+
+const imageMimeTypeSchema = z
+  .string()
+  .regex(/^image\/(jpeg|png|webp|heic|heif)$/);
+
+export const createUploadSessionInputSchema = z.object({
+  checksumSha256: z.string().min(8).max(128).optional(),
+  draftId: z.string().min(1).max(128),
+  height: z.number().int().positive(),
+  mimeType: imageMimeTypeSchema,
+  reportType: reportTypeSchema,
+  sizeBytes: z.number().int().positive(),
+  width: z.number().int().positive(),
+});
+
+export const uploadSessionIdInputSchema = z.object({
+  mediaId: z.uuid(),
 });
 
 const boliviaLatitudeSchema = z.number().min(-23).max(-9);
@@ -166,6 +174,10 @@ export type ReportOutcome = z.infer<typeof reportOutcomeSchema>;
 export type PetSpecies = z.infer<typeof petSpeciesSchema>;
 export type ContactPreference = z.infer<typeof contactPreferenceSchema>;
 export type ReportMediaInput = z.infer<typeof reportMediaInputSchema>;
+export type CreateUploadSessionInput = z.infer<
+  typeof createUploadSessionInputSchema
+>;
+export type UploadSessionIdInput = z.infer<typeof uploadSessionIdInputSchema>;
 export type ReportLocationInput = z.infer<typeof reportLocationInputSchema>;
 export type CreateReportInput = z.infer<typeof createReportInputSchema>;
 export type ReportDetailInput = z.infer<typeof reportDetailInputSchema>;

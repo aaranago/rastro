@@ -3,12 +3,13 @@ const reportCreationPublishUnavailableMessage =
 const reportCreationPublishFailedMessage =
   "No pudimos publicar. Tu borrador sigue aqui para intentar de nuevo.";
 
-export type ReportCreationPublishHandler<TInput> = (
+export type ReportCreationPublishHandler<TInput, TConfirmation = void> = (
   input: TInput,
-) => Promise<void> | void;
+) => Promise<TConfirmation> | TConfirmation;
 
-export type ReportCreationPublishResult =
+export type ReportCreationPublishResult<TConfirmation = unknown> =
   | {
+      confirmation?: TConfirmation;
       ok: true;
     }
   | {
@@ -25,7 +26,7 @@ export interface ReportCreationPublishLock {
   current: boolean;
 }
 
-export async function publishReportCreation<TInput>({
+export async function publishReportCreation<TInput, TConfirmation = void>({
   clearDraft,
   input,
   publishLock,
@@ -34,8 +35,8 @@ export async function publishReportCreation<TInput>({
   clearDraft: () => Promise<void> | void;
   input: TInput;
   publishLock?: ReportCreationPublishLock;
-  publishHandler?: ReportCreationPublishHandler<TInput>;
-}): Promise<ReportCreationPublishResult> {
+  publishHandler?: ReportCreationPublishHandler<TInput, TConfirmation>;
+}): Promise<ReportCreationPublishResult<TConfirmation>> {
   if (publishLock?.current) {
     return {
       ok: false,
@@ -56,8 +57,14 @@ export async function publishReportCreation<TInput>({
   }
 
   try {
-    await publishHandler(input);
+    const confirmation = await publishHandler(input);
     await clearDraft();
+
+    const maybeConfirmation: TConfirmation | undefined = confirmation;
+
+    return maybeConfirmation === undefined
+      ? { ok: true }
+      : { confirmation: maybeConfirmation, ok: true };
   } catch {
     return {
       message: reportCreationPublishFailedMessage,
@@ -69,6 +76,4 @@ export async function publishReportCreation<TInput>({
       publishLock.current = false;
     }
   }
-
-  return { ok: true };
 }

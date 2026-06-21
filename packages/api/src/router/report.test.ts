@@ -160,6 +160,473 @@ describe("report router", () => {
     expect(JSON.stringify(report)).not.toContain("-68.123881");
   });
 
+  it("creates a protected upload session with backend-owned object instructions", async () => {
+    let createInput:
+      | {
+          ownerId: string;
+          metadata: {
+            checksumSha256?: string;
+            draftId: string;
+            height: number;
+            mimeType: string;
+            reportType: string;
+            sizeBytes: number;
+            width: number;
+          };
+        }
+      | undefined;
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      mediaRepository: {
+        createUploadSession: (input: NonNullable<typeof createInput>) => {
+          createInput = input;
+          return Promise.resolve({
+            createdAt: new Date("2026-06-21T18:00:00.000Z"),
+            expectedChecksumSha256: input.metadata.checksumSha256 ?? null,
+            expectedHeight: input.metadata.height,
+            expectedMimeType: input.metadata.mimeType,
+            expectedSizeBytes: input.metadata.sizeBytes,
+            expectedWidth: input.metadata.width,
+            expiresAt: new Date("2026-06-21T18:10:00.000Z"),
+            draftId: "lost-draft-device-1",
+            id: "11111111-1111-4111-8111-111111111111",
+            objectKey:
+              "report-media/member-camila/11111111-1111-4111-8111-111111111111/original.webp",
+            ownerId: input.ownerId,
+            reportType: "lost_pet",
+            reportId: null,
+            status: "pending",
+            updatedAt: new Date("2026-06-21T18:00:00.000Z"),
+          });
+        },
+      },
+      mediaStorageConfig: {
+        accessKeyId: "[redacted]",
+        allowedMimeTypes: [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/heic",
+          "image/heif",
+        ],
+        bucket: "rastro-media",
+        deliveryBaseUrl: null,
+        forcePathStyle: true,
+        internalEndpoint: "http://minio:9000",
+        maxImageBytes: 10 * 1024 * 1024,
+        presignEndpoint: "https://uploads.example.invalid",
+        presignExpiresSeconds: 300,
+        region: "us-east-1",
+        secretAccessKey: "[redacted]",
+        tls: false,
+      },
+      mediaStorage: {
+        createPresignedPut: () =>
+          Promise.resolve({
+            expiresAt: new Date("2026-06-21T18:05:00.000Z"),
+            headers: {
+              "content-type": "image/webp",
+              "x-amz-checksum-sha256": "sha256-test",
+            },
+            method: "PUT",
+            url: "https://uploads.example.invalid/report-media/member-camila/signed",
+          }),
+      },
+      session: {
+        user: {
+          id: "member-camila",
+        },
+      },
+    });
+
+    const uploadSession = await caller.report.createUploadSession({
+      checksumSha256: "sha256-test",
+      draftId: "lost-draft-device-1",
+      height: 900,
+      mimeType: "image/webp",
+      reportType: "lost_pet",
+      sizeBytes: 300_000,
+      width: 1200,
+    });
+
+    expect(createInput).toMatchObject({
+      ownerId: "member-camila",
+      metadata: {
+        checksumSha256: "sha256-test",
+        draftId: "lost-draft-device-1",
+        height: 900,
+        mimeType: "image/webp",
+        reportType: "lost_pet",
+        sizeBytes: 300_000,
+        width: 1200,
+      },
+    });
+    expect(uploadSession).toEqual({
+      expiresAt: new Date("2026-06-21T18:05:00.000Z"),
+      mediaId: "11111111-1111-4111-8111-111111111111",
+      objectKey:
+        "report-media/member-camila/11111111-1111-4111-8111-111111111111/original.webp",
+      upload: {
+        headers: {
+          "content-type": "image/webp",
+          "x-amz-checksum-sha256": "sha256-test",
+        },
+        method: "PUT",
+        url: "https://uploads.example.invalid/report-media/member-camila/signed",
+      },
+    });
+    expect(JSON.stringify(uploadSession)).not.toContain("AWS_SECRET");
+    expect(JSON.stringify(uploadSession)).not.toContain("X-Amz-Credential");
+  });
+
+  it("rejects upload-session metadata outside configured storage limits", async () => {
+    let createWasCalled = false;
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      mediaRepository: {
+        createUploadSession: () => {
+          createWasCalled = true;
+          return Promise.reject(
+            new Error("Invalid metadata should not create media."),
+          );
+        },
+      },
+      mediaStorageConfig: {
+        accessKeyId: "[redacted]",
+        allowedMimeTypes: ["image/webp"],
+        bucket: "rastro-media",
+        deliveryBaseUrl: null,
+        forcePathStyle: true,
+        internalEndpoint: "http://minio:9000",
+        maxImageBytes: 100_000,
+        presignEndpoint: "https://uploads.example.invalid",
+        presignExpiresSeconds: 300,
+        region: "us-east-1",
+        secretAccessKey: "[redacted]",
+        tls: false,
+      },
+      mediaStorage: {},
+      session: {
+        user: {
+          id: "member-camila",
+        },
+      },
+    });
+
+    await expect(
+      caller.report.createUploadSession({
+        draftId: "lost-draft-device-1",
+        height: 900,
+        mimeType: "image/png",
+        reportType: "lost_pet",
+        sizeBytes: 300_000,
+        width: 1200,
+      }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect(createWasCalled).toBe(false);
+  });
+
+  it("rejects upload-session creation before writing media rows when storage is not configured", async () => {
+    let createWasCalled = false;
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      mediaRepository: {
+        createUploadSession: () => {
+          createWasCalled = true;
+          return Promise.reject(
+            new Error("Unconfigured storage should not create media."),
+          );
+        },
+      },
+      mediaStorageConfig: null,
+      session: {
+        user: {
+          id: "member-camila",
+        },
+      },
+    });
+
+    await expect(
+      caller.report.createUploadSession({
+        draftId: "lost-draft-device-1",
+        height: 900,
+        mimeType: "image/webp",
+        reportType: "lost_pet",
+        sizeBytes: 300_000,
+        width: 1200,
+      }),
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+    });
+    expect(createWasCalled).toBe(false);
+  });
+
+  it("completes an upload session after backend storage verification", async () => {
+    let completedInput:
+      | {
+          mediaId: string;
+          verifiedAt: Date;
+        }
+      | undefined;
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      mediaRepository: {
+        findUploadSessionById: () =>
+          Promise.resolve({
+            createdAt: new Date("2026-06-21T18:00:00.000Z"),
+            expectedChecksumSha256: "sha256-test",
+            expectedHeight: 900,
+            expectedMimeType: "image/webp",
+            expectedSizeBytes: 300_000,
+            expectedWidth: 1200,
+            expiresAt: new Date("2026-06-21T18:10:00.000Z"),
+            draftId: "lost-draft-device-1",
+            id: "11111111-1111-4111-8111-111111111111",
+            objectKey:
+              "report-media/member-camila/11111111-1111-4111-8111-111111111111/original.webp",
+            ownerId: "member-camila",
+            reportType: "lost_pet",
+            reportId: null,
+            status: "pending",
+            updatedAt: new Date("2026-06-21T18:00:00.000Z"),
+          }),
+        markUploadSessionReady: (input: NonNullable<typeof completedInput>) => {
+          completedInput = input;
+          return Promise.resolve({
+            createdAt: new Date("2026-06-21T18:00:00.000Z"),
+            expectedChecksumSha256: "sha256-test",
+            expectedHeight: 900,
+            expectedMimeType: "image/webp",
+            expectedSizeBytes: 300_000,
+            expectedWidth: 1200,
+            expiresAt: new Date("2026-06-21T18:10:00.000Z"),
+            draftId: "lost-draft-device-1",
+            id: input.mediaId,
+            objectKey:
+              "report-media/member-camila/11111111-1111-4111-8111-111111111111/original.webp",
+            ownerId: "member-camila",
+            reportType: "lost_pet",
+            reportId: null,
+            status: "ready",
+            updatedAt: input.verifiedAt,
+          });
+        },
+      },
+      mediaStorage: {
+        headObject: () =>
+          Promise.resolve({
+            checksumSha256: "sha256-test",
+            contentLength: 300_000,
+            contentType: "image/webp",
+            metadata: {
+              height: "900",
+              mediaid: "11111111-1111-4111-8111-111111111111",
+              sizebytes: "300000",
+              width: "1200",
+            },
+          }),
+      },
+      session: {
+        user: {
+          id: "member-camila",
+        },
+      },
+    });
+
+    const completed = await caller.report.completeUploadSession({
+      mediaId: "11111111-1111-4111-8111-111111111111",
+    });
+
+    expect(completed).toEqual({
+      mediaId: "11111111-1111-4111-8111-111111111111",
+      objectKey:
+        "report-media/member-camila/11111111-1111-4111-8111-111111111111/original.webp",
+      status: "ready",
+    });
+    expect(completedInput?.mediaId).toBe(
+      "11111111-1111-4111-8111-111111111111",
+    );
+  });
+
+  it("rejects upload completion when required object metadata does not match the session", async () => {
+    let failedMediaId: string | undefined;
+    let readyWasCalled = false;
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      mediaRepository: {
+        findUploadSessionById: () =>
+          Promise.resolve({
+            createdAt: new Date("2026-06-21T18:00:00.000Z"),
+            expectedChecksumSha256: null,
+            expectedHeight: 900,
+            expectedMimeType: "image/webp",
+            expectedSizeBytes: 300_000,
+            expectedWidth: 1200,
+            expiresAt: new Date("2026-06-21T18:10:00.000Z"),
+            draftId: "lost-draft-device-1",
+            id: "11111111-1111-4111-8111-111111111111",
+            objectKey:
+              "report-media/member-camila/11111111-1111-4111-8111-111111111111/original.webp",
+            ownerId: "member-camila",
+            reportType: "lost_pet",
+            reportId: null,
+            status: "pending",
+            updatedAt: new Date("2026-06-21T18:00:00.000Z"),
+          }),
+        markUploadSessionFailed: (input: { mediaId: string }) => {
+          failedMediaId = input.mediaId;
+          return Promise.resolve({
+            createdAt: new Date("2026-06-21T18:00:00.000Z"),
+            expectedChecksumSha256: null,
+            expectedHeight: 900,
+            expectedMimeType: "image/webp",
+            expectedSizeBytes: 300_000,
+            expectedWidth: 1200,
+            expiresAt: new Date("2026-06-21T18:10:00.000Z"),
+            draftId: "lost-draft-device-1",
+            id: input.mediaId,
+            objectKey:
+              "report-media/member-camila/11111111-1111-4111-8111-111111111111/original.webp",
+            ownerId: "member-camila",
+            reportType: "lost_pet",
+            reportId: null,
+            status: "failed",
+            updatedAt: new Date("2026-06-21T18:00:00.000Z"),
+          });
+        },
+        markUploadSessionReady: () => {
+          readyWasCalled = true;
+          return Promise.reject(
+            new Error("Mismatched upload metadata must not mark media ready."),
+          );
+        },
+      },
+      mediaStorage: {
+        headObject: () =>
+          Promise.resolve({
+            checksumSha256: null,
+            contentLength: 300_000,
+            contentType: "image/webp",
+            metadata: {
+              height: "900",
+              mediaid: "22222222-2222-4222-8222-222222222222",
+              sizebytes: "299999",
+              width: "1200",
+            },
+          }),
+      },
+      session: {
+        user: {
+          id: "member-camila",
+        },
+      },
+    });
+
+    await expect(
+      caller.report.completeUploadSession({
+        mediaId: "11111111-1111-4111-8111-111111111111",
+      }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect(failedMediaId).toBe("11111111-1111-4111-8111-111111111111");
+    expect(readyWasCalled).toBe(false);
+  });
+
+  it("refreshes expired upload authorization for the same pending media", async () => {
+    let refreshedMediaId: string | undefined;
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      mediaRepository: {
+        findUploadSessionById: () =>
+          Promise.resolve({
+            createdAt: new Date("2026-06-21T18:00:00.000Z"),
+            expectedChecksumSha256: "sha256-test",
+            expectedHeight: 900,
+            expectedMimeType: "image/webp",
+            expectedSizeBytes: 300_000,
+            expectedWidth: 1200,
+            expiresAt: new Date("2026-06-21T18:10:00.000Z"),
+            draftId: "lost-draft-device-1",
+            id: "11111111-1111-4111-8111-111111111111",
+            objectKey:
+              "report-media/member-camila/11111111-1111-4111-8111-111111111111/original.webp",
+            ownerId: "member-camila",
+            reportType: "lost_pet",
+            reportId: null,
+            status: "pending",
+            updatedAt: new Date("2026-06-21T18:00:00.000Z"),
+          }),
+        refreshUploadSession: (input: { mediaId: string }) => {
+          refreshedMediaId = input.mediaId;
+          return Promise.resolve({
+            createdAt: new Date("2026-06-21T18:00:00.000Z"),
+            expectedChecksumSha256: "sha256-test",
+            expectedHeight: 900,
+            expectedMimeType: "image/webp",
+            expectedSizeBytes: 300_000,
+            expectedWidth: 1200,
+            expiresAt: new Date("2026-06-21T18:25:00.000Z"),
+            draftId: "lost-draft-device-1",
+            id: input.mediaId,
+            objectKey:
+              "report-media/member-camila/11111111-1111-4111-8111-111111111111/original.webp",
+            ownerId: "member-camila",
+            reportType: "lost_pet",
+            reportId: null,
+            status: "pending",
+            updatedAt: new Date("2026-06-21T18:15:00.000Z"),
+          });
+        },
+      },
+      mediaStorage: {
+        createPresignedPut: () =>
+          Promise.resolve({
+            expiresAt: new Date("2026-06-21T18:20:00.000Z"),
+            headers: {
+              "content-type": "image/webp",
+              "x-amz-checksum-sha256": "sha256-test",
+            },
+            method: "PUT",
+            url: "https://uploads.example.invalid/report-media/member-camila/refreshed",
+          }),
+      },
+      session: {
+        user: {
+          id: "member-camila",
+        },
+      },
+    });
+
+    const refreshed = await caller.report.refreshUploadSession({
+      mediaId: "11111111-1111-4111-8111-111111111111",
+    });
+
+    expect(refreshedMediaId).toBe("11111111-1111-4111-8111-111111111111");
+    expect(refreshed).toEqual({
+      expiresAt: new Date("2026-06-21T18:20:00.000Z"),
+      mediaId: "11111111-1111-4111-8111-111111111111",
+      objectKey:
+        "report-media/member-camila/11111111-1111-4111-8111-111111111111/original.webp",
+      upload: {
+        headers: {
+          "content-type": "image/webp",
+          "x-amz-checksum-sha256": "sha256-test",
+        },
+        method: "PUT",
+        url: "https://uploads.example.invalid/report-media/member-camila/refreshed",
+      },
+    });
+  });
+
   it("returns the existing report for duplicate idempotency keys", async () => {
     let createWasCalled = false;
     const caller = createCaller({
@@ -185,6 +652,116 @@ describe("report router", () => {
     const report = await caller.report.create(validReportCreateInput);
 
     expect(report.id).toBe("report-sighting-sopocachi");
+    expect(createWasCalled).toBe(false);
+  });
+
+  it("checks ready media against the report draft and report type before creation", async () => {
+    let readyCheck:
+      | {
+          draftId: string;
+          media: { mediaId: string }[];
+          ownerId: string;
+          reportType: string;
+        }
+      | undefined;
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      mediaRepository: {
+        assertReadyMediaForReport: (input: NonNullable<typeof readyCheck>) => {
+          readyCheck = input;
+          return Promise.resolve();
+        },
+      },
+      session: {
+        user: {
+          id: "member-camila",
+        },
+      },
+      reportRepository: {
+        findByCaretakerAndIdempotencyKey: () => Promise.resolve(null),
+        create: () =>
+          Promise.resolve(
+            persistedSightingReport({
+              media: [
+                {
+                  altText: null,
+                  canonicalUrl: null,
+                  height: 900,
+                  id: "22222222-2222-4222-8222-222222222222",
+                  mimeType: "image/webp",
+                  objectKey:
+                    "report-media/member-camila/22222222-2222-4222-8222-222222222222/original.webp",
+                  position: 0,
+                  sizeBytes: 300_000,
+                  thumbnailObjectKey: null,
+                  width: 1200,
+                },
+              ],
+            }),
+          ),
+      },
+    });
+
+    await caller.report.create({
+      ...validReportCreateInput,
+      media: [
+        {
+          mediaId: "22222222-2222-4222-8222-222222222222",
+        },
+      ],
+    });
+
+    expect(readyCheck).toMatchObject({
+      draftId: "sighting-2026-06-19-device-1",
+      media: [
+        {
+          mediaId: "22222222-2222-4222-8222-222222222222",
+        },
+      ],
+      ownerId: "member-camila",
+      reportType: "sighting",
+    });
+  });
+
+  it("rejects report creation when media IDs are not ready and owned by the member", async () => {
+    let createWasCalled = false;
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      mediaRepository: {
+        assertReadyMediaForReport: () =>
+          Promise.reject(new Error("Media IDs are not ready for this member.")),
+      },
+      session: {
+        user: {
+          id: "member-camila",
+        },
+      },
+      reportRepository: {
+        findByCaretakerAndIdempotencyKey: () => Promise.resolve(null),
+        create: () => {
+          createWasCalled = true;
+          return Promise.reject(
+            new Error("Invalid media should not reach report persistence."),
+          );
+        },
+      },
+    });
+
+    await expect(
+      caller.report.create({
+        ...validReportCreateInput,
+        media: [
+          {
+            mediaId: "22222222-2222-4222-8222-222222222222",
+          },
+        ],
+        type: "lost_pet",
+      }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
     expect(createWasCalled).toBe(false);
   });
 

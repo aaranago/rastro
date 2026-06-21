@@ -102,6 +102,7 @@ export interface PublishSightingReportInput {
   contactOption: SightingReportContactOption;
   direction: string;
   exactLocation: SightingReportExactLocation;
+  idempotencyKey?: string;
   observedAt: string;
   observedCondition: string;
   pet: SightingReportPetSnapshot;

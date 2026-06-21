@@ -40,6 +40,7 @@ import type {
   ShellFirstRunTourStore,
 } from "./shell-onboarding";
 import authWelcomeIllustration from "../../../assets/auth-welcome-illustration.png";
+import { trpcClient } from "../../utils/api";
 import { AdoptionListingCreationScreen } from "../adoption-listing-creation/adoption-listing-creation-screen";
 import { FoundReportCreationScreen } from "../found-report-creation/found-report-creation-screen";
 import { LostReportCreationScreen } from "../lost-report-creation/lost-report-creation-screen";
@@ -50,6 +51,7 @@ import {
   createStaticResourcesAdapter,
 } from "../resources";
 import { SightingReportCreationScreen } from "../sighting-report-creation/sighting-report-creation-screen";
+import { createApiSightingReportPublishHandler } from "../sighting-report-creation/sighting-report-publish-adapter";
 import {
   prepareShellAuthCredentialsForAction,
   prepareShellPasswordResetEmail,
@@ -174,6 +176,10 @@ export function ShellFabHost() {
   const memberCreationSession = toShellMemberCreationSession(session);
   const sponsorResourcesAdapter = React.useMemo(
     () => createStaticResourcesAdapter(),
+    [],
+  );
+  const publishSightingReport = React.useMemo(
+    () => createApiSightingReportPublishHandler({ client: trpcClient }),
     [],
   );
   const handleOpenSponsorPlacement = React.useCallback(
@@ -315,6 +321,7 @@ export function ShellFabHost() {
         draftScopeId={draftScopeId}
         draftStore={creationDraftStore}
         onClose={clearMemberIntent}
+        onPublishSightingReport={publishSightingReport}
         session={memberCreationSession}
         visible={
           Boolean(memberCreationSession) &&
@@ -652,12 +659,16 @@ function SightingReportStartModal({
   draftScopeId,
   draftStore,
   onClose,
+  onPublishSightingReport,
   session,
   visible,
 }: {
   draftScopeId?: string;
   draftStore?: ReturnType<typeof createCreationDraftStore>;
   onClose: () => void;
+  onPublishSightingReport?: React.ComponentProps<
+    typeof SightingReportCreationScreen
+  >["onPublishSightingReport"];
   session: ShellMemberCreationSession | null;
   visible: boolean;
 }) {
@@ -672,6 +683,7 @@ function SightingReportStartModal({
         draftScopeId={draftScopeId}
         draftStore={draftStore}
         onClose={onClose}
+        onPublishSightingReport={onPublishSightingReport}
         session={session ?? { kind: "visitor" }}
       />
     </Modal>

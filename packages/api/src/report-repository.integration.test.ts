@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type * as DbClientModule from "@acme/db/client";
 import type * as DbSchemaModule from "@acme/db/schema";
 
+import type { ReportMediaRepository } from "./report-media-repository";
 import type { ReportRepository } from "./report-repository";
 
 const execFileAsync = promisify(execFile);
@@ -30,6 +31,7 @@ const describeIntegration = runIntegration ? describe : describe.skip;
 describeIntegration("report repository integration", () => {
   let db: DbClientModule.Database;
   let pool: { end: () => Promise<void> } | null = null;
+  let mediaRepository: ReportMediaRepository;
   let repository: ReportRepository;
   let user: typeof DbSchemaModule.user;
   let tempDatabaseName = "";
@@ -64,11 +66,16 @@ describeIntegration("report repository integration", () => {
 
     const dbClientModule = await import("@acme/db/client");
     const dbSchemaModule = await import("@acme/db/schema");
+    const reportMediaRepositoryModule = await import(
+      "./report-media-repository"
+    );
     const reportRepositoryModule = await import("./report-repository");
 
     db = dbClientModule.db;
     pool = dbClientModule.pool;
     user = dbSchemaModule.user;
+    mediaRepository =
+      reportMediaRepositoryModule.createDrizzleReportMediaRepository(db);
     repository = reportRepositoryModule.createDrizzleReportRepository(db);
 
     await db.insert(user).values({
@@ -97,6 +104,28 @@ describeIntegration("report repository integration", () => {
   }, 30_000);
 
   it("persists reports, queries nearby, replaces media, and applies lifecycle changes", async () => {
+    const createReadyMedia = async (sizeBytes: number, draftId: string) => {
+      const pendingMedia = await mediaRepository.createUploadSession({
+        metadata: {
+          draftId,
+          height: 900,
+          mimeType: "image/webp",
+          reportType: "sighting",
+          sizeBytes,
+          width: 1200,
+        },
+        ownerId: "member-report-integration",
+      });
+
+      return mediaRepository.markUploadSessionReady({
+        mediaId: pendingMedia.id,
+        verifiedAt: new Date("2026-06-20T01:31:00.000Z"),
+      });
+    };
+    const firstMedia = await createReadyMedia(
+      300_000,
+      "sighting-integration-2026-06-20",
+    );
     const input = {
       contact: {
         preference: "in_app_chat",
@@ -115,13 +144,7 @@ describeIntegration("report repository integration", () => {
       media: [
         {
           altText: "Perro marron",
-          canonicalUrl:
-            "https://cdn.example.invalid/reports/member-report-integration/sighting/1.webp",
-          height: 900,
-          mimeType: "image/webp",
-          objectKey: "reports/member-report-integration/sighting/1.webp",
-          sizeBytes: 300_000,
-          width: 1200,
+          mediaId: firstMedia.id,
         },
       ],
       pet: {
@@ -163,46 +186,34 @@ describeIntegration("report repository integration", () => {
     });
     expect(nearby.map((report) => report.id)).toContain(created.id);
 
+    const secondMedia = await createReadyMedia(301_000, created.id);
     await repository.update({
       actorId: "member-report-integration",
       patch: {
         id: created.id,
         media: [
           {
-            canonicalUrl:
-              "https://cdn.example.invalid/reports/member-report-integration/sighting/2.webp",
-            height: 900,
-            mimeType: "image/webp",
-            objectKey: "reports/member-report-integration/sighting/2.webp",
-            sizeBytes: 301_000,
-            width: 1200,
+            mediaId: secondMedia.id,
           },
         ],
       },
       reportId: created.id,
     });
+    const thirdMedia = await createReadyMedia(302_000, created.id);
     const updatedAgain = await repository.update({
       actorId: "member-report-integration",
       patch: {
         id: created.id,
         media: [
           {
-            canonicalUrl:
-              "https://cdn.example.invalid/reports/member-report-integration/sighting/3.webp",
-            height: 900,
-            mimeType: "image/webp",
-            objectKey: "reports/member-report-integration/sighting/3.webp",
-            sizeBytes: 302_000,
-            width: 1200,
+            mediaId: thirdMedia.id,
           },
         ],
       },
       reportId: created.id,
     });
     expect(updatedAgain.media).toHaveLength(1);
-    expect(updatedAgain.media[0]?.objectKey).toBe(
-      "reports/member-report-integration/sighting/3.webp",
-    );
+    expect(updatedAgain.media[0]?.objectKey).toBe(thirdMedia.objectKey);
 
     const resolved = await repository.resolve({
       actorId: "member-report-integration",

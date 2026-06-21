@@ -57,6 +57,7 @@ export type SightingReportContactOption = "chat" | "whatsapp" | "both";
 export interface SightingReportDraft {
   contact: SightingReportContactDraft;
   exactSightingLocation?: SightingReportExactSightingLocation;
+  idempotencyKey?: string;
   pet: SightingReportPetDraft;
   photos: SightingReportPhoto[];
   showExactPinPublicly: boolean;

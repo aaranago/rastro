@@ -1,11 +1,32 @@
 import * as React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  ShellFabHost,
   shouldDisplayGlobalReportFab,
   shouldDisplayShellFirstRunTour,
   SignInPrompt,
 } from "./shell-overlays";
+import { useRastroShell } from "./shell-provider";
+
+const api = vi.hoisted(() => ({
+  queryClient: {
+    invalidateQueries: vi.fn(),
+  },
+  trpcClient: {
+    report: {
+      create: {
+        mutate: vi.fn(),
+      },
+      detail: {
+        query: vi.fn(),
+      },
+      nearby: {
+        query: vi.fn(),
+      },
+    },
+  },
+}));
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof React>("react");
@@ -87,6 +108,15 @@ vi.mock("../sighting-report-creation/sighting-report-creation-screen", () => ({
 vi.mock("./shell-provider", () => ({
   useRastroShell: vi.fn(),
 }));
+
+vi.mock("../../utils/api", () => ({
+  queryClient: api.queryClient,
+  trpcClient: api.trpcClient,
+}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("SignInPrompt", () => {
   it("renders configured Google and Facebook actions while keeping email access available", () => {
@@ -423,6 +453,90 @@ describe("ShellFabHost", () => {
       }),
     ).toBe(true);
   });
+
+  it("publishes the member sighting creation flow through report.create and verifies backend reads", async () => {
+    api.trpcClient.report.create.mutate.mockResolvedValue({
+      id: "report-sighting-backend-1",
+      status: "active",
+      type: "sighting",
+    });
+    api.trpcClient.report.detail.query.mockResolvedValue({
+      id: "report-sighting-backend-1",
+      status: "active",
+      type: "sighting",
+    });
+    api.trpcClient.report.nearby.query.mockResolvedValue({
+      query: {},
+      results: [
+        {
+          id: "report-sighting-backend-1",
+          status: "active",
+          type: "sighting",
+        },
+      ],
+    });
+    vi.mocked(useRastroShell).mockReturnValue(createMemberSightingShell());
+
+    const screen = renderFunctionElement(<ShellFabHost />);
+    const sightingScreen = findElement(
+      screen,
+      (element) => element.type === "SightingReportCreationScreen",
+    );
+    const publishSightingReport = sightingScreen?.props
+      .onPublishSightingReport as
+      | ((input: ReturnType<typeof createSightingPublishInput>) => Promise<{
+          id: string;
+          status: string;
+        }>)
+      | undefined;
+
+    expect(publishSightingReport).toEqual(expect.any(Function));
+
+    const confirmation = await publishSightingReport?.(
+      createSightingPublishInput(),
+    );
+
+    expect(api.trpcClient.report.create.mutate).toHaveBeenCalledWith({
+      contact: {
+        preference: "in_app_chat",
+      },
+      description:
+        "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.\n\nCondicion observada: Asustado, caminando rapido, sin heridas visibles.\nDireccion: Iba hacia la avenida 20 de Octubre.",
+      eventOccurredAt: "2026-06-18T10:15:00.000Z",
+      idempotencyKey: "sighting-draft-stable-key-1",
+      location: {
+        exactLatitude: -16.5103,
+        exactLongitude: -68.1299,
+        exposeExactLocation: false,
+        label: "Plaza Abaroa, La Paz",
+        locationCell: "Sopocachi",
+      },
+      media: [],
+      pet: {
+        breed: "Mestizo",
+        color: "Patas blancas, collar verde y orejas caidas.",
+        distinguishingTraits: "Patas blancas, collar verde y orejas caidas.",
+        species: "dog",
+      },
+      title: "Perro visto en Sopocachi",
+      type: "sighting",
+    });
+    expect(api.trpcClient.report.detail.query).toHaveBeenCalledWith({
+      id: "report-sighting-backend-1",
+    });
+    expect(api.trpcClient.report.nearby.query).toHaveBeenCalledWith({
+      latitude: -16.5103,
+      limit: 50,
+      longitude: -68.1299,
+      radiusMeters: 5000,
+      statuses: ["active"],
+      types: ["lost_pet", "found_pet", "sighting", "adoption"],
+    });
+    expect(confirmation).toEqual({
+      id: "report-sighting-backend-1",
+      status: "active",
+    });
+  });
 });
 
 function createPromptActions() {
@@ -434,6 +548,90 @@ function createPromptActions() {
     onSignIn: () => Promise.resolve({ ok: true }),
     onSignInWithSocialProvider: () => Promise.resolve({ ok: true }),
   };
+}
+
+function createMemberSightingShell(): ReturnType<typeof useRastroShell> {
+  return {
+    chooseReportIntent: vi.fn(),
+    clearAuthReturnTo: vi.fn(),
+    clearMemberIntent: vi.fn(),
+    closeReportActions: vi.fn(),
+    continueAsVisitor: vi.fn(),
+    copy: {
+      authPrompt: createPromptCopy(),
+      shell: {
+        close: "Cerrar",
+        reportFabLabel: "Reportar",
+        reportSheetSubtitle: "Elige que quieres reportar",
+        reportSheetTitle: "Reportar",
+      },
+    },
+    createAccountFromPrompt: vi.fn(),
+    dismissAuthPrompt: vi.fn(),
+    model: {
+      reportActions: [
+        {
+          icon: "eye.fill",
+          intent: "sighting",
+          label: "Avistamiento",
+          memberOnly: true,
+          tone: "sighting",
+        },
+      ],
+    },
+    openReportActions: vi.fn(),
+    initiateAccountDeletion: vi.fn(),
+    requestAuthPrompt: vi.fn(),
+    requestMemberPasswordReset: vi.fn(),
+    requestPasswordResetFromPrompt: vi.fn(),
+    session: {
+      id: "member-camila",
+      kind: "member",
+      name: "Camila",
+    },
+    signOutMember: vi.fn(),
+    signInFromPrompt: vi.fn(),
+    signInWithSocialProviderFromPrompt: vi.fn(),
+    socialProviderActions: [],
+    state: {
+      activeSheet: null,
+      authPrompt: null,
+      authReturnTo: null,
+      memberIntent: {
+        intent: "sighting",
+        label: "Avistamiento",
+      },
+      pendingMemberIntent: null,
+    },
+  } as unknown as ReturnType<typeof useRastroShell>;
+}
+
+function createSightingPublishInput() {
+  return {
+    contactOption: {
+      kind: "in-app-chat",
+    },
+    direction: "Iba hacia la avenida 20 de Octubre.",
+    exactLocation: {
+      addressLabel: "Plaza Abaroa, La Paz",
+      countryCode: "BO",
+      latitude: -16.5103,
+      locationCellLabel: "Sopocachi",
+      longitude: -68.1299,
+    },
+    idempotencyKey: "sighting-draft-stable-key-1",
+    observedAt: "2026-06-18T10:15:00.000Z",
+    observedCondition: "Asustado, caminando rapido, sin heridas visibles.",
+    pet: {
+      breed: "Mestizo",
+      description: "Patas blancas, collar verde y orejas caidas.",
+      type: "Perro",
+    },
+    photos: [],
+    showExactPublicLocation: false,
+    sightingDescription:
+      "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.",
+  } as const;
 }
 
 function createPromptCopy() {

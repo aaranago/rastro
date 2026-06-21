@@ -102,4 +102,85 @@ describe("Sighting Report creation view model", () => {
         "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.",
     });
   });
+
+  it("carries the same draft idempotency key into repeated publish attempts", () => {
+    const draft = createSightingReportDraft({
+      exactSightingLocation: {
+        addressLabel: "Plaza Abaroa, La Paz",
+        coordinates: {
+          latitude: -16.5103,
+          longitude: -68.1299,
+        },
+        department: "La Paz",
+        locationCellLabel: "Sopocachi",
+        municipality: "La Paz",
+      },
+      idempotencyKey: "sighting-draft-stable-key-1",
+      pet: {
+        breed: "Mestizo",
+        description: "Patas blancas, collar verde y orejas caidas.",
+        type: "Perro",
+      },
+      sightingDetails: {
+        description:
+          "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.",
+        direction: "Iba hacia la avenida 20 de Octubre.",
+        observedAtLabel: "2026-06-18T10:15:00.000Z",
+        observedCondition: "Asustado, caminando rapido, sin heridas visibles.",
+      },
+    });
+
+    const firstPublishInput = toPublishSightingReportInput({ draft });
+    const retryPublishInput = toPublishSightingReportInput({ draft });
+
+    expect(firstPublishInput.idempotencyKey).toBe(
+      "sighting-draft-stable-key-1",
+    );
+    expect(retryPublishInput.idempotencyKey).toBe(
+      firstPublishInput.idempotencyKey,
+    );
+  });
+
+  it("does not enable backend publish for free-text sighting dates", () => {
+    const draft = createSightingReportDraft({
+      exactSightingLocation: {
+        addressLabel: "Plaza Abaroa, La Paz",
+        coordinates: {
+          latitude: -16.5103,
+          longitude: -68.1299,
+        },
+        department: "La Paz",
+        locationCellLabel: "Sopocachi",
+        municipality: "La Paz",
+      },
+      idempotencyKey: "sighting-draft-stable-key-1",
+      pet: {
+        breed: "Mestizo",
+        description: "Patas blancas, collar verde y orejas caidas.",
+        type: "Perro",
+      },
+      sightingDetails: {
+        description:
+          "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.",
+        direction: "Iba hacia la avenida 20 de Octubre.",
+        observedAtLabel: "Hoy en la mañana",
+        observedCondition: "Asustado, caminando rapido, sin heridas visibles.",
+      },
+    });
+    const viewModel = buildSightingReportCreationViewModel({
+      draft,
+      session: { kind: "member", memberId: "member-camila" },
+    });
+
+    expect(viewModel.canPublish).toBe(false);
+    expect(viewModel.sightingDetails.fields.observedAtLabel.error).toBe(
+      "Ingresa fecha y hora en formato ISO, por ejemplo 2026-06-18T10:15:00.000Z.",
+    );
+    expect(viewModel.review.validationErrors).toContain(
+      "Ingresa fecha y hora en formato ISO, por ejemplo 2026-06-18T10:15:00.000Z.",
+    );
+    expect(() => toPublishSightingReportInput({ draft })).toThrow(
+      "Ingresa fecha y hora en formato ISO",
+    );
+  });
 });
