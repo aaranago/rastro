@@ -39,6 +39,7 @@ import type {
   ShellFirstRunTourModel,
   ShellFirstRunTourStore,
 } from "./shell-onboarding";
+import authWelcomeIllustration from "../../../assets/auth-welcome-illustration.png";
 import { AdoptionListingCreationScreen } from "../adoption-listing-creation/adoption-listing-creation-screen";
 import { FoundReportCreationScreen } from "../found-report-creation/found-report-creation-screen";
 import { LostReportCreationScreen } from "../lost-report-creation/lost-report-creation-screen";
@@ -871,6 +872,7 @@ export function SignInPrompt({
   prompt: ShellAuthPrompt | null;
   socialProviderActions: ShellSocialAuthAction[];
 }) {
+  const safeAreaInsets = useSafeAreaInsets();
   const promptState = useSignInPromptState({
     authFailedLabel: copy.authFailedLabel,
     missingCredentialsLabel: copy.missingCredentialsLabel,
@@ -893,9 +895,10 @@ export function SignInPrompt({
 
   return (
     <Modal
-      animationType="fade"
+      animationType="slide"
       onRequestClose={actions.onClose}
-      transparent
+      presentationStyle="fullScreen"
+      transparent={false}
       visible={Boolean(prompt)}
     >
       <KeyboardAvoidingView
@@ -905,35 +908,44 @@ export function SignInPrompt({
         <ScrollView
           contentContainerStyle={[
             styles.promptScrollContent,
-            { paddingBottom: Math.max(bottomInset, 16) + 16 },
+            {
+              paddingBottom: Math.max(bottomInset, 16) + 24,
+              paddingTop: Math.max(safeAreaInsets.top, 16) + 10,
+            },
           ]}
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
           scrollIndicatorInsets={{
             bottom: Math.max(bottomInset, 16) + 16,
           }}
         >
-          <View
-            accessibilityViewIsModal
-            style={[
-              styles.promptCard,
-              { marginBottom: Math.max(bottomInset, 16) },
-            ]}
-          >
-            <Pressable
-              accessibilityLabel={copy.closeLabel}
-              accessibilityRole="button"
-              onPress={actions.onClose}
-              style={styles.promptCloseButton}
-            >
-              <ShellIcon name="xmark" color={shellColors.muted} size={20} />
-            </Pressable>
+          <View accessibilityViewIsModal style={styles.promptCard}>
+            <View style={styles.promptHeader}>
+              <View style={styles.promptHeaderSpacer} />
+              <Pressable
+                accessibilityLabel={copy.closeLabel}
+                accessibilityRole="button"
+                onPress={actions.onClose}
+                style={styles.promptCloseButton}
+              >
+                <Text
+                  maxFontSizeMultiplier={1.1}
+                  style={styles.promptCloseText}
+                >
+                  {copy.closeLabel}
+                </Text>
+              </Pressable>
+            </View>
 
-            <View style={styles.promptIcon}>
-              <ShellIcon
-                name="person.crop.circle.badge.plus"
-                color={shellColors.primary}
-                size={42}
+            <View style={styles.promptHeroFrame}>
+              <Image
+                accessibilityLabel="Ilustración de una persona con un perro y un gato en un mapa de alertas"
+                accessibilityRole="image"
+                contentFit="cover"
+                source={authWelcomeIllustration}
+                style={styles.promptHeroImage}
+                testID="auth-welcome-illustration"
               />
             </View>
             <Text maxFontSizeMultiplier={1.2} style={styles.promptTitle}>
@@ -1452,10 +1464,6 @@ function PromptEmailAuthActions({
     <View style={styles.promptActions}>
       <PromptActionButton
         disabled={isSubmitting}
-        iconColor={shellColors.white}
-        iconName={
-          isCreateAccountMode ? "person.badge.plus" : "arrow.right.to.line"
-        }
         label={
           isCreateAccountMode
             ? pendingAction === "create-account"
@@ -1474,10 +1482,6 @@ function PromptEmailAuthActions({
       />
       <PromptActionButton
         disabled={isSubmitting}
-        iconColor={shellColors.primary}
-        iconName={
-          isCreateAccountMode ? "arrow.right.to.line" : "person.badge.plus"
-        }
         label={isCreateAccountMode ? signInModeLabel : createAccountLabel}
         onPress={
           isCreateAccountMode ? onOpenSignInMode : onOpenCreateAccountMode
@@ -1526,8 +1530,6 @@ function PromptPasswordResetActions({
     <View style={styles.promptActions}>
       <PromptActionButton
         disabled={isSubmitting}
-        iconColor={shellColors.white}
-        iconName="arrow.right.to.line"
         label={
           pendingAction === "password-reset"
             ? passwordResetPendingLabel
@@ -1540,8 +1542,6 @@ function PromptPasswordResetActions({
       />
       <PromptActionButton
         disabled={isSubmitting}
-        iconColor={shellColors.primary}
-        iconName="arrow.right.to.line"
         label={passwordResetBackLabel}
         onPress={onOpenSignInMode}
         variant="secondary"
@@ -1575,25 +1575,19 @@ function SocialProviderButton({
   onPress: () => void;
   pendingLabel: string;
 }) {
-  const icon = getSocialProviderIcon(action.provider);
-
   return (
     <Pressable
       accessibilityLabel={action.label}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.socialProviderButton,
-        { opacity: pressed || disabled ? 0.84 : 1 },
+        { opacity: disabled ? 0.58 : pressed ? 0.84 : 1 },
       ]}
     >
-      <ShellIcon
-        color={shellColors.primary}
-        fallback={icon.fallback}
-        name={icon.name}
-        size={20}
-      />
+      <SocialProviderMark provider={action.provider} />
       <Text
         maxFontSizeMultiplier={1.15}
         numberOfLines={2}
@@ -1602,6 +1596,38 @@ function SocialProviderButton({
         {isPending ? pendingLabel : action.label}
       </Text>
     </Pressable>
+  );
+}
+
+function SocialProviderMark({
+  provider,
+}: {
+  provider: ShellSocialAuthProvider;
+}) {
+  const isGoogle = provider === "google";
+
+  return (
+    <View
+      accessible={false}
+      style={[
+        styles.socialProviderMark,
+        isGoogle
+          ? styles.socialProviderMarkGoogle
+          : styles.socialProviderMarkFacebook,
+      ]}
+    >
+      <Text
+        maxFontSizeMultiplier={1}
+        style={[
+          styles.socialProviderMarkText,
+          isGoogle
+            ? styles.socialProviderMarkTextGoogle
+            : styles.socialProviderMarkTextFacebook,
+        ]}
+      >
+        {isGoogle ? "G" : "f"}
+      </Text>
+    </View>
   );
 }
 
@@ -1614,8 +1640,8 @@ function PromptActionButton({
   variant,
 }: {
   disabled: boolean;
-  iconColor: string;
-  iconName: string;
+  iconColor?: string;
+  iconName?: string;
   label: string;
   onPress: () => void;
   variant: "primary" | "secondary";
@@ -1631,32 +1657,27 @@ function PromptActionButton({
 
   return (
     <Pressable
+      accessibilityState={{ disabled }}
       accessibilityRole="button"
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         buttonStyle,
-        { opacity: pressed || disabled ? 0.84 : 1 },
+        { opacity: disabled ? 0.58 : pressed ? 0.84 : 1 },
       ]}
     >
-      <ShellIcon name={iconName} color={iconColor} size={20} />
+      {iconName ? (
+        <ShellIcon
+          name={iconName}
+          color={iconColor ?? shellColors.primary}
+          size={20}
+        />
+      ) : null}
       <Text maxFontSizeMultiplier={1.2} style={textStyle}>
         {label}
       </Text>
     </Pressable>
   );
-}
-
-function getSocialProviderIcon(provider: ShellSocialAuthProvider) {
-  return provider === "google"
-    ? {
-        fallback: "G",
-        name: "globe",
-      }
-    : {
-        fallback: "f",
-        name: "person.2.fill",
-      };
 }
 
 const styles = StyleSheet.create({
@@ -1737,7 +1758,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     justifyContent: "center",
-    minHeight: 54,
+    minHeight: 52,
     paddingHorizontal: 18,
   },
   primaryPromptButtonText: {
@@ -1748,52 +1769,78 @@ const styles = StyleSheet.create({
   promptActions: {
     alignSelf: "stretch",
     gap: 10,
-    marginTop: 8,
+    marginTop: 4,
   },
   promptBackdrop: {
-    backgroundColor: "rgba(20, 108, 90, 0.12)",
+    backgroundColor: shellColors.background,
     flex: 1,
   },
   promptScrollContent: {
     alignItems: "center",
     flexGrow: 1,
-    justifyContent: "flex-start",
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    justifyContent: "center",
+    paddingHorizontal: 18,
   },
   promptBody: {
     color: shellColors.muted,
-    fontSize: 16,
-    lineHeight: 23,
+    fontSize: 15,
+    lineHeight: 21,
     textAlign: "center",
   },
   promptCard: {
     alignItems: "center",
-    backgroundColor: shellColors.surface,
-    borderRadius: 24,
-    boxShadow: "0 18px 40px rgba(23, 32, 28, 0.14)",
-    gap: 10,
-    maxWidth: 420,
-    padding: 18,
+    backgroundColor: "transparent",
+    gap: 8,
+    maxWidth: 460,
+    paddingHorizontal: 2,
     width: "100%",
   },
   promptCloseButton: {
     alignItems: "center",
-    height: 48,
+    backgroundColor: shellColors.surface,
+    borderColor: shellColors.border,
+    borderRadius: 999,
+    borderWidth: 1,
     justifyContent: "center",
-    position: "absolute",
-    right: 14,
-    top: 14,
-    width: 48,
+    minHeight: 48,
+    paddingHorizontal: 16,
+  },
+  promptCloseText: {
+    color: shellColors.primary,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  promptHeader: {
+    alignItems: "center",
+    alignSelf: "stretch",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  promptHeaderSpacer: {
+    width: 76,
+  },
+  promptHeroFrame: {
+    alignSelf: "stretch",
+    backgroundColor: shellColors.surface,
+    borderColor: "#D6E9E1",
+    borderRadius: 28,
+    borderWidth: 1,
+    boxShadow: "0 14px 30px rgba(23, 32, 28, 0.10)",
+    height: 118,
+    overflow: "hidden",
+  },
+  promptHeroImage: {
+    height: "100%",
+    width: "100%",
   },
   promptIcon: {
     alignItems: "center",
     backgroundColor: shellColors.primarySoft,
     borderRadius: 30,
-    height: 60,
+    height: 48,
     justifyContent: "center",
     marginTop: 4,
-    width: 60,
+    width: 48,
   },
   promptError: {
     alignSelf: "stretch",
@@ -1828,7 +1875,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     color: shellColors.text,
     fontSize: 16,
-    minHeight: 52,
+    minHeight: 50,
     paddingHorizontal: 14,
   },
   promptLabel: {
@@ -1839,7 +1886,8 @@ const styles = StyleSheet.create({
   promptTitle: {
     color: shellColors.text,
     fontSize: 24,
-    fontWeight: "800",
+    fontWeight: "900",
+    lineHeight: 29,
     textAlign: "center",
   },
   promptSuccess: {
@@ -1978,7 +2026,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     justifyContent: "center",
-    minHeight: 54,
+    minHeight: 52,
     paddingHorizontal: 18,
   },
   secondaryPromptButtonText: {
@@ -1992,18 +2040,18 @@ const styles = StyleSheet.create({
   },
   socialProviderButton: {
     alignItems: "center",
-    backgroundColor: shellColors.surfaceMuted,
+    backgroundColor: shellColors.surface,
     borderColor: shellColors.border,
     borderRadius: 24,
     borderWidth: 1,
     flexDirection: "row",
     gap: 9,
     justifyContent: "center",
-    minHeight: 52,
+    minHeight: 50,
     paddingHorizontal: 16,
   },
   socialProviderButtonText: {
-    color: shellColors.primary,
+    color: shellColors.text,
     flexShrink: 1,
     fontSize: 16,
     fontWeight: "800",
@@ -2018,6 +2066,32 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     textAlign: "center",
+  },
+  socialProviderMark: {
+    alignItems: "center",
+    borderRadius: 16,
+    height: 32,
+    justifyContent: "center",
+    width: 32,
+  },
+  socialProviderMarkFacebook: {
+    backgroundColor: "#1877F2",
+  },
+  socialProviderMarkGoogle: {
+    backgroundColor: shellColors.surface,
+    borderColor: "#DADCE0",
+    borderWidth: 1,
+  },
+  socialProviderMarkText: {
+    fontSize: 17,
+    fontWeight: "900",
+    lineHeight: 20,
+  },
+  socialProviderMarkTextFacebook: {
+    color: shellColors.white,
+  },
+  socialProviderMarkTextGoogle: {
+    color: "#4285F4",
   },
   sheetHeader: {
     alignItems: "center",

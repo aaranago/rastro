@@ -1,3 +1,4 @@
+import Constants from "expo-constants";
 import * as Linking from "expo-linking";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
@@ -236,7 +237,36 @@ function getConfiguredSocialAuthProviders(): string | undefined {
     };
   };
 
-  return globalWithProcess.process?.env?.EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS;
+  return (
+    globalWithProcess.process?.env?.EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS ??
+    getExpoConfigSocialAuthProviders()
+  );
+}
+
+function getExpoConfigSocialAuthProviders(): string | undefined {
+  const extra = Constants.expoConfig?.extra;
+
+  if (!isRecord(extra)) {
+    return undefined;
+  }
+
+  const auth = extra.auth;
+
+  if (!isRecord(auth)) {
+    return undefined;
+  }
+
+  const socialProviders = auth.socialProviders;
+
+  if (typeof socialProviders !== "string" || socialProviders.trim() === "") {
+    return undefined;
+  }
+
+  return socialProviders;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 export async function signInWithShellSocialProvider(

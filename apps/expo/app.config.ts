@@ -3,12 +3,17 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
 const defaultEasProjectId = "ba6b6ed0-beb7-429a-9410-19dc361607f3";
 const defaultLocationWhenInUsePermission =
   "Rastro usa tu ubicacion mientras usas la app para actualizar tu area de alertas y mostrar reportes cercanos.";
+const defaultSocialAuthProviders = "google,facebook";
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const apiBaseUrl = readOptionalUrlEnv("EXPO_PUBLIC_API_BASE_URL");
   const easProjectId =
     readOptionalEnv("EXPO_PUBLIC_EAS_PROJECT_ID") ?? defaultEasProjectId;
   const easConfig = isRecord(config.extra?.eas) ? config.extra.eas : {};
+  const authConfig = isRecord(config.extra?.auth) ? config.extra.auth : {};
+  const socialAuthProviders =
+    readOptionalEnv("EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS") ??
+    defaultSocialAuthProviders;
   const androidGoogleMapsApiKey = readOptionalEnv(
     "EXPO_ANDROID_GOOGLE_MAPS_API_KEY",
   );
@@ -78,6 +83,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       eas: {
         ...easConfig,
         projectId: easProjectId,
+      },
+      auth: {
+        ...authConfig,
+        socialProviders: socialAuthProviders,
       },
       ...(apiBaseUrl ? { apiBaseUrl } : {}),
       maps: {

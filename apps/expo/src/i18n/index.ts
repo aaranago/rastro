@@ -182,14 +182,14 @@ const esBO: ShellCopy = {
       facebook: "Continuar con Facebook",
       google: "Continuar con Google",
     },
-    socialProviderHelp: "También puedes acceder con:",
+    socialProviderHelp: "Acceso rápido",
     socialProviderPending: (providerLabel) => `${providerLabel}...`,
     socialProviderUnavailable:
       "Ese proveedor de acceso no está disponible en este momento. Usa correo y contraseña o intenta más tarde.",
     socialAuthCanceled:
       "Cancelaste el ingreso con proveedor. Puedes intentar otra vez o usar correo y contraseña.",
     continueAsVisitor: "Continuar como visitante",
-    formHelp: "Usa correo y contraseña para una cuenta Rastro en Bolivia.",
+    formHelp: "Elige cómo entrar a Rastro.",
     missingCredentials: "Ingresa correo y contraseña para continuar.",
     missingName: "Ingresa un nombre público para crear tu cuenta.",
     authFailed:

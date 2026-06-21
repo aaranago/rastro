@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createMobileAuthProxyURL,
@@ -9,6 +9,21 @@ import {
   isTrustedMobileAuthCallbackURL,
   signInWithShellSocialProvider,
 } from "./auth";
+
+const expoConstants = vi.hoisted(() => ({
+  expoConfig: undefined as
+    | { extra?: Record<string, unknown> | undefined }
+    | undefined,
+}));
+
+const originalSocialProvidersEnv =
+  typeof process.env.EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS === "string"
+    ? process.env.EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS
+    : undefined;
+
+vi.mock("expo-constants", () => ({
+  default: expoConstants,
+}));
 
 vi.mock("expo-secure-store", () => ({}));
 
@@ -52,6 +67,20 @@ vi.mock("expo-web-browser", () => ({
 vi.mock("./base-url", () => ({
   getBaseUrl: () => "http://localhost:3000",
 }));
+
+beforeEach(() => {
+  expoConstants.expoConfig = undefined;
+  delete process.env.EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS;
+});
+
+afterEach(() => {
+  if (originalSocialProvidersEnv === undefined) {
+    delete process.env.EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS;
+    return;
+  }
+
+  process.env.EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS = originalSocialProvidersEnv;
+});
 
 describe("signInWithShellSocialProvider", () => {
   it("starts a Better Auth social sign-in with a mobile auth-session handoff", async () => {
@@ -243,6 +272,21 @@ describe("mobile auth configuration helpers", () => {
     expect(
       getAvailableShellSocialAuthProviders("google,facebook", "production"),
     ).toEqual(["google", "facebook"]);
+  });
+
+  it("uses the public Expo config social provider allowlist when the direct env var is absent", () => {
+    expoConstants.expoConfig = {
+      extra: {
+        auth: {
+          socialProviders: "google,facebook",
+        },
+      },
+    };
+
+    expect(getAvailableShellSocialAuthProviders()).toEqual([
+      "google",
+      "facebook",
+    ]);
   });
 
   it("accepts only the expected mobile auth callback URL shape", () => {

@@ -123,6 +123,45 @@ describe("SignInPrompt", () => {
     expect(findText(screen, "Iniciar sesión")).toBeTruthy();
   });
 
+  it("presents auth as a full-screen blocking screen with a real welcome image", () => {
+    const screen = renderFunctionElement(
+      <SignInPrompt
+        actions={createPromptActions()}
+        bottomInset={0}
+        copy={createPromptCopy()}
+        prompt={{
+          body: "Inicia sesión para continuar.",
+          title: "Inicia sesión para continuar",
+        }}
+        socialProviderActions={[
+          {
+            label: "Continuar con Google",
+            provider: "google",
+          },
+        ]}
+      />,
+    );
+
+    const modal = findElement(screen, (element) => element.type === "Modal");
+    const scrollView = findElement(
+      screen,
+      (element) => element.type === "ScrollView",
+    );
+    const heroImage = findElement(
+      screen,
+      (element) =>
+        element.type === "Image" &&
+        element.props.testID === "auth-welcome-illustration",
+    );
+
+    expect(modal?.props.transparent).toBe(false);
+    expect(modal?.props.presentationStyle).toBe("fullScreen");
+    expect(scrollView?.props.showsVerticalScrollIndicator).toBe(false);
+    expect(heroImage?.props.accessibilityRole).toBe("image");
+    expect(heroImage?.props.source).toBeTruthy();
+    expect(findText(screen, "+")).toBe(false);
+  });
+
   it("starts in sign-in mode without public-name collection and with password reset available", () => {
     const screen = renderFunctionElement(
       <SignInPrompt
@@ -181,6 +220,45 @@ describe("SignInPrompt", () => {
     expect(
       styleHasMinimumDimension(visitorAction?.props.style, "minHeight", 48),
     ).toBe(true);
+  });
+
+  it("exposes disabled state semantically on auth action buttons", () => {
+    const screen = renderFunctionElement(
+      <SignInPrompt
+        actions={createPromptActions()}
+        bottomInset={0}
+        copy={createPromptCopy()}
+        prompt={{
+          body: "Inicia sesión para continuar.",
+          title: "Inicia sesión para continuar",
+        }}
+        socialProviderActions={[
+          {
+            label: "Continuar con Google",
+            provider: "google",
+          },
+        ]}
+      />,
+    );
+
+    const signInAction = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Iniciar sesión"),
+    );
+    const googleAction = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel === "Continuar con Google",
+    );
+
+    expect(signInAction?.props.accessibilityState).toEqual({
+      disabled: false,
+    });
+    expect(googleAction?.props.accessibilityState).toEqual({
+      disabled: false,
+    });
   });
 
   it("keeps email access as the fallback when no social providers are available", () => {

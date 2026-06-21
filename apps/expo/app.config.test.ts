@@ -28,4 +28,14 @@ describe("Expo app config", () => {
       ).toBe("google,facebook");
     }
   });
+
+  it("publishes the social auth provider allowlist for documented local dev-client launches", () => {
+    const config = createExpoConfig({
+      config: {} as ExpoConfig,
+    } as ConfigContext);
+
+    expect(config.extra?.auth).toEqual({
+      socialProviders: "google,facebook",
+    });
+  });
 });
