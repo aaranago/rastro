@@ -922,19 +922,13 @@ export function SignInPrompt({
         >
           <View accessibilityViewIsModal style={styles.promptCard}>
             <View style={styles.promptHeader}>
-              <View style={styles.promptHeaderSpacer} />
               <Pressable
                 accessibilityLabel={copy.closeLabel}
                 accessibilityRole="button"
                 onPress={actions.onClose}
-                style={styles.promptCloseButton}
+                style={styles.promptNavigationButton}
               >
-                <Text
-                  maxFontSizeMultiplier={1.1}
-                  style={styles.promptCloseText}
-                >
-                  {copy.closeLabel}
-                </Text>
+                <PromptBackIcon />
               </Pressable>
             </View>
 
@@ -1599,6 +1593,17 @@ function SocialProviderButton({
   );
 }
 
+function PromptBackIcon() {
+  return (
+    <View accessible={false} style={styles.promptBackIcon}>
+      <View style={[styles.promptBackIconStroke, styles.promptBackIconTop]} />
+      <View
+        style={[styles.promptBackIconStroke, styles.promptBackIconBottom]}
+      />
+    </View>
+  );
+}
+
 function SocialProviderMark({
   provider,
 }: {
@@ -1795,29 +1800,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     width: "100%",
   },
-  promptCloseButton: {
+  promptBackIcon: {
+    height: 22,
+    justifyContent: "center",
+    width: 22,
+  },
+  promptBackIconBottom: {
+    top: 13,
+    transform: [{ rotate: "45deg" }],
+  },
+  promptBackIconStroke: {
+    backgroundColor: shellColors.primary,
+    borderRadius: 2,
+    height: 3,
+    left: 4,
+    position: "absolute",
+    width: 14,
+  },
+  promptBackIconTop: {
+    top: 6,
+    transform: [{ rotate: "-45deg" }],
+  },
+  promptNavigationButton: {
     alignItems: "center",
     backgroundColor: shellColors.surface,
     borderColor: shellColors.border,
-    borderRadius: 999,
+    borderRadius: 24,
     borderWidth: 1,
+    height: 48,
     justifyContent: "center",
-    minHeight: 48,
-    paddingHorizontal: 16,
-  },
-  promptCloseText: {
-    color: shellColors.primary,
-    fontSize: 14,
-    fontWeight: "900",
+    width: 48,
   },
   promptHeader: {
     alignItems: "center",
     alignSelf: "stretch",
     flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  promptHeaderSpacer: {
-    width: 76,
+    justifyContent: "flex-start",
   },
   promptHeroFrame: {
     alignSelf: "stretch",

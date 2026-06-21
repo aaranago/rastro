@@ -160,6 +160,15 @@ describe("SignInPrompt", () => {
     expect(heroImage?.props.accessibilityRole).toBe("image");
     expect(heroImage?.props.source).toBeTruthy();
     expect(findText(screen, "+")).toBe(false);
+    expect(findText(screen, "Cerrar")).toBe(false);
+    expect(
+      findElement(
+        screen,
+        (element) =>
+          element.type === "Pressable" &&
+          element.props.accessibilityLabel === "Cerrar",
+      )?.props.accessibilityRole,
+    ).toBe("button");
   });
 
   it("starts in sign-in mode without public-name collection and with password reset available", () => {
