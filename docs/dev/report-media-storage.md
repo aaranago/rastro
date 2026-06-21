@@ -54,6 +54,13 @@ RASTRO_STORAGE_FORCE_PATH_STYLE="true"
 RASTRO_STORAGE_TLS="true"
 ```
 
+The stock Dokploy MinIO template maps the configured domain to the MinIO
+console on port `9001`, while the S3-compatible API is port `9000`. Do not use
+`MINIO_BROWSER_REDIRECT_URL` or the console page as `RASTRO_STORAGE_PRESIGN_ENDPOINT`.
+Use an endpoint that reaches the S3 API, for example
+`http://your-minio-host:9000`, or configure a separate public HTTPS domain that
+routes to service port `9000`.
+
 Store `RASTRO_STORAGE_ACCESS_KEY_ID` and `RASTRO_STORAGE_SECRET_ACCESS_KEY` as
 Dokploy secrets. Do not place real credentials in `.env.example`, mobile app
 config, Expo public env, or logs.

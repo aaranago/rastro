@@ -97,14 +97,15 @@ describe("media storage config", () => {
     expect(instructions).toMatchObject({
       headers: {
         "content-type": "image/webp",
-        "x-amz-checksum-sha256": "sha256-test",
-        "x-amz-meta-height": "900",
-        "x-amz-meta-media-id": "11111111-1111-4111-8111-111111111111",
-        "x-amz-meta-size-bytes": "300000",
-        "x-amz-meta-width": "1200",
       },
       method: "PUT",
     });
+    expect(Object.keys(instructions.headers)).not.toContain(
+      "x-amz-meta-media-id",
+    );
+    expect(Object.keys(instructions.headers)).not.toContain(
+      "x-amz-checksum-sha256",
+    );
     expect(JSON.stringify(instructions)).not.toContain("super-secret");
     expect(JSON.stringify(instructions)).not.toContain("minio-rastro");
   });

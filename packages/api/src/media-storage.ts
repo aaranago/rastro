@@ -242,15 +242,6 @@ function createS3Client(config: MediaStorageConfig, endpoint: string | null) {
   });
 }
 
-function metadataHeaders(metadata: Record<string, string>) {
-  return Object.fromEntries(
-    Object.entries(metadata).map(([key, value]) => [
-      `x-amz-meta-${key.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`)}`,
-      value,
-    ]),
-  );
-}
-
 function normalizeMetadata(metadata: Record<string, string> | undefined) {
   return Object.fromEntries(
     Object.entries(metadata ?? {}).map(([key, value]) => [
@@ -303,10 +294,6 @@ export function createS3MediaStorage(
         expiresAt: input.expiresAt,
         headers: {
           "content-type": input.contentType,
-          ...metadataHeaders(input.metadata),
-          ...(input.checksumSha256
-            ? { "x-amz-checksum-sha256": input.checksumSha256 }
-            : {}),
         },
         method: "PUT",
         url: await presignedUrl,
