@@ -120,6 +120,9 @@ vi.mock("react", async () => {
       effect();
     },
     useMemo: <TValue,>(factory: () => TValue) => factory(),
+    useRef: <TValue,>(initialValue: TValue) => ({
+      current: initialValue,
+    }),
     useState: <TValue,>(initialValue: TValue) => {
       const index = reactState.cursor;
       reactState.cursor += 1;
@@ -506,6 +509,52 @@ describe("ReportCreationRouteScreen", () => {
       expect(childSnapshotChange).toHaveBeenCalledWith(nextSnapshot);
     },
   );
+
+  it("reuses a report media draft when the photo step remounts", () => {
+    const firstDraft = createMockReportMediaDraft("first");
+    const secondDraft = createMockReportMediaDraft("second");
+    reportMedia.createReportMediaDraft
+      .mockReturnValueOnce(firstDraft)
+      .mockReturnValueOnce(secondDraft);
+
+    const screen = renderScreen(<ReportCreationRouteScreen intent="lost" />);
+    const lostScreen = findElement(
+      screen,
+      (element) => element.type === "LostReportCreationScreen",
+    );
+    const renderReportMediaManager = lostScreen?.props.renderReportMediaManager;
+
+    if (!isReportMediaManagerRender(renderReportMediaManager)) {
+      throw new Error("Expected report media manager render callback.");
+    }
+
+    const firstHost = renderFunctionElement(
+      renderReportMediaManager({
+        mediaDraftId: "lost-durable-media-draft-1",
+        onSnapshotChange: vi.fn(),
+        photos: [],
+      }),
+    );
+    const firstManager = findElement(
+      firstHost,
+      (element) => element.type === "ReportMediaManager",
+    );
+    const secondHost = renderFunctionElement(
+      renderReportMediaManager({
+        mediaDraftId: "lost-durable-media-draft-1",
+        onSnapshotChange: vi.fn(),
+        photos: [],
+      }),
+    );
+    const secondManager = findElement(
+      secondHost,
+      (element) => element.type === "ReportMediaManager",
+    );
+
+    expect(reportMedia.createReportMediaDraft).toHaveBeenCalledTimes(1);
+    expect(firstManager?.props.draft).toBe(firstDraft);
+    expect(secondManager?.props.draft).toBe(firstDraft);
+  });
 
   it("asks before closing a stacked lost creation route", () => {
     const screen = renderScreen(<ReportCreationRouteScreen intent="lost" />);
@@ -926,6 +975,37 @@ function isReportMediaManagerRender(
   value: unknown,
 ): value is ReportMediaManagerRender {
   return typeof value === "function";
+}
+
+function createMockReportMediaDraft(id: string) {
+  return {
+    acceptEditedImage: vi.fn(),
+    getSnapshot: vi.fn(() => ({
+      items: [
+        {
+          height: 900,
+          localId: `${id}-local-photo`,
+          mediaId: `${id}-media`,
+          mimeType: "image/jpeg",
+          originalUri: `file:///${id}-original.jpg`,
+          progress: 1,
+          retryable: false,
+          sizeBytes: 200_000,
+          status: "ready",
+          uploadUri: `file:///${id}-upload.jpg`,
+          width: 1200,
+        },
+      ],
+      overallProgress: 1,
+      primaryLocalId: `${id}-local-photo`,
+      readyMedia: [{ mediaId: `${id}-media` }],
+    })),
+    moveImage: vi.fn(),
+    removeImage: vi.fn(),
+    retryUpload: vi.fn(),
+    selectLocalImage: vi.fn(),
+    setPrimaryImage: vi.fn(),
+  };
 }
 
 function renderScreen(node: React.ReactNode): React.ReactNode {

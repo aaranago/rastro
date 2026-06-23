@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { loadEnvFile } from "node:process";
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 const defaultEasProjectId = "ba6b6ed0-beb7-429a-9410-19dc361607f3";
@@ -8,6 +11,8 @@ const defaultPhotosPermission =
 const defaultCameraPermission =
   "Rastro usa la camara para tomar fotos de reportes de mascotas.";
 const defaultSocialAuthProviders = "google,facebook";
+
+loadRepoRootEnvFiles();
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const apiBaseUrl = readOptionalUrlEnv("EXPO_PUBLIC_API_BASE_URL");
@@ -145,6 +150,18 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ],
   };
 };
+
+function loadRepoRootEnvFiles(): void {
+  const repoRoot = join(__dirname, "..", "..");
+
+  for (const fileName of [".env.local", ".env"]) {
+    const envPath = join(repoRoot, fileName);
+
+    if (existsSync(envPath)) {
+      loadEnvFile(envPath);
+    }
+  }
+}
 
 function readOptionalEnv(name: string): string | undefined {
   const value = process.env[name]?.trim();

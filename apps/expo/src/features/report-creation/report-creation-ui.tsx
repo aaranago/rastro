@@ -357,6 +357,8 @@ export function ReportCreationField({
         {field.label}
       </Text>
       <TextInput
+        accessibilityHint={field.error}
+        accessibilityLabel={field.label}
         keyboardType={keyboardType}
         multiline={multiline}
         onChangeText={onChangeText}
@@ -624,6 +626,7 @@ export function ReportCreationExistingPetProfileList({
     <View style={styles.optionStack}>
       {options.map((profile) => (
         <Pressable
+          accessibilityState={{ selected: profile.isSelected }}
           accessibilityRole="button"
           key={profile.id}
           onPress={() => onSelectProfile(profile.id)}
@@ -679,6 +682,7 @@ export function ReportCreationInlinePetTypeRow<TType extends string>({
     <View style={styles.typeRow}>
       {typeOptions.map((type) => (
         <Pressable
+          accessibilityState={{ selected: selectedType === type }}
           accessibilityRole="button"
           key={type}
           onPress={() => onSelectType(type)}
@@ -1171,6 +1175,7 @@ export function ReportCreationContactOptionSection<TValue extends string>({
       <View style={styles.optionStack}>
         {options.map((option) => (
           <Pressable
+            accessibilityState={{ selected: option.isSelected }}
             accessibilityRole="button"
             key={option.value}
             onPress={() => onSelectOption(option.value)}

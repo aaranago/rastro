@@ -162,9 +162,13 @@ export function ReportCreationRouteScreen({
     [],
   );
   const reportMediaReportType = getReportMediaReportType(intent);
+  const reportMediaDraftCacheRef = React.useRef<ReportMediaDraftCache>(
+    new Map(),
+  );
   const renderReportMediaManager = React.useCallback(
     ({ mediaDraftId, onSnapshotChange }: ReportMediaManagerRenderProps) => (
       <ReportCreationRouteMediaManager
+        draftCache={reportMediaDraftCacheRef.current}
         key={`${reportMediaReportType}:${mediaDraftId}`}
         mediaDraftId={mediaDraftId}
         onSnapshotChange={onSnapshotChange}
@@ -300,11 +304,18 @@ interface ReportMediaManagerRenderProps {
   photos: readonly unknown[];
 }
 
+type ReportMediaDraftCache = Map<
+  string,
+  ReturnType<typeof createReportMediaDraft>
+>;
+
 function ReportCreationRouteMediaManager({
+  draftCache,
   mediaDraftId,
   onSnapshotChange,
   reportType,
 }: {
+  draftCache: ReportMediaDraftCache;
   mediaDraftId: string;
   onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
   reportType: ReportType;
@@ -333,21 +344,30 @@ function ReportCreationRouteMediaManager({
     () => createReportMediaManagerEditAdapter(nativeReportMediaEditAdapter),
     [nativeReportMediaEditAdapter],
   );
-  const reportMediaDraft = React.useMemo(
-    () =>
-      createReportMediaDraft({
-        draftId: mediaDraftId,
-        reportType,
-        uploadSessions: reportMediaUploadSessions,
-        uploadTransport: reportMediaUploadTransport,
-      }),
-    [
-      mediaDraftId,
-      reportMediaUploadSessions,
-      reportMediaUploadTransport,
+  const reportMediaDraft = React.useMemo(() => {
+    const cacheKey = `${reportType}:${mediaDraftId}`;
+    const cachedDraft = draftCache.get(cacheKey);
+
+    if (cachedDraft) {
+      return cachedDraft;
+    }
+
+    const createdDraft = createReportMediaDraft({
+      draftId: mediaDraftId,
       reportType,
-    ],
-  );
+      uploadSessions: reportMediaUploadSessions,
+      uploadTransport: reportMediaUploadTransport,
+    });
+
+    draftCache.set(cacheKey, createdDraft);
+    return createdDraft;
+  }, [
+    draftCache,
+    mediaDraftId,
+    reportMediaUploadSessions,
+    reportMediaUploadTransport,
+    reportType,
+  ]);
   const [reportMediaSnapshot, setReportMediaSnapshot] = React.useState(() =>
     reportMediaDraft.getSnapshot(),
   );

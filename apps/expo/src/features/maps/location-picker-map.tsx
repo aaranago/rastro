@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 
 import type {
   NearbyCoordinates,
@@ -8,6 +8,8 @@ import type {
 import type { ReportMapProviderState } from "./report-map";
 
 export interface ManualLocationPickerMapProps {
+  cancelAccessibilityLabel?: string;
+  cancelLabel?: string;
   onCancel?: () => void;
   onConfirm: (location: NearbySearchLocation) => void;
   onSelectedCoordinateChange: (coordinate: NearbyCoordinates) => void;
@@ -16,6 +18,8 @@ export interface ManualLocationPickerMapProps {
 }
 
 export function ManualLocationPickerMap({
+  cancelAccessibilityLabel = "Cancelar seleccion de punto",
+  cancelLabel = "Cancelar",
   onCancel,
   onConfirm,
   onSelectedCoordinateChange,
@@ -37,12 +41,12 @@ export function ManualLocationPickerMap({
         </View>
         {onCancel ? (
           <Pressable
-            accessibilityLabel="Cancelar seleccion de punto"
+            accessibilityLabel={cancelAccessibilityLabel}
             accessibilityRole="button"
             onPress={onCancel}
             style={styles.secondaryButton}
           >
-            <Text style={styles.secondaryButtonText}>Cancelar</Text>
+            <Text style={styles.secondaryButtonText}>{cancelLabel}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -62,6 +66,7 @@ export function ManualLocationPickerMap({
           onPress={(event) =>
             onSelectedCoordinateChange(event.nativeEvent.coordinate)
           }
+          provider={PROVIDER_GOOGLE}
           style={styles.map}
         >
           <Marker
@@ -85,12 +90,12 @@ export function ManualLocationPickerMap({
       <View style={styles.actions}>
         {onCancel ? (
           <Pressable
-            accessibilityLabel="Cancelar seleccion de punto"
+            accessibilityLabel={cancelAccessibilityLabel}
             accessibilityRole="button"
             onPress={onCancel}
             style={styles.secondaryButton}
           >
-            <Text style={styles.secondaryButtonText}>Cancelar</Text>
+            <Text style={styles.secondaryButtonText}>{cancelLabel}</Text>
           </Pressable>
         ) : null}
         <Pressable

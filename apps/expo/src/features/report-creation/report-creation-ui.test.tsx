@@ -3,12 +3,17 @@ import * as React from "react";
 import { Text } from "react-native";
 import { describe, expect, it, vi } from "vitest";
 
+import type { ReportCreationStyles } from "./report-creation-ui";
 import { createLostReportDraft } from "../lost-report-creation/lost-report-creation-view-model";
 import { createReportCreationJourney } from "./report-creation-journey";
 import {
   getReportCreationScreenInsets,
+  ReportCreationContactOptionSection,
+  ReportCreationDetailsFieldsSection,
   ReportCreationDraftPersistenceAlert,
   ReportCreationDraftRecoveryPrompt,
+  ReportCreationExistingPetProfileList,
+  ReportCreationInlinePetTypeRow,
   ReportCreationProgressSteps,
   ReportCreationReviewPublishSection,
   ReportCreationScreenFrame,
@@ -324,6 +329,110 @@ describe("ReportCreationReviewPublishSection", () => {
   });
 });
 
+describe("shared report creation form controls", () => {
+  it("exposes field labels and errors to assistive technology", () => {
+    const screen = renderFunctionElement(
+      <ReportCreationDetailsFieldsSection
+        fields={[
+          {
+            field: {
+              error: "Agrega una descripcion.",
+              label: "Descripcion",
+              placeholder: "Color, collar o senas visibles",
+              value: "",
+            },
+            key: "description",
+          },
+        ]}
+        onChangeField={() => undefined}
+        placeholderTextColor="#66736D"
+        styles={fieldStyles as ReportCreationStyles}
+        title="Detalles"
+      />,
+    );
+    const input = findElement(
+      screen,
+      (element) => element.type === "TextInput",
+    );
+
+    expect(input?.props.accessibilityLabel).toBe("Descripcion");
+    expect(input?.props.accessibilityHint).toBe("Agrega una descripcion.");
+  });
+
+  it("marks selected pet, type, and contact options for screen readers", () => {
+    const onSelectProfile = vi.fn();
+    const petList = renderFunctionElement(
+      <ReportCreationExistingPetProfileList
+        accentColor="#0F7665"
+        Icon={TestIcon}
+        onSelectProfile={onSelectProfile}
+        options={[
+          {
+            body: "Perro",
+            id: "pet-1",
+            isSelected: true,
+            photoCountLabel: "1 foto",
+            title: "Luna",
+          },
+        ]}
+        styles={petListStyles}
+      />,
+    );
+    const typeRow = renderFunctionElement(
+      <ReportCreationInlinePetTypeRow
+        onSelectType={() => undefined}
+        selectedType="Perro"
+        styles={typeRowStyles}
+        typeOptions={["Perro", "Gato"]}
+      />,
+    );
+    const contactOptions = renderFunctionElement(
+      <ReportCreationContactOptionSection
+        accentColor="#0F7665"
+        Icon={TestIcon}
+        onChangeWhatsappPhone={() => undefined}
+        onSelectOption={() => undefined}
+        options={[
+          {
+            body: "Chat dentro de Rastro",
+            iconName: "message.fill",
+            isSelected: true,
+            label: "Chat",
+            value: "chat",
+          },
+        ]}
+        styles={contactStyles as ReportCreationStyles}
+        title="Contacto"
+        whatsappField={{
+          label: "WhatsApp",
+          placeholder: "+591",
+          value: "",
+          visible: false,
+        }}
+      />,
+    );
+
+    expect(
+      findElement(
+        petList,
+        (element) => element.type === "Pressable" && findText(element, "Luna"),
+      )?.props.accessibilityState,
+    ).toEqual({ selected: true });
+    expect(
+      findElement(
+        typeRow,
+        (element) => element.type === "Pressable" && findText(element, "Perro"),
+      )?.props.accessibilityState,
+    ).toEqual({ selected: true });
+    expect(
+      findElement(
+        contactOptions,
+        (element) => element.type === "Pressable" && findText(element, "Chat"),
+      )?.props.accessibilityState,
+    ).toEqual({ selected: true });
+  });
+});
+
 describe("ReportCreationProgressSteps", () => {
   it("renders every canonical journey step with Spanish progress text", () => {
     const journey = createReportCreationJourney({
@@ -448,6 +557,50 @@ describe("ReportCreationProgressSteps", () => {
 function TestIcon() {
   return null;
 }
+
+const fieldStyles = {
+  errorText: {},
+  field: {},
+  fieldLabel: {},
+  input: {},
+  multilineInput: {},
+  section: {},
+  sectionTitle: {},
+};
+
+const petListStyles = {
+  itemTitle: {},
+  metaText: {},
+  optionCopy: {},
+  optionStack: {},
+  petOption: {},
+  petThumb: {},
+  selectedBorder: {},
+};
+
+const typeRowStyles = {
+  selectedPill: {},
+  selectedPillText: {},
+  typePill: {},
+  typePillText: {},
+  typeRow: {},
+};
+
+const contactStyles = {
+  contactOption: {},
+  errorText: {},
+  field: {},
+  fieldLabel: {},
+  input: {},
+  itemTitle: {},
+  metaText: {},
+  multilineInput: {},
+  optionCopy: {},
+  optionStack: {},
+  section: {},
+  sectionTitle: {},
+  selectedBorder: {},
+};
 
 const reviewStyles = {
   disabledButton: {},

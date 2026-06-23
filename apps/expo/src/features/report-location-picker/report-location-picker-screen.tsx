@@ -156,6 +156,8 @@ export function ReportLocationPickerScreen({
 
       {mode === "map" ? (
         <ManualLocationPickerMap
+          cancelAccessibilityLabel="Volver a la lista de ubicaciones"
+          cancelLabel="Volver a la lista"
           onCancel={() => setMode("list")}
           onConfirm={(location) =>
             applyPickerResult(pickerAdapter.selectLocation(location))

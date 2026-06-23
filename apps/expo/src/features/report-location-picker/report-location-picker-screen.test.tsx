@@ -61,6 +61,7 @@ vi.mock("react-native", () => ({
 vi.mock("react-native-maps", () => ({
   default: "MapView",
   Marker: "Marker",
+  PROVIDER_GOOGLE: "google",
 }));
 
 vi.mock("expo-image", () => ({
@@ -406,6 +407,7 @@ describe("ReportLocationPickerScreen", () => {
     expect(
       findText(mapErrorScreen, "Configura mapas nativos para elegir un pin."),
     ).toBe(true);
+    expect(findText(mapErrorScreen, "Volver a la lista")).toBe(true);
     expect(findText(mapErrorScreen, "La Paz")).toBe(true);
     expect(findText(mapErrorScreen, "Elegir punto en el mapa")).toBe(true);
   });

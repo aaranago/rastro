@@ -19,6 +19,7 @@ vi.mock("react-native", () => ({
 vi.mock("react-native-maps", () => ({
   default: "MapView",
   Marker: "Marker",
+  PROVIDER_GOOGLE: "google",
 }));
 
 describe("ManualLocationPickerMap", () => {
@@ -48,6 +49,7 @@ describe("ManualLocationPickerMap", () => {
       longitude: -68.1213,
     });
     expect(marker?.props.draggable).toBe(true);
+    expect(map?.props.provider).toBe("google");
 
     const mapPress = map?.props.onPress;
 
@@ -86,6 +88,33 @@ describe("ManualLocationPickerMap", () => {
       manualLocationKind: "map-pin",
       source: "manual",
     });
+  });
+
+  it("uses distinct back-to-list copy for nested map cancellation", () => {
+    const screen = renderFunctionElement(
+      <ManualLocationPickerMap
+        cancelAccessibilityLabel="Volver a la lista de ubicaciones"
+        cancelLabel="Volver a la lista"
+        onCancel={() => undefined}
+        onConfirm={() => undefined}
+        onSelectedCoordinateChange={() => undefined}
+        providerState={{
+          kind: "error",
+          message: "El mapa no esta disponible en este dispositivo.",
+        }}
+        selectedCoordinate={{ latitude: -16.5022, longitude: -68.1213 }}
+      />,
+    );
+    const backToListButton = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel === "Volver a la lista de ubicaciones",
+    );
+
+    expect(findText(screen, "Volver a la lista")).toBe(true);
+    expect(backToListButton).toBeDefined();
+    expect(findText(screen, "Cancelar")).toBe(false);
   });
 });
 
@@ -141,4 +170,20 @@ function findElement(
   }
 
   return undefined;
+}
+
+function findText(node: React.ReactNode, text: string): boolean {
+  const rendered = renderFunctionElement(node);
+
+  if (typeof rendered === "string") {
+    return rendered === text;
+  }
+
+  if (!React.isValidElement<ElementProps>(rendered)) {
+    return false;
+  }
+
+  return React.Children.toArray(rendered.props.children).some((child) =>
+    findText(child, text),
+  );
 }
