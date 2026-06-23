@@ -1,7 +1,7 @@
 # RC-009 Add explicit draft Resume/Discard and interrupted-work recovery
 
-Status: ready-for-agent
-Labels: ready-for-agent
+Status: verified-automated
+Labels: verified-automated
 Severity: P1
 Issue ID: RC-009
 Type: AFK
@@ -114,3 +114,10 @@ Add a user-facing draft recovery model with Resume/Discard, schema migration, de
 - Uploading media without backend authorization.
 
 ## Comments
+
+### 2026-06-22 verification checkpoint
+
+- Implemented with `$tdd` in two slices: durable recovery primitives and explicit Resume/Discard UI.
+- Fresh Verifier RC-009-A returned no findings after malformed-draft and legacy-clear regressions were fixed.
+- Fresh Verifier RC-009-B initially found that Discard could clear the store while leaving stale edited journey state visible. Fixed by exposing a durable `draftResetVersion` and resetting each report screen's journey/validation state when Resume or Discard changes the active draft token.
+- Fresh Verifier RC-009-B-V2 returned no findings for the regression path. Focused commands passed: `pnpm -F @acme/expo exec vitest run src/features/resilience/use-durable-creation-draft.test.ts src/features/lost-report-creation/lost-report-creation-screen.test.tsx src/features/found-report-creation/found-report-creation-screen.test.tsx src/features/sighting-report-creation/sighting-report-creation-screen.test.tsx src/features/adoption-listing-creation/adoption-listing-creation-screen.test.tsx` and `pnpm -F @acme/expo exec tsc --noEmit --pretty false`.

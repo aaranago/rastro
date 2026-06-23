@@ -11,12 +11,7 @@ describe("Sighting Report publish adapter", () => {
   it("maps a no-photo Sighting Report publish input to backend CreateReportInput within Bolivia bounds", () => {
     const createInput = toCreateSightingReportInput({
       ...createPublishInput(),
-      photos: [
-        {
-          id: "local-optional-photo",
-          uri: "file:///local-optional-sighting-photo.jpg",
-        },
-      ],
+      photos: [],
     });
 
     expect(createInput).toMatchObject({
@@ -41,16 +36,58 @@ describe("Sighting Report publish adapter", () => {
     expect(createReportInputSchema.safeParse(createInput).success).toBe(true);
   });
 
-  it("keeps backend Bolivia bounds enforced by the shared validator", () => {
+  it("publishes optional sighting media as ready backend media IDs in draft order", () => {
+    const createInput = toCreateSightingReportInput({
+      ...createPublishInput(),
+      photos: [
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          uri: "file:///second-ready-sighting-photo.jpg",
+        },
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          uri: "file:///first-ready-sighting-photo.jpg",
+        },
+      ],
+    });
+
+    expect(createInput.media).toEqual([
+      { mediaId: "22222222-2222-4222-8222-222222222222" },
+      { mediaId: "11111111-1111-4111-8111-111111111111" },
+    ]);
+    expect(createReportInputSchema.safeParse(createInput).success).toBe(true);
+  });
+
+  it("rejects backend publish locations outside Bolivia before calling report.create", () => {
+    expect(() =>
+      toCreateSightingReportInput({
+        ...createPublishInput(),
+        exactLocation: {
+          ...createPublishInput().exactLocation,
+          latitude: -8.5,
+        },
+      }),
+    ).toThrow("Selecciona una ubicacion dentro de Bolivia.");
+  });
+
+  it("uses the location cell as the backend label when no address label is present", () => {
     const createInput = toCreateSightingReportInput({
       ...createPublishInput(),
       exactLocation: {
         ...createPublishInput().exactLocation,
-        latitude: -8.5,
+        addressLabel: "  ",
+        locationCellLabel: "  Sopocachi  ",
       },
+      showExactPublicLocation: true,
     });
 
-    expect(createReportInputSchema.safeParse(createInput).success).toBe(false);
+    expect(createInput.location).toEqual({
+      exactLatitude: -16.5103,
+      exactLongitude: -68.1299,
+      exposeExactLocation: true,
+      label: "Sopocachi",
+      locationCell: "Sopocachi",
+    });
   });
 
   it("confirms create success through report.detail and the production nearby query", async () => {

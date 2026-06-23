@@ -3,6 +3,7 @@ import type {
   FoundPetReportContactOption as PublishFoundReportContactOption,
 } from "../found-reports/found-reports";
 import type { PetProfileType } from "../pet-profiles/pet-profile-types";
+import type { ReportLocationDraft } from "../report-creation/report-location-draft";
 
 export { type PublishFoundPetReportInput };
 export const foundReportPetTypeOptions = [
@@ -16,24 +17,17 @@ export const foundReportPetTypeOptions = [
 export interface FoundReportPhoto {
   alt?: string;
   id: string;
+  localId?: string;
+  mediaId?: string;
+  originalUri?: string;
+  progress?: number;
   status?: "draft" | "ready" | "uploading" | "error";
   thumbUri?: string;
+  uploadUri?: string;
   uri?: string;
 }
 
-export interface FoundReportCoordinates {
-  latitude: number;
-  longitude: number;
-}
-
-export interface FoundReportExactFoundLocation {
-  addressLabel: string;
-  coordinates: FoundReportCoordinates;
-  department: string;
-  locationCellLabel: string;
-  municipality: string;
-  neighborhood?: string;
-}
+export type FoundReportExactFoundLocation = ReportLocationDraft;
 
 export interface FoundReportDetailsDraft {
   condition: string;
@@ -59,6 +53,7 @@ export interface FoundReportDraft {
   contact: FoundReportContactDraft;
   exactFoundLocation?: FoundReportExactFoundLocation;
   foundDetails: FoundReportDetailsDraft;
+  idempotencyKey: string;
   pet: FoundReportPetDraft;
   photos: FoundReportPhoto[];
   showExactPinPublicly: boolean;

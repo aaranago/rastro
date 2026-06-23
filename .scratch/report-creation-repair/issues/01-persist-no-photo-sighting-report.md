@@ -1,7 +1,7 @@
 # RC-001 Persist a no-photo sighting report from the real creation flow
 
-Status: ready-for-human
-Labels: ready-for-human
+Status: manual-qa-needed
+Labels: manual-qa-needed
 Severity: P0
 Issue ID: RC-001
 Type: AFK
@@ -125,3 +125,12 @@ Wire the sighting creation flow to the real backend create endpoint as the first
 - Success waits for backend create/detail/nearby confirmation and displays the returned report ID/state.
 - Verifier found free-text sighting dates could reach backend validation. Fixed by requiring ISO date-time before publish and before draft-to-backend conversion.
 - Automated checks pass. Manual backend/device confirmation is still required for the clean-install scenario.
+
+### 2026-06-22 backend/live verification checkpoint
+
+- Runbook verifier reached the real Android `report.create` mutation, but the running backend returned 500.
+- Root cause was live DB schema drift plus repository read coupling: the local `report_media` table was still the old schema, while Drizzle relation loading selected newer upload-session columns such as `owner_id`.
+- Fixed repository reads to load ready media through an explicit public-column select and changed report creation idempotency to use an advisory transaction lock instead of depending solely on the missing unique index.
+- Verified with `RASTRO_DB_INTEGRATION=1` repository integration against both migrated and legacy report-media schemas: 4 tests passed.
+- Verified the running Next server path with a QA member cookie: live `report.create` returned an active no-photo sighting with backend ID `d657d305-c440-4538-9e94-671e7755d8f1`, approximate La Paz public location, and `media: []`.
+- Remaining gap: clean Android UI publish after this backend fix was not completed; the emulator was blocked by an old saved draft/validation state during this pass.

@@ -3,6 +3,7 @@ import type {
   PetProfileSummary,
   PetProfileType,
 } from "../pet-profiles/pet-profile-types";
+import type { ReportLocationDraft } from "../report-creation/report-location-draft";
 
 export const adoptionListingPetTypeOptions = [
   "Perro",
@@ -18,8 +19,13 @@ export type AdoptionListingPetType =
 export interface AdoptionListingPhoto {
   alt?: string;
   id: string;
+  localId?: string;
+  mediaId?: string;
+  originalUri?: string;
+  progress?: number;
   status?: "draft" | "ready" | "uploading" | "error";
   thumbUri?: string;
+  uploadUri?: string;
   uri?: string;
 }
 
@@ -41,19 +47,7 @@ export interface AdoptionListingInlinePetProfileDraft {
 
 export type AdoptionListingPetSelectionMode = "existing" | "inline-create";
 
-export interface AdoptionListingCoordinates {
-  latitude: number;
-  longitude: number;
-}
-
-export interface AdoptionListingCreationExactLocation {
-  addressLabel: string;
-  coordinates: AdoptionListingCoordinates;
-  department: string;
-  locationCellLabel: string;
-  municipality: string;
-  neighborhood?: string;
-}
+export type AdoptionListingCreationExactLocation = ReportLocationDraft;
 
 export interface AdoptionListingDetailsDraft {
   adoptionSummary: string;
@@ -73,7 +67,7 @@ export interface AdoptionListingDraft {
   adoptionDetails: AdoptionListingDetailsDraft;
   contact: AdoptionListingContactDraft;
   exactLocation?: AdoptionListingCreationExactLocation;
-  id?: string;
+  id: string;
   inlinePet: AdoptionListingInlinePetProfileDraft;
   petProfileId?: string;
   petSelectionMode: AdoptionListingPetSelectionMode;

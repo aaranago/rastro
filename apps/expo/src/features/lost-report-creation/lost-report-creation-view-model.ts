@@ -5,6 +5,10 @@ import type {
 import type { PetProfileSummary } from "../pet-profiles/pet-profile-types";
 import type { PetProfilePhotoSource } from "../pet-profiles/pet-profiles";
 import type {
+  ReportCreationJourney,
+  ReportCreationJourneyStepId,
+} from "../report-creation/report-creation-journey";
+import type {
   LostReportContactDraft,
   LostReportContactOption,
   LostReportDraft,
@@ -15,11 +19,20 @@ import type {
   LostReportPublishPayload,
 } from "./lost-report-creation-types";
 import {
-  appendRequiredPetSelectionErrors,
+  createReportCreationJourney,
+  deriveReportCreationJourney,
+} from "../report-creation/report-creation-journey";
+import {
+  appendRequiredReportCreationDraftErrors,
+  getReadyUploadedReportCreationPhotos,
+  getRequiredReportCreationPhotoStepError,
+} from "../report-creation/report-creation-media-validation";
+import {
   getReportCreationSelectedPet,
   getReportCreationSelectedProfile,
   hasValidReportCreationInlinePet,
 } from "../report-creation/report-creation-pet-selection";
+import { toReportLocationPublishInput } from "../report-creation/report-location-draft";
 import { lostReportPetTypeOptions } from "./lost-report-creation-types";
 
 export { lostReportPetTypeOptions };
@@ -28,6 +41,7 @@ const lostReportPhotoLimit = 5;
 
 export interface LostReportCreationViewModel {
   canPublish: boolean;
+  journey: ReportCreationJourney;
   kind: "member";
   contact: {
     currentOption: LostReportContactOption;
@@ -153,6 +167,15 @@ export interface LostReportFieldViewModel {
   value: string;
 }
 
+export interface LostReportCreationJourneyInput {
+  completedStepIds?: readonly ReportCreationJourneyStepId[];
+  currentStepId?: ReportCreationJourneyStepId;
+}
+
+export interface LostReportCreationValidationDisplayInput {
+  attemptedStepId?: ReportCreationJourneyStepId;
+}
+
 export function createLostReportDraft(
   overrides: Partial<LostReportDraft> = {},
 ): LostReportDraft {
@@ -174,6 +197,7 @@ export function createLostReportDraft(
       lastSeenAtLabel: "Hoy, hace 30 min",
       markings: "Collar visible y senas faciles de reconocer.",
     },
+    id: createLostReportDraftId(),
     petSelectionMode: "existing",
     photos: [],
     showExactPinPublicly: false,
@@ -197,6 +221,22 @@ export function createLostReportDraft(
   };
 }
 
+function createLostReportDraftId() {
+  return `lost-report-${createReportCreationIdSuffix()}`;
+}
+
+function createReportCreationIdSuffix() {
+  const crypto = globalThis.crypto as
+    | {
+        randomUUID?: () => string;
+      }
+    | undefined;
+
+  return typeof crypto?.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 export function createInitialLostReportDraft({
   petProfiles,
 }: {
@@ -212,33 +252,55 @@ export function createInitialLostReportDraft({
 
 export function buildLostReportCreationViewModel({
   draft,
+  journey,
   petProfiles,
   session: _session,
+  validationDisplay,
 }: {
   draft: LostReportDraft;
+  journey?: LostReportCreationJourneyInput;
   petProfiles: readonly (LostReportPetProfileOption | PetProfileSummary)[];
   session?: unknown;
+  validationDisplay?: LostReportCreationValidationDisplayInput;
 }): LostReportCreationViewModel {
   const profileOptions = petProfiles.map(toLostReportPetProfileOption);
   const selectedProfile = getSelectedProfile(draft, profileOptions);
   const selectedPet = getSelectedPet(draft, selectedProfile);
   const effectivePhotos = getEffectivePhotos(draft, selectedProfile);
+  const readyPhotos = getReadyUploadedPhotos(effectivePhotos);
   const validationErrors = validateLostReportDraft({
     draft,
     petProfiles,
   });
   const contactOption = getContactOption(draft.contact);
   const canPublish = validationErrors.length === 0;
+  const journeyViewModel = buildLostReportJourney({
+    draft,
+    effectivePhotos,
+    journey,
+    readyPhotos,
+    selectedPet,
+  });
+  const showContactValidation = shouldShowValidationError(
+    validationDisplay,
+    "contact",
+  );
+  const showDetailsValidation = shouldShowValidationError(
+    validationDisplay,
+    "details",
+  );
 
   return {
     canPublish,
+    journey: journeyViewModel,
     kind: "member",
     contact: {
       currentOption: contactOption,
-      error: getContactError(draft.contact),
+      error: showContactValidation ? getContactError(draft.contact) : undefined,
       options: buildContactOptions(contactOption),
       whatsappField: {
         error:
+          showContactValidation &&
           draft.contact.whatsappEnabled &&
           draft.contact.whatsappPhone.trim().length === 0
             ? "Ingresa el numero de WhatsApp que quieres mostrar."
@@ -254,6 +316,7 @@ export function buildLostReportCreationViewModel({
       fields: {
         circumstances: {
           error:
+            showDetailsValidation &&
             draft.lostDetails.circumstances.trim().length === 0
               ? "Cuenta que paso."
               : undefined,
@@ -263,6 +326,7 @@ export function buildLostReportCreationViewModel({
         },
         lastSeenAtLabel: {
           error:
+            showDetailsValidation &&
             draft.lostDetails.lastSeenAtLabel.trim().length === 0
               ? "Indica cuando la viste por ultima vez."
               : undefined,
@@ -279,7 +343,10 @@ export function buildLostReportCreationViewModel({
       title: "Detalles de la perdida",
     },
     petSelection: {
-      inlineForm: buildInlinePetForm(draft.inlinePet),
+      inlineForm: buildInlinePetForm({
+        draft: draft.inlinePet,
+        showValidation: showDetailsValidation,
+      }),
       mode: draft.petSelectionMode,
       options: profileOptions.map((profile) => ({
         body: formatPetProfileSubtitle(profile),
@@ -295,8 +362,9 @@ export function buildLostReportCreationViewModel({
     photos: {
       canAddPhoto: effectivePhotos.length < lostReportPhotoLimit,
       countLabel: formatPhotoCount(effectivePhotos.length),
-      error:
-        effectivePhotos.length === 0 ? "Agrega al menos una foto." : undefined,
+      error: shouldShowValidationError(validationDisplay, "photos")
+        ? getPhotoStepError(effectivePhotos)
+        : undefined,
       helpLabel:
         "Maximo 5 fotos. Rastro prepara miniaturas y retira datos de ubicacion antes de subirlas.",
       items: effectivePhotos,
@@ -312,10 +380,12 @@ export function buildLostReportCreationViewModel({
         photos: effectivePhotos,
         selectedPet,
       }),
-      validationErrors,
+      validationErrors: shouldShowValidationError(validationDisplay, "review")
+        ? validationErrors
+        : [],
     },
     selectedPet,
-    steps: buildSteps({ canPublish, draft, effectivePhotos, selectedPet }),
+    steps: buildSteps({ canPublish, draft, readyPhotos, selectedPet }),
     success: {
       body: "Tu reporte de mascota perdida ya puede mostrarse cerca de la zona aproximada y compartirse con la comunidad.",
       localSponsorPlacement: lostReportSuccessLocalSponsorPlacement,
@@ -359,20 +429,13 @@ export function toPublishLostPetReportInput({
     draft,
     petProfiles: profileOptions,
   });
-  const exactLocation = payload.exactLocation;
-
   return {
     contactOption: toPublishContactOption({
       option: payload.contactOption,
       whatsappPhone: payload.whatsappPhone,
     }),
-    exactLocation: {
-      addressLabel: exactLocation.addressLabel,
-      countryCode: "BO",
-      latitude: exactLocation.coordinates.latitude,
-      locationCellLabel: exactLocation.locationCellLabel,
-      longitude: exactLocation.coordinates.longitude,
-    },
+    exactLocation: toReportLocationPublishInput(payload.exactLocation),
+    idempotencyKey: draft.id,
     lastSeenAt: draft.lostDetails.lastSeenAtLabel,
     lastSeenDescription: draft.lostDetails.circumstances,
     petProfile:
@@ -380,6 +443,7 @@ export function toPublishLostPetReportInput({
         ? {
             kind: "existing",
             petProfileId: payload.selectedPet.petProfileId,
+            profile: payload.selectedPet.profile,
           }
         : {
             kind: "inline",
@@ -405,6 +469,7 @@ function createLostPetReportPublishPayload({
 }): LostReportPublishPayload {
   const selectedProfile = getSelectedProfile(draft, petProfiles);
   const photos = getEffectivePhotos(draft, selectedProfile);
+  const readyPhotos = getReadyUploadedPhotos(photos);
   const errors = validateLostReportDraft({ draft, petProfiles });
 
   if (errors.length > 0) {
@@ -418,7 +483,7 @@ function createLostPetReportPublishPayload({
   return {
     contactOption: getContactOption(draft.contact),
     exactLocation: draft.exactLocation,
-    photos,
+    photos: readyPhotos,
     publicLocation: {
       kind: draft.showExactPinPublicly ? "exact" : "approximate",
       label: draft.showExactPinPublicly
@@ -430,6 +495,12 @@ function createLostPetReportPublishPayload({
       ? {
           kind: "existing",
           petProfileId: selectedProfile.id,
+          profile: {
+            breed: selectedProfile.breed,
+            description: selectedProfile.description,
+            name: selectedProfile.name,
+            type: selectedProfile.type,
+          },
         }
       : {
           breed: draft.inlinePet.breed.trim(),
@@ -514,11 +585,11 @@ function validateLostReportDraft({
   const selectedProfile = getSelectedProfile(draft, petProfiles);
   const photos = getEffectivePhotos(draft, selectedProfile);
 
-  appendRequiredPetSelectionErrors({
+  appendRequiredReportCreationDraftErrors({
     errors,
-    hasExactLocation: Boolean(draft.exactLocation),
+    exactLocation: draft.exactLocation,
     hasSelectedPet: Boolean(selectedProfile) || hasValidInlinePet(draft),
-    photoCount: photos.length,
+    photos,
   });
 
   if (draft.lostDetails.lastSeenAtLabel.trim().length === 0) {
@@ -569,7 +640,13 @@ function buildContactOptions(currentOption: LostReportContactOption) {
   ];
 }
 
-function buildInlinePetForm(draft: LostReportDraft["inlinePet"]) {
+function buildInlinePetForm({
+  draft,
+  showValidation,
+}: {
+  draft: LostReportDraft["inlinePet"];
+  showValidation: boolean;
+}) {
   return {
     fields: {
       breed: {
@@ -584,7 +661,7 @@ function buildInlinePetForm(draft: LostReportDraft["inlinePet"]) {
       },
       name: {
         error:
-          draft.name.trim().length === 0
+          showValidation && draft.name.trim().length === 0
             ? "Ingresa el nombre de la mascota."
             : undefined,
         label: "Nombre",
@@ -670,12 +747,12 @@ function buildReviewRows({
 function buildSteps({
   canPublish,
   draft,
-  effectivePhotos,
+  readyPhotos,
   selectedPet,
 }: {
   canPublish: boolean;
   draft: LostReportDraft;
-  effectivePhotos: readonly LostReportPhoto[];
+  readyPhotos: readonly LostReportPhoto[];
   selectedPet?: LostReportCreationViewModel["selectedPet"];
 }) {
   return [
@@ -683,7 +760,7 @@ function buildSteps({
       id: "details" as const,
       isComplete:
         Boolean(selectedPet) &&
-        effectivePhotos.length > 0 &&
+        readyPhotos.length > 0 &&
         draft.lostDetails.lastSeenAtLabel.trim().length > 0,
       label: "Detalles",
     },
@@ -708,6 +785,71 @@ function buildSteps({
       label: "Publicado",
     },
   ];
+}
+
+function buildLostReportJourney({
+  draft,
+  effectivePhotos,
+  journey,
+  readyPhotos,
+  selectedPet,
+}: {
+  draft: LostReportDraft;
+  effectivePhotos: readonly LostReportPhoto[];
+  journey?: LostReportCreationJourneyInput;
+  readyPhotos: readonly LostReportPhoto[];
+  selectedPet?: LostReportCreationViewModel["selectedPet"];
+}) {
+  if (journey?.currentStepId) {
+    return createReportCreationJourney({
+      completedStepIds: journey.completedStepIds,
+      currentStepId: journey.currentStepId,
+      reportType: "lost",
+    });
+  }
+
+  const stepCompletion = [
+    {
+      id: "chooseType" as const,
+      isComplete: true,
+    },
+    {
+      id: "photos" as const,
+      isComplete:
+        effectivePhotos.length > 0 &&
+        readyPhotos.length === effectivePhotos.length,
+    },
+    {
+      id: "details" as const,
+      isComplete:
+        Boolean(selectedPet) &&
+        draft.lostDetails.lastSeenAtLabel.trim().length > 0 &&
+        draft.lostDetails.circumstances.trim().length > 0,
+    },
+    {
+      id: "location" as const,
+      isComplete: Boolean(draft.exactLocation),
+    },
+    {
+      id: "contact" as const,
+      isComplete: !getContactError(draft.contact),
+    },
+  ];
+  return deriveReportCreationJourney({
+    currentStepIdWhenComplete: "review",
+    reportType: "lost",
+    stepCompletion,
+  });
+}
+
+function shouldShowValidationError(
+  validationDisplay: LostReportCreationValidationDisplayInput | undefined,
+  stepId: ReportCreationJourneyStepId,
+) {
+  return (
+    validationDisplay === undefined ||
+    validationDisplay.attemptedStepId === stepId
+  );
 }
 
 function getSelectedProfile(
@@ -743,6 +885,14 @@ function getEffectivePhotos(
   _selectedProfile?: LostReportPetProfileOption,
 ) {
   return draft.photos.slice(0, lostReportPhotoLimit);
+}
+
+function getReadyUploadedPhotos(photos: readonly LostReportPhoto[]) {
+  return getReadyUploadedReportCreationPhotos(photos);
+}
+
+function getPhotoStepError(photos: readonly LostReportPhoto[]) {
+  return getRequiredReportCreationPhotoStepError(photos);
 }
 
 function getContactOption(contact: LostReportContactDraft) {
@@ -827,7 +977,7 @@ function toPetProfilePhotoSource(
   photo: LostReportPhoto,
 ): PetProfilePhotoSource {
   return {
-    id: photo.id,
+    id: photo.mediaId ?? photo.id,
     uri: photo.uri ?? photo.thumbUri ?? `file:///${photo.id}.jpg`,
   };
 }

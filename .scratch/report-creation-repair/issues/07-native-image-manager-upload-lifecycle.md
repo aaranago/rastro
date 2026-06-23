@@ -1,7 +1,7 @@
 # RC-002 Build the native image manager and crop/upload lifecycle
 
-Status: ready-for-agent
-Labels: ready-for-agent
+Status: verified-automated
+Labels: verified-automated
 Severity: P0
 Issue ID: RC-002
 Type: AFK
@@ -121,3 +121,10 @@ Build a native media manager integrated with the backend upload-session protocol
 - Multipart upload unless RC-003 proves it is required.
 
 ## Comments
+
+### 2026-06-22 verification checkpoint
+
+- Implemented with `$tdd` after RC-003 upload-session contracts were available.
+- Fresh Verifier RC-002-V returned no findings for the native media lifecycle scope.
+- Focused media adapter regressions and full Expo gates passed in the integrated suite: `pnpm -F @acme/expo exec tsc --noEmit --pretty false`, `pnpm -F @acme/expo lint`, and `pnpm -F @acme/expo exec vitest run` passed with 67 files and 391 tests.
+- 2026-06-22 native recheck: media source/edit/upload adapters now lazy-load native modules so stale Android clients do not redbox during report-route render. Rebuilt the Android dev client and verified `expo-image-picker`, `expo-image-manipulator`, and `expo-file-system` were autolinked; package metadata includes `ImagePickerFileProvider`, `CropFileProvider`, and `FileSystemFileProvider`; logcat showed no `ExponentImagePicker` or missing-native-module error after exercising the chooser/auth route. Remaining manual gap: signed-in lost-report photo add/upload and full end-to-end publish on device.

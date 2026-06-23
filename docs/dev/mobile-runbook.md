@@ -111,15 +111,40 @@ After changing native map keys, rebuild the development client or release binary
 
 ```bash
 cd /home/z/Personal/ai/rastro
-pnpm -F @acme/expo exec expo prebuild --clean --platform android
-pnpm -F @acme/expo exec expo run:android --no-build-cache
+pnpm exec dotenv -e .env -- pnpm -F @acme/expo exec expo prebuild --clean --platform android
+pnpm exec dotenv -e .env -- pnpm -F @acme/expo exec expo run:android --no-build-cache
 ```
 
 These commands are written for the repo root. If you are already inside `apps/expo`, use `pnpm exec expo ...` instead. Do not type `expo run:android` directly; `Command 'expo' not found` is expected unless you intentionally installed a global binary. Do not install the legacy `expo-cli` package globally; use the app-local Expo CLI through pnpm.
 
 Without the required Android key, the app shows a map-provider configuration error and keeps the report list alternative available instead of rendering a fake map.
 
+If Expo refuses to prebuild because the working tree is intentionally dirty during
+agent QA, use the same env-loaded command with `EXPO_NO_GIT_STATUS=1`. If `.env`
+contains an empty `CI=` entry, also set `CI=1` inside the command so Expo CLI can
+parse it:
+
+```bash
+pnpm exec dotenv -e .env -- sh -c 'CI=1 EXPO_NO_GIT_STATUS=1 pnpm -F @acme/expo exec expo prebuild --clean --platform android'
+pnpm exec dotenv -e .env -- sh -c 'CI=1 EXPO_NO_GIT_STATUS=1 pnpm -F @acme/expo exec expo run:android --no-build-cache'
+```
+
 Product and Google Cloud setup details, including API enablement, key restrictions, Android SHA-1 fingerprints, and EAS environment configuration, live in `docs/product/map-provider-setup.md`.
+
+## Native Report Media Modules
+
+Report creation photos use `expo-image-picker`, `expo-image-manipulator`, and
+`expo-file-system`. If Android shows `Cannot find native module
+'ExponentImagePicker'` or a similar missing native module error, the installed
+development client was built before those native modules or config plugins were
+included. A Metro reload cannot add native modules to an already-installed
+binary; rebuild and reinstall the development client with the env-loaded
+commands above.
+
+The app should now keep the report creation route mounted and show a recoverable
+media-unavailable banner when a stale client lacks the native picker. Real photo
+selection, editing, and upload still require a rebuilt dev client or release
+binary containing the native modules.
 
 ## Report Media Storage
 
@@ -150,6 +175,18 @@ pnpm install
 pnpm db:migrate
 ```
 
+If the development database has no data worth keeping and Drizzle reports
+already-existing types or tables, reset it from the migration files instead of
+repairing it manually:
+
+```bash
+pnpm db:reset:dev
+```
+
+The reset command refuses production-like targets, drops the `public` schema and
+Drizzle migration ledger, recreates `public`, and then runs the normal Drizzle
+migrations.
+
 Use `pnpm db:push` only for intentional local schema diff experiments. With
 PostgreSQL 18, the current `drizzle-kit@0.31.5` live diff can misread cataloged
 NOT NULL constraints and attempt to drop constraints such as
@@ -172,6 +209,20 @@ export EXPO_PUBLIC_API_BASE_URL="http://10.0.2.2:3000"
 # Physical device: use the host's LAN IP on the same network.
 export EXPO_PUBLIC_API_BASE_URL="http://<host-lan-ip>:3000"
 ```
+
+For Android Google or Facebook OAuth validation through ngrok, use the HTTPS ngrok origin as `BETTER_AUTH_URL` and register that same callback in the provider dashboard:
+
+```bash
+export BETTER_AUTH_URL="https://<ngrok-host>"
+export EXPO_PUBLIC_API_BASE_URL="https://<ngrok-host>"
+```
+
+The callback entries must be exact:
+
+- `https://<ngrok-host>/api/auth/callback/google`
+- `https://<ngrok-host>/api/auth/callback/facebook`
+
+Do not use `10.0.2.2`, a LAN IP, or a domain-only URL as a Google/Facebook redirect URI. Google requires HTTPS for non-localhost redirect URIs and rejects raw IP hosts except localhost; Facebook strict redirect mode requires the callback URL to match one configured Valid OAuth Redirect URI exactly. Restart the Next.js backend and Metro/dev-client process after changing these env vars.
 
 Find the host LAN IP on Linux with:
 
@@ -202,6 +253,17 @@ adb shell am start -a android.intent.action.VIEW -d "http://10.0.2.2:3000/api/au
 ```
 
 The browser should show a Better Auth session response, usually `null` when no member is signed in. A browser connection error means the app will also show `Network request failed`.
+
+To check the Expo social-auth proxy behind the tunnel before opening the mobile prompt, request a throwaway authorization URL from Better Auth and confirm the proxy returns a provider redirect instead of `404`:
+
+```bash
+curl -sS -X POST \
+  -H "content-type: application/json" \
+  -d '{"provider":"google","callbackURL":"rastro://auth/callback","errorCallbackURL":"rastro://auth/callback","disableRedirect":true}' \
+  "$BETTER_AUTH_URL/api/auth/sign-in/social"
+```
+
+The returned JSON `url` should contain `redirect_uri=$BETTER_AUTH_URL/api/auth/callback/google`. The app will open `$BETTER_AUTH_URL/api/auth/expo-authorization-proxy?authorizationURL=...`, which should redirect to Google or Facebook.
 
 Use a unique QA member for account-creation validation:
 

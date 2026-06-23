@@ -4,6 +4,10 @@ import type {
 } from "../adoption-listings/adoption-listings";
 import type { PetProfileSummary } from "../pet-profiles/pet-profile-types";
 import type {
+  ReportCreationJourney,
+  ReportCreationJourneyStepId,
+} from "../report-creation/report-creation-journey";
+import type {
   AdoptionListingContactChoice,
   AdoptionListingContactDraft,
   AdoptionListingCreationSession,
@@ -14,11 +18,20 @@ import type {
   AdoptionListingPhoto,
 } from "./adoption-listing-creation-types";
 import {
-  appendRequiredPetSelectionErrors,
+  createReportCreationJourney,
+  deriveReportCreationJourney,
+} from "../report-creation/report-creation-journey";
+import {
+  appendRequiredReportCreationDraftErrors,
+  getReadyUploadedReportCreationPhotos,
+  getRequiredReportCreationPhotoStepError,
+} from "../report-creation/report-creation-media-validation";
+import {
   getReportCreationSelectedPet,
   getReportCreationSelectedProfile,
   hasValidReportCreationInlinePet,
 } from "../report-creation/report-creation-pet-selection";
+import { toReportLocationPublishInput } from "../report-creation/report-location-draft";
 import {
   adoptionListingPetTypeOptions,
   toAdoptionListingPetProfileOption,
@@ -45,6 +58,7 @@ export interface AdoptionListingCreationViewModel {
     title: string;
   };
   canPublish: boolean;
+  journey: ReportCreationJourney;
   contact: {
     currentOption: AdoptionListingContactChoice;
     error?: string;
@@ -163,6 +177,7 @@ export function createAdoptionListingDraft(
       name: "",
       type: "",
     },
+    id: createAdoptionListingDraftId(),
     petSelectionMode: "existing",
     photos: [],
     showExactPinPublicly: false,
@@ -186,6 +201,31 @@ export function createAdoptionListingDraft(
   };
 }
 
+function createAdoptionListingDraftId() {
+  return `adoption-listing-${createReportCreationIdSuffix()}`;
+}
+
+function createReportCreationIdSuffix() {
+  const crypto = globalThis.crypto as
+    | {
+        randomUUID?: () => string;
+      }
+    | undefined;
+
+  return typeof crypto?.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+export interface AdoptionListingCreationJourneyInput {
+  completedStepIds?: readonly ReportCreationJourneyStepId[];
+  currentStepId?: ReportCreationJourneyStepId;
+}
+
+export interface AdoptionListingCreationValidationDisplayInput {
+  attemptedStepId?: ReportCreationJourneyStepId;
+}
+
 export function createInitialAdoptionListingDraft({
   petProfiles,
 }: {
@@ -201,17 +241,22 @@ export function createInitialAdoptionListingDraft({
 
 export function buildAdoptionListingCreationViewModel({
   draft,
+  journey,
   petProfiles,
   session,
+  validationDisplay,
 }: {
   draft: AdoptionListingDraft;
+  journey?: AdoptionListingCreationJourneyInput;
   petProfiles: readonly (AdoptionListingPetProfileOption | PetProfileSummary)[];
   session?: AdoptionListingCreationSession;
+  validationDisplay?: AdoptionListingCreationValidationDisplayInput;
 }): AdoptionListingCreationViewModel {
   const profileOptions = petProfiles.map(toAdoptionListingPetProfileOption);
   const selectedProfile = getSelectedProfile(draft, profileOptions);
   const selectedPet = getSelectedPet(draft, selectedProfile);
   const effectivePhotos = getEffectivePhotos(draft, selectedProfile);
+  const readyPhotos = getReadyUploadedPhotos(effectivePhotos);
   const validationErrors = validateAdoptionListingDraft({
     draft,
     petProfiles: profileOptions,
@@ -220,16 +265,39 @@ export function buildAdoptionListingCreationViewModel({
   const canPublish = validationErrors.length === 0;
   const verificationBadge =
     session?.kind === "member" ? session.verificationBadge : undefined;
+  const showContactValidation = shouldShowValidationError(
+    validationDisplay,
+    "contact",
+  );
+  const showDetailsValidation = shouldShowValidationError(
+    validationDisplay,
+    "details",
+  );
+  const showPhotosValidation = shouldShowValidationError(
+    validationDisplay,
+    "photos",
+  );
 
   return {
-    adoptionDetails: buildAdoptionDetailsViewModel(draft),
+    adoptionDetails: buildAdoptionDetailsViewModel(
+      draft,
+      showDetailsValidation,
+    ),
     canPublish,
+    journey: buildAdoptionListingJourney({
+      draft,
+      effectivePhotos,
+      journey,
+      readyPhotos,
+      selectedPet,
+    }),
     contact: {
       currentOption: contactOption,
-      error: getContactError(draft.contact),
+      error: showContactValidation ? getContactError(draft.contact) : undefined,
       options: buildContactOptions(contactOption),
       whatsappField: {
         error:
+          showContactValidation &&
           draft.contact.whatsappEnabled &&
           draft.contact.whatsappPhone.trim().length === 0
             ? "Ingresa el numero de WhatsApp que quieres mostrar."
@@ -248,7 +316,10 @@ export function buildAdoptionListingCreationViewModel({
         : "Crear perfil en linea",
     },
     petSelection: {
-      inlineForm: buildInlinePetForm(draft.inlinePet),
+      inlineForm: buildInlinePetForm({
+        draft: draft.inlinePet,
+        showValidation: showPhotosValidation,
+      }),
       mode: draft.petSelectionMode,
       options: profileOptions.map((profile) => ({
         body: formatPetProfileSubtitle(profile),
@@ -264,8 +335,9 @@ export function buildAdoptionListingCreationViewModel({
     photos: {
       canAddPhoto: effectivePhotos.length < adoptionListingPhotoLimit,
       countLabel: formatPhotoCount(effectivePhotos.length),
-      error:
-        effectivePhotos.length === 0 ? "Agrega al menos una foto." : undefined,
+      error: showPhotosValidation
+        ? getPhotoStepError(effectivePhotos)
+        : undefined,
       helpLabel:
         "Maximo 5 fotos. Rastro prepara miniaturas y retira datos de ubicacion antes de subirlas.",
       items: effectivePhotos,
@@ -278,17 +350,19 @@ export function buildAdoptionListingCreationViewModel({
       rows: buildReviewRows({
         contactOption,
         draft,
-        photos: effectivePhotos,
+        photos: readyPhotos,
         selectedPet,
         verificationBadge,
       }),
-      validationErrors,
+      validationErrors: shouldShowValidationError(validationDisplay, "review")
+        ? validationErrors
+        : [],
     },
     selectedPet,
     steps: buildSteps({
       canPublish,
       draft,
-      effectivePhotos,
+      readyPhotos,
       selectedPet,
     }),
     success: {
@@ -319,6 +393,7 @@ export function toPublishAdoptionListingInput({
   const profileOptions = petProfiles.map(toAdoptionListingPetProfileOption);
   const selectedProfile = getSelectedProfile(draft, profileOptions);
   const photos = getEffectivePhotos(draft, selectedProfile);
+  const readyPhotos = getReadyUploadedPhotos(photos);
   const errors = validateAdoptionListingDraft({
     draft,
     petProfiles: profileOptions,
@@ -338,19 +413,20 @@ export function toPublishAdoptionListingInput({
       option: getContactOption(draft.contact),
       whatsappPhone: draft.contact.whatsappPhone,
     }),
-    exactLocation: {
-      addressLabel: draft.exactLocation.addressLabel,
-      countryCode: "BO",
-      latitude: draft.exactLocation.coordinates.latitude,
-      locationCellLabel: draft.exactLocation.locationCellLabel,
-      longitude: draft.exactLocation.coordinates.longitude,
-    },
+    exactLocation: toReportLocationPublishInput(draft.exactLocation),
     healthNotes: optionalTrimmed(draft.adoptionDetails.healthNotes),
+    idempotencyKey: draft.id,
     idealHome: optionalTrimmed(draft.adoptionDetails.idealHome),
     petProfile: selectedProfile
       ? {
           kind: "existing",
           petProfileId: selectedProfile.id,
+          profile: {
+            breed: selectedProfile.breed,
+            description: selectedProfile.description,
+            name: selectedProfile.name,
+            type: selectedProfile.type,
+          },
         }
       : {
           kind: "inline",
@@ -358,11 +434,11 @@ export function toPublishAdoptionListingInput({
             breed: draft.inlinePet.breed.trim(),
             description: draft.inlinePet.description.trim(),
             name: draft.inlinePet.name.trim(),
-            photos: photos.map(toPetProfilePhotoSource),
+            photos: readyPhotos.map(toPetProfilePhotoSource),
             type: requireAdoptionListingPetType(draft.inlinePet.type),
           },
         },
-    photos: photos.map(toPetProfilePhotoSource),
+    photos: readyPhotos.map(toPetProfilePhotoSource),
     showExactPublicLocation: draft.showExactPinPublicly,
   };
 }
@@ -425,11 +501,11 @@ function validateAdoptionListingDraft({
   const selectedProfile = getSelectedProfile(draft, petProfiles);
   const photos = getEffectivePhotos(draft, selectedProfile);
 
-  appendRequiredPetSelectionErrors({
+  appendRequiredReportCreationDraftErrors({
     errors,
-    hasExactLocation: Boolean(draft.exactLocation),
+    exactLocation: draft.exactLocation,
     hasSelectedPet: Boolean(selectedProfile) || hasValidInlinePet(draft),
-    photoCount: photos.length,
+    photos,
   });
 
   if (draft.adoptionDetails.adoptionSummary.trim().length === 0) {
@@ -450,11 +526,15 @@ function validateAdoptionListingDraft({
   return errors;
 }
 
-function buildAdoptionDetailsViewModel(draft: AdoptionListingDraft) {
+function buildAdoptionDetailsViewModel(
+  draft: AdoptionListingDraft,
+  showValidation = true,
+) {
   return {
     fields: {
       adoptionSummary: {
         error:
+          showValidation &&
           draft.adoptionDetails.adoptionSummary.trim().length === 0
             ? "Cuenta que tipo de hogar necesita."
             : undefined,
@@ -504,7 +584,13 @@ function buildContactOptions(currentOption: AdoptionListingContactChoice) {
   ];
 }
 
-function buildInlinePetForm(draft: AdoptionListingDraft["inlinePet"]) {
+function buildInlinePetForm({
+  draft,
+  showValidation,
+}: {
+  draft: AdoptionListingDraft["inlinePet"];
+  showValidation: boolean;
+}) {
   return {
     fields: {
       breed: {
@@ -519,7 +605,7 @@ function buildInlinePetForm(draft: AdoptionListingDraft["inlinePet"]) {
       },
       name: {
         error:
-          draft.name.trim().length === 0
+          showValidation && draft.name.trim().length === 0
             ? "Ingresa el nombre de la mascota."
             : undefined,
         label: "Nombre",
@@ -611,18 +697,18 @@ function buildReviewRows({
 function buildSteps({
   canPublish,
   draft,
-  effectivePhotos,
+  readyPhotos,
   selectedPet,
 }: {
   canPublish: boolean;
   draft: AdoptionListingDraft;
-  effectivePhotos: readonly AdoptionListingPhoto[];
+  readyPhotos: readonly AdoptionListingPhoto[];
   selectedPet?: AdoptionListingCreationViewModel["selectedPet"];
 }) {
   return [
     {
       id: "pet" as const,
-      isComplete: Boolean(selectedPet) && effectivePhotos.length > 0,
+      isComplete: Boolean(selectedPet) && readyPhotos.length > 0,
       label: "Mascota",
     },
     {
@@ -651,6 +737,69 @@ function buildSteps({
       label: "Publicado",
     },
   ];
+}
+
+function buildAdoptionListingJourney({
+  draft,
+  effectivePhotos,
+  journey,
+  readyPhotos,
+  selectedPet,
+}: {
+  draft: AdoptionListingDraft;
+  effectivePhotos: readonly AdoptionListingPhoto[];
+  journey?: AdoptionListingCreationJourneyInput;
+  readyPhotos: readonly AdoptionListingPhoto[];
+  selectedPet?: AdoptionListingCreationViewModel["selectedPet"];
+}) {
+  if (journey?.currentStepId) {
+    return createReportCreationJourney({
+      completedStepIds: journey.completedStepIds,
+      currentStepId: journey.currentStepId,
+      reportType: "adoption",
+    });
+  }
+
+  const stepCompletion = [
+    {
+      id: "chooseType" as const,
+      isComplete: true,
+    },
+    {
+      id: "photos" as const,
+      isComplete:
+        Boolean(selectedPet) &&
+        effectivePhotos.length > 0 &&
+        readyPhotos.length === effectivePhotos.length,
+    },
+    {
+      id: "details" as const,
+      isComplete: draft.adoptionDetails.adoptionSummary.trim().length > 0,
+    },
+    {
+      id: "location" as const,
+      isComplete: Boolean(draft.exactLocation),
+    },
+    {
+      id: "contact" as const,
+      isComplete: !getContactError(draft.contact),
+    },
+  ];
+  return deriveReportCreationJourney({
+    currentStepIdWhenComplete: "review",
+    reportType: "adoption",
+    stepCompletion,
+  });
+}
+
+function shouldShowValidationError(
+  validationDisplay: AdoptionListingCreationValidationDisplayInput | undefined,
+  stepId: ReportCreationJourneyStepId,
+) {
+  return (
+    validationDisplay === undefined ||
+    validationDisplay.attemptedStepId === stepId
+  );
 }
 
 function getSelectedProfile(
@@ -701,6 +850,14 @@ function getEffectivePhotos(
     draft.photos.length > 0 ? draft.photos : (selectedProfile?.photos ?? []);
 
   return sourcePhotos.slice(0, adoptionListingPhotoLimit);
+}
+
+function getReadyUploadedPhotos(photos: readonly AdoptionListingPhoto[]) {
+  return getReadyUploadedReportCreationPhotos(photos);
+}
+
+function getPhotoStepError(photos: readonly AdoptionListingPhoto[]) {
+  return getRequiredReportCreationPhotoStepError(photos);
 }
 
 function getContactOption(contact: AdoptionListingContactDraft) {
@@ -766,7 +923,7 @@ function toPetProfilePhotoSource(photo: AdoptionListingPhoto) {
   }
 
   return {
-    id: photo.id,
+    id: photo.mediaId ?? photo.id,
     uri,
   };
 }

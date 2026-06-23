@@ -56,6 +56,7 @@ export const lostReportCreationFixtures = {
     {
       alt: "Foto adicional para reporte de perdida",
       id: "lost-report-photo-sample-1",
+      mediaId: "lost-report-media-sample-1",
       status: "ready",
       thumbUri:
         "https://images.unsplash.com/photo-1517423440428-a5a00ad493e8?w=360&auto=format&fit=crop",
@@ -64,6 +65,7 @@ export const lostReportCreationFixtures = {
     {
       alt: "Foto de mascota para reporte de perdida",
       id: "lost-report-photo-sample-2",
+      mediaId: "lost-report-media-sample-2",
       status: "ready",
       thumbUri:
         "https://images.unsplash.com/photo-1552728089-57bdde30beb3?w=360&auto=format&fit=crop",

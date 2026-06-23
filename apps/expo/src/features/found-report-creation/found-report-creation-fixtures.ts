@@ -19,6 +19,7 @@ export const foundReportCreationFixtures = {
     {
       alt: "Foto de mascota encontrada",
       id: "found-report-photo-sample-1",
+      mediaId: "found-report-media-sample-1",
       status: "ready",
       thumbUri: "file:///found-report-photo-sample-1-thumb.jpg",
       uri: "file:///found-report-photo-sample-1.jpg",
@@ -26,6 +27,7 @@ export const foundReportCreationFixtures = {
     {
       alt: "Foto adicional de mascota encontrada",
       id: "found-report-photo-sample-2",
+      mediaId: "found-report-media-sample-2",
       status: "ready",
       thumbUri: "file:///found-report-photo-sample-2-thumb.jpg",
       uri: "file:///found-report-photo-sample-2.jpg",

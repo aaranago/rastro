@@ -1,4 +1,5 @@
 import type { PetProfileType } from "../pet-profiles/pet-profile-types";
+import type { ReportLocationDraft } from "../report-creation/report-location-draft";
 import type { PublishSightingReportInput } from "../sighting-reports/sighting-reports";
 
 export { type PublishSightingReportInput };
@@ -14,24 +15,17 @@ export const sightingReportPetTypeOptions = [
 export interface SightingReportPhoto {
   alt?: string;
   id: string;
+  localId?: string;
+  mediaId?: string;
+  originalUri?: string;
+  progress?: number;
   status?: "draft" | "ready" | "uploading" | "error";
   thumbUri?: string;
+  uploadUri?: string;
   uri?: string;
 }
 
-export interface SightingReportCoordinates {
-  latitude: number;
-  longitude: number;
-}
-
-export interface SightingReportExactSightingLocation {
-  addressLabel: string;
-  coordinates: SightingReportCoordinates;
-  department: string;
-  locationCellLabel: string;
-  municipality: string;
-  neighborhood?: string;
-}
+export type SightingReportExactSightingLocation = ReportLocationDraft;
 
 export interface SightingReportDetailsDraft {
   description: string;

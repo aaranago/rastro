@@ -1,9 +1,20 @@
+import type { ScrollView } from "react-native";
 import * as React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 
+import type { NearbyLocationAdapter } from "../nearby/nearby-location-adapter";
+import type {
+  ReportCreationJourney,
+  ReportCreationJourneyStepId,
+} from "../report-creation/report-creation-journey";
+import type { ReportLocationDraft } from "../report-creation/report-location-draft";
+import type { ReportMediaDraftSnapshot } from "../report-media";
 import type { CreationDraftStore } from "../resilience/creation-drafts";
-import type { DurableCreationDraftPersistence } from "../resilience/use-durable-creation-draft";
+import type {
+  DurableCreationDraftPersistence,
+  DurableCreationDraftRecovery,
+} from "../resilience/use-durable-creation-draft";
 import type {
   FoundReportCreationSession,
   FoundReportCreationVisitorAction,
@@ -11,22 +22,26 @@ import type {
   FoundReportPhoto,
   PublishFoundPetReportInput,
 } from "./found-report-creation-types";
+import { createReportCreationJourney } from "../report-creation/report-creation-journey";
 import { publishReportCreation } from "../report-creation/report-creation-publish";
 import {
   ReportCreationActionButton,
   ReportCreationContactOptionSection,
   ReportCreationDetailsFieldsSection,
   ReportCreationDraftPersistenceAlert,
-  ReportCreationEditorScrollView,
+  ReportCreationDraftRecoveryPrompt,
   ReportCreationInfoRow,
   ReportCreationPetSnapshotSection,
   ReportCreationPhotoSection,
   ReportCreationProgressSteps,
   ReportCreationReviewPublishSection,
+  ReportCreationScreenFrame,
   ReportCreationSection,
   ReportCreationToggleRow,
   useReportCreationPetDraftUpdaters,
 } from "../report-creation/report-creation-ui";
+import { ReportLocationPickerScreen } from "../report-location-picker";
+import { reportMediaSnapshotToCreationPhotos } from "../report-media";
 import { useDurableCreationDraft } from "../resilience/use-durable-creation-draft";
 import { shellColors } from "../shell/shell-theme";
 import { foundReportCreationFixtures } from "./found-report-creation-fixtures";
@@ -40,13 +55,24 @@ import {
   toPublishFoundPetReportInput,
 } from "./found-report-creation-view-model";
 
-const bottomInset = 36;
 const errorAccent = "#D6453D";
 const foundAccent = shellColors.found;
 const foundAccentSoft = "#E2F4EA";
 const mapPreviewBlocks = Array.from({ length: 12 }, (_, index) => index);
+const foundReportEditorStepIds = [
+  "photos",
+  "details",
+  "location",
+  "contact",
+  "review",
+] as const satisfies readonly ReportCreationJourneyStepId[];
 
 type PublishState = "editing" | "publishing" | "success";
+export interface FoundReportPublishConfirmation {
+  id: string;
+  status: string;
+}
+type FoundReportEditorStepId = (typeof foundReportEditorStepIds)[number];
 type FoundReportCreationViewModel = ReturnType<
   typeof buildFoundReportCreationViewModel
 >;
@@ -55,12 +81,26 @@ export interface FoundReportCreationScreenProps {
   draftScopeId?: string;
   draftStore?: CreationDraftStore;
   initialDraft?: FoundReportDraft;
+  locationAdapter?: NearbyLocationAdapter;
   onChooseFoundLocation?: () => void;
   onClose?: () => void;
+  onDraftPublished?: () => void;
   onPublishFoundReport?: (
     input: PublishFoundPetReportInput,
-  ) => Promise<void> | void;
+  ) =>
+    | FoundReportPublishConfirmation
+    | Promise<FoundReportPublishConfirmation | void>
+    | void;
   onRequestMemberSignIn?: (action: FoundReportCreationVisitorAction) => void;
+  pickFoundReportPhoto?: () =>
+    | FoundReportPhoto
+    | Promise<FoundReportPhoto | undefined>
+    | undefined;
+  renderReportMediaManager?: (props: {
+    mediaDraftId: string;
+    onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
+    photos: readonly FoundReportPhoto[];
+  }) => React.ReactNode;
   session?: FoundReportCreationSession;
 }
 
@@ -87,41 +127,73 @@ export function FoundReportCreationScreen({
   draftScopeId,
   draftStore,
   initialDraft,
+  locationAdapter,
   onChooseFoundLocation,
   onClose,
+  onDraftPublished,
   onPublishFoundReport,
   onRequestMemberSignIn,
+  pickFoundReportPhoto,
+  renderReportMediaManager,
   session = { kind: "member", memberId: "member-preview" },
 }: FoundReportCreationScreenProps) {
   const defaultDraft = React.useMemo(
-    () =>
-      initialDraft ??
-      createFoundReportDraft({
-        exactFoundLocation: foundReportCreationFixtures.defaultLocation,
-      }),
+    () => initialDraft ?? createFoundReportDraft(),
     [initialDraft],
   );
-  const { clearDraft, draft, draftPersistence, setDraft } =
-    useDurableCreationDraft({
-      initialDraft: defaultDraft,
-      kind: "found-report",
-      scopeId: draftScopeId,
-      store: draftStore,
-    });
+  const {
+    clearDraft,
+    discardDraft,
+    draft,
+    draftPersistence,
+    draftRecovery,
+    draftResetVersion,
+    hasLoaded,
+    restoredDraft,
+    resumeDraft,
+    setDraft,
+  } = useDurableCreationDraft({
+    initialDraft: defaultDraft,
+    kind: "found-report",
+    recoveryMode: "explicit",
+    scopeId: draftScopeId,
+    store: draftStore,
+  });
   const [publishState, setPublishState] =
     React.useState<PublishState>("editing");
+  const [publishConfirmation, setPublishConfirmation] =
+    React.useState<FoundReportPublishConfirmation | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [isLocationPickerVisible, setLocationPickerVisible] =
+    React.useState(false);
   const publishLockRef = React.useRef(false);
-  const viewModel = React.useMemo(
+  const quietViewModel = React.useMemo(
     () =>
       buildFoundReportCreationViewModel({
         draft,
         session,
+        validationDisplay: {},
       }),
     [draft, session],
   );
 
-  const addPhoto = React.useCallback(() => {
+  const addPhoto = React.useCallback(async () => {
+    if (pickFoundReportPhoto) {
+      const pickedPhoto = await pickFoundReportPhoto();
+
+      if (!pickedPhoto) {
+        return;
+      }
+
+      setDraft((current) =>
+        appendFoundReportPhoto({
+          draft: current,
+          photo: pickedPhoto,
+        }),
+      );
+      return;
+    }
+
     const nextPhoto =
       foundReportCreationFixtures.photoSamples[draft.photos.length] ??
       createFallbackPhoto(draft.photos.length);
@@ -132,10 +204,33 @@ export function FoundReportCreationScreen({
         photo: nextPhoto,
       }),
     );
-  }, [draft.photos.length, setDraft]);
+  }, [draft.photos.length, pickFoundReportPhoto, setDraft]);
+  const openLocationPicker = React.useCallback(() => {
+    if (onChooseFoundLocation) {
+      onChooseFoundLocation();
+      return;
+    }
+
+    if (locationAdapter) {
+      setLocationPickerVisible(true);
+    }
+  }, [locationAdapter, onChooseFoundLocation]);
+  const closeLocationPicker = React.useCallback(() => {
+    setLocationPickerVisible(false);
+  }, []);
+  const confirmLocation = React.useCallback(
+    (location: ReportLocationDraft) => {
+      setDraft((current) => ({
+        ...current,
+        exactFoundLocation: location,
+      }));
+      setLocationPickerVisible(false);
+    },
+    [setDraft],
+  );
 
   const publish = React.useCallback(async () => {
-    if (!viewModel.canPublish || publishState === "publishing") {
+    if (!quietViewModel.canPublish || publishState === "publishing") {
       return;
     }
 
@@ -150,6 +245,8 @@ export function FoundReportCreationScreen({
     });
 
     if (result.ok) {
+      setPublishConfirmation(result.confirmation ?? null);
+      onDraftPublished?.();
       setPublishState("success");
       return;
     }
@@ -163,24 +260,39 @@ export function FoundReportCreationScreen({
   }, [
     clearDraft,
     draft,
+    onDraftPublished,
     onPublishFoundReport,
     publishState,
-    viewModel.canPublish,
+    quietViewModel.canPublish,
   ]);
 
-  if (viewModel.kind === "visitor") {
+  if (quietViewModel.kind === "visitor") {
     return (
       <FoundReportVisitorHandoff
         onClose={onClose}
         onRequestMemberSignIn={onRequestMemberSignIn}
-        viewModel={viewModel}
+        viewModel={quietViewModel}
+      />
+    );
+  }
+
+  if (isLocationPickerVisible && locationAdapter) {
+    return (
+      <ReportLocationPickerScreen
+        adapter={locationAdapter}
+        onCancel={closeLocationPicker}
+        onConfirm={confirmLocation}
       />
     );
   }
 
   if (publishState === "success") {
     return (
-      <FoundReportCreationSuccess onClose={onClose} viewModel={viewModel} />
+      <FoundReportCreationSuccess
+        onClose={onClose}
+        publishConfirmation={publishConfirmation}
+        viewModel={quietViewModel}
+      />
     );
   }
 
@@ -189,13 +301,22 @@ export function FoundReportCreationScreen({
       addPhoto={addPhoto}
       draft={draft}
       draftPersistence={draftPersistence}
-      onChooseFoundLocation={onChooseFoundLocation}
+      draftRecovery={draftRecovery}
+      onChooseFoundLocation={openLocationPicker}
       onClose={onClose}
+      onDiscardRecoveredDraft={discardDraft}
+      onResumeRecoveredDraft={resumeDraft}
       publish={publish}
       publishState={publishState}
+      renderReportMediaManager={renderReportMediaManager}
+      restoredDraftResetToken={
+        hasLoaded
+          ? `${restoredDraft?.savedAt ?? "fresh"}:${draftResetVersion}`
+          : "loading"
+      }
+      session={session}
       setDraft={setDraft}
       submitError={submitError}
-      viewModel={viewModel}
     />
   );
 }
@@ -210,11 +331,8 @@ function FoundReportVisitorHandoff({
   viewModel: FoundReportCreationViewModel;
 }) {
   return (
-    <ScrollView
+    <ReportCreationScreenFrame
       contentContainerStyle={styles.content}
-      contentInset={{ bottom: bottomInset }}
-      contentInsetAdjustmentBehavior="automatic"
-      scrollIndicatorInsets={{ bottom: bottomInset }}
       style={styles.screen}
     >
       <CreationHeader
@@ -254,23 +372,22 @@ function FoundReportVisitorHandoff({
           </Text>
         </Pressable>
       </View>
-    </ScrollView>
+    </ReportCreationScreenFrame>
   );
 }
 
 function FoundReportCreationSuccess({
   onClose,
+  publishConfirmation,
   viewModel,
 }: {
   onClose?: () => void;
+  publishConfirmation: FoundReportPublishConfirmation | null;
   viewModel: FoundReportCreationViewModel;
 }) {
   return (
-    <ScrollView
+    <ReportCreationScreenFrame
       contentContainerStyle={styles.content}
-      contentInset={{ bottom: bottomInset }}
-      contentInsetAdjustmentBehavior="automatic"
-      scrollIndicatorInsets={{ bottom: bottomInset }}
       style={styles.screen}
     >
       <View style={styles.successHero}>
@@ -287,6 +404,12 @@ function FoundReportCreationSuccess({
         <Text maxFontSizeMultiplier={1.25} style={styles.bodyText}>
           {viewModel.success.body}
         </Text>
+        {publishConfirmation ? (
+          <Text maxFontSizeMultiplier={1.2} style={styles.bodyText}>
+            Reporte confirmado: {publishConfirmation.id}. Estado:{" "}
+            {publishConfirmation.status}.
+          </Text>
+        ) : null}
       </View>
       <View style={styles.buttonRow}>
         <ReportCreationActionButton
@@ -308,7 +431,7 @@ function FoundReportCreationSuccess({
           styles={styles}
         />
       </View>
-    </ScrollView>
+    </ReportCreationScreenFrame>
   );
 }
 
@@ -316,44 +439,332 @@ function FoundReportCreationEditor({
   addPhoto,
   draft,
   draftPersistence,
+  draftRecovery,
   onChooseFoundLocation,
   onClose,
+  onDiscardRecoveredDraft,
+  onResumeRecoveredDraft,
   publish,
   publishState,
+  renderReportMediaManager,
+  restoredDraftResetToken,
+  session,
   setDraft,
   submitError,
-  viewModel,
 }: {
   addPhoto: () => void;
   draft: FoundReportDraft;
   draftPersistence: DurableCreationDraftPersistence;
+  draftRecovery: DurableCreationDraftRecovery<"found-report">;
   onChooseFoundLocation?: () => void;
   onClose?: () => void;
+  onDiscardRecoveredDraft: () => Promise<void>;
+  onResumeRecoveredDraft: () => void;
   publish: () => void;
   publishState: PublishState;
+  renderReportMediaManager?: FoundReportCreationScreenProps["renderReportMediaManager"];
+  restoredDraftResetToken?: string;
+  session: FoundReportCreationSession;
   setDraft: React.Dispatch<React.SetStateAction<FoundReportDraft>>;
   submitError: string | null;
-  viewModel: FoundReportCreationViewModel;
 }) {
   const foundPetDraft = useReportCreationPetDraftUpdaters(setDraft);
+  const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
+  const inferredViewModel = React.useMemo(
+    () =>
+      buildFoundReportCreationViewModel({
+        draft,
+        session,
+        validationDisplay: {},
+      }),
+    [draft, session],
+  );
+  const [journey, setJourney] = React.useState<ReportCreationJourney>(
+    () => inferredViewModel.journey,
+  );
+  const [validationDisplay, setValidationDisplay] = React.useState<{
+    attemptedStepId?: ReportCreationJourneyStepId;
+  }>({});
+  const lastRestoredDraftResetTokenRef = React.useRef(restoredDraftResetToken);
+
+  React.useEffect(() => {
+    if (lastRestoredDraftResetTokenRef.current === restoredDraftResetToken) {
+      return;
+    }
+
+    lastRestoredDraftResetTokenRef.current = restoredDraftResetToken;
+    setJourney(inferredViewModel.journey);
+    setValidationDisplay({});
+  }, [inferredViewModel.journey, restoredDraftResetToken]);
+
+  const viewModel = React.useMemo(
+    () =>
+      buildFoundReportCreationViewModel({
+        draft,
+        journey: toFoundReportJourneyInput(journey),
+        session,
+        validationDisplay,
+      }),
+    [draft, journey, session, validationDisplay],
+  );
+  const currentStepId = viewModel.journey.currentStep.id;
+  const currentEditorStepId = isFoundReportEditorStepId(currentStepId)
+    ? currentStepId
+    : undefined;
+  const previousEditableStep = currentEditorStepId
+    ? getPreviousFoundReportEditableStep(viewModel.journey)
+    : undefined;
+  const locationError =
+    validationDisplay.attemptedStepId === "location" &&
+    !draft.exactFoundLocation
+      ? "Selecciona donde fue encontrada."
+      : undefined;
+
+  const continueToNextStep = React.useCallback(() => {
+    if (
+      !currentEditorStepId ||
+      currentEditorStepId === "review" ||
+      !canRenderFoundReportStepActions(currentEditorStepId)
+    ) {
+      return;
+    }
+
+    const errors = validateFoundReportCurrentStep({
+      draft,
+      stepId: currentEditorStepId,
+    });
+
+    if (errors.length > 0) {
+      setValidationDisplay({ attemptedStepId: currentEditorStepId });
+      scrollRef.current?.scrollTo({ animated: true, y: 0 });
+      return;
+    }
+
+    setJourney((current) => advanceFoundReportJourney(current));
+    setValidationDisplay({});
+  }, [currentEditorStepId, draft]);
+
+  const goBack = React.useCallback(() => {
+    setJourney((current) => retreatFoundReportJourney(current));
+    setValidationDisplay({});
+  }, []);
 
   return (
-    <ReportCreationEditorScrollView bottomInset={bottomInset} styles={styles}>
+    <ReportCreationScreenFrame
+      contentContainerStyle={styles.content}
+      footer={
+        currentEditorStepId && currentEditorStepId !== "review" ? (
+          <FoundReportStepActions
+            canGoBack={Boolean(previousEditableStep)}
+            onBack={goBack}
+            onContinue={continueToNextStep}
+          />
+        ) : undefined
+      }
+      scrollViewRef={scrollRef}
+      style={styles.screen}
+    >
       <CreationHeader
         eyebrow={viewModel.header.eyebrow}
         onClose={onClose}
         title={viewModel.title}
       />
-      <ReportCreationProgressSteps steps={viewModel.steps} styles={styles} />
+      <ReportCreationProgressSteps
+        steps={viewModel.journey.steps}
+        styles={styles}
+      />
+      <ReportCreationDraftRecoveryPrompt
+        draftRecovery={draftRecovery}
+        onDiscardDraft={onDiscardRecoveredDraft}
+        onResumeDraft={onResumeRecoveredDraft}
+      />
       <ReportCreationDraftPersistenceAlert
         draftPersistence={draftPersistence}
       />
+      <FoundReportCreationStepContent
+        addPhoto={addPhoto}
+        currentStepId={currentStepId}
+        draft={draft}
+        locationError={locationError}
+        onChangePetBreed={foundPetDraft.updatePetBreed}
+        onChangePetDescription={foundPetDraft.updatePetDescription}
+        onChooseFoundLocation={onChooseFoundLocation}
+        onSelectPetType={foundPetDraft.updatePetType}
+        publish={publish}
+        publishState={publishState}
+        renderReportMediaManager={renderReportMediaManager}
+        setDraft={setDraft}
+        submitError={submitError}
+        viewModel={viewModel}
+      />
+    </ReportCreationScreenFrame>
+  );
+}
+
+function FoundReportCreationStepContent({
+  addPhoto,
+  currentStepId,
+  draft,
+  locationError,
+  onChangePetBreed,
+  onChangePetDescription,
+  onChooseFoundLocation,
+  onSelectPetType,
+  publish,
+  publishState,
+  renderReportMediaManager,
+  setDraft,
+  submitError,
+  viewModel,
+}: {
+  addPhoto: () => void;
+  currentStepId: ReportCreationJourneyStepId;
+  draft: FoundReportDraft;
+  locationError?: string;
+  onChangePetBreed: (value: string) => void;
+  onChangePetDescription: (value: string) => void;
+  onChooseFoundLocation?: () => void;
+  onSelectPetType: (value: FoundReportDraft["pet"]["type"]) => void;
+  publish: () => void;
+  publishState: PublishState;
+  renderReportMediaManager?: FoundReportCreationScreenProps["renderReportMediaManager"];
+  setDraft: React.Dispatch<React.SetStateAction<FoundReportDraft>>;
+  submitError: string | null;
+  viewModel: FoundReportCreationViewModel;
+}) {
+  switch (currentStepId) {
+    case "photos":
+      return (
+        <FoundReportPhotosStep
+          addPhoto={addPhoto}
+          draft={draft}
+          renderReportMediaManager={renderReportMediaManager}
+          setDraft={setDraft}
+          viewModel={viewModel}
+        />
+      );
+    case "details":
+      return (
+        <FoundReportDetailsStep
+          draft={draft}
+          onChangePetBreed={onChangePetBreed}
+          onChangePetDescription={onChangePetDescription}
+          onSelectPetType={onSelectPetType}
+          setDraft={setDraft}
+          viewModel={viewModel}
+        />
+      );
+    case "location":
+      return (
+        <LocationPrivacySection
+          error={locationError}
+          onChooseFoundLocation={onChooseFoundLocation}
+          setDraft={setDraft}
+          viewModel={viewModel}
+        />
+      );
+    case "contact":
+      return <ContactOptionSection setDraft={setDraft} viewModel={viewModel} />;
+    case "review":
+      return (
+        <ReviewPublishSection
+          publish={publish}
+          publishState={publishState}
+          submitError={submitError}
+          viewModel={viewModel}
+        />
+      );
+    default:
+      return null;
+  }
+}
+
+function FoundReportPhotosStep({
+  addPhoto,
+  draft,
+  renderReportMediaManager,
+  setDraft,
+  viewModel,
+}: {
+  addPhoto: () => void;
+  draft: FoundReportDraft;
+  renderReportMediaManager?: FoundReportCreationScreenProps["renderReportMediaManager"];
+  setDraft: React.Dispatch<React.SetStateAction<FoundReportDraft>>;
+  viewModel: FoundReportCreationViewModel;
+}) {
+  const renderedReportMediaManager = renderReportMediaManager?.({
+    mediaDraftId: draft.idempotencyKey,
+    onSnapshotChange: (snapshot) =>
+      setDraft((current) => ({
+        ...current,
+        photos: reportMediaSnapshotToCreationPhotos(snapshot),
+      })),
+    photos: viewModel.photos.items,
+  });
+
+  if (renderedReportMediaManager) {
+    return (
+      <ReportCreationSection styles={styles} title="Fotos">
+        {renderedReportMediaManager}
+        {viewModel.photos.error ? (
+          <Text maxFontSizeMultiplier={1.2} style={styles.errorText}>
+            {viewModel.photos.error}
+          </Text>
+        ) : null}
+      </ReportCreationSection>
+    );
+  }
+
+  return (
+    <ReportCreationPhotoSection
+      accentColor={foundAccent}
+      addPhoto={addPhoto}
+      addPhotoAccessibilityLabel="Agregar foto"
+      canAddPhoto={viewModel.photos.canAddPhoto}
+      countLabel={viewModel.photos.countLabel}
+      error={viewModel.photos.error}
+      helpLabel={viewModel.photos.helpLabel}
+      Icon={FoundReportCreationIcon}
+      onRemovePhoto={(photoId) =>
+        setDraft((current) =>
+          removeFoundReportPhoto({
+            draft: current,
+            photoId,
+          }),
+        )
+      }
+      permissionBody={viewModel.photos.permissionBody}
+      permissionTitle={viewModel.photos.permissionTitle}
+      photos={viewModel.photos.items}
+      styles={styles}
+      title="Fotos"
+    />
+  );
+}
+
+function FoundReportDetailsStep({
+  draft,
+  onChangePetBreed,
+  onChangePetDescription,
+  onSelectPetType,
+  setDraft,
+  viewModel,
+}: {
+  draft: FoundReportDraft;
+  onChangePetBreed: (value: string) => void;
+  onChangePetDescription: (value: string) => void;
+  onSelectPetType: (value: FoundReportDraft["pet"]["type"]) => void;
+  setDraft: React.Dispatch<React.SetStateAction<FoundReportDraft>>;
+  viewModel: FoundReportCreationViewModel;
+}) {
+  return (
+    <>
       <ReportCreationPetSnapshotSection
         breedField={viewModel.pet.fields.breed}
         descriptionField={viewModel.pet.fields.description}
-        onChangeBreed={foundPetDraft.updatePetBreed}
-        onChangeDescription={foundPetDraft.updatePetDescription}
-        onSelectType={foundPetDraft.updatePetType}
+        onChangeBreed={onChangePetBreed}
+        onChangeDescription={onChangePetDescription}
+        onSelectType={onSelectPetType}
         placeholderTextColor={shellColors.muted}
         selectedType={draft.pet.type}
         styles={styles}
@@ -389,42 +800,7 @@ function FoundReportCreationEditor({
         styles={styles}
         title={viewModel.foundDetails.title}
       />
-      <ReportCreationPhotoSection
-        accentColor={foundAccent}
-        addPhoto={addPhoto}
-        addPhotoAccessibilityLabel="Agregar foto"
-        canAddPhoto={viewModel.photos.canAddPhoto}
-        countLabel={viewModel.photos.countLabel}
-        error={viewModel.photos.error}
-        helpLabel={viewModel.photos.helpLabel}
-        Icon={FoundReportCreationIcon}
-        onRemovePhoto={(photoId) =>
-          setDraft((current) =>
-            removeFoundReportPhoto({
-              draft: current,
-              photoId,
-            }),
-          )
-        }
-        permissionBody={viewModel.photos.permissionBody}
-        permissionTitle={viewModel.photos.permissionTitle}
-        photos={viewModel.photos.items}
-        styles={styles}
-        title="Fotos"
-      />
-      <LocationPrivacySection
-        onChooseFoundLocation={onChooseFoundLocation}
-        setDraft={setDraft}
-        viewModel={viewModel}
-      />
-      <ContactOptionSection setDraft={setDraft} viewModel={viewModel} />
-      <ReviewPublishSection
-        publish={publish}
-        publishState={publishState}
-        submitError={submitError}
-        viewModel={viewModel}
-      />
-    </ReportCreationEditorScrollView>
+    </>
   );
 }
 
@@ -456,14 +832,14 @@ function CreationHeader({
       </View>
       {onClose ? (
         <Pressable
-          accessibilityLabel="Cerrar reporte"
+          accessibilityLabel="Volver del reporte encontrado"
           accessibilityRole="button"
           onPress={onClose}
           style={styles.iconButton}
         >
           <FoundReportCreationIcon
             color={shellColors.muted}
-            name="xmark"
+            name="chevron.left"
             size={18}
           />
         </Pressable>
@@ -473,10 +849,12 @@ function CreationHeader({
 }
 
 function LocationPrivacySection({
+  error,
   onChooseFoundLocation,
   setDraft,
   viewModel,
 }: {
+  error?: string;
   onChooseFoundLocation?: () => void;
   setDraft: React.Dispatch<React.SetStateAction<FoundReportDraft>>;
   viewModel: FoundReportCreationViewModel;
@@ -544,6 +922,11 @@ function LocationPrivacySection({
         }
         styles={styles}
       />
+      {error ? (
+        <Text maxFontSizeMultiplier={1.15} selectable style={styles.errorText}>
+          {error}
+        </Text>
+      ) : null}
     </ReportCreationSection>
   );
 }
@@ -611,10 +994,187 @@ function ReviewPublishSection({
   );
 }
 
+function FoundReportStepActions({
+  canGoBack,
+  onBack,
+  onContinue,
+}: {
+  canGoBack: boolean;
+  onBack: () => void;
+  onContinue: () => void;
+}) {
+  return (
+    <View style={styles.buttonRow}>
+      {canGoBack ? (
+        <ReportCreationActionButton
+          accentColor={foundAccent}
+          Icon={FoundReportCreationIcon}
+          icon="chevron.left"
+          label="Atrás"
+          onPress={onBack}
+          primaryTextColor={shellColors.white}
+          styles={styles}
+          variant="secondary"
+        />
+      ) : null}
+      <ReportCreationActionButton
+        accentColor={foundAccent}
+        Icon={FoundReportCreationIcon}
+        icon="chevron.right"
+        label="Continuar"
+        onPress={onContinue}
+        primaryTextColor={shellColors.white}
+        styles={styles}
+      />
+    </View>
+  );
+}
+
+function toFoundReportJourneyInput(journey: ReportCreationJourney) {
+  return {
+    completedStepIds: journey.steps
+      .filter((step) => step.status === "completed")
+      .map((step) => step.id),
+    currentStepId: journey.currentStep.id,
+  };
+}
+
+function getPreviousFoundReportEditableStep(journey: ReportCreationJourney) {
+  const currentIndex = getFoundReportCurrentStepIndex(journey);
+  const previousStep = journey.steps[currentIndex - 1];
+
+  if (!previousStep || !isFoundReportEditorStepId(previousStep.id)) {
+    return undefined;
+  }
+
+  return previousStep;
+}
+
+function advanceFoundReportJourney(journey: ReportCreationJourney) {
+  const currentIndex = getFoundReportCurrentStepIndex(journey);
+  const nextStep = journey.steps[currentIndex + 1];
+
+  if (!nextStep) {
+    return journey;
+  }
+
+  return createReportCreationJourney({
+    completedStepIds: [
+      ...toFoundReportJourneyInput(journey).completedStepIds,
+      journey.currentStep.id,
+    ],
+    currentStepId: nextStep.id,
+    reportType: "found",
+  });
+}
+
+function retreatFoundReportJourney(journey: ReportCreationJourney) {
+  const currentIndex = getFoundReportCurrentStepIndex(journey);
+  const previousStep = journey.steps[currentIndex - 1];
+
+  if (!previousStep || !isFoundReportEditorStepId(previousStep.id)) {
+    return journey;
+  }
+
+  return createReportCreationJourney({
+    completedStepIds: toFoundReportJourneyInput(
+      journey,
+    ).completedStepIds.filter((stepId) => stepId !== previousStep.id),
+    currentStepId: previousStep.id,
+    reportType: "found",
+  });
+}
+
+function validateFoundReportCurrentStep({
+  draft,
+  stepId,
+}: {
+  draft: FoundReportDraft;
+  stepId: FoundReportEditorStepId;
+}) {
+  return foundReportStepValidators[stepId](draft);
+}
+
+type FoundReportStepValidator = (draft: FoundReportDraft) => string[];
+
+const foundReportStepValidators = {
+  contact: validateFoundReportContactStep,
+  details: validateFoundReportDetailsStep,
+  location: validateFoundReportLocationStep,
+  photos: validateFoundReportPhotosStep,
+  review: validateFoundReportReviewStep,
+} satisfies Record<FoundReportEditorStepId, FoundReportStepValidator>;
+
+function validateFoundReportPhotosStep(draft: FoundReportDraft) {
+  return draft.photos.length === 0 ? ["Agrega al menos una foto."] : [];
+}
+
+function validateFoundReportDetailsStep(draft: FoundReportDraft) {
+  const errors: string[] = [];
+
+  if (draft.pet.description.trim().length === 0) {
+    errors.push("Agrega senas visibles de la mascota encontrada.");
+  }
+
+  if (draft.foundDetails.foundAtLabel.trim().length === 0) {
+    errors.push("Indica cuando fue encontrada.");
+  }
+
+  if (draft.foundDetails.condition.trim().length === 0) {
+    errors.push("Describe la condicion de la mascota encontrada.");
+  }
+
+  if (draft.foundDetails.description.trim().length === 0) {
+    errors.push("Agrega una descripcion de la mascota encontrada.");
+  }
+
+  return errors;
+}
+
+function validateFoundReportLocationStep(draft: FoundReportDraft) {
+  return draft.exactFoundLocation ? [] : ["Selecciona donde fue encontrada."];
+}
+
+function validateFoundReportContactStep(draft: FoundReportDraft) {
+  if (!draft.contact.inAppChatEnabled && !draft.contact.whatsappEnabled) {
+    return ["Elige chat, WhatsApp o ambos."];
+  }
+
+  if (
+    draft.contact.whatsappEnabled &&
+    draft.contact.whatsappPhone.trim().length === 0
+  ) {
+    return ["Ingresa un numero para WhatsApp."];
+  }
+
+  return [];
+}
+
+function validateFoundReportReviewStep() {
+  return [];
+}
+
+function getFoundReportCurrentStepIndex(journey: ReportCreationJourney) {
+  return journey.steps.findIndex((step) => step.id === journey.currentStep.id);
+}
+
+function isFoundReportEditorStepId(
+  stepId: ReportCreationJourneyStepId,
+): stepId is FoundReportEditorStepId {
+  return foundReportEditorStepIds.some(
+    (editorStepId) => editorStepId === stepId,
+  );
+}
+
+function canRenderFoundReportStepActions(stepId: FoundReportEditorStepId) {
+  return stepId !== "review";
+}
+
 function createFallbackPhoto(index: number): FoundReportPhoto {
   return {
     alt: "Foto de mascota encontrada",
     id: `found-report-photo-${index + 1}`,
+    mediaId: `found-report-media-${index + 1}`,
     status: "ready",
     uri: `file:///found-report-photo-${index + 1}.jpg`,
   };

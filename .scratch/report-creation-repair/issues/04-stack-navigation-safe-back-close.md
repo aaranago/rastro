@@ -1,7 +1,7 @@
 # RC-005 Move creation into real stack navigation with safe Back/Close and unsaved-work prevention
 
-Status: ready-for-agent
-Labels: ready-for-agent
+Status: manual-qa-needed
+Labels: manual-qa-needed
 Severity: P1
 Issue ID: RC-005
 Type: AFK
@@ -113,3 +113,6 @@ Move report creation into explicit Expo Router routes while preserving chooser/a
 - Rewriting unrelated tab navigation.
 
 ## Comments
+
+- 2026-06-21: Implemented with `$tdd` via delegated RC-005 agents. Creation now uses concrete Expo Router `/report-create/{lost,found,sighting,adoption}` stack routes with a nested report-create stack layout, route-level Back affordances, `beforeRemove` discard prevention, post-publish clean close behavior, auth-return duplicate prevention, and shared safe-area/keyboard-aware creation frames with sticky footers.
+- 2026-06-21: Fresh Verifier RC-005-V3 returned no findings. Focused RC-005 suite passed: 56 files, 297 tests. `pnpm -F @acme/expo typecheck`, `pnpm -F @acme/expo lint`, and `pnpm exec fallow audit --base HEAD --format json --quiet 2>/dev/null || true` passed. Remaining human QA: Android Back/system gestures, iOS swipe-back, smallest phone viewport, keyboard on lowest field, return-to-source tab after cancel/success, and before/after screenshots on device/emulator.

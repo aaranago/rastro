@@ -23,11 +23,12 @@ import {
 } from "./shell-auth";
 import {
   chooseReportAction,
-  completeAuthPromptWithPendingMemberIntent,
+  clearPendingReportRouteIntent as clearPendingReportRouteIntentState,
+  completeAuthPromptWithPendingReportRouteIntent,
   continueReportActionAsMember,
   createInitialShellState,
   createShellModel,
-  promotePendingMemberIntentForSession,
+  promotePendingReportRouteIntentForSession,
   requestShellAuthPrompt,
 } from "./shell-model";
 
@@ -37,7 +38,7 @@ interface RastroShellContextValue {
   session: ShellSession;
   state: ShellState;
   socialProviderActions: ShellSocialAuthAction[];
-  clearMemberIntent: () => void;
+  clearPendingReportRouteIntent: (requestId?: number) => void;
   clearAuthReturnTo: () => void;
   requestAuthPrompt: (request?: ShellAuthPromptRequest) => void;
   openReportActions: () => void;
@@ -143,7 +144,7 @@ export function RastroShellProvider({
 
   React.useEffect(() => {
     setState((current) =>
-      promotePendingMemberIntentForSession(current, modelSession),
+      promotePendingReportRouteIntentForSession(current, modelSession),
     );
   }, [modelSession]);
 
@@ -184,6 +185,7 @@ export function RastroShellProvider({
               activeSheet: null,
               authReturnTo: request.returnTo,
               authPrompt: null,
+              pendingReportRouteIntent: null,
             }
           : requestShellAuthPrompt(current, copy, request),
       );
@@ -205,13 +207,14 @@ export function RastroShellProvider({
     }));
   }, []);
 
-  const clearMemberIntent = React.useCallback(() => {
-    setState((current) => ({
-      ...current,
-      memberIntent: null,
-      pendingMemberIntent: null,
-    }));
-  }, []);
+  const clearPendingReportRouteIntent = React.useCallback(
+    (requestId?: number) => {
+      setState((current) =>
+        clearPendingReportRouteIntentState(current, requestId),
+      );
+    },
+    [],
+  );
 
   const clearAuthReturnTo = React.useCallback(() => {
     setState((current) => ({
@@ -222,7 +225,7 @@ export function RastroShellProvider({
 
   const completeAuthPrompt = React.useCallback(() => {
     refetchAuthSession?.();
-    setState(completeAuthPromptWithPendingMemberIntent);
+    setState(completeAuthPromptWithPendingReportRouteIntent);
   }, [refetchAuthSession]);
 
   const signInFromPrompt = React.useCallback(
@@ -354,8 +357,7 @@ export function RastroShellProvider({
         setState((current) => ({
           ...current,
           authPrompt: null,
-          memberIntent: null,
-          pendingMemberIntent: null,
+          pendingReportRouteIntent: null,
         }));
       }
 
@@ -370,7 +372,7 @@ export function RastroShellProvider({
       state,
       socialProviderActions,
       clearAuthReturnTo,
-      clearMemberIntent,
+      clearPendingReportRouteIntent,
       openReportActions,
       closeReportActions,
       chooseReportIntent,
@@ -388,7 +390,7 @@ export function RastroShellProvider({
     [
       chooseReportIntent,
       clearAuthReturnTo,
-      clearMemberIntent,
+      clearPendingReportRouteIntent,
       closeReportActions,
       continueAsVisitor,
       copy,

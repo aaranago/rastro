@@ -1,7 +1,7 @@
 # RC-011 Accessibility, large-text, keyboard, and safe-area hardening
 
-Status: ready-for-agent
-Labels: ready-for-agent
+Status: verified-automated
+Labels: verified-automated
 Severity: P1
 Issue ID: RC-011
 Type: AFK
@@ -114,3 +114,9 @@ Harden the repaired creation flow against accessibility, large text, keyboard, a
 - Backend storage changes.
 
 ## Comments
+
+### 2026-06-22 verification checkpoint
+
+- Implemented with `$tdd` for the automated accessibility hardening slice.
+- Fresh Verifier RC-011-V returned no findings for scoped accessibility labels/states in `report-creation-ui.tsx`, `report-media-manager.tsx`, progress accessible values, publish disabled/busy states, alerts, and media tile labels/progress/action states.
+- Focused RC-011 verification passed with 2 files and 20 tests; Expo typecheck and focused lint on the requested files passed. Manual TalkBack/font-scale/keyboard/safe-area screenshots remain separate runbook QA, not part of this automated verifier scope.

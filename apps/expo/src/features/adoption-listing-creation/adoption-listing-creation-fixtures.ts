@@ -54,6 +54,7 @@ export const adoptionListingCreationFixtures = {
     {
       alt: "Foto para adopcion",
       id: "adoption-listing-photo-sample-1",
+      mediaId: "adoption-listing-media-sample-1",
       status: "ready",
       thumbUri: "file:///adoption-listing-photo-sample-1-thumb.jpg",
       uri: "file:///adoption-listing-photo-sample-1.jpg",
@@ -61,6 +62,7 @@ export const adoptionListingCreationFixtures = {
     {
       alt: "Foto adicional para adopcion",
       id: "adoption-listing-photo-sample-2",
+      mediaId: "adoption-listing-media-sample-2",
       status: "ready",
       thumbUri: "file:///adoption-listing-photo-sample-2-thumb.jpg",
       uri: "file:///adoption-listing-photo-sample-2.jpg",

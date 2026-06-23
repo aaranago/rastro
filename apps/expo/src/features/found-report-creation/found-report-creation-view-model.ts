@@ -1,4 +1,8 @@
 import type {
+  ReportCreationJourney,
+  ReportCreationJourneyStepId,
+} from "../report-creation/report-creation-journey";
+import type {
   FoundReportContactDraft,
   FoundReportContactOption,
   FoundReportCreationSession,
@@ -8,13 +12,25 @@ import type {
   PublishFoundPetReportInput,
   PublishFoundReportContactOption,
 } from "./found-report-creation-types";
+import {
+  createReportCreationJourney,
+  deriveReportCreationJourney,
+} from "../report-creation/report-creation-journey";
+import {
+  appendReportCreationLocationErrors,
+  appendRequiredReportCreationPhotoUploadErrors,
+  getReadyUploadedReportCreationPhotos,
+  getRequiredReportCreationPhotoStepError,
+} from "../report-creation/report-creation-media-validation";
 import { buildReportCreationContactViewModel } from "../report-creation/report-creation-view-model";
+import { toReportLocationPublishInput } from "../report-creation/report-location-draft";
 import { foundReportPetTypeOptions } from "./found-report-creation-types";
 
 const foundReportPhotoLimit = 5;
 
 export interface FoundReportCreationViewModel {
   canPublish: boolean;
+  journey: ReportCreationJourney;
   contact: {
     currentOption: FoundReportContactOption;
     error?: string;
@@ -107,6 +123,15 @@ export interface FoundReportFieldViewModel {
   value: string;
 }
 
+export interface FoundReportCreationJourneyInput {
+  completedStepIds?: readonly ReportCreationJourneyStepId[];
+  currentStepId?: ReportCreationJourneyStepId;
+}
+
+export interface FoundReportCreationValidationDisplayInput {
+  attemptedStepId?: ReportCreationJourneyStepId;
+}
+
 export function createFoundReportDraft(
   overrides: Partial<FoundReportDraft> = {},
 ): FoundReportDraft {
@@ -121,6 +146,7 @@ export function createFoundReportDraft(
       description: "",
       foundAtLabel: "",
     },
+    idempotencyKey: createFoundReportDraftIdempotencyKey(),
     pet: {
       breed: "",
       description: "",
@@ -148,24 +174,58 @@ export function createFoundReportDraft(
   };
 }
 
+function createFoundReportDraftIdempotencyKey() {
+  return `found-report-${createReportCreationIdSuffix()}`;
+}
+
+function createReportCreationIdSuffix() {
+  const crypto = globalThis.crypto as
+    | {
+        randomUUID?: () => string;
+      }
+    | undefined;
+
+  return typeof crypto?.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 export function buildFoundReportCreationViewModel({
   draft,
+  journey,
   session,
+  validationDisplay,
 }: {
   draft: FoundReportDraft;
+  journey?: FoundReportCreationJourneyInput;
   session?: FoundReportCreationSession;
+  validationDisplay?: FoundReportCreationValidationDisplayInput;
 }): FoundReportCreationViewModel {
   const validationErrors = validateFoundReportDraft(draft);
+  const readyPhotos = getReadyUploadedPhotos(draft.photos);
   const contactOption = getContactOption(draft.contact);
   const canPublish = validationErrors.length === 0;
+  const showContactValidation = shouldShowValidationError(
+    validationDisplay,
+    "contact",
+  );
+  const showDetailsValidation = shouldShowValidationError(
+    validationDisplay,
+    "details",
+  );
 
   return {
     canPublish,
-    contact: buildReportCreationContactViewModel({
+    journey: buildFoundReportJourney({
+      draft,
+      journey,
+      readyPhotos,
+    }),
+    contact: buildFoundContactViewModel({
       contact: draft.contact,
       currentOption: contactOption,
-      error: getContactError(draft.contact),
       options: buildContactOptions(contactOption),
+      showValidation: showContactValidation,
     }),
     header: {
       eyebrow: "Mascota encontrada",
@@ -174,6 +234,7 @@ export function buildFoundReportCreationViewModel({
       fields: {
         condition: {
           error:
+            showDetailsValidation &&
             draft.foundDetails.condition.trim().length === 0
               ? "Describe la condicion de la mascota encontrada."
               : undefined,
@@ -183,6 +244,7 @@ export function buildFoundReportCreationViewModel({
         },
         description: {
           error:
+            showDetailsValidation &&
             draft.foundDetails.description.trim().length === 0
               ? "Agrega una descripcion de la mascota encontrada."
               : undefined,
@@ -193,6 +255,7 @@ export function buildFoundReportCreationViewModel({
         },
         foundAtLabel: {
           error:
+            showDetailsValidation &&
             draft.foundDetails.foundAtLabel.trim().length === 0
               ? "Indica cuando fue encontrada."
               : undefined,
@@ -205,12 +268,13 @@ export function buildFoundReportCreationViewModel({
     },
     kind: session?.kind ?? "member",
     location: buildLocationViewModel(draft),
-    pet: buildPetViewModel(draft),
+    pet: buildPetViewModel(draft, showDetailsValidation),
     photos: {
       canAddPhoto: draft.photos.length < foundReportPhotoLimit,
       countLabel: formatPhotoCount(draft.photos.length),
-      error:
-        draft.photos.length === 0 ? "Agrega al menos una foto." : undefined,
+      error: shouldShowValidationError(validationDisplay, "photos")
+        ? getPhotoStepError(draft.photos)
+        : undefined,
       helpLabel:
         "Maximo 5 fotos claras. Prioriza cara, cuerpo completo y senas visibles.",
       items: draft.photos.slice(0, foundReportPhotoLimit),
@@ -225,12 +289,16 @@ export function buildFoundReportCreationViewModel({
       rows: buildReviewRows({
         contactOption,
         draft,
+        photos: readyPhotos,
       }),
-      validationErrors,
+      validationErrors: shouldShowValidationError(validationDisplay, "review")
+        ? validationErrors
+        : [],
     },
     steps: buildSteps({
       canPublish,
       draft,
+      readyPhotos,
     }),
     success: {
       body: "Tu reporte de mascota encontrada queda listo para que su cuidador pueda reconocerla y contactarte.",
@@ -302,14 +370,13 @@ export function toPublishFoundPetReportInput({
   draft: FoundReportDraft;
 }): PublishFoundPetReportInput {
   const errors = validateFoundReportDraft(draft);
+  const readyPhotos = getReadyUploadedPhotos(draft.photos);
 
   if (errors.length > 0) {
     throw new Error(errors.join(" "));
   }
 
-  const exactFoundLocation = draft.exactFoundLocation;
-
-  if (!exactFoundLocation) {
+  if (!draft.exactFoundLocation) {
     throw new Error("Exact Found Location is required.");
   }
 
@@ -319,21 +386,16 @@ export function toPublishFoundPetReportInput({
       option: getContactOption(draft.contact),
       whatsappPhone: draft.contact.whatsappPhone.trim(),
     }),
-    exactLocation: {
-      addressLabel: exactFoundLocation.addressLabel,
-      countryCode: "BO",
-      latitude: exactFoundLocation.coordinates.latitude,
-      locationCellLabel: exactFoundLocation.locationCellLabel,
-      longitude: exactFoundLocation.coordinates.longitude,
-    },
+    exactLocation: toReportLocationPublishInput(draft.exactFoundLocation),
     foundAt: draft.foundDetails.foundAtLabel.trim(),
     foundDescription: draft.foundDetails.description.trim(),
+    idempotencyKey: draft.idempotencyKey,
     pet: {
       breed: draft.pet.breed.trim(),
       description: draft.pet.description.trim(),
       type: draft.pet.type,
     },
-    photos: draft.photos.map(toPublishPhoto),
+    photos: readyPhotos.map(toPublishPhoto),
     showExactPublicLocation: draft.showExactPinPublicly,
   };
 }
@@ -341,13 +403,15 @@ export function toPublishFoundPetReportInput({
 function validateFoundReportDraft(draft: FoundReportDraft) {
   const errors: string[] = [];
 
-  if (draft.photos.length === 0) {
-    errors.push("Agrega al menos una foto.");
-  }
-
-  if (!draft.exactFoundLocation) {
-    errors.push("Selecciona donde fue encontrada.");
-  }
+  appendRequiredReportCreationPhotoUploadErrors({
+    errors,
+    photos: draft.photos,
+  });
+  appendReportCreationLocationErrors({
+    errors,
+    location: draft.exactFoundLocation,
+    missingMessage: "Selecciona donde fue encontrada.",
+  });
 
   if (draft.foundDetails.foundAtLabel.trim().length === 0) {
     errors.push("Indica cuando fue encontrada.");
@@ -429,7 +493,7 @@ function buildContactOptions(currentOption: FoundReportContactOption) {
   ];
 }
 
-function buildPetViewModel(draft: FoundReportDraft) {
+function buildPetViewModel(draft: FoundReportDraft, showValidation = true) {
   return {
     fields: {
       breed: {
@@ -439,7 +503,7 @@ function buildPetViewModel(draft: FoundReportDraft) {
       },
       description: {
         error:
-          draft.pet.description.trim().length === 0
+          showValidation && draft.pet.description.trim().length === 0
             ? "Agrega senas visibles de la mascota encontrada."
             : undefined,
         label: "Senas visibles",
@@ -486,9 +550,11 @@ function buildLocationViewModel(draft: FoundReportDraft) {
 function buildReviewRows({
   contactOption,
   draft,
+  photos,
 }: {
   contactOption: FoundReportContactOption;
   draft: FoundReportDraft;
+  photos: readonly FoundReportPhoto[];
 }) {
   return [
     {
@@ -497,7 +563,7 @@ function buildReviewRows({
     },
     {
       label: "Fotos",
-      value: formatPhotoCount(draft.photos.length),
+      value: formatPhotoCount(photos.length),
     },
     {
       label: "Encontrada",
@@ -523,9 +589,11 @@ function buildReviewRows({
 function buildSteps({
   canPublish,
   draft,
+  readyPhotos,
 }: {
   canPublish: boolean;
   draft: FoundReportDraft;
+  readyPhotos: readonly FoundReportPhoto[];
 }) {
   return [
     {
@@ -534,7 +602,7 @@ function buildSteps({
         draft.foundDetails.foundAtLabel.trim().length > 0 &&
         draft.foundDetails.condition.trim().length > 0 &&
         draft.foundDetails.description.trim().length > 0 &&
-        draft.photos.length > 0,
+        readyPhotos.length > 0,
       label: "Detalles",
     },
     {
@@ -560,6 +628,94 @@ function buildSteps({
   ];
 }
 
+function buildFoundReportJourney({
+  draft,
+  journey,
+  readyPhotos,
+}: {
+  draft: FoundReportDraft;
+  journey?: FoundReportCreationJourneyInput;
+  readyPhotos: readonly FoundReportPhoto[];
+}) {
+  if (journey?.currentStepId) {
+    return createReportCreationJourney({
+      completedStepIds: journey.completedStepIds,
+      currentStepId: journey.currentStepId,
+      reportType: "found",
+    });
+  }
+
+  const stepCompletion = [
+    {
+      id: "chooseType" as const,
+      isComplete: true,
+    },
+    {
+      id: "photos" as const,
+      isComplete:
+        draft.photos.length > 0 && readyPhotos.length === draft.photos.length,
+    },
+    {
+      id: "details" as const,
+      isComplete:
+        draft.foundDetails.foundAtLabel.trim().length > 0 &&
+        draft.foundDetails.condition.trim().length > 0 &&
+        draft.foundDetails.description.trim().length > 0 &&
+        draft.pet.description.trim().length > 0,
+    },
+    {
+      id: "location" as const,
+      isComplete: Boolean(draft.exactFoundLocation),
+    },
+    {
+      id: "contact" as const,
+      isComplete: !getContactError(draft.contact),
+    },
+  ];
+  return deriveReportCreationJourney({
+    currentStepIdWhenComplete: "review",
+    reportType: "found",
+    stepCompletion,
+  });
+}
+
+function buildFoundContactViewModel({
+  contact,
+  currentOption,
+  options,
+  showValidation,
+}: {
+  contact: FoundReportContactDraft;
+  currentOption: FoundReportContactOption;
+  options: ReturnType<typeof buildContactOptions>;
+  showValidation: boolean;
+}) {
+  const contactViewModel = buildReportCreationContactViewModel({
+    contact,
+    currentOption,
+    error: showValidation ? getContactError(contact) : undefined,
+    options,
+  });
+
+  return {
+    ...contactViewModel,
+    whatsappField: {
+      ...contactViewModel.whatsappField,
+      error: showValidation ? contactViewModel.whatsappField.error : undefined,
+    },
+  };
+}
+
+function shouldShowValidationError(
+  validationDisplay: FoundReportCreationValidationDisplayInput | undefined,
+  stepId: ReportCreationJourneyStepId,
+) {
+  return (
+    validationDisplay === undefined ||
+    validationDisplay.attemptedStepId === stepId
+  );
+}
+
 function contactOptionLabel(option: FoundReportContactOption) {
   switch (option) {
     case "both":
@@ -573,6 +729,14 @@ function contactOptionLabel(option: FoundReportContactOption) {
 
 function formatPhotoCount(count: number) {
   return `${Math.min(count, foundReportPhotoLimit)}/${foundReportPhotoLimit}`;
+}
+
+function getReadyUploadedPhotos(photos: readonly FoundReportPhoto[]) {
+  return getReadyUploadedReportCreationPhotos(photos);
+}
+
+function getPhotoStepError(photos: readonly FoundReportPhoto[]) {
+  return getRequiredReportCreationPhotoStepError(photos);
 }
 
 function formatPetSnapshotLabel(draft: FoundReportDraft) {
@@ -608,7 +772,7 @@ function toPublishContactOption({
 
 function toPublishPhoto(photo: FoundReportPhoto) {
   return {
-    id: photo.id,
+    id: photo.mediaId ?? photo.id,
     uri: photo.uri ?? photo.thumbUri ?? `file:///${photo.id}.jpg`,
   };
 }

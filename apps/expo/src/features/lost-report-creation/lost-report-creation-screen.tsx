@@ -1,30 +1,53 @@
+import type { ScrollView } from "react-native";
 import * as React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 
 import type { PublishLostPetReportInput } from "../lost-reports/lost-reports";
+import type { NearbyLocationAdapter } from "../nearby/nearby-location-adapter";
+import type {
+  ReportCreationJourney,
+  ReportCreationJourneyStepId,
+} from "../report-creation/report-creation-journey";
 import type { ReportCreationFieldViewModel } from "../report-creation/report-creation-ui";
+import type { ReportMediaDraftSnapshot } from "../report-media";
 import type { CreationDraftStore } from "../resilience/creation-drafts";
-import type { DurableCreationDraftPersistence } from "../resilience/use-durable-creation-draft";
+import type {
+  DurableCreationDraftPersistence,
+  DurableCreationDraftRecovery,
+} from "../resilience/use-durable-creation-draft";
 import type {
   LostReportDraft,
   LostReportPetProfileOption,
   LostReportPhoto,
 } from "./lost-report-creation-types";
+import type {
+  LostReportCreationJourneyInput,
+  LostReportCreationValidationDisplayInput,
+} from "./lost-report-creation-view-model";
+import {
+  advanceReportCreationJourney,
+  retreatReportCreationJourney,
+} from "../report-creation/report-creation-journey";
 import { publishReportCreation } from "../report-creation/report-creation-publish";
 import {
   ReportCreationActionButton,
   ReportCreationContactOptionSection,
   ReportCreationDraftPersistenceAlert,
+  ReportCreationDraftRecoveryPrompt,
   ReportCreationExistingPetProfileList,
   ReportCreationField,
   ReportCreationInfoRow,
   ReportCreationInlinePetTypeRow,
   ReportCreationProgressSteps,
   ReportCreationReviewPublishSection,
+  ReportCreationScreenFrame,
   ReportCreationSection,
   ReportCreationToggleRow,
 } from "../report-creation/report-creation-ui";
+import { ReportLocationPickerScreen } from "../report-location-picker";
+import { useReportLocationPickerDraft } from "../report-location-picker/use-report-location-picker";
+import { reportMediaSnapshotToCreationPhotos } from "../report-media";
 import { useDurableCreationDraft } from "../resilience/use-durable-creation-draft";
 import { shellColors } from "../shell/shell-theme";
 import { lostReportCreationFixtures } from "./lost-report-creation-fixtures";
@@ -32,14 +55,11 @@ import {
   appendLostReportPhoto,
   buildLostReportCreationViewModel,
   createInitialLostReportDraft,
-  createLostReportDraft,
   lostReportPetTypeOptions,
   removeLostReportPhoto,
   selectLostReportContactOption,
   toPublishLostPetReportInput,
 } from "./lost-report-creation-view-model";
-
-const bottomInset = 36;
 
 function ReportCreationIcon({
   color,
@@ -64,14 +84,35 @@ export interface LostReportCreationScreenProps {
   draftScopeId?: string;
   draftStore?: CreationDraftStore;
   initialDraft?: LostReportDraft;
+  locationAdapter?: NearbyLocationAdapter;
+  onChooseLostLocation?: () => void;
   onClose?: () => void;
+  onDraftPublished?: () => void;
   onOpenSponsorPlacement?: (sponsorPlacementId: string) => void;
-  onPublishLostReport?: (input: PublishLostPetReportInput) => Promise<void>;
+  onPublishLostReport?: (
+    input: PublishLostPetReportInput,
+  ) =>
+    | LostReportPublishConfirmation
+    | Promise<LostReportPublishConfirmation | void>
+    | void;
   onReportSponsorPlacement?: (sponsorPlacementId: string) => void;
   petProfiles?: readonly LostReportPetProfileOption[];
+  pickLostReportPhoto?: () =>
+    | LostReportPhoto
+    | Promise<LostReportPhoto | undefined>
+    | undefined;
+  renderReportMediaManager?: (props: {
+    mediaDraftId: string;
+    onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
+    photos: readonly LostReportPhoto[];
+  }) => React.ReactNode;
 }
 
 type PublishState = "editing" | "publishing" | "success";
+export interface LostReportPublishConfirmation {
+  id: string;
+  status: string;
+}
 type LostReportCreationViewModel = ReturnType<
   typeof buildLostReportCreationViewModel
 >;
@@ -80,42 +121,108 @@ export function LostReportCreationScreen({
   draftScopeId,
   draftStore,
   initialDraft,
+  locationAdapter,
+  onChooseLostLocation,
   onClose,
+  onDraftPublished,
   onOpenSponsorPlacement,
   onPublishLostReport,
   onReportSponsorPlacement,
   petProfiles = lostReportCreationFixtures.petProfiles,
+  pickLostReportPhoto,
+  renderReportMediaManager,
 }: LostReportCreationScreenProps) {
   const defaultDraft = React.useMemo(
-    () =>
-      initialDraft ??
-      createLostReportDraft({
-        ...createInitialLostReportDraft({ petProfiles }),
-        exactLocation: lostReportCreationFixtures.defaultLocation,
-      }),
+    () => initialDraft ?? createInitialLostReportDraft({ petProfiles }),
     [initialDraft, petProfiles],
   );
-  const { clearDraft, draft, draftPersistence, setDraft } =
-    useDurableCreationDraft({
-      initialDraft: defaultDraft,
-      kind: "lost-report",
-      scopeId: draftScopeId,
-      store: draftStore,
-    });
+  const {
+    clearDraft,
+    discardDraft,
+    draft,
+    draftPersistence,
+    draftRecovery,
+    draftResetVersion,
+    hasLoaded,
+    restoredDraft,
+    resumeDraft,
+    setDraft,
+  } = useDurableCreationDraft({
+    initialDraft: defaultDraft,
+    kind: "lost-report",
+    recoveryMode: "explicit",
+    scopeId: draftScopeId,
+    store: draftStore,
+  });
+  const [journey, setJourney] = React.useState<LostReportCreationJourneyInput>(
+    () =>
+      toLostReportJourneyInput(
+        buildLostReportCreationViewModel({
+          draft,
+          petProfiles,
+          validationDisplay: {},
+        }).journey,
+      ),
+  );
+  const [validationDisplay, setValidationDisplay] =
+    React.useState<LostReportCreationValidationDisplayInput>({});
   const [publishState, setPublishState] =
     React.useState<PublishState>("editing");
+  const [publishConfirmation, setPublishConfirmation] =
+    React.useState<LostReportPublishConfirmation | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const publishLockRef = React.useRef(false);
+  const journeyResetSource = hasLoaded
+    ? `${restoredDraft?.savedAt ?? "fresh"}:${draftResetVersion}`
+    : "loading";
+  const journeyResetSourceRef = React.useRef<unknown>(journeyResetSource);
+
+  React.useEffect(() => {
+    if (journeyResetSourceRef.current === journeyResetSource) {
+      return;
+    }
+
+    journeyResetSourceRef.current = journeyResetSource;
+    setJourney(
+      toLostReportJourneyInput(
+        buildLostReportCreationViewModel({
+          draft,
+          petProfiles,
+          validationDisplay: {},
+        }).journey,
+      ),
+    );
+    setValidationDisplay({});
+  }, [draft, journeyResetSource, petProfiles]);
+
   const viewModel = React.useMemo(
     () =>
       buildLostReportCreationViewModel({
         draft,
+        journey,
         petProfiles,
+        validationDisplay,
       }),
-    [draft, petProfiles],
+    [draft, journey, petProfiles, validationDisplay],
   );
 
-  const addPhoto = React.useCallback(() => {
+  const addPhoto = React.useCallback(async () => {
+    if (pickLostReportPhoto) {
+      const pickedPhoto = await pickLostReportPhoto();
+
+      if (!pickedPhoto) {
+        return;
+      }
+
+      setDraft((current) =>
+        appendLostReportPhoto({
+          draft: current,
+          photo: pickedPhoto,
+        }),
+      );
+      return;
+    }
+
     const nextPhoto =
       lostReportCreationFixtures.photoSamples[draft.photos.length] ??
       createFallbackPhoto(draft.photos.length);
@@ -126,7 +233,21 @@ export function LostReportCreationScreen({
         photo: nextPhoto,
       }),
     );
-  }, [draft.photos.length, setDraft]);
+  }, [draft.photos.length, pickLostReportPhoto, setDraft]);
+  const {
+    closeLocationPicker,
+    confirmLocation,
+    isLocationPickerVisible,
+    openLocationPicker,
+  } = useReportLocationPickerDraft({
+    applyLocation: (current, location) => ({
+      ...current,
+      exactLocation: location,
+    }),
+    locationAdapter,
+    onChooseLocation: onChooseLostLocation,
+    setDraft,
+  });
 
   const publish = React.useCallback(async () => {
     if (!viewModel.canPublish || publishState === "publishing") {
@@ -147,6 +268,8 @@ export function LostReportCreationScreen({
     });
 
     if (result.ok) {
+      setPublishConfirmation(result.confirmation ?? null);
+      onDraftPublished?.();
       setPublishState("success");
       return;
     }
@@ -160,11 +283,22 @@ export function LostReportCreationScreen({
   }, [
     clearDraft,
     draft,
+    onDraftPublished,
     onPublishLostReport,
     petProfiles,
     publishState,
     viewModel,
   ]);
+
+  if (isLocationPickerVisible && locationAdapter) {
+    return (
+      <ReportLocationPickerScreen
+        adapter={locationAdapter}
+        onCancel={closeLocationPicker}
+        onConfirm={confirmLocation}
+      />
+    );
+  }
 
   if (publishState === "success") {
     return (
@@ -172,6 +306,7 @@ export function LostReportCreationScreen({
         onClose={onClose}
         onOpenSponsorPlacement={onOpenSponsorPlacement}
         onReportSponsorPlacement={onReportSponsorPlacement}
+        publishConfirmation={publishConfirmation}
         viewModel={viewModel}
       />
     );
@@ -182,10 +317,18 @@ export function LostReportCreationScreen({
       addPhoto={addPhoto}
       draft={draft}
       draftPersistence={draftPersistence}
+      draftRecovery={draftRecovery}
+      onDiscardRecoveredDraft={discardDraft}
+      onChooseLocation={openLocationPicker}
       onClose={onClose}
+      onResumeRecoveredDraft={resumeDraft}
+      petProfiles={petProfiles}
       publish={publish}
       publishState={publishState}
+      renderReportMediaManager={renderReportMediaManager}
       setDraft={setDraft}
+      setJourney={setJourney}
+      setValidationDisplay={setValidationDisplay}
       submitError={submitError}
       viewModel={viewModel}
     />
@@ -196,21 +339,20 @@ function LostReportCreationSuccess({
   onClose,
   onOpenSponsorPlacement,
   onReportSponsorPlacement,
+  publishConfirmation,
   viewModel,
 }: {
   onClose?: () => void;
   onOpenSponsorPlacement?: (sponsorPlacementId: string) => void;
   onReportSponsorPlacement?: (sponsorPlacementId: string) => void;
+  publishConfirmation: LostReportPublishConfirmation | null;
   viewModel: LostReportCreationViewModel;
 }) {
   const sponsorPlacement = viewModel.success.localSponsorPlacement;
 
   return (
-    <ScrollView
+    <ReportCreationScreenFrame
       contentContainerStyle={styles.content}
-      contentInset={{ bottom: bottomInset }}
-      contentInsetAdjustmentBehavior="automatic"
-      scrollIndicatorInsets={{ bottom: bottomInset }}
       style={styles.screen}
     >
       <View style={styles.successHero}>
@@ -227,6 +369,12 @@ function LostReportCreationSuccess({
         <Text maxFontSizeMultiplier={1.25} style={styles.bodyText}>
           {viewModel.success.body}
         </Text>
+        {publishConfirmation ? (
+          <Text maxFontSizeMultiplier={1.2} style={styles.bodyText}>
+            Reporte confirmado: {publishConfirmation.id}. Estado:{" "}
+            {publishConfirmation.status}.
+          </Text>
+        ) : null}
       </View>
       {sponsorPlacement ? (
         <SuccessSponsorPlacement
@@ -247,7 +395,7 @@ function LostReportCreationSuccess({
           onPress={onClose}
         />
       </View>
-    </ScrollView>
+    </ReportCreationScreenFrame>
   );
 }
 
@@ -351,57 +499,197 @@ function LostReportCreationEditor({
   addPhoto,
   draft,
   draftPersistence,
+  draftRecovery,
+  onDiscardRecoveredDraft,
+  onChooseLocation,
   onClose,
+  onResumeRecoveredDraft,
+  petProfiles,
   publish,
   publishState,
+  renderReportMediaManager,
   setDraft,
+  setJourney,
+  setValidationDisplay,
   submitError,
   viewModel,
 }: {
   addPhoto: () => void;
   draft: LostReportDraft;
   draftPersistence: DurableCreationDraftPersistence;
+  draftRecovery: DurableCreationDraftRecovery<"lost-report">;
+  onDiscardRecoveredDraft: () => Promise<void>;
+  onChooseLocation: () => void;
   onClose?: () => void;
+  onResumeRecoveredDraft: () => void;
+  petProfiles: readonly LostReportPetProfileOption[];
   publish: () => void;
   publishState: PublishState;
+  renderReportMediaManager?: LostReportCreationScreenProps["renderReportMediaManager"];
   setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
+  setJourney: React.Dispatch<
+    React.SetStateAction<LostReportCreationJourneyInput>
+  >;
+  setValidationDisplay: React.Dispatch<
+    React.SetStateAction<LostReportCreationValidationDisplayInput>
+  >;
   submitError: string | null;
   viewModel: LostReportCreationViewModel;
 }) {
+  const scrollViewRef =
+    React.useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const currentStepId = viewModel.journey.currentStep.id;
+  const previousEditableStepId = getPreviousEditableStepId(currentStepId);
+  const scrollToActiveStep = React.useCallback(() => {
+    scrollViewRef.current?.scrollTo({
+      animated: true,
+      y: 0,
+    });
+  }, []);
+  const continueStep = React.useCallback(() => {
+    if (!isLostReportContinueStepId(currentStepId)) {
+      return;
+    }
+
+    if (
+      !isCurrentLostReportStepValid({
+        draft,
+        journey: viewModel.journey,
+        petProfiles,
+      })
+    ) {
+      setValidationDisplay({ attemptedStepId: currentStepId });
+      scrollToActiveStep();
+      return;
+    }
+
+    const result = advanceReportCreationJourney(viewModel.journey);
+
+    if (!result.ok) {
+      return;
+    }
+
+    setJourney(toLostReportJourneyInput(result.journey));
+    setValidationDisplay({});
+    scrollToActiveStep();
+  }, [
+    currentStepId,
+    draft,
+    petProfiles,
+    scrollToActiveStep,
+    setJourney,
+    setValidationDisplay,
+    viewModel.journey,
+  ]);
+  const retreatStep = React.useCallback(() => {
+    if (!previousEditableStepId) {
+      return;
+    }
+
+    const result = retreatReportCreationJourney(viewModel.journey);
+
+    if (!result.ok) {
+      return;
+    }
+
+    setJourney(toLostReportJourneyInput(result.journey));
+    setValidationDisplay({});
+    scrollToActiveStep();
+  }, [
+    previousEditableStepId,
+    scrollToActiveStep,
+    setJourney,
+    setValidationDisplay,
+    viewModel.journey,
+  ]);
+
   return (
-    <ScrollView
+    <ReportCreationScreenFrame
       contentContainerStyle={styles.content}
-      contentInset={{ bottom: bottomInset }}
-      contentInsetAdjustmentBehavior="automatic"
-      keyboardShouldPersistTaps="handled"
-      scrollIndicatorInsets={{ bottom: bottomInset }}
+      footer={
+        isLostReportContinueStepId(currentStepId) ? (
+          <StepActions
+            canGoBack={Boolean(previousEditableStepId)}
+            onBack={retreatStep}
+            onContinue={continueStep}
+          />
+        ) : undefined
+      }
+      scrollViewRef={scrollViewRef}
       style={styles.screen}
     >
       <CreationHeader onClose={onClose} title={viewModel.title} />
-      <ProgressSteps steps={viewModel.steps} />
+      <ProgressSteps steps={viewModel.journey.steps} />
+      <ReportCreationDraftRecoveryPrompt
+        draftRecovery={draftRecovery}
+        onDiscardDraft={onDiscardRecoveredDraft}
+        onResumeDraft={onResumeRecoveredDraft}
+      />
       <ReportCreationDraftPersistenceAlert
         draftPersistence={draftPersistence}
       />
-      <PetProfileSection
-        draft={draft}
-        setDraft={setDraft}
-        viewModel={viewModel}
-      />
-      <LostDetailsSection setDraft={setDraft} viewModel={viewModel} />
-      <PhotoSection
-        addPhoto={addPhoto}
-        setDraft={setDraft}
-        viewModel={viewModel}
-      />
-      <LocationPrivacySection setDraft={setDraft} viewModel={viewModel} />
-      <ContactOptionSection setDraft={setDraft} viewModel={viewModel} />
-      <ReviewPublishSection
-        publish={publish}
-        publishState={publishState}
-        submitError={submitError}
-        viewModel={viewModel}
-      />
-    </ScrollView>
+      {currentStepId === "photos" ? (
+        <PhotoSection
+          addPhoto={addPhoto}
+          mediaDraftId={draft.id}
+          renderReportMediaManager={renderReportMediaManager}
+          setDraft={setDraft}
+          viewModel={viewModel}
+        />
+      ) : null}
+      {currentStepId === "details" ? (
+        <>
+          <PetProfileSection
+            draft={draft}
+            setDraft={setDraft}
+            viewModel={viewModel}
+          />
+          <LostDetailsSection setDraft={setDraft} viewModel={viewModel} />
+        </>
+      ) : null}
+      {currentStepId === "location" ? (
+        <LocationPrivacySection
+          onChooseLocation={onChooseLocation}
+          setDraft={setDraft}
+          viewModel={viewModel}
+        />
+      ) : null}
+      {currentStepId === "contact" ? (
+        <ContactOptionSection setDraft={setDraft} viewModel={viewModel} />
+      ) : null}
+      {currentStepId === "review" ? (
+        <ReviewPublishSection
+          publish={publish}
+          publishState={publishState}
+          submitError={submitError}
+          viewModel={viewModel}
+        />
+      ) : null}
+    </ReportCreationScreenFrame>
+  );
+}
+
+function StepActions({
+  canGoBack,
+  onBack,
+  onContinue,
+}: {
+  canGoBack: boolean;
+  onBack: () => void;
+  onContinue: () => void;
+}) {
+  return (
+    <View style={styles.buttonRow}>
+      {canGoBack ? (
+        <ActionButton
+          icon="chevron.left"
+          label="Atrás"
+          onPress={onBack}
+          variant="secondary"
+        />
+      ) : null}
+      <ActionButton icon="arrow.right" label="Continuar" onPress={onContinue} />
+    </View>
   );
 }
 
@@ -431,14 +719,14 @@ function CreationHeader({
       </View>
       {onClose ? (
         <Pressable
-          accessibilityLabel="Cerrar reporte"
+          accessibilityLabel="Volver del reporte perdido"
           accessibilityRole="button"
           onPress={onClose}
           style={styles.iconButton}
         >
           <ReportCreationIcon
             color={shellColors.muted}
-            name="xmark"
+            name="chevron.left"
             size={18}
           />
         </Pressable>
@@ -474,7 +762,11 @@ function PetProfileSection({
       {draft.petSelectionMode === "existing" ? (
         <ExistingPetProfileList setDraft={setDraft} viewModel={viewModel} />
       ) : (
-        <InlinePetForm draft={draft} setDraft={setDraft} />
+        <InlinePetForm
+          draft={draft}
+          setDraft={setDraft}
+          viewModel={viewModel}
+        />
       )}
     </Section>
   );
@@ -557,74 +849,92 @@ function LostDetailsSection({
 
 function PhotoSection({
   addPhoto,
+  mediaDraftId,
+  renderReportMediaManager,
   setDraft,
   viewModel,
 }: {
   addPhoto: () => void;
+  mediaDraftId: string;
+  renderReportMediaManager?: LostReportCreationScreenProps["renderReportMediaManager"];
   setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
   viewModel: LostReportCreationViewModel;
 }) {
+  const renderedReportMediaManager = renderReportMediaManager?.({
+    mediaDraftId,
+    onSnapshotChange: (snapshot) =>
+      setDraft((current) => ({
+        ...current,
+        photos: reportMediaSnapshotToCreationPhotos(snapshot),
+      })),
+    photos: viewModel.photos.items,
+  });
+
   return (
     <Section title="Fotos">
-      <View style={styles.permissionBox}>
-        <ReportCreationIcon
-          color={shellColors.primary}
-          name="camera.fill"
-          size={22}
-        />
-        <View style={styles.optionCopy}>
-          <Text maxFontSizeMultiplier={1.15} style={styles.itemTitle}>
-            {viewModel.photos.permissionTitle}
-          </Text>
-          <Text maxFontSizeMultiplier={1.2} style={styles.metaText}>
-            {viewModel.photos.permissionBody}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.photoGrid}>
-        {viewModel.photos.items.map((photo) => (
-          <Pressable
-            accessibilityLabel="Quitar foto"
-            accessibilityRole="button"
-            key={photo.id}
-            onPress={() =>
-              setDraft((current) =>
-                removeLostReportPhoto({
-                  draft: current,
-                  photoId: photo.id,
-                }),
-              )
-            }
-            style={styles.photoTile}
-          >
-            <Image
-              accessibilityLabel={photo.alt}
-              contentFit="cover"
-              source={photo.thumbUri ?? photo.uri}
-              style={styles.photoImage}
+      {renderedReportMediaManager ?? (
+        <>
+          <View style={styles.permissionBox}>
+            <ReportCreationIcon
+              color={shellColors.primary}
+              name="camera.fill"
+              size={22}
             />
-          </Pressable>
-        ))}
-        <Pressable
-          accessibilityLabel="Agregar foto"
-          accessibilityRole="button"
-          disabled={!viewModel.photos.canAddPhoto}
-          onPress={addPhoto}
-          style={[
-            styles.addPhotoTile,
-            !viewModel.photos.canAddPhoto ? styles.disabledTile : null,
-          ]}
-        >
-          <ReportCreationIcon
-            color={shellColors.primary}
-            name="plus"
-            size={22}
-          />
-          <Text maxFontSizeMultiplier={1.1} style={styles.addPhotoText}>
-            {viewModel.photos.countLabel}
-          </Text>
-        </Pressable>
-      </View>
+            <View style={styles.optionCopy}>
+              <Text maxFontSizeMultiplier={1.15} style={styles.itemTitle}>
+                {viewModel.photos.permissionTitle}
+              </Text>
+              <Text maxFontSizeMultiplier={1.2} style={styles.metaText}>
+                {viewModel.photos.permissionBody}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.photoGrid}>
+            {viewModel.photos.items.map((photo) => (
+              <Pressable
+                accessibilityLabel="Quitar foto"
+                accessibilityRole="button"
+                key={photo.id}
+                onPress={() =>
+                  setDraft((current) =>
+                    removeLostReportPhoto({
+                      draft: current,
+                      photoId: photo.id,
+                    }),
+                  )
+                }
+                style={styles.photoTile}
+              >
+                <Image
+                  accessibilityLabel={photo.alt}
+                  contentFit="cover"
+                  source={photo.thumbUri ?? photo.uri}
+                  style={styles.photoImage}
+                />
+              </Pressable>
+            ))}
+            <Pressable
+              accessibilityLabel="Agregar foto"
+              accessibilityRole="button"
+              disabled={!viewModel.photos.canAddPhoto}
+              onPress={addPhoto}
+              style={[
+                styles.addPhotoTile,
+                !viewModel.photos.canAddPhoto ? styles.disabledTile : null,
+              ]}
+            >
+              <ReportCreationIcon
+                color={shellColors.primary}
+                name="plus"
+                size={22}
+              />
+              <Text maxFontSizeMultiplier={1.1} style={styles.addPhotoText}>
+                {viewModel.photos.countLabel}
+              </Text>
+            </Pressable>
+          </View>
+        </>
+      )}
       <Text maxFontSizeMultiplier={1.2} style={styles.helpText}>
         {viewModel.photos.helpLabel}
       </Text>
@@ -638,9 +948,11 @@ function PhotoSection({
 }
 
 function LocationPrivacySection({
+  onChooseLocation,
   setDraft,
   viewModel,
 }: {
+  onChooseLocation: () => void;
   setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
   viewModel: LostReportCreationViewModel;
 }) {
@@ -672,6 +984,16 @@ function LocationPrivacySection({
         icon="circle.grid.2x2.fill"
         label={viewModel.location.publicPrecisionLabel}
         value={viewModel.location.approximatePublicLabel}
+      />
+      <ActionButton
+        icon="map.fill"
+        label={
+          viewModel.location.hasExactLocation
+            ? "Cambiar ubicacion"
+            : "Elegir ubicacion"
+        }
+        onPress={onChooseLocation}
+        variant="secondary"
       />
       <ToggleRow
         body={viewModel.location.toggleBody}
@@ -754,15 +1076,12 @@ function ReviewPublishSection({
 function InlinePetForm({
   draft,
   setDraft,
+  viewModel,
 }: {
   draft: LostReportDraft;
   setDraft: React.Dispatch<React.SetStateAction<LostReportDraft>>;
+  viewModel: LostReportCreationViewModel;
 }) {
-  const viewModel = buildLostReportCreationViewModel({
-    draft,
-    petProfiles: [],
-  });
-
   return (
     <View style={styles.formStack}>
       <Field
@@ -848,11 +1167,7 @@ function Field({
 function ProgressSteps({
   steps,
 }: {
-  steps: {
-    id: string;
-    isComplete: boolean;
-    label: string;
-  }[];
+  steps: React.ComponentProps<typeof ReportCreationProgressSteps>["steps"];
 }) {
   return <ReportCreationProgressSteps steps={steps} styles={styles} />;
 }
@@ -966,9 +1281,82 @@ function ActionButton({
   );
 }
 
+const lostReportEditableStepIds: readonly ReportCreationJourneyStepId[] = [
+  "photos",
+  "details",
+  "location",
+  "contact",
+  "review",
+] as const;
+
+const lostReportContinueStepIds: readonly ReportCreationJourneyStepId[] = [
+  "photos",
+  "details",
+  "location",
+  "contact",
+] as const;
+
+function isLostReportContinueStepId(
+  stepId: ReportCreationJourneyStepId,
+): boolean {
+  return lostReportContinueStepIds.includes(stepId);
+}
+
+function getPreviousEditableStepId(stepId: ReportCreationJourneyStepId) {
+  const currentIndex = lostReportEditableStepIds.indexOf(stepId);
+
+  if (currentIndex <= 0) {
+    return undefined;
+  }
+
+  return lostReportEditableStepIds[currentIndex - 1];
+}
+
+function isCurrentLostReportStepValid({
+  draft,
+  journey,
+  petProfiles,
+}: {
+  draft: LostReportDraft;
+  journey: ReportCreationJourney;
+  petProfiles: readonly LostReportPetProfileOption[];
+}) {
+  const currentStepIndex = getJourneyStepIndex(journey, journey.currentStep.id);
+  const inferredJourney = buildLostReportCreationViewModel({
+    draft,
+    petProfiles,
+    validationDisplay: {},
+  }).journey;
+  const inferredStepIndex = getJourneyStepIndex(
+    inferredJourney,
+    inferredJourney.currentStep.id,
+  );
+
+  return inferredStepIndex > currentStepIndex;
+}
+
+function getJourneyStepIndex(
+  journey: ReportCreationJourney,
+  stepId: ReportCreationJourneyStepId,
+) {
+  return journey.steps.findIndex((step) => step.id === stepId);
+}
+
+function toLostReportJourneyInput(
+  journey: ReportCreationJourney,
+): LostReportCreationJourneyInput {
+  return {
+    completedStepIds: journey.steps
+      .filter((step) => step.status === "completed")
+      .map((step) => step.id),
+    currentStepId: journey.currentStep.id,
+  };
+}
+
 function createFallbackPhoto(index: number): LostReportPhoto {
   return {
     id: `lost-report-photo-${index + 1}`,
+    mediaId: `lost-report-media-${index + 1}`,
     status: "ready",
     uri: `file:///lost-report-photo-${index + 1}.jpg`,
   };

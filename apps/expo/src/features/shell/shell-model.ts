@@ -76,6 +76,7 @@ export interface ShellProfileModel {
 export interface ShellAuthPrompt {
   error?: string;
   intent?: ReportIntent;
+  reportRouteRequestId?: number;
   returnTo?: string;
   selectedIntentLabel?: string;
   title: string;
@@ -87,12 +88,16 @@ export interface ShellAuthPromptRequest {
   sourceHref?: string;
 }
 
+export interface ShellReportRouteIntent
+  extends Pick<ShellReportAction, "intent" | "label"> {
+  requestId: number;
+}
+
 export interface ShellState {
   activeSheet: "report-actions" | null;
   authReturnTo: string | null;
   authPrompt: ShellAuthPrompt | null;
-  memberIntent: Pick<ShellReportAction, "intent" | "label"> | null;
-  pendingMemberIntent: Pick<ShellReportAction, "intent" | "label"> | null;
+  pendingReportRouteIntent: ShellReportRouteIntent | null;
 }
 
 export interface ShellMemberCreationSession {
@@ -178,13 +183,29 @@ const mainTabRouteSegments = new Set([
   "(profile)",
 ]);
 
+let nextReportRouteRequestId = 1;
+
+function createShellReportRouteRequestId(): number {
+  return nextReportRouteRequestId++;
+}
+
+function createShellReportRouteIntent(
+  action: Pick<ShellReportAction, "intent" | "label">,
+  requestId = createShellReportRouteRequestId(),
+): ShellReportRouteIntent {
+  return {
+    intent: action.intent,
+    label: action.label,
+    requestId,
+  };
+}
+
 export function createInitialShellState(): ShellState {
   return {
     activeSheet: null,
     authReturnTo: null,
     authPrompt: null,
-    memberIntent: null,
-    pendingMemberIntent: null,
+    pendingReportRouteIntent: null,
   };
 }
 
@@ -315,9 +336,11 @@ export function chooseReportAction(
       activeSheet: null,
       authReturnTo: null,
       authPrompt: null,
-      pendingMemberIntent: null,
+      pendingReportRouteIntent: null,
     };
   }
+
+  const reportRouteRequestId = createShellReportRouteRequestId();
 
   return {
     ...state,
@@ -325,12 +348,12 @@ export function chooseReportAction(
     authReturnTo: null,
     authPrompt: {
       intent: action.intent,
+      reportRouteRequestId,
       selectedIntentLabel: action.label,
       title: copy.authPrompt.title,
       body: copy.authPrompt.bodyForIntent(action.label),
     },
-    memberIntent: null,
-    pendingMemberIntent: null,
+    pendingReportRouteIntent: null,
   };
 }
 
@@ -343,11 +366,7 @@ export function continueReportActionAsMember(
     activeSheet: null,
     authReturnTo: null,
     authPrompt: null,
-    memberIntent: {
-      intent: action.intent,
-      label: action.label,
-    },
-    pendingMemberIntent: null,
+    pendingReportRouteIntent: createShellReportRouteIntent(action),
   };
 }
 
@@ -365,44 +384,60 @@ export function requestShellAuthPrompt(
       returnTo: request.returnTo,
       title: copy.authPrompt.title,
     },
-    memberIntent: null,
-    pendingMemberIntent: null,
+    pendingReportRouteIntent: null,
   };
 }
 
-export function completeAuthPromptWithPendingMemberIntent(
+export function completeAuthPromptWithPendingReportRouteIntent(
   state: ShellState,
 ): ShellState {
   const prompt = state.authPrompt;
-  const pendingMemberIntent =
+  const pendingReportRouteIntent =
     prompt?.intent && prompt.selectedIntentLabel
-      ? {
-          intent: prompt.intent,
-          label: prompt.selectedIntentLabel,
-        }
-      : state.pendingMemberIntent;
+      ? createShellReportRouteIntent(
+          {
+            intent: prompt.intent,
+            label: prompt.selectedIntentLabel,
+          },
+          prompt.reportRouteRequestId,
+        )
+      : state.pendingReportRouteIntent;
 
   return {
     ...state,
-    authReturnTo: prompt?.returnTo ?? null,
+    authReturnTo: pendingReportRouteIntent ? null : (prompt?.returnTo ?? null),
     authPrompt: null,
-    memberIntent: null,
-    pendingMemberIntent,
+    pendingReportRouteIntent,
   };
 }
 
-export function promotePendingMemberIntentForSession(
+export function promotePendingReportRouteIntentForSession(
   state: ShellState,
   session: ShellModelSession,
 ): ShellState {
-  if (!state.pendingMemberIntent || session.kind !== "member") {
+  if (session.kind !== "member") {
+    return state;
+  }
+
+  return state.authPrompt
+    ? completeAuthPromptWithPendingReportRouteIntent(state)
+    : state;
+}
+
+export function clearPendingReportRouteIntent(
+  state: ShellState,
+  requestId?: number,
+): ShellState {
+  if (
+    requestId !== undefined &&
+    state.pendingReportRouteIntent?.requestId !== requestId
+  ) {
     return state;
   }
 
   return {
     ...state,
-    memberIntent: state.pendingMemberIntent,
-    pendingMemberIntent: null,
+    pendingReportRouteIntent: null,
   };
 }
 

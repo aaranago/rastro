@@ -1,7 +1,7 @@
 # RC-004 Introduce one canonical report-creation journey state model
 
-Status: ready-for-agent
-Labels: ready-for-agent
+Status: manual-qa-needed
+Labels: manual-qa-needed
 Severity: P1
 Issue ID: RC-004
 Type: AFK
@@ -116,3 +116,5 @@ Introduce an explicit report-creation journey model shared by all report types. 
 - Stack route migration, except model APIs should support it.
 
 ## Comments
+
+- 2026-06-21: Implemented with `$tdd` across delegated RC-004 agents. Added canonical journey model, progress UI, type-specific view-model validation display gates, and current-step screen rendering for lost/found/sighting/adoption. Fresh verifier RC-004-V returned no findings. Focused tests, typecheck, lint, and Fallow audit pass; remaining gap is manual emulator/large-text screenshot QA.

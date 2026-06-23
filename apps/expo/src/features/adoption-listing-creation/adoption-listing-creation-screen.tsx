@@ -1,24 +1,42 @@
+import type { ScrollView } from "react-native";
 import * as React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 
 import type { PublishAdoptionListingInput } from "../adoption-listings/adoption-listings";
+import type { NearbyLocationAdapter } from "../nearby/nearby-location-adapter";
+import type {
+  ReportCreationJourney,
+  ReportCreationJourneyStepId,
+} from "../report-creation/report-creation-journey";
 import type { ReportCreationFieldViewModel } from "../report-creation/report-creation-ui";
+import type { ReportMediaDraftSnapshot } from "../report-media";
 import type { CreationDraftStore } from "../resilience/creation-drafts";
-import type { DurableCreationDraftPersistence } from "../resilience/use-durable-creation-draft";
+import type {
+  DurableCreationDraftPersistence,
+  DurableCreationDraftRecovery,
+} from "../resilience/use-durable-creation-draft";
 import type {
   AdoptionListingCreationSession,
   AdoptionListingDraft,
   AdoptionListingPetProfileOption,
   AdoptionListingPhoto,
 } from "./adoption-listing-creation-types";
+import type {
+  AdoptionListingCreationJourneyInput,
+  AdoptionListingCreationValidationDisplayInput,
+} from "./adoption-listing-creation-view-model";
+import {
+  advanceReportCreationJourney,
+  retreatReportCreationJourney,
+} from "../report-creation/report-creation-journey";
 import { publishReportCreation } from "../report-creation/report-creation-publish";
 import {
   ReportCreationActionButton,
   ReportCreationContactOptionSection,
   ReportCreationDetailsFieldsSection,
   ReportCreationDraftPersistenceAlert,
-  ReportCreationEditorScrollView,
+  ReportCreationDraftRecoveryPrompt,
   ReportCreationExistingPetProfileList,
   ReportCreationField,
   ReportCreationInfoRow,
@@ -26,9 +44,13 @@ import {
   ReportCreationPhotoSection,
   ReportCreationProgressSteps,
   ReportCreationReviewPublishSection,
+  ReportCreationScreenFrame,
   ReportCreationSection,
   ReportCreationToggleRow,
 } from "../report-creation/report-creation-ui";
+import { ReportLocationPickerScreen } from "../report-location-picker";
+import { useReportLocationPickerDraft } from "../report-location-picker/use-report-location-picker";
+import { reportMediaSnapshotToCreationPhotos } from "../report-media";
 import { useDurableCreationDraft } from "../resilience/use-durable-creation-draft";
 import { shellColors } from "../shell/shell-theme";
 import { adoptionListingCreationFixtures } from "./adoption-listing-creation-fixtures";
@@ -36,7 +58,6 @@ import {
   adoptionListingPetTypeOptions,
   appendAdoptionListingPhoto,
   buildAdoptionListingCreationViewModel,
-  createAdoptionListingDraft,
   createInitialAdoptionListingDraft,
   removeAdoptionListingPhoto,
   selectAdoptionListingContactOption,
@@ -45,11 +66,23 @@ import {
 
 const adoptionAccent = shellColors.adoption;
 const adoptionAccentSoft = "#F8E9EE";
-const bottomInset = 36;
 const errorAccent = "#D6453D";
+const listingPhotoLimit = 5;
 const mapPreviewBlocks = Array.from({ length: 12 }, (_, index) => index);
+const editableStepIds = [
+  "photos",
+  "details",
+  "location",
+  "contact",
+  "review",
+] as const satisfies readonly ReportCreationJourneyStepId[];
 
 type PublishState = "editing" | "publishing" | "success";
+export interface AdoptionListingPublishConfirmation {
+  id: string;
+  status: string;
+}
+type AdoptionEditableStepId = (typeof editableStepIds)[number];
 type AdoptionListingCreationViewModel = ReturnType<
   typeof buildAdoptionListingCreationViewModel
 >;
@@ -58,11 +91,26 @@ export interface AdoptionListingCreationScreenProps {
   draftScopeId?: string;
   draftStore?: CreationDraftStore;
   initialDraft?: AdoptionListingDraft;
+  locationAdapter?: NearbyLocationAdapter;
+  onChooseAdoptionLocation?: () => void;
   onClose?: () => void;
+  onDraftPublished?: () => void;
   onPublishAdoptionListing?: (
     input: PublishAdoptionListingInput,
-  ) => Promise<void> | void;
+  ) =>
+    | AdoptionListingPublishConfirmation
+    | Promise<AdoptionListingPublishConfirmation | void>
+    | void;
   petProfiles?: readonly AdoptionListingPetProfileOption[];
+  pickAdoptionListingPhoto?: () =>
+    | AdoptionListingPhoto
+    | Promise<AdoptionListingPhoto | undefined>
+    | undefined;
+  renderReportMediaManager?: (props: {
+    mediaDraftId: string;
+    onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
+    photos: readonly AdoptionListingPhoto[];
+  }) => React.ReactNode;
   session?: AdoptionListingCreationSession;
 }
 
@@ -89,42 +137,137 @@ export function AdoptionListingCreationScreen({
   draftScopeId,
   draftStore,
   initialDraft,
+  locationAdapter,
+  onChooseAdoptionLocation,
   onClose,
+  onDraftPublished,
   onPublishAdoptionListing,
   petProfiles = adoptionListingCreationFixtures.petProfiles,
+  pickAdoptionListingPhoto,
+  renderReportMediaManager,
   session = { kind: "member", memberId: "member-preview" },
 }: AdoptionListingCreationScreenProps) {
   const defaultDraft = React.useMemo(
-    () =>
-      initialDraft ??
-      createAdoptionListingDraft({
-        ...createInitialAdoptionListingDraft({ petProfiles }),
-        exactLocation: adoptionListingCreationFixtures.defaultLocation,
-      }),
+    () => initialDraft ?? createInitialAdoptionListingDraft({ petProfiles }),
     [initialDraft, petProfiles],
   );
-  const { clearDraft, draft, draftPersistence, setDraft } =
-    useDurableCreationDraft({
-      initialDraft: defaultDraft,
-      kind: "adoption-listing",
-      scopeId: draftScopeId,
-      store: draftStore,
-    });
+  const {
+    clearDraft,
+    discardDraft,
+    draft,
+    draftPersistence,
+    draftRecovery,
+    draftResetVersion,
+    restoredDraft,
+    resumeDraft,
+    setDraft,
+  } = useDurableCreationDraft({
+    initialDraft: defaultDraft,
+    kind: "adoption-listing",
+    recoveryMode: "explicit",
+    scopeId: draftScopeId,
+    store: draftStore,
+  });
   const [publishState, setPublishState] =
     React.useState<PublishState>("editing");
+  const [publishConfirmation, setPublishConfirmation] =
+    React.useState<AdoptionListingPublishConfirmation | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [journey, setJourney] =
+    React.useState<AdoptionListingCreationJourneyInput>(() =>
+      buildInitialAdoptionListingJourney({
+        draft,
+        petProfiles,
+        session,
+      }),
+    );
+  const [validationDisplay, setValidationDisplay] =
+    React.useState<AdoptionListingCreationValidationDisplayInput>({});
+  const draftResetToken = `${restoredDraft?.savedAt ?? "fresh"}:${draftResetVersion}`;
+  const draftResetTokenRef = React.useRef(draftResetToken);
+
+  React.useEffect(() => {
+    if (draftResetTokenRef.current === draftResetToken) {
+      return;
+    }
+
+    draftResetTokenRef.current = draftResetToken;
+    setJourney(
+      buildInitialAdoptionListingJourney({
+        draft,
+        petProfiles,
+        session,
+      }),
+    );
+    setValidationDisplay({});
+  }, [draft, draftResetToken, petProfiles, session]);
+
   const publishLockRef = React.useRef(false);
   const viewModel = React.useMemo(
     () =>
       buildAdoptionListingCreationViewModel({
         draft,
+        journey,
         petProfiles,
         session,
+        validationDisplay,
       }),
-    [draft, petProfiles, session],
+    [draft, journey, petProfiles, session, validationDisplay],
   );
 
-  const addPhoto = React.useCallback(() => {
+  const continueToNextStep = React.useCallback(() => {
+    const validationResult = validateCurrentAdoptionListingStep({
+      draft,
+      petProfiles,
+      session,
+      stepId: viewModel.journey.currentStep.id,
+    });
+
+    if (!validationResult.ok) {
+      setValidationDisplay({
+        attemptedStepId: viewModel.journey.currentStep.id,
+      });
+      return;
+    }
+
+    const transition = advanceReportCreationJourney(viewModel.journey);
+
+    if (!transition.ok) {
+      return;
+    }
+
+    setJourney(toAdoptionListingJourneyInput(transition.journey));
+    setValidationDisplay({});
+  }, [draft, petProfiles, session, viewModel.journey]);
+
+  const returnToPreviousStep = React.useCallback(() => {
+    const transition = retreatReportCreationJourney(viewModel.journey);
+
+    if (!transition.ok) {
+      return;
+    }
+
+    setJourney(toAdoptionListingJourneyInput(transition.journey));
+    setValidationDisplay({});
+  }, [viewModel.journey]);
+
+  const addPhoto = React.useCallback(async () => {
+    if (pickAdoptionListingPhoto) {
+      const pickedPhoto = await pickAdoptionListingPhoto();
+
+      if (!pickedPhoto) {
+        return;
+      }
+
+      setDraft((current) =>
+        appendAdoptionListingPhoto({
+          draft: current,
+          photo: pickedPhoto,
+        }),
+      );
+      return;
+    }
+
     const nextPhoto =
       adoptionListingCreationFixtures.photoSamples[draft.photos.length] ??
       createFallbackPhoto(draft.photos.length);
@@ -135,7 +278,21 @@ export function AdoptionListingCreationScreen({
         photo: nextPhoto,
       }),
     );
-  }, [draft.photos.length, setDraft]);
+  }, [draft.photos.length, pickAdoptionListingPhoto, setDraft]);
+  const {
+    closeLocationPicker,
+    confirmLocation,
+    isLocationPickerVisible,
+    openLocationPicker,
+  } = useReportLocationPickerDraft({
+    applyLocation: (current, location) => ({
+      ...current,
+      exactLocation: location,
+    }),
+    locationAdapter,
+    onChooseLocation: onChooseAdoptionLocation,
+    setDraft,
+  });
 
   const publish = React.useCallback(async () => {
     if (!viewModel.canPublish || publishState === "publishing") {
@@ -153,6 +310,8 @@ export function AdoptionListingCreationScreen({
     });
 
     if (result.ok) {
+      setPublishConfirmation(result.confirmation ?? null);
+      onDraftPublished?.();
       setPublishState("success");
       return;
     }
@@ -166,15 +325,30 @@ export function AdoptionListingCreationScreen({
   }, [
     draft,
     clearDraft,
+    onDraftPublished,
     onPublishAdoptionListing,
     petProfiles,
     publishState,
     viewModel.canPublish,
   ]);
 
+  if (isLocationPickerVisible && locationAdapter) {
+    return (
+      <ReportLocationPickerScreen
+        adapter={locationAdapter}
+        onCancel={closeLocationPicker}
+        onConfirm={confirmLocation}
+      />
+    );
+  }
+
   if (publishState === "success") {
     return (
-      <AdoptionListingCreationSuccess onClose={onClose} viewModel={viewModel} />
+      <AdoptionListingCreationSuccess
+        onClose={onClose}
+        publishConfirmation={publishConfirmation}
+        viewModel={viewModel}
+      />
     );
   }
 
@@ -183,11 +357,19 @@ export function AdoptionListingCreationScreen({
       addPhoto={addPhoto}
       draft={draft}
       draftPersistence={draftPersistence}
+      draftRecovery={draftRecovery}
+      onDiscardRecoveredDraft={discardDraft}
+      onChooseLocation={openLocationPicker}
       onClose={onClose}
+      onContinue={continueToNextStep}
+      onPrevious={returnToPreviousStep}
+      onResumeRecoveredDraft={resumeDraft}
       publish={publish}
       publishState={publishState}
+      renderReportMediaManager={renderReportMediaManager}
       setDraft={setDraft}
       submitError={submitError}
+      validationDisplay={validationDisplay}
       viewModel={viewModel}
     />
   );
@@ -195,17 +377,16 @@ export function AdoptionListingCreationScreen({
 
 function AdoptionListingCreationSuccess({
   onClose,
+  publishConfirmation,
   viewModel,
 }: {
   onClose?: () => void;
+  publishConfirmation: AdoptionListingPublishConfirmation | null;
   viewModel: AdoptionListingCreationViewModel;
 }) {
   return (
-    <ScrollView
+    <ReportCreationScreenFrame
       contentContainerStyle={styles.content}
-      contentInset={{ bottom: bottomInset }}
-      contentInsetAdjustmentBehavior="automatic"
-      scrollIndicatorInsets={{ bottom: bottomInset }}
       style={styles.screen}
     >
       <View style={styles.successHero}>
@@ -222,6 +403,12 @@ function AdoptionListingCreationSuccess({
         <Text maxFontSizeMultiplier={1.25} style={styles.bodyText}>
           {viewModel.success.body}
         </Text>
+        {publishConfirmation ? (
+          <Text maxFontSizeMultiplier={1.2} style={styles.bodyText}>
+            Reporte confirmado: {publishConfirmation.id}. Estado:{" "}
+            {publishConfirmation.status}.
+          </Text>
+        ) : null}
       </View>
       <View style={styles.buttonRow}>
         <ReportCreationActionButton
@@ -243,7 +430,7 @@ function AdoptionListingCreationSuccess({
           styles={styles}
         />
       </View>
-    </ScrollView>
+    </ReportCreationScreenFrame>
   );
 }
 
@@ -251,35 +438,184 @@ function AdoptionListingCreationEditor({
   addPhoto,
   draft,
   draftPersistence,
+  draftRecovery,
+  onDiscardRecoveredDraft,
+  onChooseLocation,
   onClose,
+  onContinue,
+  onPrevious,
+  onResumeRecoveredDraft,
   publish,
   publishState,
+  renderReportMediaManager,
   setDraft,
   submitError,
+  validationDisplay,
   viewModel,
 }: {
   addPhoto: () => void;
   draft: AdoptionListingDraft;
   draftPersistence: DurableCreationDraftPersistence;
+  draftRecovery: DurableCreationDraftRecovery<"adoption-listing">;
+  onDiscardRecoveredDraft: () => Promise<void>;
+  onChooseLocation: () => void;
   onClose?: () => void;
+  onContinue: () => void;
+  onPrevious: () => void;
+  onResumeRecoveredDraft: () => void;
   publish: () => void;
   publishState: PublishState;
+  renderReportMediaManager?: AdoptionListingCreationScreenProps["renderReportMediaManager"];
   setDraft: React.Dispatch<React.SetStateAction<AdoptionListingDraft>>;
   submitError: string | null;
+  validationDisplay: AdoptionListingCreationValidationDisplayInput;
   viewModel: AdoptionListingCreationViewModel;
 }) {
+  const scrollViewRef = React.useRef<ScrollView>(null);
+  const scrollToActiveStep = React.useCallback(() => {
+    scrollViewRef.current?.scrollTo({ animated: true, y: 0 });
+  }, []);
+  const continueAndScroll = React.useCallback(() => {
+    onContinue();
+    scrollToActiveStep();
+  }, [onContinue, scrollToActiveStep]);
+  const previousAndScroll = React.useCallback(() => {
+    onPrevious();
+    scrollToActiveStep();
+  }, [onPrevious, scrollToActiveStep]);
+
   return (
-    <ReportCreationEditorScrollView bottomInset={bottomInset} styles={styles}>
+    <ReportCreationScreenFrame
+      contentContainerStyle={styles.content}
+      footer={
+        shouldShowStepActions(viewModel.journey.currentStep.id) ? (
+          <StepActions
+            canGoBack={hasPreviousEditableStep(
+              viewModel.journey.currentStep.id,
+            )}
+            onContinue={continueAndScroll}
+            onPrevious={previousAndScroll}
+          />
+        ) : undefined
+      }
+      scrollViewRef={scrollViewRef}
+      style={styles.screen}
+    >
       <CreationHeader onClose={onClose} title={viewModel.title} />
-      <ReportCreationProgressSteps steps={viewModel.steps} styles={styles} />
+      <ReportCreationProgressSteps
+        steps={viewModel.journey.steps}
+        styles={styles}
+      />
+      <ReportCreationDraftRecoveryPrompt
+        draftRecovery={draftRecovery}
+        onDiscardDraft={onDiscardRecoveredDraft}
+        onResumeDraft={onResumeRecoveredDraft}
+      />
       <ReportCreationDraftPersistenceAlert
         draftPersistence={draftPersistence}
       />
-      <PetProfileSection
+      <CurrentStepContent
+        addPhoto={addPhoto}
         draft={draft}
+        onChooseLocation={onChooseLocation}
+        publish={publish}
+        publishState={publishState}
+        renderReportMediaManager={renderReportMediaManager}
         setDraft={setDraft}
+        submitError={submitError}
+        validationDisplay={validationDisplay}
         viewModel={viewModel}
       />
+    </ReportCreationScreenFrame>
+  );
+}
+
+function CurrentStepContent({
+  addPhoto,
+  draft,
+  onChooseLocation,
+  publish,
+  publishState,
+  renderReportMediaManager,
+  setDraft,
+  submitError,
+  validationDisplay,
+  viewModel,
+}: {
+  addPhoto: () => void;
+  draft: AdoptionListingDraft;
+  onChooseLocation: () => void;
+  publish: () => void;
+  publishState: PublishState;
+  renderReportMediaManager?: AdoptionListingCreationScreenProps["renderReportMediaManager"];
+  setDraft: React.Dispatch<React.SetStateAction<AdoptionListingDraft>>;
+  submitError: string | null;
+  validationDisplay: AdoptionListingCreationValidationDisplayInput;
+  viewModel: AdoptionListingCreationViewModel;
+}) {
+  if (viewModel.journey.currentStep.id === "photos") {
+    const photoStepError = getAdoptionListingPhotoStepError({
+      draft,
+      validationDisplay,
+      viewModel,
+    });
+    const renderedReportMediaManager = renderReportMediaManager?.({
+      mediaDraftId: draft.id,
+      onSnapshotChange: (snapshot) =>
+        setDraft((current) => ({
+          ...current,
+          photos: reportMediaSnapshotToCreationPhotos(snapshot),
+        })),
+      photos: draft.photos,
+    });
+
+    return (
+      <>
+        <PetProfileSection
+          draft={draft}
+          setDraft={setDraft}
+          viewModel={viewModel}
+        />
+        {renderedReportMediaManager ? (
+          <ReportCreationSection styles={styles} title="Fotos">
+            {renderedReportMediaManager}
+            {photoStepError ? (
+              <Text maxFontSizeMultiplier={1.2} style={styles.errorText}>
+                {photoStepError}
+              </Text>
+            ) : null}
+          </ReportCreationSection>
+        ) : (
+          <ReportCreationPhotoSection
+            accentColor={adoptionAccent}
+            addPhoto={addPhoto}
+            addPhotoAccessibilityLabel="Agregar foto"
+            canAddPhoto={draft.photos.length < listingPhotoLimit}
+            countLabel={formatAdoptionListingPhotoCount(draft.photos.length)}
+            error={photoStepError}
+            helpLabel={viewModel.photos.helpLabel}
+            Icon={AdoptionListingCreationIcon}
+            onRemovePhoto={(photoId) =>
+              setDraft((current) =>
+                removeAdoptionListingPhoto({
+                  draft: current,
+                  photoId,
+                }),
+              )
+            }
+            permissionBody={viewModel.photos.permissionBody}
+            permissionTitle={viewModel.photos.permissionTitle}
+            photos={draft.photos.slice(0, listingPhotoLimit)}
+            styles={styles}
+            title="Fotos"
+          />
+        )}
+      </>
+    );
+  }
+
+  if (viewModel.journey.currentStep.id === "details") {
+    return (
       <ReportCreationDetailsFieldsSection
         fields={[
           {
@@ -311,46 +647,241 @@ function AdoptionListingCreationEditor({
         styles={styles}
         title={viewModel.adoptionDetails.title}
       />
-      <ReportCreationPhotoSection
+    );
+  }
+
+  if (viewModel.journey.currentStep.id === "location") {
+    return (
+      <LocationPrivacySection
+        onChooseLocation={onChooseLocation}
+        setDraft={setDraft}
+        viewModel={viewModel}
+      />
+    );
+  }
+
+  if (viewModel.journey.currentStep.id === "contact") {
+    return <ContactOptionSection setDraft={setDraft} viewModel={viewModel} />;
+  }
+
+  if (viewModel.journey.currentStep.id === "review") {
+    return (
+      <>
+        <VerificationSection viewModel={viewModel} />
+        <ReportCreationReviewPublishSection
+          activityIndicatorColor={shellColors.white}
+          canPublish={viewModel.canPublish}
+          Icon={AdoptionListingCreationIcon}
+          onPublish={publish}
+          publishActionLabel={viewModel.review.publishActionLabel}
+          publishState={publishState}
+          rows={viewModel.review.rows}
+          styles={styles}
+          submitError={submitError}
+          validationErrors={viewModel.review.validationErrors}
+        />
+      </>
+    );
+  }
+
+  return null;
+}
+
+function StepActions({
+  canGoBack,
+  onContinue,
+  onPrevious,
+}: {
+  canGoBack: boolean;
+  onContinue: () => void;
+  onPrevious: () => void;
+}) {
+  return (
+    <View style={styles.buttonRow}>
+      {canGoBack ? (
+        <ReportCreationActionButton
+          accentColor={adoptionAccent}
+          Icon={AdoptionListingCreationIcon}
+          icon="chevron.left"
+          label="Atrás"
+          onPress={onPrevious}
+          primaryTextColor={shellColors.white}
+          styles={styles}
+          variant="secondary"
+        />
+      ) : null}
+      <ReportCreationActionButton
         accentColor={adoptionAccent}
-        addPhoto={addPhoto}
-        addPhotoAccessibilityLabel="Agregar foto"
-        canAddPhoto={viewModel.photos.canAddPhoto}
-        countLabel={viewModel.photos.countLabel}
-        error={viewModel.photos.error}
-        helpLabel={viewModel.photos.helpLabel}
         Icon={AdoptionListingCreationIcon}
-        onRemovePhoto={(photoId) =>
-          setDraft((current) =>
-            removeAdoptionListingPhoto({
-              draft: current,
-              photoId,
-            }),
-          )
-        }
-        permissionBody={viewModel.photos.permissionBody}
-        permissionTitle={viewModel.photos.permissionTitle}
-        photos={viewModel.photos.items}
+        icon="arrow.right"
+        label="Continuar"
+        onPress={onContinue}
+        primaryTextColor={shellColors.white}
         styles={styles}
-        title="Fotos"
       />
-      <LocationPrivacySection setDraft={setDraft} viewModel={viewModel} />
-      <ContactOptionSection setDraft={setDraft} viewModel={viewModel} />
-      <VerificationSection viewModel={viewModel} />
-      <ReportCreationReviewPublishSection
-        activityIndicatorColor={shellColors.white}
-        canPublish={viewModel.canPublish}
-        Icon={AdoptionListingCreationIcon}
-        onPublish={publish}
-        publishActionLabel={viewModel.review.publishActionLabel}
-        publishState={publishState}
-        rows={viewModel.review.rows}
-        styles={styles}
-        submitError={submitError}
-        validationErrors={viewModel.review.validationErrors}
-      />
-    </ReportCreationEditorScrollView>
+    </View>
   );
+}
+
+function buildInitialAdoptionListingJourney({
+  draft,
+  petProfiles,
+  session,
+}: {
+  draft: AdoptionListingDraft;
+  petProfiles: readonly AdoptionListingPetProfileOption[];
+  session: AdoptionListingCreationSession;
+}): AdoptionListingCreationJourneyInput {
+  const inferredViewModel = buildAdoptionListingCreationViewModel({
+    draft,
+    petProfiles,
+    session,
+    validationDisplay: {},
+  });
+
+  if (draft.photos.length === 0) {
+    return {
+      completedStepIds: ["chooseType"],
+      currentStepId: "photos",
+    };
+  }
+
+  return toAdoptionListingJourneyInput(inferredViewModel.journey);
+}
+
+function validateCurrentAdoptionListingStep({
+  draft,
+  petProfiles,
+  session,
+  stepId,
+}: {
+  draft: AdoptionListingDraft;
+  petProfiles: readonly AdoptionListingPetProfileOption[];
+  session: AdoptionListingCreationSession;
+  stepId: ReportCreationJourneyStepId;
+}) {
+  const attemptedViewModel = buildAdoptionListingCreationViewModel({
+    draft,
+    journey: {
+      completedStepIds: [],
+      currentStepId: stepId,
+    },
+    petProfiles,
+    session,
+    validationDisplay: {
+      attemptedStepId: stepId,
+    },
+  });
+  const errors: string[] = [];
+
+  if (stepId === "photos") {
+    if (!attemptedViewModel.selectedPet) {
+      errors.push("Elige o crea la mascota para la adopcion.");
+    }
+
+    if (!hasReadyAdoptionListingPhoto(draft)) {
+      errors.push("Agrega al menos una foto.");
+    }
+
+    const inlineNameError =
+      attemptedViewModel.petSelection.inlineForm.fields.name.error;
+
+    if (inlineNameError) {
+      errors.push(inlineNameError);
+    }
+  }
+
+  if (stepId === "details") {
+    const detailsErrors = Object.values(
+      attemptedViewModel.adoptionDetails.fields,
+    )
+      .map((field) => field.error)
+      .filter(isDefinedString);
+
+    errors.push(...detailsErrors);
+  }
+
+  if (stepId === "location" && !attemptedViewModel.location.hasExactLocation) {
+    errors.push("Selecciona la ubicacion interna.");
+  }
+
+  if (stepId === "contact") {
+    errors.push(
+      ...[
+        attemptedViewModel.contact.error,
+        attemptedViewModel.contact.whatsappField.error,
+      ].filter(isDefinedString),
+    );
+  }
+
+  return errors.length > 0
+    ? {
+        errors,
+        ok: false as const,
+      }
+    : {
+        ok: true as const,
+      };
+}
+
+function getAdoptionListingPhotoStepError({
+  draft,
+  validationDisplay,
+  viewModel,
+}: {
+  draft: AdoptionListingDraft;
+  validationDisplay: AdoptionListingCreationValidationDisplayInput;
+  viewModel: AdoptionListingCreationViewModel;
+}) {
+  if (
+    validationDisplay.attemptedStepId === "photos" &&
+    !hasReadyAdoptionListingPhoto(draft)
+  ) {
+    return "Agrega al menos una foto.";
+  }
+
+  return viewModel.photos.error;
+}
+
+function hasReadyAdoptionListingPhoto(draft: AdoptionListingDraft) {
+  return draft.photos.some(
+    (photo) => photo.status === "ready" && Boolean(photo.mediaId),
+  );
+}
+
+function formatAdoptionListingPhotoCount(count: number) {
+  return `${Math.min(count, listingPhotoLimit)}/${listingPhotoLimit} fotos`;
+}
+
+function isDefinedString(value: string | undefined): value is string {
+  return value !== undefined;
+}
+
+function shouldShowStepActions(stepId: ReportCreationJourneyStepId) {
+  return isAdoptionEditableStepId(stepId) && stepId !== "review";
+}
+
+function hasPreviousEditableStep(stepId: ReportCreationJourneyStepId) {
+  const stepIndex = editableStepIds.indexOf(stepId as AdoptionEditableStepId);
+
+  return stepIndex > 0;
+}
+
+function isAdoptionEditableStepId(
+  stepId: ReportCreationJourneyStepId,
+): stepId is AdoptionEditableStepId {
+  return editableStepIds.includes(stepId as AdoptionEditableStepId);
+}
+
+function toAdoptionListingJourneyInput(
+  journey: ReportCreationJourney,
+): AdoptionListingCreationJourneyInput {
+  return {
+    completedStepIds: journey.steps
+      .filter((step) => step.status === "completed")
+      .map((step) => step.id),
+    currentStepId: journey.currentStep.id,
+  };
 }
 
 function CreationHeader({
@@ -379,14 +910,14 @@ function CreationHeader({
       </View>
       {onClose ? (
         <Pressable
-          accessibilityLabel="Cerrar adopcion"
+          accessibilityLabel="Volver de adopcion"
           accessibilityRole="button"
           onPress={onClose}
           style={styles.iconButton}
         >
           <AdoptionListingCreationIcon
             color={shellColors.muted}
-            name="xmark"
+            name="chevron.left"
             size={18}
           />
         </Pressable>
@@ -431,7 +962,11 @@ function PetProfileSection({
       {draft.petSelectionMode === "existing" ? (
         <ExistingPetProfileList setDraft={setDraft} viewModel={viewModel} />
       ) : (
-        <InlinePetForm draft={draft} setDraft={setDraft} />
+        <InlinePetForm
+          draft={draft}
+          setDraft={setDraft}
+          viewModel={viewModel}
+        />
       )}
     </ReportCreationSection>
   );
@@ -464,14 +999,13 @@ function ExistingPetProfileList({
 function InlinePetForm({
   draft,
   setDraft,
+  viewModel,
 }: {
   draft: AdoptionListingDraft;
   setDraft: React.Dispatch<React.SetStateAction<AdoptionListingDraft>>;
+  viewModel: AdoptionListingCreationViewModel;
 }) {
-  const inline = buildAdoptionListingCreationViewModel({
-    draft,
-    petProfiles: [],
-  }).petSelection.inlineForm;
+  const inline = viewModel.petSelection.inlineForm;
 
   return (
     <View style={styles.formStack}>
@@ -519,9 +1053,11 @@ function InlinePetForm({
 }
 
 function LocationPrivacySection({
+  onChooseLocation,
   setDraft,
   viewModel,
 }: {
+  onChooseLocation: () => void;
   setDraft: React.Dispatch<React.SetStateAction<AdoptionListingDraft>>;
   viewModel: AdoptionListingCreationViewModel;
 }) {
@@ -559,6 +1095,20 @@ function LocationPrivacySection({
         label={viewModel.location.publicPrecisionLabel}
         styles={styles}
         value={viewModel.location.approximatePublicLabel}
+      />
+      <ReportCreationActionButton
+        accentColor={adoptionAccent}
+        Icon={AdoptionListingCreationIcon}
+        icon="map.fill"
+        label={
+          viewModel.location.hasExactLocation
+            ? "Cambiar ubicacion"
+            : "Elegir ubicacion"
+        }
+        onPress={onChooseLocation}
+        primaryTextColor={shellColors.white}
+        styles={styles}
+        variant="secondary"
       />
       <ReportCreationToggleRow
         body={viewModel.location.toggleBody}
@@ -688,6 +1238,7 @@ function createFallbackPhoto(index: number): AdoptionListingPhoto {
   return {
     alt: "Foto para adopcion",
     id: `adoption-listing-photo-${index + 1}`,
+    mediaId: `adoption-listing-media-${index + 1}`,
     status: "ready",
     uri: `file:///adoption-listing-photo-${index + 1}.jpg`,
   };

@@ -27,6 +27,90 @@ describe("Found Pet Report creation view model", () => {
     expect(JSON.stringify(viewModel)).not.toMatch(/perdid|avist/i);
   });
 
+  it("exposes canonical journey data and suppresses validation until the current found step is attempted", () => {
+    const draft = createFoundReportDraft({
+      contact: {
+        inAppChatEnabled: false,
+        whatsappEnabled: false,
+        whatsappPhone: "",
+      },
+    });
+
+    const quietViewModel = buildFoundReportCreationViewModel({
+      draft,
+      journey: {
+        completedStepIds: ["chooseType"],
+        currentStepId: "photos",
+      },
+      validationDisplay: {},
+    });
+
+    expect(quietViewModel.journey).toMatchObject({
+      currentStep: {
+        id: "photos",
+        status: "current",
+      },
+      progressText: "Paso 2 de 8",
+      reportType: "found",
+    });
+    expect(
+      quietViewModel.journey.steps.filter((step) => step.status === "current"),
+    ).toHaveLength(1);
+    expect(quietViewModel.photos.error).toBeUndefined();
+    expect(quietViewModel.foundDetails.fields.condition.error).toBeUndefined();
+    expect(quietViewModel.pet.fields.description.error).toBeUndefined();
+    expect(quietViewModel.contact.error).toBeUndefined();
+    expect(quietViewModel.review.validationErrors).toEqual([]);
+
+    const attemptedPhotosViewModel = buildFoundReportCreationViewModel({
+      draft,
+      journey: {
+        completedStepIds: ["chooseType"],
+        currentStepId: "photos",
+      },
+      validationDisplay: {
+        attemptedStepId: "photos",
+      },
+    });
+
+    expect(attemptedPhotosViewModel.photos.error).toBe(
+      "Agrega al menos una foto.",
+    );
+
+    const attemptedDetailsViewModel = buildFoundReportCreationViewModel({
+      draft,
+      journey: {
+        completedStepIds: ["chooseType", "photos"],
+        currentStepId: "details",
+      },
+      validationDisplay: {
+        attemptedStepId: "details",
+      },
+    });
+
+    expect(attemptedDetailsViewModel.foundDetails.fields.condition.error).toBe(
+      "Describe la condicion de la mascota encontrada.",
+    );
+    expect(attemptedDetailsViewModel.pet.fields.description.error).toBe(
+      "Agrega senas visibles de la mascota encontrada.",
+    );
+
+    const attemptedContactViewModel = buildFoundReportCreationViewModel({
+      draft,
+      journey: {
+        completedStepIds: ["chooseType", "photos", "details", "location"],
+        currentStepId: "contact",
+      },
+      validationDisplay: {
+        attemptedStepId: "contact",
+      },
+    });
+
+    expect(attemptedContactViewModel.contact.error).toBe(
+      "Elige chat, WhatsApp o ambos.",
+    );
+  });
+
   it("converts a complete found pet draft into publish input with location, timing, condition, description, and contact", () => {
     const draft = createFoundReportDraft({
       contact: {
@@ -35,13 +119,13 @@ describe("Found Pet Report creation view model", () => {
         whatsappPhone: "  +591 70123456 ",
       },
       exactFoundLocation: {
-        addressLabel: "Jardin Botanico de La Paz",
+        addressLabel: "  Jardin Botanico de La Paz  ",
         coordinates: {
           latitude: -16.5022,
           longitude: -68.1213,
         },
         department: "La Paz",
-        locationCellLabel: "Miraflores",
+        locationCellLabel: "  Miraflores  ",
         municipality: "La Paz",
       },
       foundDetails: {
@@ -55,7 +139,14 @@ describe("Found Pet Report creation view model", () => {
         description: "Pelaje gris y ojos claros.",
         type: "Perro",
       },
-      photos: [{ id: "found-report-photo-1", uri: "file:///husky-found.heic" }],
+      photos: [
+        {
+          id: "found-report-photo-1",
+          mediaId: "found-ready-media-1",
+          status: "ready",
+          uri: "file:///husky-found.heic",
+        },
+      ],
       showExactPinPublicly: false,
     });
 
@@ -82,9 +173,122 @@ describe("Found Pet Report creation view model", () => {
         description: "Pelaje gris y ojos claros.",
         type: "Perro",
       },
-      photos: [{ id: "found-report-photo-1", uri: "file:///husky-found.heic" }],
+      photos: [{ id: "found-ready-media-1", uri: "file:///husky-found.heic" }],
       showExactPublicLocation: false,
     });
+  });
+
+  it("blocks required found reports until attached media has a ready uploaded media ID", () => {
+    const draft = createFoundReportDraft({
+      contact: {
+        inAppChatEnabled: true,
+        whatsappEnabled: false,
+        whatsappPhone: "",
+      },
+      exactFoundLocation: {
+        addressLabel: "Jardin Botanico de La Paz",
+        coordinates: {
+          latitude: -16.5022,
+          longitude: -68.1213,
+        },
+        department: "La Paz",
+        locationCellLabel: "Miraflores",
+        municipality: "La Paz",
+      },
+      foundDetails: {
+        condition: "Amigable y sin heridas visibles.",
+        description: "Encontrada cerca de la fuente.",
+        foundAtLabel: "2026-06-18T10:30:00.000Z",
+      },
+      pet: {
+        breed: "Husky mix",
+        description: "Pelaje gris y ojos claros.",
+        type: "Perro",
+      },
+      photos: [
+        {
+          id: "found-uploading-photo",
+          progress: 0.4,
+          status: "uploading",
+          uri: "file:///husky-found.heic",
+        },
+      ],
+    });
+
+    const viewModel = buildFoundReportCreationViewModel({
+      draft,
+      validationDisplay: {
+        attemptedStepId: "photos",
+      },
+    });
+
+    expect(viewModel.canPublish).toBe(false);
+    expect(viewModel.photos.error).toBe(
+      "Espera a que las fotos terminen de subirse.",
+    );
+    expect(() => toPublishFoundPetReportInput({ draft })).toThrow(
+      "Espera a que las fotos terminen de subirse.",
+    );
+  });
+
+  it("rejects publishing when a found pet report has no exact location", () => {
+    const draft = createFoundReportDraft({
+      contact: {
+        inAppChatEnabled: true,
+        whatsappEnabled: false,
+        whatsappPhone: "",
+      },
+      foundDetails: {
+        condition: "Amigable y sin heridas visibles.",
+        description: "Encontrada cerca de la fuente.",
+        foundAtLabel: "2026-06-18T10:30:00.000Z",
+      },
+      pet: {
+        breed: "Husky mix",
+        description: "Pelaje gris y ojos claros.",
+        type: "Perro",
+      },
+      photos: [{ id: "found-report-photo-1", uri: "file:///husky-found.heic" }],
+    });
+
+    expect(() => toPublishFoundPetReportInput({ draft })).toThrow(
+      "Selecciona donde fue encontrada.",
+    );
+  });
+
+  it("rejects a found pet publish location outside Bolivia", () => {
+    const draft = createFoundReportDraft({
+      contact: {
+        inAppChatEnabled: true,
+        whatsappEnabled: false,
+        whatsappPhone: "",
+      },
+      exactFoundLocation: {
+        addressLabel: "Fuera de Bolivia",
+        coordinates: {
+          latitude: -8.5,
+          longitude: -68.1213,
+        },
+        department: "La Paz",
+        locationCellLabel: "Miraflores",
+        municipality: "La Paz",
+      },
+      foundDetails: {
+        condition: "Amigable y sin heridas visibles.",
+        description: "Encontrada cerca de la fuente.",
+        foundAtLabel: "2026-06-18T10:30:00.000Z",
+      },
+      pet: {
+        breed: "Husky mix",
+        description: "Pelaje gris y ojos claros.",
+        type: "Perro",
+      },
+      photos: [{ id: "found-report-photo-1", uri: "file:///husky-found.heic" }],
+    });
+
+    expect(() => toPublishFoundPetReportInput({ draft })).toThrow(
+      "Selecciona una ubicacion dentro de Bolivia.",
+    );
   });
 
   it("captures a reusable found pet snapshot for public browse and detail labels", () => {

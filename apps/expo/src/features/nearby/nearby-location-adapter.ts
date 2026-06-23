@@ -1,4 +1,5 @@
 import type { NearbySearchLocation } from "./nearby-types";
+import { boliviaDepartmentLocationOptions } from "./nearby-locations";
 
 export type NearbyLocationPermissionStatus =
   | "denied"
@@ -202,8 +203,10 @@ function toNearbySearchLocation({
   return {
     coordinates,
     countryCode: "BO",
+    department: cell.department,
     label: cell.label,
     locationCellLabel: cell.locationCellLabel,
+    municipality: cell.municipality,
     source,
   };
 }
@@ -247,30 +250,4 @@ function squaredDistance(
   );
 }
 
-const knownBoliviaLocationCells = [
-  {
-    coordinates: { latitude: -16.5, longitude: -68.1193 },
-    label: "Zona Sur, La Paz",
-    locationCellLabel: "Zona Sur",
-  },
-  {
-    coordinates: { latitude: -16.5103, longitude: -68.1299 },
-    label: "Sopocachi, La Paz",
-    locationCellLabel: "Sopocachi",
-  },
-  {
-    coordinates: { latitude: -16.5405, longitude: -68.0889 },
-    label: "Achumani, La Paz",
-    locationCellLabel: "Achumani",
-  },
-  {
-    coordinates: { latitude: -17.3895, longitude: -66.1568 },
-    label: "Queru Queru, Cochabamba",
-    locationCellLabel: "Queru Queru",
-  },
-  {
-    coordinates: { latitude: -17.7833, longitude: -63.1821 },
-    label: "Equipetrol, Santa Cruz",
-    locationCellLabel: "Equipetrol",
-  },
-] as const;
+const knownBoliviaLocationCells = boliviaDepartmentLocationOptions;

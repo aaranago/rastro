@@ -60,8 +60,6 @@ export function NearbyScreen() {
         </Text>
       </View>
 
-      <MemberIntentBanner />
-
       <View style={styles.alertSurface}>
         <View style={styles.alertIcon}>
           <ShellIcon
@@ -143,7 +141,6 @@ export function ActivityScreen() {
       scrollIndicatorInsets={{ bottom: bottomInset }}
       style={styles.screen}
     >
-      <MemberIntentBanner />
       <StateCard
         body={isMember ? screen.memberBody : screen.visitorBody}
         icon={isMember ? "bell.badge.fill" : "lock.fill"}
@@ -239,7 +236,6 @@ export function ProfileScreen() {
       scrollIndicatorInsets={{ bottom: bottomInset }}
       style={styles.screen}
     >
-      <MemberIntentBanner />
       <StateCard
         body={profile.body}
         icon={
@@ -329,27 +325,6 @@ function SessionBadge() {
     <View style={styles.sessionBadge}>
       <Text maxFontSizeMultiplier={1.15} style={styles.sessionBadgeText}>
         {label}
-      </Text>
-    </View>
-  );
-}
-
-function MemberIntentBanner() {
-  const { copy, state } = useRastroShell();
-
-  if (!state.memberIntent) {
-    return null;
-  }
-
-  return (
-    <View style={styles.intentBanner}>
-      <ShellIcon
-        color={shellColors.primary}
-        name="checkmark.circle.fill"
-        size={22}
-      />
-      <Text maxFontSizeMultiplier={1.2} style={styles.intentBannerText}>
-        {copy.shell.memberIntentReady(state.memberIntent.label)}
       </Text>
     </View>
   );
@@ -1100,22 +1075,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     gap: 12,
-  },
-  intentBanner: {
-    alignItems: "center",
-    backgroundColor: shellColors.primarySoft,
-    borderColor: "#A9D4C9",
-    borderRadius: 20,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 9,
-    padding: 14,
-  },
-  intentBannerText: {
-    color: shellColors.primaryDark,
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "800",
   },
   locationHint: {
     color: shellColors.muted,

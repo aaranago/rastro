@@ -1,5 +1,13 @@
 import type { RouterInputs, RouterOutputs } from "../../utils/api";
 import type { PublishSightingReportInput } from "./sighting-report-creation-types";
+import {
+  optionalTrimmed,
+  toCreateReportContact,
+  toNearbyVerificationInput,
+  toReadyReportMediaInput,
+  truncate,
+} from "../report-creation/report-creation-publish-adapter";
+import { toReportCreateLocationInput } from "../report-creation/report-location-draft";
 
 export type SightingReportCreateReportInput = RouterInputs["report"]["create"];
 export type SightingReportNearbyReportsInput = RouterInputs["report"]["nearby"];
@@ -30,15 +38,6 @@ export interface SightingReportPublishApiClient {
   };
 }
 
-const productionNearbyVerificationRadiusMeters = 5000;
-const productionNearbyVerificationLimit = 50;
-const productionNearbyVerificationTypes = [
-  "lost_pet",
-  "found_pet",
-  "sighting",
-  "adoption",
-] satisfies NonNullable<SightingReportNearbyReportsInput["types"]>;
-
 const speciesBySightingPetType = {
   Ave: "bird",
   Conejo: "rabbit",
@@ -62,7 +61,7 @@ export function createApiSightingReportPublishHandler({
     const created = await client.report.create.mutate(createInput);
     const detail = await client.report.detail.query({ id: created.id });
     const nearby = await client.report.nearby.query(
-      toNearbyVerificationInput(input),
+      toNearbyVerificationInput(input.exactLocation),
     );
 
     if (detail.id !== created.id || detail.type !== "sighting") {
@@ -89,6 +88,10 @@ export function toCreateSightingReportInput(
 
   const locationCell = input.exactLocation.locationCellLabel.trim();
   const petDescription = truncate(input.pet.description.trim(), 120);
+  const location = toReportCreateLocationInput({
+    exposeExactLocation: input.showExactPublicLocation === true,
+    location: input.exactLocation,
+  });
 
   return {
     contact: toCreateReportContact(input.contactOption),
@@ -101,14 +104,8 @@ export function toCreateSightingReportInput(
     ].join("\n\n"),
     eventOccurredAt: input.observedAt,
     idempotencyKey: input.idempotencyKey,
-    location: {
-      exactLatitude: input.exactLocation.latitude,
-      exactLongitude: input.exactLocation.longitude,
-      exposeExactLocation: input.showExactPublicLocation === true,
-      label: input.exactLocation.addressLabel ?? locationCell,
-      locationCell,
-    },
-    media: [],
+    location,
+    media: toReadyReportMediaInput(input.photos),
     pet: {
       breed: optionalTrimmed(input.pet.breed),
       color: petDescription,
@@ -118,48 +115,4 @@ export function toCreateSightingReportInput(
     title: `${input.pet.type} visto en ${locationCell}`,
     type: "sighting",
   };
-}
-
-function toNearbyVerificationInput(
-  input: PublishSightingReportInput,
-): SightingReportNearbyReportsInput {
-  return {
-    latitude: input.exactLocation.latitude,
-    limit: productionNearbyVerificationLimit,
-    longitude: input.exactLocation.longitude,
-    radiusMeters: productionNearbyVerificationRadiusMeters,
-    statuses: ["active"],
-    types: productionNearbyVerificationTypes,
-  };
-}
-
-function toCreateReportContact(
-  contactOption: PublishSightingReportInput["contactOption"],
-): SightingReportCreateReportInput["contact"] {
-  switch (contactOption.kind) {
-    case "both":
-      return {
-        preference: "both",
-        whatsappPhone: contactOption.phoneNumber?.trim(),
-      };
-    case "in-app-chat":
-      return {
-        preference: "in_app_chat",
-      };
-    case "whatsapp":
-      return {
-        preference: "whatsapp",
-        whatsappPhone: contactOption.phoneNumber?.trim(),
-      };
-  }
-}
-
-function optionalTrimmed(value: string | undefined) {
-  const trimmed = value?.trim() ?? "";
-
-  return trimmed.length > 0 ? trimmed : undefined;
-}
-
-function truncate(value: string, maxLength: number) {
-  return value.length <= maxLength ? value : value.slice(0, maxLength);
 }

@@ -255,11 +255,12 @@ Do not use the Android key for iOS. Google Cloud application restrictions are pl
 6. Rebuild the native client after changing native map keys:
 
    ```bash
-   pnpm -F @acme/expo exec expo prebuild --clean --platform android
-   pnpm -F @acme/expo exec expo run:android --no-build-cache
+   pnpm exec dotenv -e .env -- pnpm -F @acme/expo exec expo prebuild --clean --platform android
+   pnpm exec dotenv -e .env -- pnpm -F @acme/expo exec expo run:android --no-build-cache
    ```
 
-   Equivalent commands from the Expo app directory:
+   Equivalent commands from the Expo app directory, if the key is exported in
+   the current shell instead of only stored in the repo root `.env`:
 
    ```bash
    cd /home/z/Personal/ai/rastro/apps/expo
@@ -273,12 +274,22 @@ Do not use the Android key for iOS. Google Cloud application restrictions are pl
 
    ```bash
    cd /home/z/Personal/ai/rastro
-   pnpm -F @acme/expo exec expo start --dev-client
+   pnpm exec dotenv -e .env -- pnpm -F @acme/expo exec expo start --dev-client
    ```
 
 8. Start the API backend as described in `docs/dev/mobile-runbook.md`.
 
 Changing the env var without rebuilding the dev client is not enough for Android because the key is written into native configuration at build time.
+
+Verify the generated Android manifest before installing a build:
+
+```bash
+pnpm exec dotenv -e .env -- pnpm -F @acme/expo exec expo config --type introspect --json \
+  | rg 'com.google.android.geo.API_KEY'
+```
+
+The command should show `com.google.android.geo.API_KEY` in Android manifest
+metadata. Do not paste the key itself into logs or committed docs.
 
 ## EAS Build Configuration
 

@@ -40,7 +40,9 @@ export interface NearbySearchLocation {
   locationCellLabel: string;
   countryCode: BoliviaCountryCode;
   coordinates?: NearbyCoordinates;
+  department?: string;
   manualLocationKind?: NearbyManualLocationKind;
+  municipality?: string;
 }
 
 export type NearbyLocationState =

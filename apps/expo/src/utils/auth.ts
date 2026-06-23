@@ -1,3 +1,4 @@
+import * as React from "react";
 import Constants from "expo-constants";
 import * as Linking from "expo-linking";
 import * as SecureStore from "expo-secure-store";
@@ -11,6 +12,7 @@ import type {
   ShellAuthActionResult,
   ShellAuthAdapter,
   ShellAuthCredentials,
+  ShellAuthSessionState,
   ShellSocialAuthProvider,
 } from "../features/shell/shell-auth";
 import { shellSocialAuthProviders } from "../features/shell/shell-auth";
@@ -19,6 +21,8 @@ import { getBaseUrl } from "./base-url";
 const mobileAuthScheme = "rastro";
 const mobileAuthCallbackPath = "auth/callback";
 const mobileAuthCookieStorageKey = `${mobileAuthScheme}_cookie`;
+const betterAuthBasePath = "/api/auth";
+const betterAuthCallbackPathSegment = "/callback/";
 
 export const authClient = createAuthClient({
   baseURL: getBaseUrl(),
@@ -80,6 +84,20 @@ export interface ShellSocialAuthHandoffDependencies {
   signInSocial: (
     request: ShellSocialAuthSignInRequest,
   ) => Promise<ShellSocialAuthSignInResult>;
+}
+
+export interface MobileAuthCallbackSearchParams {
+  cookie?: string | string[] | undefined;
+  error?: string | string[] | undefined;
+  error_description?: string | string[] | undefined;
+  message?: string | string[] | undefined;
+}
+
+export interface MobileAuthSessionFetchRequest {
+  baseUrl?: string;
+  cookie: string;
+  fetchImpl?: typeof fetch;
+  signal?: AbortSignal;
 }
 
 function getErrorMessage(error: unknown): string | undefined {
@@ -175,13 +193,43 @@ function createMobileAuthCallbackURL() {
 
 export function createMobileAuthProxyURL(authorizationURL: string) {
   const proxyURL = new URL(
-    "/api/auth/expo-authorization-proxy",
-    new URL(authorizationURL).origin,
+    "expo-authorization-proxy",
+    getMobileAuthProxyBaseURL(authorizationURL),
   );
 
   proxyURL.searchParams.set("authorizationURL", authorizationURL);
 
   return proxyURL.toString();
+}
+
+function getMobileAuthProxyBaseURL(authorizationURL: string) {
+  const redirectURL = getAuthorizationRedirectURL(authorizationURL);
+
+  if (!redirectURL) {
+    return new URL(`${betterAuthBasePath}/`, getBaseUrl());
+  }
+
+  const callbackPathIndex = redirectURL.pathname.indexOf(
+    betterAuthCallbackPathSegment,
+  );
+  const authBasePath =
+    callbackPathIndex === -1
+      ? betterAuthBasePath
+      : redirectURL.pathname.slice(0, callbackPathIndex);
+
+  return new URL(`${authBasePath.replace(/\/+$/, "")}/`, redirectURL.origin);
+}
+
+function getAuthorizationRedirectURL(authorizationURL: string) {
+  const redirectURI = new URL(authorizationURL).searchParams.get(
+    "redirect_uri",
+  );
+
+  if (!redirectURI) {
+    return null;
+  }
+
+  return new URL(redirectURI);
 }
 
 function persistMobileAuthCookie(setCookieHeader: string) {
@@ -192,6 +240,216 @@ function persistMobileAuthCookie(setCookieHeader: string) {
     mobileAuthCookieStorageKey,
     getSetCookie(setCookieHeader, previousCookie),
   );
+  authClient.$store.notify("$sessionSignal");
+}
+
+export async function fetchMobileAuthSessionWithCookie({
+  baseUrl = getBaseUrl(),
+  cookie,
+  fetchImpl = fetch,
+  signal,
+}: MobileAuthSessionFetchRequest): Promise<ShellAuthSessionState["data"]> {
+  const normalizedCookie = cookie.trim();
+
+  if (!normalizedCookie) {
+    return null;
+  }
+
+  const response = await fetchImpl(`${baseUrl}/api/auth/get-session`, {
+    headers: {
+      Cookie: normalizedCookie,
+    },
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Session check failed with ${response.status}`);
+  }
+
+  return normalizeMobileAuthSession(await response.json());
+}
+
+function normalizeMobileAuthSession(
+  value: unknown,
+): ShellAuthSessionState["data"] {
+  if (!isRecord(value) || !isRecord(value.user)) {
+    return null;
+  }
+
+  const user = value.user;
+
+  if (typeof user.id !== "string") {
+    return null;
+  }
+
+  return {
+    session: value.session,
+    user: {
+      email: typeof user.email === "string" ? user.email : undefined,
+      id: user.id,
+      name:
+        typeof user.name === "string" || user.name === null
+          ? user.name
+          : undefined,
+    },
+  };
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function useMobileAuthSession(): ShellAuthSessionState {
+  const authSession = authClient.useSession();
+  const [fallbackSession, setFallbackSession] = React.useState<{
+    data: ShellAuthSessionState["data"];
+    error: unknown;
+    isPending: boolean;
+  }>({
+    data: null,
+    error: null,
+    isPending: false,
+  });
+  const [fallbackRefreshKey, setFallbackRefreshKey] = React.useState(0);
+  const refetchAuthSession = authSession.refetch;
+  const hasAuthClientUser = Boolean(authSession.data?.user);
+  const refetch = React.useCallback(() => {
+    refetchAuthSession();
+    setFallbackRefreshKey((current) => current + 1);
+  }, [refetchAuthSession]);
+
+  React.useEffect(() => {
+    if (authSession.isPending || hasAuthClientUser) {
+      return;
+    }
+
+    const cookie = authClient.getCookie();
+
+    if (!cookie) {
+      setFallbackSession({
+        data: null,
+        error: null,
+        isPending: false,
+      });
+      return;
+    }
+
+    const abortController = new AbortController();
+    let isActive = true;
+
+    setFallbackSession((current) => ({
+      ...current,
+      error: null,
+      isPending: true,
+    }));
+
+    fetchMobileAuthSessionWithCookie({
+      cookie,
+      signal: abortController.signal,
+    })
+      .then((data) => {
+        if (!isActive) {
+          return;
+        }
+
+        setFallbackSession({
+          data,
+          error: null,
+          isPending: false,
+        });
+      })
+      .catch((error: unknown) => {
+        if (!isActive || isAbortError(error)) {
+          return;
+        }
+
+        setFallbackSession({
+          data: null,
+          error,
+          isPending: false,
+        });
+      });
+
+    return () => {
+      isActive = false;
+      abortController.abort();
+    };
+  }, [
+    authSession.data?.user.id,
+    authSession.isPending,
+    fallbackRefreshKey,
+    hasAuthClientUser,
+  ]);
+
+  if (hasAuthClientUser) {
+    return {
+      ...authSession,
+      refetch,
+    };
+  }
+
+  if (fallbackSession.data?.user) {
+    return {
+      ...authSession,
+      data: fallbackSession.data,
+      error: fallbackSession.error,
+      isPending: false,
+      refetch,
+    };
+  }
+
+  return {
+    ...authSession,
+    error: authSession.error ?? fallbackSession.error,
+    isPending: authSession.isPending || fallbackSession.isPending,
+    refetch,
+  };
+}
+
+export function completeMobileAuthCallback(
+  params: MobileAuthCallbackSearchParams,
+): ShellAuthActionResult {
+  const callbackError =
+    getFirstCallbackSearchParam(params.error_description) ??
+    getFirstCallbackSearchParam(params.error) ??
+    getFirstCallbackSearchParam(params.message);
+
+  if (callbackError) {
+    return {
+      message:
+        getLocalizedAuthErrorMessage(callbackError) ??
+        socialAuthMessages.failed,
+      ok: false,
+      reason: "failed",
+    };
+  }
+
+  const setCookieHeader = getFirstCallbackSearchParam(params.cookie);
+
+  if (!setCookieHeader) {
+    return {
+      message: socialAuthMessages.failed,
+      ok: false,
+      reason: "failed",
+    };
+  }
+
+  persistMobileAuthCookie(setCookieHeader);
+
+  return { ok: true };
+}
+
+function getFirstCallbackSearchParam(
+  value: string | string[] | undefined,
+): string | undefined {
+  const firstValue = Array.isArray(value) ? value[0] : value;
+  const normalizedValue = firstValue?.trim();
+
+  if (!normalizedValue) {
+    return undefined;
+  }
+
+  return normalizedValue;
 }
 
 export function getAvailableShellSocialAuthProviders(
@@ -459,5 +717,5 @@ export const shellAuthAdapter: ShellAuthAdapter = {
       signInSocial: (request) => authClient.signIn.social(request),
     }),
   signOut: () => accountClientAdapter.signOut(),
-  useSession: () => authClient.useSession(),
+  useSession: useMobileAuthSession,
 };

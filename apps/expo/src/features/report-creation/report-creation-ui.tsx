@@ -9,6 +9,8 @@ import type {
 import * as React from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,9 +18,15 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 
-import type { DurableCreationDraftPersistence } from "../resilience/use-durable-creation-draft";
+import type { CreationDraftKind } from "../resilience/creation-drafts";
+import type {
+  DurableCreationDraftPersistence,
+  DurableCreationDraftRecovery,
+} from "../resilience/use-durable-creation-draft";
+import type { ReportCreationJourneyStep } from "./report-creation-journey";
 
 export interface ReportCreationFieldViewModel {
   error?: string;
@@ -46,6 +54,10 @@ export interface ReportCreationStep {
   label: string;
 }
 
+export type ReportCreationProgressStep =
+  | ReportCreationJourneyStep
+  | ReportCreationStep;
+
 export interface ReportCreationPetProfileOptionViewModel {
   body: string;
   id: string;
@@ -62,6 +74,109 @@ export type ReportCreationIconComponent = (props: {
   name: string;
   size?: number;
 }) => ReactNode;
+
+const minimumTopSafeArea = 12;
+const screenTopContentSpacing = 16;
+const minimumBottomSafeArea = 16;
+const stickyFooterContentReserve = 88;
+
+export interface ReportCreationScreenInsets {
+  contentInsetBottom: number;
+  contentPaddingTop: number;
+  footerPaddingBottom: number;
+  scrollIndicatorInsetBottom: number;
+}
+
+export function getReportCreationScreenInsets({
+  bottom,
+  hasFooter,
+  top,
+}: {
+  bottom: number;
+  hasFooter: boolean;
+  top: number;
+}): ReportCreationScreenInsets {
+  const safeTop = Math.max(top, minimumTopSafeArea);
+  const safeBottom = Math.max(bottom, minimumBottomSafeArea);
+  const footerReserve = hasFooter ? stickyFooterContentReserve : 0;
+  const bottomContentInset = safeBottom + footerReserve;
+
+  return {
+    contentInsetBottom: bottomContentInset,
+    contentPaddingTop: safeTop + screenTopContentSpacing,
+    footerPaddingBottom: safeBottom,
+    scrollIndicatorInsetBottom: bottomContentInset,
+  };
+}
+
+export function ReportCreationScreenFrame({
+  children,
+  contentContainerStyle,
+  footer,
+  scrollViewRef,
+  style,
+}: {
+  children: ReactNode;
+  contentContainerStyle: StyleProp<ViewStyle>;
+  footer?: ReactNode;
+  scrollViewRef?: React.Ref<React.ComponentRef<typeof ScrollView>>;
+  style: StyleProp<ViewStyle>;
+}) {
+  const safeAreaInsets = useSafeAreaInsets();
+  const screenInsets = getReportCreationScreenInsets({
+    bottom: safeAreaInsets.bottom,
+    hasFooter: Boolean(footer),
+    top: safeAreaInsets.top,
+  });
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={style}
+    >
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={[
+          contentContainerStyle,
+          {
+            paddingBottom: screenInsets.contentInsetBottom,
+            paddingTop: screenInsets.contentPaddingTop,
+          },
+        ]}
+        contentInset={{ bottom: screenInsets.contentInsetBottom }}
+        contentInsetAdjustmentBehavior="never"
+        keyboardShouldPersistTaps="handled"
+        scrollIndicatorInsets={{
+          bottom: screenInsets.scrollIndicatorInsetBottom,
+        }}
+        style={screenFrameStyles.scrollView}
+      >
+        {children}
+      </ScrollView>
+      {footer ? (
+        <View
+          style={[
+            screenFrameStyles.footer,
+            { paddingBottom: screenInsets.footerPaddingBottom },
+          ]}
+          testID="report-creation-frame-footer"
+        >
+          {footer}
+        </View>
+      ) : null}
+    </KeyboardAvoidingView>
+  );
+}
+
+const screenFrameStyles = StyleSheet.create({
+  footer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  scrollView: {
+    flex: 1,
+  },
+});
 
 export interface ReportCreationStyles {
   actionButton: StyleProp<ViewStyle>;
@@ -180,29 +295,6 @@ export function useReportCreationPetDraftUpdaters<
   };
 }
 
-export function ReportCreationEditorScrollView({
-  bottomInset,
-  children,
-  styles,
-}: {
-  bottomInset: number;
-  children: ReactNode;
-  styles: ReportCreationStyles;
-}) {
-  return (
-    <ScrollView
-      contentContainerStyle={styles.content}
-      contentInset={{ bottom: bottomInset }}
-      contentInsetAdjustmentBehavior="automatic"
-      keyboardShouldPersistTaps="handled"
-      scrollIndicatorInsets={{ bottom: bottomInset }}
-      style={styles.screen}
-    >
-      {children}
-    </ScrollView>
-  );
-}
-
 export function ReportCreationSection({
   children,
   styles,
@@ -282,6 +374,113 @@ export function ReportCreationField({
   );
 }
 
+export function ReportCreationDraftRecoveryPrompt<K extends CreationDraftKind>({
+  draftRecovery,
+  onDiscardDraft,
+  onResumeDraft,
+}: {
+  draftRecovery: DurableCreationDraftRecovery<K>;
+  onDiscardDraft: () => Promise<void> | void;
+  onResumeDraft: () => void;
+}) {
+  if (draftRecovery.status === "available") {
+    return (
+      <View
+        accessibilityLiveRegion="polite"
+        accessibilityRole="alert"
+        style={draftRecoveryPromptStyles.container}
+      >
+        <Text selectable style={draftRecoveryPromptStyles.title}>
+          Encontramos un borrador guardado.
+        </Text>
+        <Text selectable style={draftRecoveryPromptStyles.body}>
+          Puedes retomarlo o descartarlo para empezar de nuevo.
+        </Text>
+        <View style={draftRecoveryPromptStyles.actions}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onResumeDraft}
+            style={[
+              draftRecoveryPromptStyles.button,
+              draftRecoveryPromptStyles.primaryButton,
+            ]}
+          >
+            <Text
+              maxFontSizeMultiplier={1.1}
+              style={[
+                draftRecoveryPromptStyles.buttonText,
+                draftRecoveryPromptStyles.primaryButtonText,
+              ]}
+            >
+              Retomar borrador
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onDiscardDraft}
+            style={[
+              draftRecoveryPromptStyles.button,
+              draftRecoveryPromptStyles.secondaryButton,
+            ]}
+          >
+            <Text
+              maxFontSizeMultiplier={1.1}
+              style={[
+                draftRecoveryPromptStyles.buttonText,
+                draftRecoveryPromptStyles.secondaryButtonText,
+              ]}
+            >
+              Descartar borrador
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (draftRecovery.status === "incompatible") {
+    return (
+      <View
+        accessibilityLiveRegion="polite"
+        accessibilityRole="alert"
+        style={[
+          draftRecoveryPromptStyles.container,
+          draftRecoveryPromptStyles.incompatibleContainer,
+        ]}
+      >
+        <Text selectable style={draftRecoveryPromptStyles.title}>
+          No pudimos abrir el borrador guardado.
+        </Text>
+        <Text selectable style={draftRecoveryPromptStyles.body}>
+          {draftRecovery.reason} Puedes descartarlo para empezar de nuevo.
+        </Text>
+        <View style={draftRecoveryPromptStyles.actions}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onDiscardDraft}
+            style={[
+              draftRecoveryPromptStyles.button,
+              draftRecoveryPromptStyles.primaryButton,
+            ]}
+          >
+            <Text
+              maxFontSizeMultiplier={1.1}
+              style={[
+                draftRecoveryPromptStyles.buttonText,
+                draftRecoveryPromptStyles.primaryButtonText,
+              ]}
+            >
+              Descartar borrador
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  return null;
+}
+
 const draftPersistenceAlertStyles = StyleSheet.create({
   container: {
     backgroundColor: "#FFF2F1",
@@ -297,6 +496,66 @@ const draftPersistenceAlertStyles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     lineHeight: 20,
+  },
+});
+
+const draftRecoveryPromptStyles = StyleSheet.create({
+  actions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  body: {
+    color: "#365146",
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  button: {
+    alignItems: "center",
+    borderRadius: 8,
+    borderWidth: 1,
+    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  buttonText: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  container: {
+    backgroundColor: "#EEF8F3",
+    borderColor: "#2E8F62",
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  incompatibleContainer: {
+    backgroundColor: "#FFF7E8",
+    borderColor: "#C77718",
+  },
+  primaryButton: {
+    backgroundColor: "#1F7A4D",
+    borderColor: "#1F7A4D",
+  },
+  primaryButtonText: {
+    color: "#FFFFFF",
+  },
+  secondaryButton: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#9EB3A8",
+  },
+  secondaryButtonText: {
+    color: "#1F7A4D",
+  },
+  title: {
+    color: "#183F2B",
+    fontSize: 15,
+    fontWeight: "800",
+    lineHeight: 21,
+    marginBottom: 4,
   },
 });
 
@@ -578,37 +837,198 @@ export function ReportCreationProgressSteps({
   steps,
   styles,
 }: {
-  steps: ReportCreationStep[];
+  steps: readonly ReportCreationProgressStep[];
   styles: ReportCreationStyles;
 }) {
+  const currentStepIndex = getReportCreationProgressCurrentStepIndex(steps);
+  const progressText = `Paso ${currentStepIndex + 1} de ${steps.length}`;
+
   return (
-    <View style={styles.steps}>
-      {steps.slice(0, 4).map((step, index) => (
-        <View key={step.id} style={styles.stepItem}>
+    <View style={[styles.steps, progressStepStyles.steps]}>
+      <Text
+        accessibilityLabel={`Progreso de creacion, ${progressText}`}
+        accessibilityRole="progressbar"
+        accessibilityValue={{
+          max: steps.length,
+          min: 1,
+          now: currentStepIndex + 1,
+          text: progressText,
+        }}
+        maxFontSizeMultiplier={1.2}
+        style={[styles.stepLabel, progressStepStyles.progressText]}
+      >
+        {progressText}
+      </Text>
+      {steps.map((step, index) => {
+        const status = getReportCreationProgressStepStatus(
+          step,
+          index,
+          currentStepIndex,
+        );
+        const isCompleted = status === "completed";
+        const isCurrent = status === "current";
+        const stateLabel = getReportCreationProgressStateLabel(status);
+        const stepProgressText = `Paso ${index + 1} de ${steps.length}`;
+
+        return (
           <View
-            style={[
-              styles.stepDot,
-              step.isComplete ? styles.stepDotComplete : null,
-            ]}
+            accessible
+            accessibilityLabel={`${stepProgressText}, ${step.label}, ${getReportCreationProgressAccessibilityStateLabel(status)}`}
+            accessibilityRole="text"
+            accessibilityState={{
+              checked: isCompleted,
+              disabled: status === "upcoming",
+              selected: isCurrent,
+            }}
+            key={step.id}
+            style={[styles.stepItem, progressStepStyles.stepItem]}
           >
-            <Text
-              maxFontSizeMultiplier={1}
+            <View
               style={[
-                styles.stepNumber,
-                step.isComplete ? styles.stepNumberComplete : null,
+                styles.stepDot,
+                isCompleted ? styles.stepDotComplete : null,
+                isCurrent ? progressStepStyles.stepDotCurrent : null,
+                status === "upcoming"
+                  ? progressStepStyles.stepDotUpcoming
+                  : null,
               ]}
             >
-              {index + 1}
+              <Text
+                maxFontSizeMultiplier={1.1}
+                style={[
+                  styles.stepNumber,
+                  isCompleted ? styles.stepNumberComplete : null,
+                ]}
+              >
+                {index + 1}
+              </Text>
+            </View>
+            <Text
+              maxFontSizeMultiplier={1.2}
+              style={[styles.stepLabel, progressStepStyles.stepLabel]}
+            >
+              {step.label}
+            </Text>
+            <Text
+              maxFontSizeMultiplier={1.1}
+              style={[styles.stepLabel, progressStepStyles.stepStatus]}
+            >
+              {stateLabel}
             </Text>
           </View>
-          <Text maxFontSizeMultiplier={1.05} style={styles.stepLabel}>
-            {step.label}
-          </Text>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
+
+function getReportCreationProgressCurrentStepIndex(
+  steps: readonly ReportCreationProgressStep[],
+) {
+  const canonicalCurrentStepIndex = steps.findIndex(
+    (step) => "status" in step && step.status === "current",
+  );
+
+  if (canonicalCurrentStepIndex >= 0) {
+    return canonicalCurrentStepIndex;
+  }
+
+  const firstIncompleteStepIndex = steps.findIndex(
+    (step) => "isComplete" in step && !step.isComplete,
+  );
+
+  if (firstIncompleteStepIndex >= 0) {
+    return firstIncompleteStepIndex;
+  }
+
+  return Math.max(steps.length - 1, 0);
+}
+
+function getReportCreationProgressStepStatus(
+  step: ReportCreationProgressStep,
+  index: number,
+  currentStepIndex: number,
+) {
+  if ("status" in step) {
+    return step.status;
+  }
+
+  if (index < currentStepIndex) {
+    return "completed";
+  }
+
+  if (index === currentStepIndex) {
+    return "current";
+  }
+
+  return "upcoming";
+}
+
+function getReportCreationProgressStateLabel(
+  status: ReportCreationJourneyStep["status"],
+) {
+  switch (status) {
+    case "completed":
+      return "Completado";
+    case "current":
+      return "Actual";
+    case "upcoming":
+      return "Pendiente";
+  }
+}
+
+function getReportCreationProgressAccessibilityStateLabel(
+  status: ReportCreationJourneyStep["status"],
+) {
+  switch (status) {
+    case "completed":
+      return "completado";
+    case "current":
+      return "paso actual";
+    case "upcoming":
+      return "pendiente";
+  }
+}
+
+const progressStepStyles = StyleSheet.create({
+  progressText: {
+    flexBasis: "100%",
+    fontWeight: "700",
+    marginBottom: 2,
+    textAlign: "left",
+    width: "100%",
+  },
+  stepDotCurrent: {
+    borderWidth: 2,
+    transform: [{ scale: 1.08 }],
+  },
+  stepDotUpcoming: {
+    opacity: 0.55,
+  },
+  stepItem: {
+    flexBasis: 92,
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 86,
+  },
+  stepLabel: {
+    flexShrink: 1,
+    textAlign: "center",
+  },
+  steps: {
+    alignItems: "stretch",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  stepStatus: {
+    flexShrink: 1,
+    fontSize: 11,
+    fontWeight: "700",
+    lineHeight: 14,
+    marginTop: 2,
+    textAlign: "center",
+  },
+});
 
 export function ReportCreationToggleRow({
   body,
@@ -809,6 +1229,9 @@ export function ReportCreationReviewPublishSection({
   title?: string;
   validationErrors: string[];
 }) {
+  const isPublishing = publishState === "publishing";
+  const isPublishDisabled = !canPublish || isPublishing;
+
   return (
     <ReportCreationSection styles={styles} title={title}>
       <View style={styles.reviewList}>
@@ -823,19 +1246,37 @@ export function ReportCreationReviewPublishSection({
           </View>
         ))}
       </View>
-      {validationErrors.map((error) => (
-        <Text key={error} maxFontSizeMultiplier={1.2} style={styles.errorText}>
-          {error}
-        </Text>
-      ))}
+      {validationErrors.length > 0 ? (
+        <View accessibilityLiveRegion="polite" accessibilityRole="alert">
+          {validationErrors.map((error) => (
+            <Text
+              key={error}
+              maxFontSizeMultiplier={1.2}
+              style={styles.errorText}
+            >
+              {error}
+            </Text>
+          ))}
+        </View>
+      ) : null}
       {submitError ? (
-        <Text maxFontSizeMultiplier={1.2} style={styles.errorText}>
-          {submitError}
-        </Text>
+        <View accessibilityLiveRegion="polite" accessibilityRole="alert">
+          <Text maxFontSizeMultiplier={1.2} style={styles.errorText}>
+            {submitError}
+          </Text>
+        </View>
       ) : null}
       <Pressable
+        accessibilityLabel={getReportCreationPublishAccessibilityLabel({
+          publishActionLabel,
+          publishState,
+        })}
         accessibilityRole="button"
-        disabled={!canPublish || publishState === "publishing"}
+        accessibilityState={{
+          busy: isPublishing,
+          disabled: isPublishDisabled,
+        }}
+        disabled={isPublishDisabled}
         onPress={onPublish}
         style={({ pressed }) => [
           styles.publishButton,
@@ -860,4 +1301,26 @@ export function ReportCreationReviewPublishSection({
       </Pressable>
     </ReportCreationSection>
   );
+}
+
+function getReportCreationPublishAccessibilityLabel({
+  publishActionLabel,
+  publishState,
+}: {
+  publishActionLabel: string;
+  publishState: ReportCreationPublishState;
+}) {
+  if (publishState !== "publishing") {
+    return publishActionLabel;
+  }
+
+  if (/^Publicar\s+/i.test(publishActionLabel)) {
+    return publishActionLabel.replace(/^Publicar\s+/i, "Publicando ");
+  }
+
+  if (/^Publicar$/i.test(publishActionLabel)) {
+    return "Publicando";
+  }
+
+  return `Publicando. ${publishActionLabel}`;
 }

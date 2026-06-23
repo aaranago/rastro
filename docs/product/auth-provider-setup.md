@@ -8,13 +8,13 @@ The current auth route is `/api/auth/callback/{provider}`. Provider dashboards m
 
 Replace `YOUR_DOMAIN` with the production host used by `BETTER_AUTH_URL`, without a trailing slash. If staging, preview, or a second production host is used, register that host separately in each provider dashboard.
 
-| Provider | Local callback URL                                 | Production callback URL                          |
-| -------- | -------------------------------------------------- | ------------------------------------------------ |
-| Google   | `http://localhost:3000/api/auth/callback/google`   | `https://YOUR_DOMAIN/api/auth/callback/google`   |
-| Facebook | `http://localhost:3000/api/auth/callback/facebook` | `https://YOUR_DOMAIN/api/auth/callback/facebook` |
-| Apple    | Not supported on `localhost`                       | `https://YOUR_DOMAIN/api/auth/callback/apple`    |
+| Provider | Local web callback URL                             | Android/ngrok callback URL                      | Production callback URL                          |
+| -------- | -------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------ |
+| Google   | `http://localhost:3000/api/auth/callback/google`   | `https://NGROK_HOST/api/auth/callback/google`   | `https://YOUR_DOMAIN/api/auth/callback/google`   |
+| Facebook | `http://localhost:3000/api/auth/callback/facebook` | `https://NGROK_HOST/api/auth/callback/facebook` | `https://YOUR_DOMAIN/api/auth/callback/facebook` |
+| Apple    | Not supported on `localhost`                       | Use an HTTPS staging or production domain       | `https://YOUR_DOMAIN/api/auth/callback/apple`    |
 
-Use `BETTER_AUTH_URL=http://localhost:3000` locally and `BETTER_AUTH_URL=https://YOUR_DOMAIN` in production. Google and Facebook can be validated locally with the callback URLs above. Apple requires a real HTTPS return URL, so validate Apple against production or an HTTPS staging domain registered in Apple Developer.
+Use `BETTER_AUTH_URL=http://localhost:3000` for local desktop web checks and `BETTER_AUTH_URL=https://YOUR_DOMAIN` in production. For Android Expo social-login validation through ngrok, set `BETTER_AUTH_URL=https://NGROK_HOST`, register the matching Google and Facebook callback URLs above, and restart both the Next.js backend and the Expo dev-client process. Apple requires a real HTTPS return URL, so validate Apple against production or an HTTPS staging domain registered in Apple Developer.
 
 Do not add trailing slashes, wildcards, query strings, or domain-only entries unless the provider specifically asks for them. OAuth redirect URI matching is scheme, host, path, and trailing-slash sensitive.
 
@@ -101,10 +101,11 @@ Use a Google OAuth Web application client. Do not use Android, iOS, desktop, or 
 4. Select application type `Web application`.
 5. Add these Authorized redirect URIs exactly:
    - `http://localhost:3000/api/auth/callback/google`
+   - `https://NGROK_HOST/api/auth/callback/google` for Android local validation
    - `https://YOUR_DOMAIN/api/auth/callback/google`
-6. Google permits `http://localhost` for local testing. Production redirect URIs must use HTTPS and a domain Rastro owns or is authorized to use.
+6. Google permits `http://localhost` for local testing. Android emulator aliases, LAN IPs, and `10.0.2.2` are not valid Google OAuth redirect hosts; use an HTTPS ngrok/staging/production host instead.
 7. Copy the Web application Client ID to `AUTH_GOOGLE_ID` and Client Secret to `AUTH_GOOGLE_SECRET`.
-8. Validate locally with `BETTER_AUTH_URL=http://localhost:3000`, then validate production with `BETTER_AUTH_URL=https://YOUR_DOMAIN`.
+8. Validate local desktop web with `BETTER_AUTH_URL=http://localhost:3000`, Android/ngrok with `BETTER_AUTH_URL=https://NGROK_HOST`, then production with `BETTER_AUTH_URL=https://YOUR_DOMAIN`.
 
 Sources:
 
@@ -127,13 +128,14 @@ Use the Meta app's Facebook Login product for the Better Auth server callback.
    - Web OAuth Login.
 5. In Valid OAuth Redirect URIs, add these entries exactly:
    - `http://localhost:3000/api/auth/callback/facebook`
+   - `https://NGROK_HOST/api/auth/callback/facebook` for Android local validation
    - `https://YOUR_DOMAIN/api/auth/callback/facebook`
 6. Keep strict redirect URI matching enabled. Do not rely on a domain-only callback, wildcard, or alternate path.
 7. Keep permissions minimal:
    - `public_profile`
    - `email`
 8. While the app is in Development mode, only app admins, developers, testers, and test users can complete Facebook Login. Add the human validators as app roles or test users before local validation, then switch the app to Live only when production policy, privacy, and data-use requirements are ready.
-9. Validate locally with `BETTER_AUTH_URL=http://localhost:3000`, then validate production with `BETTER_AUTH_URL=https://YOUR_DOMAIN`.
+9. Validate local desktop web with `BETTER_AUTH_URL=http://localhost:3000`, Android/ngrok with `BETTER_AUTH_URL=https://NGROK_HOST`, then production with `BETTER_AUTH_URL=https://YOUR_DOMAIN`.
 
 Sources:
 

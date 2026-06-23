@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { Database } from "@acme/db/client";
 import type { CreateUploadSessionInput, ReportType } from "@acme/validators";
-import { and, asc, eq, inArray, isNull, lt } from "@acme/db";
+import { and, asc, eq, inArray, isNull, lt, or } from "@acme/db";
 import { ReportMedia } from "@acme/db/schema";
 
 export type ReportMediaUploadStatus =
@@ -233,8 +233,17 @@ export function createDrizzleReportMediaRepository(
         .from(ReportMedia)
         .where(
           and(
-            eq(ReportMedia.status, "pending"),
-            lt(ReportMedia.expiresAt, expiredBefore),
+            isNull(ReportMedia.reportId),
+            or(
+              and(
+                eq(ReportMedia.status, "pending"),
+                lt(ReportMedia.expiresAt, expiredBefore),
+              ),
+              and(
+                eq(ReportMedia.status, "failed"),
+                lt(ReportMedia.failedAt, expiredBefore),
+              ),
+            ),
           ),
         )
         .orderBy(asc(ReportMedia.expiresAt))

@@ -106,6 +106,7 @@ export type AdoptionListingPetProfileSelection =
   | {
       kind: "existing";
       petProfileId: string;
+      profile?: Omit<CreatePetProfileInput, "photos">;
     }
   | {
       kind: "inline";
@@ -117,6 +118,7 @@ export interface PublishAdoptionListingInput {
   contactOption: AdoptionListingContactOption;
   exactLocation: AdoptionListingExactLocation;
   healthNotes?: string;
+  idempotencyKey?: string;
   idealHome?: string;
   petProfile: AdoptionListingPetProfileSelection;
   photos: readonly PetProfilePhotoSource[];

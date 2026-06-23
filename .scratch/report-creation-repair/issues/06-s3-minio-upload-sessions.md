@@ -1,7 +1,7 @@
 # RC-003 Add backend-owned media upload sessions for S3/MinIO
 
-Status: ready-for-human
-Labels: ready-for-human
+Status: verified-runbook
+Labels: verified-runbook
 Severity: P0
 Issue ID: RC-003
 Type: AFK
@@ -133,3 +133,10 @@ Add a backend-owned object-storage abstraction and upload-session protocol compa
 - Completion now verifies object `Content-Type`, byte length, width, height, checksum when present, `mediaId`, and `sizeBytes` metadata before marking media ready.
 - Added `/api/jobs/report-media-cleanup` as the server-side scheduled cleanup entrypoint protected by `RASTRO_JOB_SECRET`.
 - Automated checks pass. Real MinIO/AWS integration tests remain gated by `RASTRO_STORAGE_INTEGRATION=1` and a reachable disposable bucket.
+
+### 2026-06-22 verification checkpoint
+
+- Fresh Verifier RC-003-V returned no findings after the failed-upload cleanup fix.
+- Runbook-backed storage verification passed with the deployed MinIO/S3 env: `pnpm dotenv -e .env -- env RASTRO_STORAGE_INTEGRATION=1 pnpm -F @acme/api test -- src/media-storage.integration.test.ts` passed with 5 files passed, 1 skipped; 25 tests passed, 2 skipped.
+- Database integration passed: `pnpm dotenv -e .env -- env RASTRO_DB_INTEGRATION=1 pnpm -F @acme/api test -- src/report-repository.integration.test.ts` passed with 5 files passed, 1 skipped; 26 tests passed, 1 skipped.
+- Cleanup entrypoint and type safety passed: `pnpm -F @acme/nextjs test -- src/app/api/jobs/report-media-cleanup/route.test.ts`, `pnpm -F @acme/api exec tsc --noEmit --pretty false`, and `pnpm -F @acme/nextjs exec tsc --noEmit --pretty false`.

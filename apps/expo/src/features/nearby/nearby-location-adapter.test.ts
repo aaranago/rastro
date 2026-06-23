@@ -7,7 +7,10 @@ import {
   getNearbyManualLocationOptionLabel,
   toNearbyLocationState,
 } from "./nearby-location-state";
-import { nearbyManualLocationOptions } from "./nearby-locations";
+import {
+  boliviaDepartmentLocationOptions,
+  nearbyManualLocationOptions,
+} from "./nearby-locations";
 
 describe("Nearby foreground location adapter", () => {
   it("resolves explicit foreground location actions from current or last-known coordinates without watchers", async () => {
@@ -34,8 +37,10 @@ describe("Nearby foreground location adapter", () => {
           longitude: -68.1195,
         },
         countryCode: "BO",
-        label: "Zona Sur, La Paz",
-        locationCellLabel: "Zona Sur",
+        department: "La Paz",
+        label: "La Paz",
+        locationCellLabel: "La Paz",
+        municipality: "La Paz",
         source: "current",
       },
     });
@@ -76,8 +81,10 @@ describe("Nearby foreground location adapter", () => {
           longitude: -66.1568,
         },
         countryCode: "BO",
-        label: "Queru Queru, Cochabamba",
-        locationCellLabel: "Queru Queru",
+        department: "Cochabamba",
+        label: "Cochabamba",
+        locationCellLabel: "Cochabamba",
+        municipality: "Cochabamba",
         source: "last",
       },
     });
@@ -113,13 +120,13 @@ describe("Nearby foreground location adapter", () => {
     expect(locationState).toMatchObject({
       kind: "ready",
       location: {
-        label: "Zona Sur, La Paz",
+        label: "La Paz",
         source: "current",
       },
     });
     expect(query).toMatchObject({
       location: {
-        label: "Zona Sur, La Paz",
+        label: "La Paz",
         source: "current",
       },
       radiusKm: 5,
@@ -169,15 +176,41 @@ describe("Nearby foreground location adapter", () => {
     expect(unavailableState).toEqual({ kind: "unavailable" });
 
     expect(
+      boliviaDepartmentLocationOptions.map((option) => option.department),
+    ).toEqual([
+      "La Paz",
+      "Santa Cruz",
+      "Cochabamba",
+      "Chuquisaca",
+      "Tarija",
+      "Oruro",
+      "Potosi",
+      "Beni",
+      "Pando",
+    ]);
+    expect(
       nearbyManualLocationOptions.map(getNearbyManualLocationOptionLabel),
     ).toEqual([
-      "Zona Sur, La Paz",
-      "Sopocachi, La Paz",
-      "Queru Queru, Cochabamba",
+      "La Paz",
+      "Santa Cruz de la Sierra",
+      "Cochabamba",
+      "Sucre",
+      "Tarija",
+      "Oruro",
+      "Potosi",
+      "Trinidad",
+      "Cobija",
       "Elegir punto en el mapa",
     ]);
 
-    const selectedManualLocation = nearbyManualLocationOptions[1];
+    const selectedManualLocation = nearbyManualLocationOptions.find(
+      (option) => option.label === "Santa Cruz de la Sierra",
+    );
+
+    if (!selectedManualLocation) {
+      throw new Error("Expected Santa Cruz manual location option.");
+    }
+
     const manualState = applyManualNearbySearchLocation(selectedManualLocation);
     const manualQuery = buildNearbySearchQuery({
       locationState: manualState,
@@ -188,15 +221,17 @@ describe("Nearby foreground location adapter", () => {
       kind: "ready",
       location: {
         countryCode: "BO",
-        label: "Sopocachi, La Paz",
-        locationCellLabel: "Sopocachi",
+        department: "Santa Cruz",
+        label: "Santa Cruz de la Sierra",
+        locationCellLabel: "Santa Cruz de la Sierra",
         manualLocationKind: "place",
+        municipality: "Santa Cruz de la Sierra",
         source: "manual",
       },
     });
     expect(manualQuery).toMatchObject({
       location: {
-        label: "Sopocachi, La Paz",
+        label: "Santa Cruz de la Sierra",
         source: "manual",
       },
       radiusKm: 10,

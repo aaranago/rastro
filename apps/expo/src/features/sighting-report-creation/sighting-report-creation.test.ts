@@ -24,6 +24,76 @@ describe("Sighting Report creation view model", () => {
     });
   });
 
+  it("exposes canonical journey data and suppresses sighting validation until the details or contact step is attempted", () => {
+    const draft = createSightingReportDraft({
+      contact: {
+        inAppChatEnabled: false,
+        whatsappEnabled: false,
+        whatsappPhone: "",
+      },
+    });
+
+    const quietViewModel = buildSightingReportCreationViewModel({
+      draft,
+      journey: {
+        completedStepIds: ["chooseType", "photos"],
+        currentStepId: "details",
+      },
+      validationDisplay: {},
+    });
+
+    expect(quietViewModel.journey).toMatchObject({
+      currentStep: {
+        id: "details",
+        status: "current",
+      },
+      progressText: "Paso 3 de 8",
+      reportType: "sighting",
+    });
+    expect(
+      quietViewModel.journey.steps.filter((step) => step.status === "current"),
+    ).toHaveLength(1);
+    expect(
+      quietViewModel.sightingDetails.fields.observedAtLabel.error,
+    ).toBeUndefined();
+    expect(quietViewModel.pet.fields.description.error).toBeUndefined();
+    expect(quietViewModel.contact.error).toBeUndefined();
+    expect(quietViewModel.review.validationErrors).toEqual([]);
+
+    const attemptedDetailsViewModel = buildSightingReportCreationViewModel({
+      draft,
+      journey: {
+        completedStepIds: ["chooseType", "photos"],
+        currentStepId: "details",
+      },
+      validationDisplay: {
+        attemptedStepId: "details",
+      },
+    });
+
+    expect(
+      attemptedDetailsViewModel.sightingDetails.fields.observedAtLabel.error,
+    ).toBe("Indica cuando fue visto.");
+    expect(attemptedDetailsViewModel.pet.fields.description.error).toBe(
+      "Agrega senas visibles de la mascota vista.",
+    );
+
+    const attemptedContactViewModel = buildSightingReportCreationViewModel({
+      draft,
+      journey: {
+        completedStepIds: ["chooseType", "photos", "details", "location"],
+        currentStepId: "contact",
+      },
+      validationDisplay: {
+        attemptedStepId: "contact",
+      },
+    });
+
+    expect(attemptedContactViewModel.contact.error).toBe(
+      "Elige chat, WhatsApp o ambos.",
+    );
+  });
+
   it("requires time, exact internal location, description, condition, direction, and visible pet details when no photo is present", () => {
     const viewModel = buildSightingReportCreationViewModel({
       draft: createSightingReportDraft(),
@@ -48,13 +118,13 @@ describe("Sighting Report creation view model", () => {
   it("lets a member publish a useful no-photo Sighting Report with Spanish sighting-specific copy", () => {
     const draft = createSightingReportDraft({
       exactSightingLocation: {
-        addressLabel: "Plaza Abaroa, La Paz",
+        addressLabel: "  Plaza Abaroa, La Paz  ",
         coordinates: {
           latitude: -16.5103,
           longitude: -68.1299,
         },
         department: "La Paz",
-        locationCellLabel: "Sopocachi",
+        locationCellLabel: "  Sopocachi  ",
         municipality: "La Paz",
       },
       pet: {
@@ -69,6 +139,7 @@ describe("Sighting Report creation view model", () => {
         observedAtLabel: "2026-06-18T10:15:00.000Z",
         observedCondition: "Asustado, caminando rapido, sin heridas visibles.",
       },
+      showExactPinPublicly: true,
     });
 
     const viewModel = buildSightingReportCreationViewModel({
@@ -98,9 +169,97 @@ describe("Sighting Report creation view model", () => {
       observedAt: "2026-06-18T10:15:00.000Z",
       observedCondition: "Asustado, caminando rapido, sin heridas visibles.",
       photos: [],
+      showExactPublicLocation: true,
       sightingDescription:
         "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.",
     });
+  });
+
+  it("keeps sighting photos optional while publishing only ready uploaded media IDs", () => {
+    const draft = createSightingReportDraft({
+      exactSightingLocation: {
+        addressLabel: "Plaza Abaroa, La Paz",
+        coordinates: {
+          latitude: -16.5103,
+          longitude: -68.1299,
+        },
+        department: "La Paz",
+        locationCellLabel: "Sopocachi",
+        municipality: "La Paz",
+      },
+      pet: {
+        breed: "Mestizo",
+        description: "Patas blancas, collar verde y orejas caidas.",
+        type: "Perro",
+      },
+      photos: [
+        {
+          id: "sighting-uploading-1",
+          progress: 0.5,
+          status: "uploading",
+          uri: "file:///sighting-uploading.heic",
+        },
+        {
+          id: "sighting-local-1",
+          mediaId: "sighting-media-1",
+          status: "ready",
+          uri: "file:///sighting-ready.heic",
+        },
+      ],
+      sightingDetails: {
+        description:
+          "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.",
+        direction: "Iba hacia la avenida 20 de Octubre.",
+        observedAtLabel: "2026-06-18T10:15:00.000Z",
+        observedCondition: "Asustado, caminando rapido, sin heridas visibles.",
+      },
+    });
+
+    const viewModel = buildSightingReportCreationViewModel({
+      draft,
+      validationDisplay: {
+        attemptedStepId: "photos",
+      },
+    });
+    const publishInput = toPublishSightingReportInput({ draft });
+
+    expect(viewModel.canPublish).toBe(true);
+    expect(viewModel.photos.error).toBe(
+      "Espera a que las fotos terminen de subirse.",
+    );
+    expect(publishInput.photos).toEqual([
+      { id: "sighting-media-1", uri: "file:///sighting-ready.heic" },
+    ]);
+  });
+
+  it("rejects a sighting report publish location outside Bolivia", () => {
+    const draft = createSightingReportDraft({
+      exactSightingLocation: {
+        addressLabel: "Fuera de Bolivia",
+        coordinates: {
+          latitude: -24,
+          longitude: -68.1299,
+        },
+        department: "La Paz",
+        locationCellLabel: "Sopocachi",
+        municipality: "La Paz",
+      },
+      pet: {
+        breed: "Mestizo",
+        description: "Patas blancas, collar verde y orejas caidas.",
+        type: "Perro",
+      },
+      sightingDetails: {
+        description: "Paso por la esquina de la plaza.",
+        direction: "Iba hacia la avenida 20 de Octubre.",
+        observedAtLabel: "2026-06-18T10:15:00.000Z",
+        observedCondition: "Asustado, caminando rapido.",
+      },
+    });
+
+    expect(() => toPublishSightingReportInput({ draft })).toThrow(
+      "Selecciona una ubicacion dentro de Bolivia.",
+    );
   });
 
   it("carries the same draft idempotency key into repeated publish attempts", () => {

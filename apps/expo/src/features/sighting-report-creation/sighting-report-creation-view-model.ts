@@ -1,4 +1,8 @@
 import type {
+  ReportCreationJourney,
+  ReportCreationJourneyStepId,
+} from "../report-creation/report-creation-journey";
+import type {
   PublishSightingReportInput,
   SightingReportContactDraft,
   SightingReportContactOption,
@@ -7,7 +11,17 @@ import type {
   SightingReportDraft,
   SightingReportPhoto,
 } from "./sighting-report-creation-types";
+import {
+  createReportCreationJourney,
+  deriveReportCreationJourney,
+} from "../report-creation/report-creation-journey";
+import {
+  appendReportCreationLocationErrors,
+  getOptionalReportCreationPhotoStepError,
+  getReadyUploadedReportCreationPhotos,
+} from "../report-creation/report-creation-media-validation";
 import { buildReportCreationContactViewModel } from "../report-creation/report-creation-view-model";
+import { toReportLocationPublishInput } from "../report-creation/report-location-draft";
 import { sightingReportPetTypeOptions } from "./sighting-report-creation-types";
 
 const sightingReportPhotoLimit = 5;
@@ -16,6 +30,7 @@ const sightingObservedAtIsoError =
 
 export interface SightingReportCreationViewModel {
   canPublish: boolean;
+  journey: ReportCreationJourney;
   contact: {
     currentOption: SightingReportContactOption;
     error?: string;
@@ -105,6 +120,15 @@ export interface SightingReportFieldViewModel {
   value: string;
 }
 
+export interface SightingReportCreationJourneyInput {
+  completedStepIds?: readonly ReportCreationJourneyStepId[];
+  currentStepId?: ReportCreationJourneyStepId;
+}
+
+export interface SightingReportCreationValidationDisplayInput {
+  attemptedStepId?: ReportCreationJourneyStepId;
+}
+
 export function createSightingReportDraft(
   overrides: Partial<SightingReportDraft> = {},
 ): SightingReportDraft {
@@ -167,32 +191,52 @@ export function ensureSightingReportDraftIdempotencyKey({
 
 export function buildSightingReportCreationViewModel({
   draft,
+  journey,
   session,
+  validationDisplay,
 }: {
   draft: SightingReportDraft;
+  journey?: SightingReportCreationJourneyInput;
   session?: SightingReportCreationSession;
+  validationDisplay?: SightingReportCreationValidationDisplayInput;
 }): SightingReportCreationViewModel {
   const validationErrors = validateSightingReportDraft(draft);
+  const readyPhotos = getReadyUploadedPhotos(draft.photos);
   const contactOption = getContactOption(draft.contact);
   const canPublish = validationErrors.length === 0;
+  const showContactValidation = shouldShowValidationError(
+    validationDisplay,
+    "contact",
+  );
+  const showDetailsValidation = shouldShowValidationError(
+    validationDisplay,
+    "details",
+  );
 
   return {
     canPublish,
-    contact: buildReportCreationContactViewModel({
+    journey: buildSightingReportJourney({
+      draft,
+      journey,
+    }),
+    contact: buildSightingContactViewModel({
       contact: draft.contact,
       currentOption: contactOption,
-      error: getContactError(draft.contact),
       options: buildContactOptions(contactOption),
+      showValidation: showContactValidation,
     }),
     header: {
       eyebrow: "Avistamiento de mascota",
     },
     kind: session?.kind ?? "member",
     location: buildLocationViewModel(draft),
-    pet: buildPetViewModel(draft),
+    pet: buildPetViewModel(draft, showDetailsValidation),
     photos: {
       canAddPhoto: draft.photos.length < sightingReportPhotoLimit,
       countLabel: formatPhotoCount(draft.photos.length),
+      error: shouldShowValidationError(validationDisplay, "photos")
+        ? getPhotoStepError(draft.photos)
+        : undefined,
       helpLabel:
         "La foto es opcional. Si agregas una, prioriza senas visibles sin acercarte ni retener a la mascota.",
       items: draft.photos.slice(0, sightingReportPhotoLimit),
@@ -207,10 +251,16 @@ export function buildSightingReportCreationViewModel({
       rows: buildReviewRows({
         contactOption,
         draft,
+        photos: readyPhotos,
       }),
-      validationErrors,
+      validationErrors: shouldShowValidationError(validationDisplay, "review")
+        ? validationErrors
+        : [],
     },
-    sightingDetails: buildSightingDetailsViewModel(draft),
+    sightingDetails: buildSightingDetailsViewModel(
+      draft,
+      showDetailsValidation,
+    ),
     steps: buildSteps({
       canPublish,
       draft,
@@ -285,14 +335,13 @@ export function toPublishSightingReportInput({
   draft: SightingReportDraft;
 }): PublishSightingReportInput {
   const errors = validateSightingReportDraft(draft);
+  const readyPhotos = getReadyUploadedPhotos(draft.photos);
 
   if (errors.length > 0) {
     throw new Error(errors.join(" "));
   }
 
-  const exactSightingLocation = draft.exactSightingLocation;
-
-  if (!exactSightingLocation) {
+  if (!draft.exactSightingLocation) {
     throw new Error("Exact Sighting Location is required.");
   }
 
@@ -302,13 +351,7 @@ export function toPublishSightingReportInput({
       whatsappPhone: draft.contact.whatsappPhone.trim(),
     }),
     direction: draft.sightingDetails.direction.trim(),
-    exactLocation: {
-      addressLabel: exactSightingLocation.addressLabel,
-      countryCode: "BO",
-      latitude: exactSightingLocation.coordinates.latitude,
-      locationCellLabel: exactSightingLocation.locationCellLabel,
-      longitude: exactSightingLocation.coordinates.longitude,
-    },
+    exactLocation: toReportLocationPublishInput(draft.exactSightingLocation),
     idempotencyKey: draft.idempotencyKey,
     observedAt: draft.sightingDetails.observedAtLabel.trim(),
     observedCondition: draft.sightingDetails.observedCondition.trim(),
@@ -317,13 +360,17 @@ export function toPublishSightingReportInput({
       description: draft.pet.description.trim(),
       type: draft.pet.type,
     },
-    photos: draft.photos.map(toPublishPhoto),
+    photos: readyPhotos.map(toPublishPhoto),
     showExactPublicLocation: draft.showExactPinPublicly,
     sightingDescription: draft.sightingDetails.description.trim(),
   };
 }
 
 function createSightingReportDraftIdempotencyKey() {
+  return `sighting-report-${createReportCreationIdSuffix()}`;
+}
+
+function createReportCreationIdSuffix() {
   const crypto = globalThis.crypto as
     | {
         randomUUID?: () => string;
@@ -335,15 +382,17 @@ function createSightingReportDraftIdempotencyKey() {
     randomUUID ??
     `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
-  return `sighting-report-${uniqueValue}`;
+  return uniqueValue;
 }
 
 function validateSightingReportDraft(draft: SightingReportDraft) {
   const errors: string[] = [];
 
-  if (!draft.exactSightingLocation) {
-    errors.push("Selecciona donde fue visto el animal.");
-  }
+  appendReportCreationLocationErrors({
+    errors,
+    location: draft.exactSightingLocation,
+    missingMessage: "Selecciona donde fue visto el animal.",
+  });
 
   const observedAtError = getObservedAtError(
     draft.sightingDetails.observedAtLabel,
@@ -382,11 +431,15 @@ function validateSightingReportDraft(draft: SightingReportDraft) {
   return errors;
 }
 
-function buildSightingDetailsViewModel(draft: SightingReportDraft) {
+function buildSightingDetailsViewModel(
+  draft: SightingReportDraft,
+  showValidation = true,
+) {
   return {
     fields: {
       description: {
         error:
+          showValidation &&
           draft.sightingDetails.description.trim().length === 0
             ? "Agrega una descripcion del avistamiento."
             : undefined,
@@ -397,7 +450,7 @@ function buildSightingDetailsViewModel(draft: SightingReportDraft) {
       },
       direction: {
         error:
-          draft.sightingDetails.direction.trim().length === 0
+          showValidation && draft.sightingDetails.direction.trim().length === 0
             ? "Indica hacia donde iba."
             : undefined,
         label: "Direccion",
@@ -405,13 +458,16 @@ function buildSightingDetailsViewModel(draft: SightingReportDraft) {
         value: draft.sightingDetails.direction,
       },
       observedAtLabel: {
-        error: getObservedAtError(draft.sightingDetails.observedAtLabel),
+        error: showValidation
+          ? getObservedAtError(draft.sightingDetails.observedAtLabel)
+          : undefined,
         label: "Cuando la viste",
         placeholder: "2026-06-18T10:15:00.000Z",
         value: draft.sightingDetails.observedAtLabel,
       },
       observedCondition: {
         error:
+          showValidation &&
           draft.sightingDetails.observedCondition.trim().length === 0
             ? "Describe la condicion observada."
             : undefined,
@@ -424,7 +480,7 @@ function buildSightingDetailsViewModel(draft: SightingReportDraft) {
   };
 }
 
-function buildPetViewModel(draft: SightingReportDraft) {
+function buildPetViewModel(draft: SightingReportDraft, showValidation = true) {
   return {
     fields: {
       breed: {
@@ -434,7 +490,7 @@ function buildPetViewModel(draft: SightingReportDraft) {
       },
       description: {
         error:
-          draft.pet.description.trim().length === 0
+          showValidation && draft.pet.description.trim().length === 0
             ? "Agrega senas visibles de la mascota vista."
             : undefined,
         label: "Senas visibles",
@@ -481,9 +537,11 @@ function buildLocationViewModel(draft: SightingReportDraft) {
 function buildReviewRows({
   contactOption,
   draft,
+  photos,
 }: {
   contactOption: SightingReportContactOption;
   draft: SightingReportDraft;
+  photos: readonly SightingReportPhoto[];
 }) {
   return [
     {
@@ -493,9 +551,9 @@ function buildReviewRows({
     {
       label: "Fotos",
       value:
-        draft.photos.length === 0
+        photos.length === 0
           ? "Sin foto, datos completos"
-          : formatPhotoCount(draft.photos.length),
+          : formatPhotoCount(photos.length),
     },
     {
       label: "Vista",
@@ -561,6 +619,92 @@ function buildSteps({
       label: "Publicado",
     },
   ];
+}
+
+function buildSightingReportJourney({
+  draft,
+  journey,
+}: {
+  draft: SightingReportDraft;
+  journey?: SightingReportCreationJourneyInput;
+}) {
+  if (journey?.currentStepId) {
+    return createReportCreationJourney({
+      completedStepIds: journey.completedStepIds,
+      currentStepId: journey.currentStepId,
+      reportType: "sighting",
+    });
+  }
+
+  const stepCompletion = [
+    {
+      id: "chooseType" as const,
+      isComplete: true,
+    },
+    {
+      id: "photos" as const,
+      isComplete: true,
+    },
+    {
+      id: "details" as const,
+      isComplete:
+        !getObservedAtError(draft.sightingDetails.observedAtLabel) &&
+        draft.sightingDetails.observedCondition.trim().length > 0 &&
+        draft.sightingDetails.direction.trim().length > 0 &&
+        draft.sightingDetails.description.trim().length > 0 &&
+        draft.pet.description.trim().length > 0,
+    },
+    {
+      id: "location" as const,
+      isComplete: Boolean(draft.exactSightingLocation),
+    },
+    {
+      id: "contact" as const,
+      isComplete: !getContactError(draft.contact),
+    },
+  ];
+  return deriveReportCreationJourney({
+    currentStepIdWhenComplete: "review",
+    reportType: "sighting",
+    stepCompletion,
+  });
+}
+
+function buildSightingContactViewModel({
+  contact,
+  currentOption,
+  options,
+  showValidation,
+}: {
+  contact: SightingReportContactDraft;
+  currentOption: SightingReportContactOption;
+  options: ReturnType<typeof buildContactOptions>;
+  showValidation: boolean;
+}) {
+  const contactViewModel = buildReportCreationContactViewModel({
+    contact,
+    currentOption,
+    error: showValidation ? getContactError(contact) : undefined,
+    options,
+  });
+
+  return {
+    ...contactViewModel,
+    whatsappField: {
+      ...contactViewModel.whatsappField,
+      error: showValidation ? contactViewModel.whatsappField.error : undefined,
+    },
+  };
+}
+
+function shouldShowValidationError(
+  validationDisplay: SightingReportCreationValidationDisplayInput | undefined,
+  stepId: ReportCreationJourneyStepId,
+) {
+  return (
+    validationDisplay === undefined ||
+    validationDisplay.attemptedStepId === stepId
+  );
 }
 
 function getContactOption(contact: SightingReportContactDraft) {
@@ -650,6 +794,14 @@ function formatPhotoCount(count: number) {
   return `${Math.min(count, sightingReportPhotoLimit)}/${sightingReportPhotoLimit}`;
 }
 
+function getReadyUploadedPhotos(photos: readonly SightingReportPhoto[]) {
+  return getReadyUploadedReportCreationPhotos(photos);
+}
+
+function getPhotoStepError(photos: readonly SightingReportPhoto[]) {
+  return getOptionalReportCreationPhotoStepError(photos);
+}
+
 function formatPetSnapshotLabel(draft: SightingReportDraft) {
   const breed = draft.pet.breed.trim();
 
@@ -683,7 +835,7 @@ function toPublishContactOption({
 
 function toPublishPhoto(photo: SightingReportPhoto) {
   return {
-    id: photo.id,
+    id: photo.mediaId ?? photo.id,
     uri: photo.uri ?? photo.thumbUri ?? `file:///${photo.id}.jpg`,
   };
 }

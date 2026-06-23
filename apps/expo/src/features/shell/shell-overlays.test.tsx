@@ -1,7 +1,9 @@
 import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { ShellReportAction } from "./shell-model";
 import {
+  ReportActionSheet,
   ShellFabHost,
   shouldDisplayGlobalReportFab,
   shouldDisplayShellFirstRunTour,
@@ -27,6 +29,15 @@ const api = vi.hoisted(() => ({
     },
   },
 }));
+const router = vi.hoisted(() => ({
+  push: vi.fn(),
+}));
+const routerLocation = vi.hoisted(() => ({
+  pathname: "/",
+}));
+const reactEffects = vi.hoisted(() => ({
+  repeatCount: 1,
+}));
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof React>("react");
@@ -35,8 +46,13 @@ vi.mock("react", async () => {
     ...actual,
     memo: <TComponent,>(component: TComponent) => component,
     useCallback: <TCallback,>(callback: TCallback) => callback,
-    useEffect: () => undefined,
+    useEffect: (effect: () => void) => {
+      for (let index = 0; index < reactEffects.repeatCount; index += 1) {
+        effect();
+      }
+    },
     useMemo: <TValue,>(factory: () => TValue) => factory(),
+    useRef: <TValue,>(initialValue: TValue) => ({ current: initialValue }),
     useState: <TValue,>(initialValue: TValue) => [initialValue, vi.fn()],
   };
 });
@@ -58,15 +74,20 @@ vi.mock("react-native", () => ({
 }));
 
 vi.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ bottom: 0 }),
+  useSafeAreaInsets: () => ({ bottom: 0, left: 0, right: 0, top: 0 }),
 }));
 
 vi.mock("expo-image", () => ({
   Image: "Image",
 }));
 
+vi.mock("@expo/vector-icons", () => ({
+  MaterialCommunityIcons: "MaterialCommunityIcons",
+}));
+
 vi.mock("expo-router", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => routerLocation.pathname,
+  useRouter: () => router,
   useSegments: () => [],
 }));
 
@@ -116,6 +137,8 @@ vi.mock("../../utils/api", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  routerLocation.pathname = "/";
+  reactEffects.repeatCount = 1;
 });
 
 describe("SignInPrompt", () => {
@@ -429,6 +452,114 @@ describe("ShellFirstRunTourHost", () => {
   });
 });
 
+describe("ReportActionSheet", () => {
+  it("renders intentional Android report icons with accessible Spanish actions", () => {
+    const actions = createReportActions();
+    const screen = renderFunctionElement(
+      <ReportActionSheet
+        actions={actions}
+        bottomInset={0}
+        closeLabel="Cerrar"
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+        subtitle="Elige que quieres reportar"
+        title="Reportar"
+        visible
+      />,
+    );
+
+    for (const action of actions) {
+      const row = findElement(
+        screen,
+        (element) =>
+          element.type === "Pressable" &&
+          element.props.accessibilityLabel === action.label,
+      );
+
+      expect(row?.props.accessibilityRole).toBe("button");
+      expect(row?.props.accessibilityHint).toBeTruthy();
+    }
+
+    expect(findDirectText(screen, "!")).toBe(false);
+    expect(findDirectText(screen, "OK")).toBe(false);
+    expect(findDirectText(screen, "o")).toBe(false);
+    expect(findDirectText(screen, "<3")).toBe(false);
+    expect(findDirectText(screen, ">")).toBe(false);
+  });
+
+  it("exposes close and backdrop dismissal as accessible actions", () => {
+    const onClose = vi.fn();
+    const screen = renderFunctionElement(
+      <ReportActionSheet
+        actions={createReportActions()}
+        bottomInset={0}
+        closeLabel="Cerrar"
+        onClose={onClose}
+        onSelect={vi.fn()}
+        subtitle="Elige que quieres reportar"
+        title="Reportar"
+        visible
+      />,
+    );
+    const modal = findElement(screen, (element) => element.type === "Modal");
+    const closeButton = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel === "Cerrar" &&
+        styleHasMinimumDimension(element.props.style, "minHeight", 48),
+    );
+    const backdrop = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel === "Cerrar panel de reporte",
+    );
+
+    getRequiredHandler(modal, "onRequestClose")();
+    getRequiredHandler(closeButton, "onPress")();
+    getRequiredHandler(backdrop, "onPress")();
+
+    expect(modal?.props.transparent).toBe(true);
+    expect(closeButton?.props.accessibilityRole).toBe("button");
+    expect(
+      styleHasMinimumDimension(closeButton?.props.style, "minWidth", 48),
+    ).toBe(true);
+    expect(backdrop?.props.accessibilityRole).toBe("button");
+    expect(onClose).toHaveBeenCalledTimes(3);
+  });
+
+  it("makes report type selection atomic across rapid duplicate taps", () => {
+    const onSelect = vi.fn();
+    const screen = renderFunctionElement(
+      <ReportActionSheet
+        actions={createReportActions()}
+        bottomInset={0}
+        closeLabel="Cerrar"
+        onClose={vi.fn()}
+        onSelect={onSelect}
+        subtitle="Elige que quieres reportar"
+        title="Reportar"
+        visible
+      />,
+    );
+    const lostAction = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel === "Reportar pérdida",
+    );
+
+    const pressLostAction = getRequiredHandler(lostAction, "onPress");
+
+    pressLostAction();
+    pressLostAction();
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith("lost");
+  });
+});
+
 describe("ShellFabHost", () => {
   it("keeps the visitor Activity empty-state CTA clear of the global Reportar button", () => {
     expect(
@@ -454,88 +585,60 @@ describe("ShellFabHost", () => {
     ).toBe(true);
   });
 
-  it("publishes the member sighting creation flow through report.create and verifies backend reads", async () => {
-    api.trpcClient.report.create.mutate.mockResolvedValue({
-      id: "report-sighting-backend-1",
-      status: "active",
-      type: "sighting",
-    });
-    api.trpcClient.report.detail.query.mockResolvedValue({
-      id: "report-sighting-backend-1",
-      status: "active",
-      type: "sighting",
-    });
-    api.trpcClient.report.nearby.query.mockResolvedValue({
-      query: {},
-      results: [
-        {
-          id: "report-sighting-backend-1",
-          status: "active",
-          type: "sighting",
-        },
-      ],
-    });
-    vi.mocked(useRastroShell).mockReturnValue(createMemberSightingShell());
+  it("routes a pending member report creation intent exactly once and clears it", () => {
+    const clearPendingReportRouteIntent = vi.fn();
 
-    const screen = renderFunctionElement(<ShellFabHost />);
-    const sightingScreen = findElement(
-      screen,
-      (element) => element.type === "SightingReportCreationScreen",
-    );
-    const publishSightingReport = sightingScreen?.props
-      .onPublishSightingReport as
-      | ((input: ReturnType<typeof createSightingPublishInput>) => Promise<{
-          id: string;
-          status: string;
-        }>)
-      | undefined;
-
-    expect(publishSightingReport).toEqual(expect.any(Function));
-
-    const confirmation = await publishSightingReport?.(
-      createSightingPublishInput(),
+    reactEffects.repeatCount = 2;
+    vi.mocked(useRastroShell).mockReturnValue(
+      createMemberReportRouteShell({
+        clearPendingReportRouteIntent,
+        intent: "sighting",
+        label: "Avistamiento",
+        requestId: 42,
+      }),
     );
 
-    expect(api.trpcClient.report.create.mutate).toHaveBeenCalledWith({
-      contact: {
-        preference: "in_app_chat",
-      },
-      description:
-        "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.\n\nCondicion observada: Asustado, caminando rapido, sin heridas visibles.\nDireccion: Iba hacia la avenida 20 de Octubre.",
-      eventOccurredAt: "2026-06-18T10:15:00.000Z",
-      idempotencyKey: "sighting-draft-stable-key-1",
-      location: {
-        exactLatitude: -16.5103,
-        exactLongitude: -68.1299,
-        exposeExactLocation: false,
-        label: "Plaza Abaroa, La Paz",
-        locationCell: "Sopocachi",
-      },
-      media: [],
-      pet: {
-        breed: "Mestizo",
-        color: "Patas blancas, collar verde y orejas caidas.",
-        distinguishingTraits: "Patas blancas, collar verde y orejas caidas.",
-        species: "dog",
-      },
-      title: "Perro visto en Sopocachi",
-      type: "sighting",
-    });
-    expect(api.trpcClient.report.detail.query).toHaveBeenCalledWith({
-      id: "report-sighting-backend-1",
-    });
-    expect(api.trpcClient.report.nearby.query).toHaveBeenCalledWith({
-      latitude: -16.5103,
-      limit: 50,
-      longitude: -68.1299,
-      radiusMeters: 5000,
-      statuses: ["active"],
-      types: ["lost_pet", "found_pet", "sighting", "adoption"],
-    });
-    expect(confirmation).toEqual({
-      id: "report-sighting-backend-1",
-      status: "active",
-    });
+    void renderFunctionElement(<ShellFabHost />);
+
+    expect(router.push).toHaveBeenCalledTimes(1);
+    expect(router.push).toHaveBeenCalledWith("/report-create/sighting");
+    expect(clearPendingReportRouteIntent).toHaveBeenCalledTimes(1);
+    expect(clearPendingReportRouteIntent).toHaveBeenCalledWith(42);
+  });
+
+  it("clears an auth return targeting the current report creation route without pushing a duplicate", () => {
+    const clearAuthReturnTo = vi.fn();
+
+    routerLocation.pathname = "/report-create/found";
+    vi.mocked(useRastroShell).mockReturnValue(
+      createMemberAuthReturnShell({
+        authReturnTo: "/report-create/found",
+        clearAuthReturnTo,
+      }),
+    );
+
+    void renderFunctionElement(<ShellFabHost />);
+
+    expect(router.push).not.toHaveBeenCalled();
+    expect(clearAuthReturnTo).toHaveBeenCalledTimes(1);
+  });
+
+  it("routes an auth return targeting a different route once and clears it", () => {
+    const clearAuthReturnTo = vi.fn();
+
+    routerLocation.pathname = "/report-create/found";
+    vi.mocked(useRastroShell).mockReturnValue(
+      createMemberAuthReturnShell({
+        authReturnTo: "/report-create/sighting",
+        clearAuthReturnTo,
+      }),
+    );
+
+    void renderFunctionElement(<ShellFabHost />);
+
+    expect(router.push).toHaveBeenCalledTimes(1);
+    expect(router.push).toHaveBeenCalledWith("/report-create/sighting");
+    expect(clearAuthReturnTo).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -550,11 +653,54 @@ function createPromptActions() {
   };
 }
 
-function createMemberSightingShell(): ReturnType<typeof useRastroShell> {
+function createReportActions(): ShellReportAction[] {
+  return [
+    {
+      icon: "megaphone.fill",
+      intent: "lost",
+      label: "Reportar pérdida",
+      memberOnly: true,
+      tone: "lost",
+    },
+    {
+      icon: "checkmark.seal.fill",
+      intent: "found",
+      label: "Reportar encontrada",
+      memberOnly: true,
+      tone: "found",
+    },
+    {
+      icon: "eye.fill",
+      intent: "sighting",
+      label: "Reportar avistamiento",
+      memberOnly: true,
+      tone: "sighting",
+    },
+    {
+      icon: "heart.fill",
+      intent: "adoption",
+      label: "Dar en adopción",
+      memberOnly: true,
+      tone: "adoption",
+    },
+  ];
+}
+
+function createMemberReportRouteShell({
+  clearPendingReportRouteIntent,
+  intent,
+  label,
+  requestId,
+}: {
+  clearPendingReportRouteIntent: (requestId?: number) => void;
+  intent: ShellReportAction["intent"];
+  label: string;
+  requestId: number;
+}): ReturnType<typeof useRastroShell> {
   return {
     chooseReportIntent: vi.fn(),
     clearAuthReturnTo: vi.fn(),
-    clearMemberIntent: vi.fn(),
+    clearPendingReportRouteIntent,
     closeReportActions: vi.fn(),
     continueAsVisitor: vi.fn(),
     copy: {
@@ -572,10 +718,10 @@ function createMemberSightingShell(): ReturnType<typeof useRastroShell> {
       reportActions: [
         {
           icon: "eye.fill",
-          intent: "sighting",
-          label: "Avistamiento",
+          intent,
+          label,
           memberOnly: true,
-          tone: "sighting",
+          tone: intent,
         },
       ],
     },
@@ -597,41 +743,63 @@ function createMemberSightingShell(): ReturnType<typeof useRastroShell> {
       activeSheet: null,
       authPrompt: null,
       authReturnTo: null,
-      memberIntent: {
-        intent: "sighting",
-        label: "Avistamiento",
+      pendingReportRouteIntent: {
+        intent,
+        label,
+        requestId,
       },
-      pendingMemberIntent: null,
     },
   } as unknown as ReturnType<typeof useRastroShell>;
 }
 
-function createSightingPublishInput() {
+function createMemberAuthReturnShell({
+  authReturnTo,
+  clearAuthReturnTo,
+}: {
+  authReturnTo: string;
+  clearAuthReturnTo: () => void;
+}): ReturnType<typeof useRastroShell> {
   return {
-    contactOption: {
-      kind: "in-app-chat",
+    chooseReportIntent: vi.fn(),
+    clearAuthReturnTo,
+    clearPendingReportRouteIntent: vi.fn(),
+    closeReportActions: vi.fn(),
+    continueAsVisitor: vi.fn(),
+    copy: {
+      authPrompt: createPromptCopy(),
+      shell: {
+        close: "Cerrar",
+        reportFabLabel: "Reportar",
+        reportSheetSubtitle: "Elige que quieres reportar",
+        reportSheetTitle: "Reportar",
+      },
     },
-    direction: "Iba hacia la avenida 20 de Octubre.",
-    exactLocation: {
-      addressLabel: "Plaza Abaroa, La Paz",
-      countryCode: "BO",
-      latitude: -16.5103,
-      locationCellLabel: "Sopocachi",
-      longitude: -68.1299,
+    createAccountFromPrompt: vi.fn(),
+    dismissAuthPrompt: vi.fn(),
+    model: {
+      reportActions: createReportActions(),
     },
-    idempotencyKey: "sighting-draft-stable-key-1",
-    observedAt: "2026-06-18T10:15:00.000Z",
-    observedCondition: "Asustado, caminando rapido, sin heridas visibles.",
-    pet: {
-      breed: "Mestizo",
-      description: "Patas blancas, collar verde y orejas caidas.",
-      type: "Perro",
+    openReportActions: vi.fn(),
+    initiateAccountDeletion: vi.fn(),
+    requestAuthPrompt: vi.fn(),
+    requestMemberPasswordReset: vi.fn(),
+    requestPasswordResetFromPrompt: vi.fn(),
+    session: {
+      id: "member-camila",
+      kind: "member",
+      name: "Camila",
     },
-    photos: [],
-    showExactPublicLocation: false,
-    sightingDescription:
-      "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.",
-  } as const;
+    signOutMember: vi.fn(),
+    signInFromPrompt: vi.fn(),
+    signInWithSocialProviderFromPrompt: vi.fn(),
+    socialProviderActions: [],
+    state: {
+      activeSheet: null,
+      authPrompt: null,
+      authReturnTo,
+      pendingReportRouteIntent: null,
+    },
+  } as unknown as ReturnType<typeof useRastroShell>;
 }
 
 function createPromptCopy() {
@@ -713,6 +881,30 @@ function findText(node: React.ReactNode, text: string): boolean {
   );
 }
 
+function findDirectText(node: React.ReactNode, text: string): boolean {
+  const rendered = renderFunctionElement(node);
+
+  if (typeof rendered === "string") {
+    return rendered === text;
+  }
+
+  if (typeof rendered === "number") {
+    return String(rendered) === text;
+  }
+
+  if (!React.isValidElement<ElementProps>(rendered)) {
+    return false;
+  }
+
+  if (elementContainsExactText(rendered, text)) {
+    return true;
+  }
+
+  return React.Children.toArray(rendered.props.children).some((child) =>
+    findDirectText(child, text),
+  );
+}
+
 function findElement(
   node: React.ReactNode,
   predicate: (element: TestElement) => boolean,
@@ -736,6 +928,33 @@ function findElement(
   }
 
   return undefined;
+}
+
+function getRequiredHandler(
+  element: TestElement | undefined,
+  propName: "onPress" | "onRequestClose",
+) {
+  const handler = element?.props[propName];
+
+  if (typeof handler !== "function") {
+    throw new Error(`Expected ${propName} handler.`);
+  }
+
+  return handler as () => void;
+}
+
+function elementContainsExactText(element: TestElement, text: string): boolean {
+  return React.Children.toArray(element.props.children).some((child) => {
+    if (typeof child === "string") {
+      return child === text;
+    }
+
+    if (typeof child === "number") {
+      return String(child) === text;
+    }
+
+    return false;
+  });
 }
 
 function elementContainsText(element: TestElement, text: string): boolean {

@@ -1,7 +1,7 @@
 # RC-007 Repair the report-type chooser icons, accessibility, safe areas, and duplicate selection
 
-Status: ready-for-agent
-Labels: ready-for-agent
+Status: verified-runbook
+Labels: verified-runbook
 Severity: P1
 Issue ID: RC-007
 Type: AFK
@@ -108,3 +108,5 @@ Replace placeholder report-action symbols with production icons and harden the c
 - Implementing report submission.
 
 ## Comments
+
+- 2026-06-21: Implemented with `$tdd`. Android chooser now uses Material Community vector icons instead of placeholder text fallbacks, has accessible Spanish action labels/hints, 48dp close target, backdrop/Android Back dismissal, scrollable safe-area-aware sheet, and duplicate selection guard. Evidence captured under `.scratch/report-creation-repair/verification/RC-007/`. Fresh verifier RC-007-V returned no findings.

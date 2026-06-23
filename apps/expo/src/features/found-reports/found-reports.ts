@@ -104,6 +104,7 @@ export interface PublishFoundPetReportInput {
   exactLocation: FoundPetReportExactLocation;
   foundAt: string;
   foundDescription: string;
+  idempotencyKey?: string;
   pet: FoundPetReportPetSnapshot;
   photos: readonly PetProfilePhotoSource[];
   showExactPublicLocation?: boolean;

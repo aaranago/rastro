@@ -9,12 +9,12 @@ import {
 } from "./shell-auth";
 import {
   chooseReportAction,
-  completeAuthPromptWithPendingMemberIntent,
+  completeAuthPromptWithPendingReportRouteIntent,
   continueReportActionAsMember,
   createInitialShellState,
   createShellModel,
   createShellProfileModel,
-  promotePendingMemberIntentForSession,
+  promotePendingReportRouteIntentForSession,
   requestShellAuthPrompt,
   shouldShowGlobalFabForSegments,
   toShellMemberCreationSession,
@@ -304,10 +304,13 @@ describe("Rastro shell", () => {
       );
 
       expect(nextState.authPrompt).toBeNull();
-      expect(nextState.memberIntent).toEqual({
+      expect(nextState.pendingReportRouteIntent).toMatchObject({
         intent,
         label,
       });
+      expect(nextState.pendingReportRouteIntent?.requestId).toEqual(
+        expect.any(Number),
+      );
     },
   );
 
@@ -326,25 +329,27 @@ describe("Rastro shell", () => {
       copy,
     );
     const signedInState =
-      completeAuthPromptWithPendingMemberIntent(promptedState);
+      completeAuthPromptWithPendingReportRouteIntent(promptedState);
 
     expect(signedInState.authPrompt).toBeNull();
-    expect(signedInState.memberIntent).toBeNull();
-    expect(signedInState.pendingMemberIntent).toEqual({
+    expect(signedInState.pendingReportRouteIntent).toMatchObject({
       intent: "found",
       label: "Reportar encontrada",
     });
+    expect(signedInState.pendingReportRouteIntent?.requestId).toEqual(
+      promptedState.authPrompt?.reportRouteRequestId,
+    );
 
     expect(
-      promotePendingMemberIntentForSession(signedInState, {
+      promotePendingReportRouteIntentForSession(signedInState, {
         kind: "visitor",
-      }).memberIntent,
-    ).toBeNull();
+      }).pendingReportRouteIntent,
+    ).toEqual(signedInState.pendingReportRouteIntent);
     expect(
-      promotePendingMemberIntentForSession(signedInState, {
+      promotePendingReportRouteIntentForSession(signedInState, {
         kind: "loading",
-      }).memberIntent,
-    ).toBeNull();
+      }).pendingReportRouteIntent,
+    ).toEqual(signedInState.pendingReportRouteIntent);
 
     const memberSession = {
       email: "ana@example.com",
@@ -352,13 +357,12 @@ describe("Rastro shell", () => {
       kind: "member",
       name: "Ana",
     } as const;
-    const readyState = promotePendingMemberIntentForSession(
+    const readyState = promotePendingReportRouteIntentForSession(
       signedInState,
       memberSession,
     );
 
-    expect(readyState.pendingMemberIntent).toBeNull();
-    expect(readyState.memberIntent).toEqual({
+    expect(readyState.pendingReportRouteIntent).toMatchObject({
       intent: "found",
       label: "Reportar encontrada",
     });
@@ -367,6 +371,40 @@ describe("Rastro shell", () => {
       kind: "member",
       memberId: "member_123",
     });
+  });
+
+  it("completes an active protected auth prompt when a routed OAuth callback creates a member session", () => {
+    const copy = getShellCopy();
+    const shell = createShellModel({ copy, session: { kind: "visitor" } });
+    const action = shell.reportActions.find((item) => item.intent === "lost");
+
+    if (!action) {
+      throw new Error("Expected a lost report action");
+    }
+
+    const promptedState = chooseReportAction(
+      createInitialShellState(),
+      action,
+      copy,
+    );
+    const readyState = promotePendingReportRouteIntentForSession(
+      promptedState,
+      {
+        email: "ana@example.com",
+        id: "member_123",
+        kind: "member",
+        name: "Ana",
+      },
+    );
+
+    expect(readyState.authPrompt).toBeNull();
+    expect(readyState.pendingReportRouteIntent).toMatchObject({
+      intent: "lost",
+      label: "Reportar pérdida",
+    });
+    expect(readyState.pendingReportRouteIntent?.requestId).toEqual(
+      promptedState.authPrompt?.reportRouteRequestId,
+    );
   });
 
   it("opens a reusable auth prompt for Activity/Profile links and preserves returnTo after successful auth", () => {
@@ -385,15 +423,40 @@ describe("Rastro shell", () => {
       returnTo: "/(tabs)/(activity)",
       title: "Inicia sesión para continuar",
     });
-    expect(promptedState.memberIntent).toBeNull();
-    expect(promptedState.pendingMemberIntent).toBeNull();
+    expect(promptedState.pendingReportRouteIntent).toBeNull();
 
     const signedInState =
-      completeAuthPromptWithPendingMemberIntent(promptedState);
+      completeAuthPromptWithPendingReportRouteIntent(promptedState);
 
     expect(signedInState.authPrompt).toBeNull();
     expect(signedInState.authReturnTo).toBe("/(tabs)/(activity)");
-    expect(signedInState.pendingMemberIntent).toBeNull();
+    expect(signedInState.pendingReportRouteIntent).toBeNull();
+  });
+
+  it("completes a reusable auth prompt when a routed OAuth callback creates a member session", () => {
+    const copy = getShellCopy();
+    const promptedState = requestShellAuthPrompt(
+      createInitialShellState(),
+      copy,
+      {
+        returnTo: "/(tabs)/(activity)",
+        sourceHref: "rastro://auth/sign-in?returnTo=/actividad",
+      },
+    );
+
+    const readyState = promotePendingReportRouteIntentForSession(
+      promptedState,
+      {
+        email: "ana@example.com",
+        id: "member_123",
+        kind: "member",
+        name: "Ana",
+      },
+    );
+
+    expect(readyState.authPrompt).toBeNull();
+    expect(readyState.authReturnTo).toBe("/(tabs)/(activity)");
+    expect(readyState.pendingReportRouteIntent).toBeNull();
   });
 
   it("shows the three-step first-run tour once and persists skip or completion", async () => {

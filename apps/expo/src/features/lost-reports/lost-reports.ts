@@ -105,6 +105,7 @@ export type LostPetReportPetProfileSelection =
   | {
       kind: "existing";
       petProfileId: string;
+      profile?: Omit<CreatePetProfileInput, "photos">;
     }
   | {
       kind: "inline";
@@ -114,6 +115,7 @@ export type LostPetReportPetProfileSelection =
 export interface PublishLostPetReportInput {
   contactOption: LostPetReportContactOption;
   exactLocation: LostPetReportExactLocation;
+  idempotencyKey?: string;
   lastSeenAt: string;
   lastSeenDescription: string;
   petProfile: LostPetReportPetProfileSelection;

@@ -2,6 +2,7 @@ import * as React from "react";
 
 import type {
   CreationDraftKind,
+  CreationDraftLoadResult,
   CreationDraftsByKind,
   CreationDraftScope,
   CreationDraftStore,
@@ -12,6 +13,7 @@ export interface UseDurableCreationDraftInput<K extends CreationDraftKind>
   extends CreationDraftScope {
   initialDraft: CreationDraftsByKind[K];
   kind: K;
+  recoveryMode?: "explicit" | "silent";
   store?: CreationDraftStore;
 }
 
@@ -38,12 +40,23 @@ export interface DurableCreationDraftPersistence {
 
 export interface DurableCreationDraftState<K extends CreationDraftKind> {
   clearDraft: () => Promise<void>;
+  discardDraft: () => Promise<void>;
   draft: CreationDraftsByKind[K];
   draftPersistence: DurableCreationDraftPersistence;
+  draftRecovery: DurableCreationDraftRecovery<K>;
+  draftResetVersion: number;
   hasLoaded: boolean;
   restoredDraft: DurableCreationDraft<K> | null;
+  resumeDraft: () => void;
   setDraft: React.Dispatch<React.SetStateAction<CreationDraftsByKind[K]>>;
 }
+
+export type DurableCreationDraftRecovery<K extends CreationDraftKind> =
+  | { status: "available"; draft: DurableCreationDraft<K> }
+  | { status: "checking" }
+  | { status: "disabled" }
+  | { status: "incompatible"; reason: string }
+  | { status: "none" };
 
 const loadDraftErrorMessage =
   "No pudimos recuperar tu borrador guardado. Puedes seguir editando.";
@@ -53,6 +66,7 @@ const saveDraftErrorMessage =
 export function useDurableCreationDraft<K extends CreationDraftKind>({
   initialDraft,
   kind,
+  recoveryMode = "silent",
   scopeId,
   store,
 }: UseDurableCreationDraftInput<K>): DurableCreationDraftState<K> {
@@ -66,6 +80,13 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
       error: null,
       status: store === undefined ? "disabled" : "loading",
     }));
+  const [draftRecovery, setDraftRecovery] = React.useState<
+    DurableCreationDraftRecovery<K>
+  >(() => ({
+    status: store === undefined ? "disabled" : "checking",
+  }));
+  const [draftResetVersion, setDraftResetVersion] = React.useState(0);
+  const lastSavedDraftSignatureRef = React.useRef(serializeDraft(initialDraft));
   const skipNextSaveRef = React.useRef(true);
 
   React.useEffect(() => {
@@ -73,24 +94,53 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
       setDraft(initialDraft);
       setHasLoaded(true);
       setRestoredDraft(null);
+      setDraftRecovery({ status: "disabled" });
       setDraftPersistence({ error: null, status: "disabled" });
+      lastSavedDraftSignatureRef.current = serializeDraft(initialDraft);
       skipNextSaveRef.current = true;
       return;
     }
 
     let isCurrent = true;
     setHasLoaded(false);
+    setDraftRecovery({ status: "checking" });
     setDraftPersistence({ error: null, status: "loading" });
 
-    store
-      .loadDraft(kind, { scopeId })
-      .then((savedDraft) => {
+    const loadSavedDraft =
+      recoveryMode === "explicit"
+        ? store.loadDraftForRecovery(kind, { scopeId })
+        : store.loadDraft(kind, { scopeId });
+
+    loadSavedDraft
+      .then((savedDraftOrResult) => {
         if (!isCurrent) {
           return;
         }
 
-        setDraft(savedDraft?.draft ?? initialDraft);
-        setRestoredDraft(savedDraft ?? null);
+        if (recoveryMode === "explicit") {
+          const result = savedDraftOrResult as CreationDraftLoadResult<K>;
+
+          setDraft(initialDraft);
+          lastSavedDraftSignatureRef.current = serializeDraft(initialDraft);
+          setRestoredDraft(null);
+          setDraftRecovery(toDraftRecovery(result));
+        } else {
+          const savedDraft = savedDraftOrResult as
+            | DurableCreationDraft<K>
+            | undefined;
+
+          setDraft(savedDraft?.draft ?? initialDraft);
+          lastSavedDraftSignatureRef.current = serializeDraft(
+            savedDraft?.draft ?? initialDraft,
+          );
+          setRestoredDraft(savedDraft ?? null);
+          setDraftRecovery(
+            savedDraft === undefined
+              ? { status: "none" }
+              : { draft: savedDraft, status: "available" },
+          );
+        }
+
         skipNextSaveRef.current = true;
         setHasLoaded(true);
         setDraftPersistence({ error: null, status: "ready" });
@@ -101,6 +151,8 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
         }
 
         setRestoredDraft(null);
+        setDraftRecovery({ status: "none" });
+        lastSavedDraftSignatureRef.current = serializeDraft(initialDraft);
         skipNextSaveRef.current = true;
         setHasLoaded(true);
         setDraftPersistence({
@@ -116,10 +168,17 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
     return () => {
       isCurrent = false;
     };
-  }, [initialDraft, kind, scopeId, store]);
+  }, [initialDraft, kind, recoveryMode, scopeId, store]);
 
   React.useEffect(() => {
     if (store === undefined || !hasLoaded) {
+      return;
+    }
+
+    if (
+      draftRecovery.status === "available" ||
+      draftRecovery.status === "checking"
+    ) {
       return;
     }
 
@@ -128,45 +187,56 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
       return;
     }
 
+    const draftSignature = serializeDraft(draft);
+
+    if (draftSignature === lastSavedDraftSignatureRef.current) {
+      return;
+    }
+
     let isCurrent = true;
     setDraftPersistence({ error: null, status: "saving" });
 
-    store
-      .saveDraft({
-        draft,
-        kind,
-        scopeId,
-      })
-      .then(() => {
-        if (!isCurrent) {
-          return;
-        }
+    const saveTimeout = setTimeout(() => {
+      store
+        .saveDraft({
+          draft,
+          kind,
+          scopeId,
+        })
+        .then(() => {
+          if (!isCurrent) {
+            return;
+          }
 
-        setDraftPersistence({ error: null, status: "saved" });
-      })
-      .catch((error: unknown) => {
-        if (!isCurrent) {
-          return;
-        }
+          lastSavedDraftSignatureRef.current = draftSignature;
+          setDraftPersistence({ error: null, status: "saved" });
+        })
+        .catch((error: unknown) => {
+          if (!isCurrent) {
+            return;
+          }
 
-        setDraftPersistence({
-          error: {
-            cause: error,
-            kind: "save",
-            message: saveDraftErrorMessage,
-          },
-          status: "error",
+          setDraftPersistence({
+            error: {
+              cause: error,
+              kind: "save",
+              message: saveDraftErrorMessage,
+            },
+            status: "error",
+          });
         });
-      });
+    }, 500);
 
     return () => {
       isCurrent = false;
+      clearTimeout(saveTimeout);
     };
-  }, [draft, hasLoaded, kind, scopeId, store]);
+  }, [draft, draftRecovery.status, hasLoaded, kind, scopeId, store]);
 
   const clearDraft = React.useCallback(async () => {
     await store?.clearDraft(kind, { scopeId });
     setRestoredDraft(null);
+    setDraftRecovery({ status: store === undefined ? "disabled" : "none" });
     setDraftPersistence((current) =>
       current.status === "disabled"
         ? current
@@ -177,12 +247,73 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
     );
   }, [kind, scopeId, store]);
 
+  const discardDraft = React.useCallback(async () => {
+    await store?.clearDraft(kind, { scopeId });
+    setDraft(initialDraft);
+    setRestoredDraft(null);
+    setDraftRecovery({ status: store === undefined ? "disabled" : "none" });
+    setDraftResetVersion((version) => version + 1);
+    lastSavedDraftSignatureRef.current = serializeDraft(initialDraft);
+    skipNextSaveRef.current = true;
+    setDraftPersistence((current) =>
+      current.status === "disabled"
+        ? current
+        : {
+            error: null,
+            status: "ready",
+          },
+    );
+  }, [initialDraft, kind, scopeId, store]);
+
+  const resumeDraft = React.useCallback(() => {
+    if (draftRecovery.status !== "available") {
+      return;
+    }
+
+    setDraft(draftRecovery.draft.draft);
+    setRestoredDraft(draftRecovery.draft);
+    setDraftRecovery({ status: "none" });
+    setDraftResetVersion((version) => version + 1);
+    lastSavedDraftSignatureRef.current = serializeDraft(
+      draftRecovery.draft.draft,
+    );
+    skipNextSaveRef.current = true;
+  }, [draftRecovery]);
+
   return {
     clearDraft,
+    discardDraft,
     draft,
     draftPersistence,
+    draftRecovery,
+    draftResetVersion,
     hasLoaded,
+    resumeDraft,
     restoredDraft,
     setDraft,
   };
+}
+
+function toDraftRecovery<K extends CreationDraftKind>(
+  result: CreationDraftLoadResult<K>,
+): DurableCreationDraftRecovery<K> {
+  switch (result.status) {
+    case "found":
+    case "migrated":
+      return {
+        draft: result.draft,
+        status: "available",
+      };
+    case "incompatible":
+      return {
+        reason: result.reason,
+        status: "incompatible",
+      };
+    case "missing":
+      return { status: "none" };
+  }
+}
+
+function serializeDraft(draft: unknown): string {
+  return JSON.stringify(draft);
 }

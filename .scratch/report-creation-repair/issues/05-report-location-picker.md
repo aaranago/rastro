@@ -1,7 +1,7 @@
 # RC-008 Wire a real report location picker into creation
 
-Status: ready-for-agent
-Labels: ready-for-agent
+Status: manual-qa-needed
+Labels: manual-qa-needed
 Severity: P1
 Issue ID: RC-008
 Type: AFK
@@ -106,3 +106,9 @@ Integrate a real report-location picker into the creation journey. Reuse existin
 - Redesigning Nearby search.
 
 ## Comments
+
+- 2026-06-22: Agent RC-008 implemented with `$tdd` via delegated contract, picker adapter/screen, and creation-screen wiring slices. Added a shared `ReportLocationDraft` contract, a real report location picker, explicit current-location permission action, recoverable denied/unavailable/manual/map fallback states, creation-route adapter wiring, and lost/found/sighting/adoption draft/review/publish mappings. Removed silent fixture location defaults from clean drafts.
+- 2026-06-22: Verifier RC-008-V2 found P1 geofence drift: out-of-Bolivia pins inside the rectangular Bolivia bounds, including Arica, Chile and Tacna, Peru, were still accepted. Agent RC-008-FIX-BOLIVIA fixed this with `$tdd` by replacing rectangle-only validation with a shared bounds-plus-border-ring predicate used before picker confirmation and publish/create transforms. Added tests for Arica/Tacna rejection and Cobija/Puerto Suarez acceptance.
+- 2026-06-22: Fresh Verifier RC-008-V3 returned no findings. Verified picker wiring for lost/found/sighting/adoption, explicit permission request timing, recoverable denied/unavailable/manual/map-unavailable states, draft/review/publish location flow, and stricter Bolivia geofence coverage. Focused RC-008 suite passed: 59 files, 332 tests. `pnpm -F @acme/expo typecheck`, `pnpm -F @acme/expo lint`, and `pnpm exec fallow audit --base HEAD --format json --quiet 2>/dev/null || true` pass; Fallow reports inherited findings only. Remaining human QA: real iOS/Android permission dialogs, native map provider availability/configuration, tap/drag pin behavior on device, and visual review across small devices.
+- 2026-06-22: UX refinement replaced the La Paz-sector manual choices with a Bolivia-wide department selector using all nine departments: La Paz, Santa Cruz, Cochabamba, Chuquisaca, Tarija, Oruro, Potosi, Beni, and Pando. Sucre is represented as the city option under Chuquisaca. The picker now uses an accessible dropdown-like department control before city selection and preserves department/municipality into `ReportLocationDraft`. Focused picker/nearby tests, full Expo tests, Expo typecheck, lint, and format pass. Fresh verifier inspection found no location-picker issues; targeted Android UI pass was partial only because an old draft validation state blocked reaching the picker quickly.
+- 2026-06-22: Native recheck loaded `.env` through `dotenv-cli`, rebuilt the Android dev client, and verified manual map mode exposes an Android `Google Map` view instead of `Mapa no disponible`. Runbook/map-provider docs now use env-loaded Expo commands because the key in `.env` is not visible to plain Expo CLI commands in this repo.

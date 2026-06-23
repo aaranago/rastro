@@ -103,10 +103,13 @@ describe("RastroShellProvider social auth handoff", () => {
     expect(socialSignIns).toEqual(["google"]);
 
     shell = renderProvider(authAdapter);
-    expect(shell.state.pendingMemberIntent).toEqual({
+    expect(shell.state.pendingReportRouteIntent).toMatchObject({
       intent: "lost",
       label: "Reportar pérdida",
     });
+    const requestId = shell.state.pendingReportRouteIntent?.requestId;
+
+    expect(requestId).toEqual(expect.any(Number));
 
     authState = {
       data: {
@@ -125,11 +128,11 @@ describe("RastroShellProvider social auth handoff", () => {
     renderProvider(authAdapter);
     shell = renderProvider(authAdapter);
 
-    expect(shell.state.pendingMemberIntent).toBeNull();
-    expect(shell.state.memberIntent).toEqual({
+    expect(shell.state.pendingReportRouteIntent).toMatchObject({
       intent: "lost",
       label: "Reportar pérdida",
     });
+    expect(shell.state.pendingReportRouteIntent?.requestId).toBe(requestId);
   });
 
   it("keeps the selected auth prompt recoverable with a visible error after provider cancellation", async () => {
@@ -181,8 +184,7 @@ describe("RastroShellProvider social auth handoff", () => {
       intent: "lost",
       selectedIntentLabel: "Reportar pérdida",
     });
-    expect(shell.state.memberIntent).toBeNull();
-    expect(shell.state.pendingMemberIntent).toBeNull();
+    expect(shell.state.pendingReportRouteIntent).toBeNull();
   });
 
   it("requests a password reset from a logged-out auth prompt email", async () => {
@@ -234,13 +236,10 @@ interface ShellProviderValue {
       intent?: string;
       selectedIntentLabel?: string;
     } | null;
-    memberIntent: {
+    pendingReportRouteIntent: {
       intent: string;
       label: string;
-    } | null;
-    pendingMemberIntent: {
-      intent: string;
-      label: string;
+      requestId: number;
     } | null;
   };
 }

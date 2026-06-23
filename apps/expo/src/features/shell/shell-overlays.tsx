@@ -19,7 +19,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { useRouter, useSegments } from "expo-router";
+import { usePathname, useRouter, useSegments } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import type { ReportIntent } from "../../i18n";
 import type {
@@ -29,37 +30,20 @@ import type {
   ShellSocialAuthAction,
   ShellSocialAuthProvider,
 } from "./shell-auth";
-import type {
-  ShellAuthPrompt,
-  ShellMemberCreationSession,
-  ShellReportAction,
-} from "./shell-model";
+import type { ShellAuthPrompt, ShellReportAction } from "./shell-model";
 import type {
   ShellFirstRunTourCompletionReason,
   ShellFirstRunTourModel,
   ShellFirstRunTourStore,
 } from "./shell-onboarding";
 import authWelcomeIllustration from "../../../assets/auth-welcome-illustration.png";
-import { trpcClient } from "../../utils/api";
-import { AdoptionListingCreationScreen } from "../adoption-listing-creation/adoption-listing-creation-screen";
-import { FoundReportCreationScreen } from "../found-report-creation/found-report-creation-screen";
-import { LostReportCreationScreen } from "../lost-report-creation/lost-report-creation-screen";
-import { createCreationDraftStore } from "../resilience/creation-drafts";
+import { buildReportCreationHref } from "../report-creation/report-creation-routes";
 import { createExpoSecureStoreKeyValueStorage } from "../resilience/storage";
-import {
-  buildResourceProviderProfileHref,
-  createStaticResourcesAdapter,
-} from "../resources";
-import { SightingReportCreationScreen } from "../sighting-report-creation/sighting-report-creation-screen";
-import { createApiSightingReportPublishHandler } from "../sighting-report-creation/sighting-report-publish-adapter";
 import {
   prepareShellAuthCredentialsForAction,
   prepareShellPasswordResetEmail,
 } from "./shell-auth";
-import {
-  shouldShowGlobalFabForSegments,
-  toShellMemberCreationSession,
-} from "./shell-model";
+import { shouldShowGlobalFabForSegments } from "./shell-model";
 import {
   createShellFirstRunTourModel,
   createShellFirstRunTourStore,
@@ -68,7 +52,7 @@ import {
 import { useRastroShell } from "./shell-provider";
 import { reportIntentColors, shellColors } from "./shell-theme";
 
-interface IconProps {
+export interface IconProps {
   name: string;
   color: string;
   fallback?: string;
@@ -96,8 +80,80 @@ const androidIconFallbacks: Record<string, string> = {
   xmark: "x",
 };
 
+type MaterialCommunityIconName = React.ComponentProps<
+  typeof MaterialCommunityIcons
+>["name"];
+
+const androidVectorIconNames: Record<string, MaterialCommunityIconName> = {
+  "arrow.clockwise": "refresh",
+  "arrow.left": "arrow-left",
+  "arrow.right.to.line": "login",
+  "arrow.triangle.2.circlepath": "sync",
+  "arrow.up.right": "arrow-top-right",
+  "bell.badge.fill": "bell-badge",
+  "bell.fill": "bell",
+  "bell.slash.fill": "bell-off",
+  "bubble.left.and.phone.fill": "phone-message",
+  "camera.fill": "camera",
+  "checkmark.circle.fill": "check-circle",
+  "checkmark.seal.fill": "check-decagram",
+  "chevron.right": "chevron-right",
+  "cross.case.fill": "medical-bag",
+  "doc.text.image.fill": "file-image",
+  "exclamationmark.bubble.fill": "message-alert",
+  "exclamationmark.triangle.fill": "alert",
+  "eye.fill": "eye",
+  "figure.walk.motion": "walk",
+  "gearshape.fill": "cog",
+  "hands.sparkles.fill": "hand-heart",
+  "heart.fill": "heart",
+  hourglass: "timer-sand",
+  "house.fill": "home",
+  "info.circle.fill": "information",
+  "list.bullet": "format-list-bulleted",
+  "location.fill": "map-marker",
+  "location.fill.viewfinder": "crosshairs-gps",
+  "location.magnifyingglass": "map-search",
+  "location.slash.fill": "map-marker-off",
+  "lock.fill": "lock",
+  magnifyingglass: "magnify",
+  "map.fill": "map",
+  mappin: "map-marker",
+  "megaphone.fill": "bullhorn",
+  "message.fill": "message",
+  "paperplane.fill": "send",
+  pawprint: "paw",
+  "pawprint.fill": "paw",
+  "person.badge.plus": "account-plus",
+  "person.crop.circle.badge.exclamationmark": "account-alert",
+  "person.crop.circle.badge.plus": "account-plus",
+  "person.fill.checkmark": "account-check",
+  "phone.fill": "phone",
+  plus: "plus",
+  "questionmark.circle.fill": "help-circle",
+  scope: "crosshairs",
+  sparkles: "star-four-points",
+  "square.and.pencil": "square-edit-outline",
+  "star.fill": "star",
+  stethoscope: "stethoscope",
+  xmark: "close",
+};
+
 export function ShellIcon({ name, color, fallback, size = 22 }: IconProps) {
   const resolvedFallback = fallback ?? androidIconFallbacks[name];
+  const androidIconName = androidVectorIconNames[name];
+
+  if (Platform.OS !== "ios" && androidIconName) {
+    return (
+      <MaterialCommunityIcons
+        accessibilityElementsHidden
+        color={color}
+        importantForAccessibility="no"
+        name={androidIconName}
+        size={size}
+      />
+    );
+  }
 
   if (Platform.OS !== "ios" && resolvedFallback) {
     return (
@@ -134,7 +190,7 @@ export function ShellFabHost() {
   const {
     chooseReportIntent,
     clearAuthReturnTo,
-    clearMemberIntent,
+    clearPendingReportRouteIntent,
     closeReportActions,
     continueAsVisitor,
     copy,
@@ -150,8 +206,10 @@ export function ShellFabHost() {
     state,
   } = useRastroShell();
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
   const router = useRouter();
   const segments = useSegments();
+  const consumedReportRouteRequestIdRef = React.useRef<number | null>(null);
   const shouldShowFab = shouldDisplayGlobalReportFab({
     isAuthPromptVisible: Boolean(state.authPrompt),
     segments,
@@ -161,53 +219,52 @@ export function ShellFabHost() {
     () => createExpoSecureStoreKeyValueStorage(),
     [],
   );
-  const creationDraftStore = React.useMemo(
-    () =>
-      createCreationDraftStore({
-        storage: secureStorage,
-      }),
-    [secureStorage],
-  );
   const firstRunTourStore = React.useMemo(
     () => createShellFirstRunTourStore({ storage: secureStorage }),
     [secureStorage],
   );
-  const draftScopeId = session.kind === "member" ? session.id : undefined;
-  const memberCreationSession = toShellMemberCreationSession(session);
-  const sponsorResourcesAdapter = React.useMemo(
-    () => createStaticResourcesAdapter(),
-    [],
-  );
-  const publishSightingReport = React.useMemo(
-    () => createApiSightingReportPublishHandler({ client: trpcClient }),
-    [],
-  );
-  const handleOpenSponsorPlacement = React.useCallback(
-    (sponsorPlacementId: string) => {
-      clearMemberIntent();
-      router.push(buildResourceProviderProfileHref(sponsorPlacementId));
-    },
-    [clearMemberIntent, router],
-  );
-  const handleReportSponsorPlacement = React.useCallback(
-    (sponsorPlacementId: string) => {
-      void sponsorResourcesAdapter.reportProvider({
-        detail: "Reporte enviado desde una colocacion patrocinada.",
-        providerId: sponsorPlacementId,
-        reason: "other",
-      });
-    },
-    [sponsorResourcesAdapter],
-  );
 
   React.useEffect(() => {
-    if (!state.authReturnTo) {
+    const pendingIntent = state.pendingReportRouteIntent;
+
+    if (!pendingIntent || session.kind !== "member") {
       return;
     }
 
-    router.push(state.authReturnTo as Href);
+    if (consumedReportRouteRequestIdRef.current === pendingIntent.requestId) {
+      return;
+    }
+
+    consumedReportRouteRequestIdRef.current = pendingIntent.requestId;
+    router.push(buildReportCreationHref(pendingIntent.intent));
+    clearPendingReportRouteIntent(pendingIntent.requestId);
+  }, [
+    clearPendingReportRouteIntent,
+    router,
+    session.kind,
+    state.pendingReportRouteIntent,
+  ]);
+
+  React.useEffect(() => {
+    if (!state.authReturnTo || state.pendingReportRouteIntent) {
+      return;
+    }
+
+    if (
+      normalizeShellPathname(state.authReturnTo) !==
+      normalizeShellPathname(pathname)
+    ) {
+      router.push(state.authReturnTo as Href);
+    }
+
     clearAuthReturnTo();
-  }, [clearAuthReturnTo, router, state.authReturnTo]);
+  }, [
+    clearAuthReturnTo,
+    pathname,
+    router,
+    state.authReturnTo,
+    state.pendingReportRouteIntent,
+  ]);
 
   return (
     <>
@@ -293,54 +350,18 @@ export function ShellFabHost() {
         prompt={state.authPrompt}
         socialProviderActions={socialProviderActions}
       />
-
-      <LostReportCreationModal
-        draftScopeId={draftScopeId}
-        draftStore={creationDraftStore}
-        onOpenSponsorPlacement={handleOpenSponsorPlacement}
-        onReportSponsorPlacement={handleReportSponsorPlacement}
-        onClose={clearMemberIntent}
-        visible={
-          Boolean(memberCreationSession) &&
-          state.memberIntent?.intent === "lost"
-        }
-      />
-
-      <FoundReportCreationModal
-        draftScopeId={draftScopeId}
-        draftStore={creationDraftStore}
-        onClose={clearMemberIntent}
-        session={memberCreationSession}
-        visible={
-          Boolean(memberCreationSession) &&
-          state.memberIntent?.intent === "found"
-        }
-      />
-
-      <SightingReportStartModal
-        draftScopeId={draftScopeId}
-        draftStore={creationDraftStore}
-        onClose={clearMemberIntent}
-        onPublishSightingReport={publishSightingReport}
-        session={memberCreationSession}
-        visible={
-          Boolean(memberCreationSession) &&
-          state.memberIntent?.intent === "sighting"
-        }
-      />
-
-      <AdoptionListingCreationModal
-        draftScopeId={draftScopeId}
-        draftStore={creationDraftStore}
-        onClose={clearMemberIntent}
-        session={memberCreationSession}
-        visible={
-          Boolean(memberCreationSession) &&
-          state.memberIntent?.intent === "adoption"
-        }
-      />
     </>
   );
+}
+
+function normalizeShellPathname(pathname: string): string {
+  const [pathWithoutQuery = "/"] = pathname.split(/[?#]/, 1);
+
+  if (pathWithoutQuery.length > 1 && pathWithoutQuery.endsWith("/")) {
+    return pathWithoutQuery.slice(0, -1);
+  }
+
+  return pathWithoutQuery;
 }
 
 export function shouldDisplayShellFirstRunTour({
@@ -592,134 +613,6 @@ function ShellFirstRunTourModal({
   );
 }
 
-function LostReportCreationModal({
-  draftScopeId,
-  draftStore,
-  onClose,
-  onOpenSponsorPlacement,
-  onReportSponsorPlacement,
-  visible,
-}: {
-  draftScopeId?: string;
-  draftStore?: ReturnType<typeof createCreationDraftStore>;
-  onClose: () => void;
-  onOpenSponsorPlacement: (sponsorPlacementId: string) => void;
-  onReportSponsorPlacement: (sponsorPlacementId: string) => void;
-  visible: boolean;
-}) {
-  return (
-    <Modal
-      animationType="slide"
-      onRequestClose={onClose}
-      presentationStyle="fullScreen"
-      visible={visible}
-    >
-      <LostReportCreationScreen
-        draftScopeId={draftScopeId}
-        draftStore={draftStore}
-        onClose={onClose}
-        onOpenSponsorPlacement={onOpenSponsorPlacement}
-        onReportSponsorPlacement={onReportSponsorPlacement}
-      />
-    </Modal>
-  );
-}
-
-function FoundReportCreationModal({
-  draftScopeId,
-  draftStore,
-  onClose,
-  session,
-  visible,
-}: {
-  draftScopeId?: string;
-  draftStore?: ReturnType<typeof createCreationDraftStore>;
-  onClose: () => void;
-  session: ShellMemberCreationSession | null;
-  visible: boolean;
-}) {
-  return (
-    <Modal
-      animationType="slide"
-      onRequestClose={onClose}
-      presentationStyle="fullScreen"
-      visible={visible}
-    >
-      <FoundReportCreationScreen
-        draftScopeId={draftScopeId}
-        draftStore={draftStore}
-        onClose={onClose}
-        session={session ?? { kind: "visitor" }}
-      />
-    </Modal>
-  );
-}
-
-function SightingReportStartModal({
-  draftScopeId,
-  draftStore,
-  onClose,
-  onPublishSightingReport,
-  session,
-  visible,
-}: {
-  draftScopeId?: string;
-  draftStore?: ReturnType<typeof createCreationDraftStore>;
-  onClose: () => void;
-  onPublishSightingReport?: React.ComponentProps<
-    typeof SightingReportCreationScreen
-  >["onPublishSightingReport"];
-  session: ShellMemberCreationSession | null;
-  visible: boolean;
-}) {
-  return (
-    <Modal
-      animationType="slide"
-      onRequestClose={onClose}
-      presentationStyle="fullScreen"
-      visible={visible}
-    >
-      <SightingReportCreationScreen
-        draftScopeId={draftScopeId}
-        draftStore={draftStore}
-        onClose={onClose}
-        onPublishSightingReport={onPublishSightingReport}
-        session={session ?? { kind: "visitor" }}
-      />
-    </Modal>
-  );
-}
-
-function AdoptionListingCreationModal({
-  draftScopeId,
-  draftStore,
-  onClose,
-  session,
-  visible,
-}: {
-  draftScopeId?: string;
-  draftStore?: ReturnType<typeof createCreationDraftStore>;
-  onClose: () => void;
-  session: ShellMemberCreationSession | null;
-  visible: boolean;
-}) {
-  return (
-    <Modal
-      animationType="slide"
-      onRequestClose={onClose}
-      presentationStyle="fullScreen"
-      visible={visible}
-    >
-      <AdoptionListingCreationScreen
-        draftScopeId={draftScopeId}
-        draftStore={draftStore}
-        onClose={onClose}
-        session={session ?? { kind: "visitor" }}
-      />
-    </Modal>
-  );
-}
-
 export function ReportActionSheet({
   actions,
   bottomInset,
@@ -739,6 +632,31 @@ export function ReportActionSheet({
   title: string;
   visible: boolean;
 }) {
+  const safeAreaInsets = useSafeAreaInsets();
+  const selectedIntentRef = React.useRef<ReportIntent | null>(null);
+  const [selectedIntent, setSelectedIntent] =
+    React.useState<ReportIntent | null>(null);
+
+  React.useEffect(() => {
+    if (visible) {
+      selectedIntentRef.current = null;
+      setSelectedIntent(null);
+    }
+  }, [visible]);
+
+  const selectAction = React.useCallback(
+    (intent: ReportIntent) => {
+      if (selectedIntentRef.current) {
+        return;
+      }
+
+      selectedIntentRef.current = intent;
+      setSelectedIntent(intent);
+      onSelect(intent);
+    },
+    [onSelect],
+  );
+
   return (
     <Modal
       animationType="fade"
@@ -746,9 +664,18 @@ export function ReportActionSheet({
       transparent
       visible={visible}
     >
-      <View style={styles.modalBackdrop}>
+      <View
+        style={[
+          styles.modalBackdrop,
+          {
+            paddingLeft: safeAreaInsets.left,
+            paddingRight: safeAreaInsets.right,
+            paddingTop: Math.max(safeAreaInsets.top, 12),
+          },
+        ]}
+      >
         <Pressable
-          accessibilityLabel={closeLabel}
+          accessibilityLabel="Cerrar panel de reporte"
           accessibilityRole="button"
           onPress={onClose}
           style={StyleSheet.absoluteFill}
@@ -760,71 +687,87 @@ export function ReportActionSheet({
             { paddingBottom: Math.max(bottomInset, 16) + 18 },
           ]}
         >
-          <View style={styles.sheetHeader}>
-            <View style={styles.sheetTitleGroup}>
-              <Text maxFontSizeMultiplier={1.25} style={styles.sheetTitle}>
-                {title}
-              </Text>
-              <Text maxFontSizeMultiplier={1.25} style={styles.sheetSubtitle}>
-                {subtitle}
-              </Text>
+          <ScrollView
+            bounces={false}
+            contentContainerStyle={styles.actionSheetScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.sheetHeader}>
+              <View style={styles.sheetTitleGroup}>
+                <Text maxFontSizeMultiplier={1.3} style={styles.sheetTitle}>
+                  {title}
+                </Text>
+                <Text maxFontSizeMultiplier={1.35} style={styles.sheetSubtitle}>
+                  {subtitle}
+                </Text>
+              </View>
+              <Pressable
+                accessibilityLabel={closeLabel}
+                accessibilityRole="button"
+                onPress={onClose}
+                style={styles.closeButton}
+              >
+                <ShellIcon name="xmark" color={shellColors.muted} size={22} />
+              </Pressable>
             </View>
-            <Pressable
-              accessibilityLabel={closeLabel}
-              accessibilityRole="button"
-              onPress={onClose}
-              style={styles.closeButton}
-            >
-              <ShellIcon name="xmark" color={shellColors.muted} size={20} />
-            </Pressable>
-          </View>
 
-          <View style={styles.actionList}>
-            {actions.map((action) => {
-              const colors = reportIntentColors[action.intent];
+            <View style={styles.actionList}>
+              {actions.map((action) => {
+                const colors = reportIntentColors[action.intent];
+                const isSelected = selectedIntent === action.intent;
+                const isDisabled = selectedIntent !== null;
 
-              return (
-                <Pressable
-                  accessibilityRole="button"
-                  key={action.intent}
-                  onPress={() => onSelect(action.intent)}
-                  style={({ pressed }) => [
-                    styles.actionRow,
-                    {
-                      backgroundColor: colors.background,
-                      borderColor: colors.border,
-                      opacity: pressed ? 0.84 : 1,
-                    },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.actionIcon,
-                      { backgroundColor: colors.iconBackground },
+                return (
+                  <Pressable
+                    accessibilityHint={`Abre el flujo para ${action.label.toLowerCase()}`}
+                    accessibilityLabel={action.label}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: isDisabled }}
+                    disabled={isDisabled}
+                    key={action.intent}
+                    onPress={() => selectAction(action.intent)}
+                    style={({ pressed }) => [
+                      styles.actionRow,
+                      {
+                        backgroundColor: colors.background,
+                        borderColor: isSelected
+                          ? colors.foreground
+                          : colors.border,
+                        opacity:
+                          isDisabled && !isSelected ? 0.58 : pressed ? 0.84 : 1,
+                      },
                     ]}
                   >
+                    <View
+                      style={[
+                        styles.actionIcon,
+                        { backgroundColor: colors.iconBackground },
+                      ]}
+                    >
+                      <ShellIcon
+                        color={colors.foreground}
+                        name={action.icon}
+                        size={24}
+                      />
+                    </View>
+                    <Text
+                      maxFontSizeMultiplier={1.35}
+                      numberOfLines={2}
+                      style={[styles.actionLabel, { color: colors.foreground }]}
+                    >
+                      {action.label}
+                    </Text>
                     <ShellIcon
                       color={colors.foreground}
-                      name={action.icon}
-                      size={22}
+                      name="chevron.right"
+                      size={20}
                     />
-                  </View>
-                  <Text
-                    maxFontSizeMultiplier={1.2}
-                    numberOfLines={2}
-                    style={[styles.actionLabel, { color: colors.foreground }]}
-                  >
-                    {action.label}
-                  </Text>
-                  <ShellIcon
-                    color={colors.foreground}
-                    name="chevron.right"
-                    size={18}
-                  />
-                </Pressable>
-              );
-            })}
-          </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -1738,16 +1681,22 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     gap: 18,
+    maxHeight: "92%",
     paddingHorizontal: 16,
     paddingTop: 18,
+  },
+  actionSheetScrollContent: {
+    gap: 18,
   },
   closeButton: {
     alignItems: "center",
     backgroundColor: shellColors.surfaceMuted,
-    borderRadius: 20,
-    height: 40,
+    borderRadius: 24,
+    height: 48,
     justifyContent: "center",
-    width: 40,
+    minHeight: 48,
+    minWidth: 48,
+    width: 48,
   },
   fab: {
     alignItems: "center",

@@ -3,6 +3,10 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
 const defaultEasProjectId = "ba6b6ed0-beb7-429a-9410-19dc361607f3";
 const defaultLocationWhenInUsePermission =
   "Rastro usa tu ubicacion mientras usas la app para actualizar tu area de alertas y mostrar reportes cercanos.";
+const defaultPhotosPermission =
+  "Rastro usa tus fotos para adjuntarlas a reportes de mascotas.";
+const defaultCameraPermission =
+  "Rastro usa la camara para tomar fotos de reportes de mascotas.";
 const defaultSocialAuthProviders = "google,facebook";
 
 export default ({ config }: ConfigContext): ExpoConfig => {
@@ -21,6 +25,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const locationWhenInUsePermission =
     readOptionalEnv("EXPO_LOCATION_WHEN_IN_USE_PERMISSION") ??
     defaultLocationWhenInUsePermission;
+  const photosPermission =
+    readOptionalEnv("EXPO_IMAGE_PICKER_PHOTOS_PERMISSION") ??
+    defaultPhotosPermission;
+  const cameraPermission =
+    readOptionalEnv("EXPO_IMAGE_PICKER_CAMERA_PERMISSION") ??
+    defaultCameraPermission;
   const androidConfig = isRecord(config.android?.config)
     ? config.android.config
     : {};
@@ -111,6 +121,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           locationWhenInUsePermission,
         },
       ],
+      [
+        "expo-image-picker",
+        {
+          cameraPermission,
+          microphonePermission: false,
+          photosPermission,
+        },
+      ],
+      "expo-font",
       "expo-notifications",
       [
         "expo-splash-screen",

@@ -3,10 +3,7 @@ import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 
 import { AppStateScreen } from "~/features/app-states";
 import { ShellFabHost } from "~/features/shell/shell-overlays";
-import {
-  RastroShellProvider,
-  useRastroShell,
-} from "~/features/shell/shell-provider";
+import { useRastroShell } from "~/features/shell/shell-provider";
 import { shellColors } from "~/features/shell/shell-theme";
 
 export const unstable_settings = {
@@ -14,11 +11,7 @@ export const unstable_settings = {
 };
 
 export default function TabLayout() {
-  return (
-    <RastroShellProvider>
-      <RastroTabs />
-    </RastroShellProvider>
-  );
+  return <RastroTabs />;
 }
 
 function RastroTabs() {

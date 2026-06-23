@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  completeMobileAuthCallback,
   createMobileAuthProxyURL,
+  fetchMobileAuthSessionWithCookie,
   getAvailableShellSocialAuthProviders,
   getLocalizedAuthErrorMessage,
   getLocalizedPasswordResetErrorMessage,
@@ -15,6 +17,13 @@ const expoConstants = vi.hoisted(() => ({
     | { extra?: Record<string, unknown> | undefined }
     | undefined,
 }));
+const secureStore = vi.hoisted(() => ({
+  getItem: vi.fn((): string | null => null),
+  setItem: vi.fn(),
+}));
+const authStore = vi.hoisted(() => ({
+  notify: vi.fn(),
+}));
 
 const originalSocialProvidersEnv =
   typeof process.env.EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS === "string"
@@ -25,7 +34,7 @@ vi.mock("expo-constants", () => ({
   default: expoConstants,
 }));
 
-vi.mock("expo-secure-store", () => ({}));
+vi.mock("expo-secure-store", () => secureStore);
 
 vi.mock("@better-auth/expo/client", () => ({
   expoClient: vi.fn(() => ({ id: "expo" })),
@@ -45,6 +54,7 @@ vi.mock("better-auth/react", () => ({
       email: vi.fn(),
     },
     useSession: vi.fn(),
+    $store: authStore,
   })),
 }));
 
@@ -70,6 +80,10 @@ vi.mock("./base-url", () => ({
 
 beforeEach(() => {
   expoConstants.expoConfig = undefined;
+  authStore.notify.mockClear();
+  secureStore.getItem.mockClear();
+  secureStore.getItem.mockReturnValue(null);
+  secureStore.setItem.mockClear();
   delete process.env.EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS;
 });
 
@@ -250,12 +264,21 @@ describe("signInWithShellSocialProvider", () => {
 });
 
 describe("mobile auth configuration helpers", () => {
-  it("builds the Expo auth proxy on the authorization URL origin", () => {
+  it("builds the Expo auth proxy on the Better Auth callback origin", () => {
+    const authorizationURL =
+      "https://accounts.google.com/o/oauth2/auth?state=abc&redirect_uri=https%3A%2F%2Fauth.example.test%2Fapi%2Fauth%2Fcallback%2Fgoogle";
+
+    expect(createMobileAuthProxyURL(authorizationURL)).toBe(
+      `https://auth.example.test/api/auth/expo-authorization-proxy?authorizationURL=${encodeURIComponent(authorizationURL)}`,
+    );
+  });
+
+  it("falls back to the configured API base URL when the provider URL has no redirect URI", () => {
     const authorizationURL =
       "https://auth.example.test/api/auth/sign-in/social?provider=facebook&state=abc";
 
     expect(createMobileAuthProxyURL(authorizationURL)).toBe(
-      `https://auth.example.test/api/auth/expo-authorization-proxy?authorizationURL=${encodeURIComponent(authorizationURL)}`,
+      `http://localhost:3000/api/auth/expo-authorization-proxy?authorizationURL=${encodeURIComponent(authorizationURL)}`,
     );
   });
 
@@ -302,6 +325,92 @@ describe("mobile auth configuration helpers", () => {
         "rastro://auth/callback",
       ),
     ).toBe(false);
+  });
+
+  it("persists the Better Auth cookie from a routed mobile callback", () => {
+    expect(
+      completeMobileAuthCallback({
+        cookie: "__Secure-better-auth.session_token=abc; Path=/; HttpOnly",
+      }),
+    ).toEqual({ ok: true });
+
+    expect(secureStore.getItem).toHaveBeenCalledWith("rastro_cookie");
+    expect(secureStore.setItem).toHaveBeenCalledWith(
+      "rastro_cookie",
+      "stored:__Secure-better-auth.session_token=abc; Path=/; HttpOnly",
+    );
+    expect(authStore.notify).toHaveBeenCalledWith("$sessionSignal");
+  });
+
+  it("checks the mobile session with an explicit Cookie header", async () => {
+    const fetchImpl = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            session: { id: "session-1" },
+            user: {
+              email: "qa@example.com",
+              id: "user-1",
+              name: "QA",
+            },
+          }),
+          {
+            status: 200,
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      fetchMobileAuthSessionWithCookie({
+        baseUrl: "http://localhost:3000",
+        cookie: "better-auth.session_token=abc",
+        fetchImpl,
+      }),
+    ).resolves.toEqual({
+      session: { id: "session-1" },
+      user: {
+        email: "qa@example.com",
+        id: "user-1",
+        name: "QA",
+      },
+    });
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "http://localhost:3000/api/auth/get-session",
+      {
+        headers: {
+          Cookie: "better-auth.session_token=abc",
+        },
+        signal: undefined,
+      },
+    );
+  });
+
+  it("skips the explicit mobile session check when no cookie is stored", async () => {
+    const fetchImpl = vi.fn();
+
+    await expect(
+      fetchMobileAuthSessionWithCookie({
+        cookie: " ",
+        fetchImpl,
+      }),
+    ).resolves.toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("maps provider callback errors from the routed mobile callback", () => {
+    expect(
+      completeMobileAuthCallback({
+        error: "Provider not found",
+      }),
+    ).toEqual({
+      message: "Ese proveedor de acceso no está disponible en este momento.",
+      ok: false,
+      reason: "failed",
+    });
+
+    expect(secureStore.setItem).not.toHaveBeenCalled();
+    expect(authStore.notify).not.toHaveBeenCalled();
   });
 
   it("maps common backend auth errors to Spanish recovery copy", () => {

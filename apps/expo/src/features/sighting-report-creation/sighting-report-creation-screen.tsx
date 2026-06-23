@@ -1,9 +1,21 @@
+import type { ScrollView } from "react-native";
 import * as React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 
+import type { NearbyLocationAdapter } from "../nearby/nearby-location-adapter";
+import type {
+  ReportCreationJourney,
+  ReportCreationJourneyStepId,
+  ReportCreationJourneyValidationResult,
+} from "../report-creation/report-creation-journey";
+import type { ReportLocationDraft } from "../report-creation/report-location-draft";
+import type { ReportMediaDraftSnapshot } from "../report-media";
 import type { CreationDraftStore } from "../resilience/creation-drafts";
-import type { DurableCreationDraftPersistence } from "../resilience/use-durable-creation-draft";
+import type {
+  DurableCreationDraftPersistence,
+  DurableCreationDraftRecovery,
+} from "../resilience/use-durable-creation-draft";
 import type {
   PublishSightingReportInput,
   SightingReportCreationSession,
@@ -11,23 +23,34 @@ import type {
   SightingReportDraft,
   SightingReportPhoto,
 } from "./sighting-report-creation-types";
+import type {
+  SightingReportCreationJourneyInput,
+  SightingReportCreationValidationDisplayInput,
+} from "./sighting-report-creation-view-model";
 import type { SightingReportPublishConfirmation } from "./sighting-report-publish-adapter";
+import {
+  advanceReportCreationJourney,
+  retreatReportCreationJourney,
+} from "../report-creation/report-creation-journey";
 import { publishReportCreation } from "../report-creation/report-creation-publish";
 import {
   ReportCreationActionButton,
   ReportCreationContactOptionSection,
   ReportCreationDetailsFieldsSection,
   ReportCreationDraftPersistenceAlert,
-  ReportCreationEditorScrollView,
+  ReportCreationDraftRecoveryPrompt,
   ReportCreationInfoRow,
   ReportCreationPetSnapshotSection,
   ReportCreationPhotoSection,
   ReportCreationProgressSteps,
   ReportCreationReviewPublishSection,
+  ReportCreationScreenFrame,
   ReportCreationSection,
   ReportCreationToggleRow,
   useReportCreationPetDraftUpdaters,
 } from "../report-creation/report-creation-ui";
+import { ReportLocationPickerScreen } from "../report-location-picker";
+import { reportMediaSnapshotToCreationPhotos } from "../report-media";
 import { useDurableCreationDraft } from "../resilience/use-durable-creation-draft";
 import { shellColors } from "../shell/shell-theme";
 import { sightingReportCreationFixtures } from "./sighting-report-creation-fixtures";
@@ -42,7 +65,6 @@ import {
   toPublishSightingReportInput,
 } from "./sighting-report-creation-view-model";
 
-const bottomInset = 36;
 const errorAccent = "#D6453D";
 const sightingAccent = shellColors.sighting;
 const sightingAccentSoft = "#E6F0F7";
@@ -57,8 +79,10 @@ export interface SightingReportCreationScreenProps {
   draftScopeId?: string;
   draftStore?: CreationDraftStore;
   initialDraft?: SightingReportDraft;
+  locationAdapter?: NearbyLocationAdapter;
   onChooseSightingLocation?: () => void;
   onClose?: () => void;
+  onDraftPublished?: () => void;
   onPublishSightingReport?: (
     input: PublishSightingReportInput,
   ) =>
@@ -66,6 +90,15 @@ export interface SightingReportCreationScreenProps {
     | SightingReportPublishConfirmation
     | void;
   onRequestMemberSignIn?: (action: SightingReportCreationVisitorAction) => void;
+  pickSightingReportPhoto?: () =>
+    | SightingReportPhoto
+    | Promise<SightingReportPhoto | undefined>
+    | undefined;
+  renderReportMediaManager?: (props: {
+    mediaDraftId: string;
+    onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
+    photos: readonly SightingReportPhoto[];
+  }) => React.ReactNode;
   session?: SightingReportCreationSession;
 }
 
@@ -92,43 +125,123 @@ export function SightingReportCreationScreen({
   draftScopeId,
   draftStore,
   initialDraft,
+  locationAdapter,
   onChooseSightingLocation,
   onClose,
+  onDraftPublished,
   onPublishSightingReport,
   onRequestMemberSignIn,
+  pickSightingReportPhoto,
+  renderReportMediaManager,
   session = { kind: "member", memberId: "member-preview" },
 }: SightingReportCreationScreenProps) {
   const defaultDraft = React.useMemo(
-    () =>
-      initialDraft ??
-      createSightingReportDraft({
-        exactSightingLocation: sightingReportCreationFixtures.defaultLocation,
-      }),
+    () => initialDraft ?? createSightingReportDraft(),
     [initialDraft],
   );
-  const { clearDraft, draft, draftPersistence, setDraft } =
-    useDurableCreationDraft({
-      initialDraft: defaultDraft,
-      kind: "sighting-report",
-      scopeId: draftScopeId,
-      store: draftStore,
-    });
+  const {
+    clearDraft,
+    discardDraft,
+    draft,
+    draftPersistence,
+    draftRecovery,
+    draftResetVersion,
+    hasLoaded,
+    restoredDraft,
+    resumeDraft,
+    setDraft,
+  } = useDurableCreationDraft({
+    initialDraft: defaultDraft,
+    kind: "sighting-report",
+    recoveryMode: "explicit",
+    scopeId: draftScopeId,
+    store: draftStore,
+  });
+  const inferredJourney = React.useMemo(
+    () =>
+      buildSightingReportCreationViewModel({
+        draft,
+        session,
+        validationDisplay: {},
+      }).journey,
+    [draft, session],
+  );
+  const [journey, setJourney] =
+    React.useState<SightingReportCreationJourneyInput>(() =>
+      toSightingReportJourneyInput(inferredJourney),
+    );
+  const [validationDisplay, setValidationDisplay] =
+    React.useState<SightingReportCreationValidationDisplayInput>({});
+  const [legacyMediaDraftId] = React.useState(
+    () => `sighting-report-${createReportCreationIdSuffix()}`,
+  );
+  const mediaDraftId = draft.idempotencyKey ?? legacyMediaDraftId;
+  const journeyResetSource = hasLoaded
+    ? `${restoredDraft?.savedAt ?? "fresh"}:${draftResetVersion}`
+    : "loading";
+  const journeyResetSourceRef = React.useRef<unknown>(journeyResetSource);
+
+  React.useEffect(() => {
+    if (draft.idempotencyKey) {
+      return;
+    }
+
+    setDraft((current) =>
+      current.idempotencyKey
+        ? current
+        : {
+            ...current,
+            idempotencyKey: mediaDraftId,
+          },
+    );
+  }, [draft.idempotencyKey, mediaDraftId, setDraft]);
+
+  React.useEffect(() => {
+    if (journeyResetSourceRef.current === journeyResetSource) {
+      return;
+    }
+
+    journeyResetSourceRef.current = journeyResetSource;
+    setJourney(toSightingReportJourneyInput(inferredJourney));
+    setValidationDisplay({});
+  }, [inferredJourney, journeyResetSource]);
+
   const [publishState, setPublishState] =
     React.useState<PublishState>("editing");
   const [publishedReport, setPublishedReport] =
     React.useState<SightingReportPublishConfirmation | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [isLocationPickerVisible, setLocationPickerVisible] =
+    React.useState(false);
   const publishLockRef = React.useRef(false);
   const viewModel = React.useMemo(
     () =>
       buildSightingReportCreationViewModel({
         draft,
+        journey,
         session,
+        validationDisplay,
       }),
-    [draft, session],
+    [draft, journey, session, validationDisplay],
   );
 
-  const addPhoto = React.useCallback(() => {
+  const addPhoto = React.useCallback(async () => {
+    if (pickSightingReportPhoto) {
+      const pickedPhoto = await pickSightingReportPhoto();
+
+      if (!pickedPhoto) {
+        return;
+      }
+
+      setDraft((current) =>
+        appendSightingReportPhoto({
+          draft: current,
+          photo: pickedPhoto,
+        }),
+      );
+      return;
+    }
+
     const nextPhoto =
       sightingReportCreationFixtures.photoSamples[draft.photos.length] ??
       createFallbackPhoto(draft.photos.length);
@@ -139,7 +252,30 @@ export function SightingReportCreationScreen({
         photo: nextPhoto,
       }),
     );
-  }, [draft.photos.length, setDraft]);
+  }, [draft.photos.length, pickSightingReportPhoto, setDraft]);
+  const openLocationPicker = React.useCallback(() => {
+    if (onChooseSightingLocation) {
+      onChooseSightingLocation();
+      return;
+    }
+
+    if (locationAdapter) {
+      setLocationPickerVisible(true);
+    }
+  }, [locationAdapter, onChooseSightingLocation]);
+  const closeLocationPicker = React.useCallback(() => {
+    setLocationPickerVisible(false);
+  }, []);
+  const confirmLocation = React.useCallback(
+    (location: ReportLocationDraft) => {
+      setDraft((current) => ({
+        ...current,
+        exactSightingLocation: location,
+      }));
+      setLocationPickerVisible(false);
+    },
+    [setDraft],
+  );
 
   const publish = React.useCallback(async () => {
     if (!viewModel.canPublish || publishState === "publishing") {
@@ -173,6 +309,7 @@ export function SightingReportCreationScreen({
 
     if (result.ok) {
       setPublishedReport(result.confirmation ?? null);
+      onDraftPublished?.();
       setPublishState("success");
       return;
     }
@@ -186,6 +323,7 @@ export function SightingReportCreationScreen({
   }, [
     clearDraft,
     draft,
+    onDraftPublished,
     onPublishSightingReport,
     publishState,
     setDraft,
@@ -198,6 +336,16 @@ export function SightingReportCreationScreen({
         onClose={onClose}
         onRequestMemberSignIn={onRequestMemberSignIn}
         viewModel={viewModel}
+      />
+    );
+  }
+
+  if (isLocationPickerVisible && locationAdapter) {
+    return (
+      <ReportLocationPickerScreen
+        adapter={locationAdapter}
+        onCancel={closeLocationPicker}
+        onConfirm={confirmLocation}
       />
     );
   }
@@ -217,12 +365,20 @@ export function SightingReportCreationScreen({
       addPhoto={addPhoto}
       draft={draft}
       draftPersistence={draftPersistence}
-      onChooseSightingLocation={onChooseSightingLocation}
+      draftRecovery={draftRecovery}
+      mediaDraftId={mediaDraftId}
+      onChooseSightingLocation={openLocationPicker}
       onClose={onClose}
+      onDiscardRecoveredDraft={discardDraft}
+      onResumeRecoveredDraft={resumeDraft}
       publish={publish}
       publishState={publishState}
+      renderReportMediaManager={renderReportMediaManager}
       setDraft={setDraft}
+      setJourney={setJourney}
+      setValidationDisplay={setValidationDisplay}
       submitError={submitError}
+      validationDisplay={validationDisplay}
       viewModel={viewModel}
     />
   );
@@ -238,11 +394,8 @@ function SightingReportVisitorHandoff({
   viewModel: SightingReportCreationViewModel;
 }) {
   return (
-    <ScrollView
+    <ReportCreationScreenFrame
       contentContainerStyle={styles.content}
-      contentInset={{ bottom: bottomInset }}
-      contentInsetAdjustmentBehavior="automatic"
-      scrollIndicatorInsets={{ bottom: bottomInset }}
       style={styles.screen}
     >
       <CreationHeader
@@ -282,7 +435,7 @@ function SightingReportVisitorHandoff({
           </Text>
         </Pressable>
       </View>
-    </ScrollView>
+    </ReportCreationScreenFrame>
   );
 }
 
@@ -296,11 +449,8 @@ function SightingReportCreationSuccess({
   viewModel: SightingReportCreationViewModel;
 }) {
   return (
-    <ScrollView
+    <ReportCreationScreenFrame
       contentContainerStyle={styles.content}
-      contentInset={{ bottom: bottomInset }}
-      contentInsetAdjustmentBehavior="automatic"
-      scrollIndicatorInsets={{ bottom: bottomInset }}
       style={styles.screen}
     >
       <View style={styles.successHero}>
@@ -358,7 +508,7 @@ function SightingReportCreationSuccess({
           styles={styles}
         />
       </View>
-    </ScrollView>
+    </ReportCreationScreenFrame>
   );
 }
 
@@ -366,44 +516,323 @@ function SightingReportCreationEditor({
   addPhoto,
   draft,
   draftPersistence,
+  draftRecovery,
+  mediaDraftId,
   onChooseSightingLocation,
   onClose,
+  onDiscardRecoveredDraft,
+  onResumeRecoveredDraft,
   publish,
   publishState,
+  renderReportMediaManager,
   setDraft,
+  setJourney,
+  setValidationDisplay,
   submitError,
+  validationDisplay,
   viewModel,
 }: {
   addPhoto: () => void;
   draft: SightingReportDraft;
   draftPersistence: DurableCreationDraftPersistence;
+  draftRecovery: DurableCreationDraftRecovery<"sighting-report">;
+  mediaDraftId: string;
   onChooseSightingLocation?: () => void;
   onClose?: () => void;
+  onDiscardRecoveredDraft: () => Promise<void>;
+  onResumeRecoveredDraft: () => void;
   publish: () => void;
   publishState: PublishState;
+  renderReportMediaManager?: SightingReportCreationScreenProps["renderReportMediaManager"];
   setDraft: React.Dispatch<React.SetStateAction<SightingReportDraft>>;
+  setJourney: React.Dispatch<
+    React.SetStateAction<SightingReportCreationJourneyInput>
+  >;
+  setValidationDisplay: React.Dispatch<
+    React.SetStateAction<SightingReportCreationValidationDisplayInput>
+  >;
   submitError: string | null;
+  validationDisplay: SightingReportCreationValidationDisplayInput;
   viewModel: SightingReportCreationViewModel;
 }) {
   const sightingPetDraft = useReportCreationPetDraftUpdaters(setDraft);
+  const scrollViewRef =
+    React.useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const currentStepId = viewModel.journey.currentStep.id;
+  const hasPreviousStep = hasPreviousEditableSightingStep(viewModel.journey);
+  const showStepActions =
+    isEditableSightingStepId(currentStepId) && currentStepId !== "review";
+  const locationValidationError =
+    validationDisplay.attemptedStepId === "location"
+      ? getSightingReportLocationValidationError(draft)
+      : undefined;
+  const scrollToActiveStep = React.useCallback(() => {
+    scrollViewRef.current?.scrollTo({ animated: true, y: 0 });
+  }, []);
+  const continueToNextStep = React.useCallback(() => {
+    const result = advanceReportCreationJourney(viewModel.journey, {
+      [currentStepId]: () =>
+        validateCurrentSightingReportStep({
+          draft,
+          journey: viewModel.journey,
+        }),
+    });
+
+    if (!result.ok) {
+      if (result.reason === "invalid-current-step") {
+        setValidationDisplay({
+          attemptedStepId: result.stepId,
+        });
+        scrollToActiveStep();
+      }
+
+      return;
+    }
+
+    setJourney(toSightingReportJourneyInput(result.journey));
+    setValidationDisplay({});
+    scrollToActiveStep();
+  }, [
+    currentStepId,
+    draft,
+    scrollToActiveStep,
+    setJourney,
+    setValidationDisplay,
+    viewModel.journey,
+  ]);
+  const goBack = React.useCallback(() => {
+    const result = retreatReportCreationJourney(viewModel.journey);
+
+    if (
+      !result.ok ||
+      !isEditableSightingStepId(result.journey.currentStep.id)
+    ) {
+      return;
+    }
+
+    setJourney(toSightingReportJourneyInput(result.journey));
+    setValidationDisplay({});
+    scrollToActiveStep();
+  }, [scrollToActiveStep, setJourney, setValidationDisplay, viewModel.journey]);
 
   return (
-    <ReportCreationEditorScrollView bottomInset={bottomInset} styles={styles}>
+    <ReportCreationScreenFrame
+      contentContainerStyle={styles.content}
+      footer={
+        showStepActions ? (
+          <SightingReportStepActions
+            canGoBack={hasPreviousStep}
+            onBack={goBack}
+            onContinue={continueToNextStep}
+          />
+        ) : undefined
+      }
+      scrollViewRef={scrollViewRef}
+      style={styles.screen}
+    >
       <CreationHeader
         eyebrow={viewModel.header.eyebrow}
         onClose={onClose}
         title={viewModel.title}
       />
-      <ReportCreationProgressSteps steps={viewModel.steps} styles={styles} />
+      <ReportCreationProgressSteps
+        steps={viewModel.journey.steps}
+        styles={styles}
+      />
+      <ReportCreationDraftRecoveryPrompt
+        draftRecovery={draftRecovery}
+        onDiscardDraft={onDiscardRecoveredDraft}
+        onResumeDraft={onResumeRecoveredDraft}
+      />
       <ReportCreationDraftPersistenceAlert
         draftPersistence={draftPersistence}
       />
+      <SightingReportCreationStepContent
+        addPhoto={addPhoto}
+        currentStepId={currentStepId}
+        draft={draft}
+        locationValidationError={locationValidationError}
+        mediaDraftId={mediaDraftId}
+        onChangePetBreed={sightingPetDraft.updatePetBreed}
+        onChangePetDescription={sightingPetDraft.updatePetDescription}
+        onChooseSightingLocation={onChooseSightingLocation}
+        onSelectPetType={sightingPetDraft.updatePetType}
+        publish={publish}
+        publishState={publishState}
+        renderReportMediaManager={renderReportMediaManager}
+        setDraft={setDraft}
+        submitError={submitError}
+        viewModel={viewModel}
+      />
+    </ReportCreationScreenFrame>
+  );
+}
+
+function SightingReportCreationStepContent({
+  addPhoto,
+  currentStepId,
+  draft,
+  locationValidationError,
+  mediaDraftId,
+  onChangePetBreed,
+  onChangePetDescription,
+  onChooseSightingLocation,
+  onSelectPetType,
+  publish,
+  publishState,
+  renderReportMediaManager,
+  setDraft,
+  submitError,
+  viewModel,
+}: {
+  addPhoto: () => void;
+  currentStepId: ReportCreationJourneyStepId;
+  draft: SightingReportDraft;
+  locationValidationError?: string;
+  mediaDraftId: string;
+  onChangePetBreed: (value: string) => void;
+  onChangePetDescription: (value: string) => void;
+  onChooseSightingLocation?: () => void;
+  onSelectPetType: (value: SightingReportDraft["pet"]["type"]) => void;
+  publish: () => void;
+  publishState: PublishState;
+  renderReportMediaManager?: SightingReportCreationScreenProps["renderReportMediaManager"];
+  setDraft: React.Dispatch<React.SetStateAction<SightingReportDraft>>;
+  submitError: string | null;
+  viewModel: SightingReportCreationViewModel;
+}) {
+  switch (currentStepId) {
+    case "photos":
+      return (
+        <SightingReportPhotosStep
+          addPhoto={addPhoto}
+          mediaDraftId={mediaDraftId}
+          renderReportMediaManager={renderReportMediaManager}
+          setDraft={setDraft}
+          viewModel={viewModel}
+        />
+      );
+    case "details":
+      return (
+        <SightingReportDetailsStep
+          draft={draft}
+          onChangePetBreed={onChangePetBreed}
+          onChangePetDescription={onChangePetDescription}
+          onSelectPetType={onSelectPetType}
+          setDraft={setDraft}
+          viewModel={viewModel}
+        />
+      );
+    case "location":
+      return (
+        <LocationPrivacySection
+          onChooseSightingLocation={onChooseSightingLocation}
+          setDraft={setDraft}
+          validationError={locationValidationError}
+          viewModel={viewModel}
+        />
+      );
+    case "contact":
+      return <ContactOptionSection setDraft={setDraft} viewModel={viewModel} />;
+    case "review":
+      return (
+        <ReviewPublishSection
+          publish={publish}
+          publishState={publishState}
+          submitError={submitError}
+          viewModel={viewModel}
+        />
+      );
+    default:
+      return null;
+  }
+}
+
+function SightingReportPhotosStep({
+  addPhoto,
+  mediaDraftId,
+  renderReportMediaManager,
+  setDraft,
+  viewModel,
+}: {
+  addPhoto: () => void;
+  mediaDraftId: string;
+  renderReportMediaManager?: SightingReportCreationScreenProps["renderReportMediaManager"];
+  setDraft: React.Dispatch<React.SetStateAction<SightingReportDraft>>;
+  viewModel: SightingReportCreationViewModel;
+}) {
+  const renderedReportMediaManager = renderReportMediaManager?.({
+    mediaDraftId,
+    onSnapshotChange: (snapshot) =>
+      setDraft((current) => ({
+        ...current,
+        photos: reportMediaSnapshotToCreationPhotos(snapshot),
+      })),
+    photos: viewModel.photos.items,
+  });
+
+  if (renderedReportMediaManager) {
+    return (
+      <ReportCreationSection styles={styles} title="Fotos opcionales">
+        {renderedReportMediaManager}
+        {viewModel.photos.error ? (
+          <Text maxFontSizeMultiplier={1.2} style={styles.errorText}>
+            {viewModel.photos.error}
+          </Text>
+        ) : null}
+      </ReportCreationSection>
+    );
+  }
+
+  return (
+    <ReportCreationPhotoSection
+      accentColor={sightingAccent}
+      addPhoto={addPhoto}
+      addPhotoAccessibilityLabel="Agregar foto opcional"
+      canAddPhoto={viewModel.photos.canAddPhoto}
+      countLabel={viewModel.photos.countLabel}
+      helpLabel={viewModel.photos.helpLabel}
+      Icon={SightingReportCreationIcon}
+      onRemovePhoto={(photoId) =>
+        setDraft((current) =>
+          removeSightingReportPhoto({
+            draft: current,
+            photoId,
+          }),
+        )
+      }
+      permissionBody={viewModel.photos.permissionBody}
+      permissionTitle={viewModel.photos.permissionTitle}
+      photos={viewModel.photos.items}
+      styles={styles}
+      title="Fotos opcionales"
+    />
+  );
+}
+
+function SightingReportDetailsStep({
+  draft,
+  onChangePetBreed,
+  onChangePetDescription,
+  onSelectPetType,
+  setDraft,
+  viewModel,
+}: {
+  draft: SightingReportDraft;
+  onChangePetBreed: (value: string) => void;
+  onChangePetDescription: (value: string) => void;
+  onSelectPetType: (value: SightingReportDraft["pet"]["type"]) => void;
+  setDraft: React.Dispatch<React.SetStateAction<SightingReportDraft>>;
+  viewModel: SightingReportCreationViewModel;
+}) {
+  return (
+    <>
       <ReportCreationPetSnapshotSection
         breedField={viewModel.pet.fields.breed}
         descriptionField={viewModel.pet.fields.description}
-        onChangeBreed={sightingPetDraft.updatePetBreed}
-        onChangeDescription={sightingPetDraft.updatePetDescription}
-        onSelectType={sightingPetDraft.updatePetType}
+        onChangeBreed={onChangePetBreed}
+        onChangeDescription={onChangePetDescription}
+        onSelectType={onSelectPetType}
         placeholderTextColor={shellColors.muted}
         selectedType={draft.pet.type}
         styles={styles}
@@ -443,41 +872,7 @@ function SightingReportCreationEditor({
         styles={styles}
         title={viewModel.sightingDetails.title}
       />
-      <ReportCreationPhotoSection
-        accentColor={sightingAccent}
-        addPhoto={addPhoto}
-        addPhotoAccessibilityLabel="Agregar foto opcional"
-        canAddPhoto={viewModel.photos.canAddPhoto}
-        countLabel={viewModel.photos.countLabel}
-        helpLabel={viewModel.photos.helpLabel}
-        Icon={SightingReportCreationIcon}
-        onRemovePhoto={(photoId) =>
-          setDraft((current) =>
-            removeSightingReportPhoto({
-              draft: current,
-              photoId,
-            }),
-          )
-        }
-        permissionBody={viewModel.photos.permissionBody}
-        permissionTitle={viewModel.photos.permissionTitle}
-        photos={viewModel.photos.items}
-        styles={styles}
-        title="Fotos opcionales"
-      />
-      <LocationPrivacySection
-        onChooseSightingLocation={onChooseSightingLocation}
-        setDraft={setDraft}
-        viewModel={viewModel}
-      />
-      <ContactOptionSection setDraft={setDraft} viewModel={viewModel} />
-      <ReviewPublishSection
-        publish={publish}
-        publishState={publishState}
-        submitError={submitError}
-        viewModel={viewModel}
-      />
-    </ReportCreationEditorScrollView>
+    </>
   );
 }
 
@@ -509,14 +904,14 @@ function CreationHeader({
       </View>
       {onClose ? (
         <Pressable
-          accessibilityLabel="Cerrar avistamiento"
+          accessibilityLabel="Volver del avistamiento"
           accessibilityRole="button"
           onPress={onClose}
           style={styles.iconButton}
         >
           <SightingReportCreationIcon
             color={shellColors.muted}
-            name="xmark"
+            name="chevron.left"
             size={18}
           />
         </Pressable>
@@ -528,10 +923,12 @@ function CreationHeader({
 function LocationPrivacySection({
   onChooseSightingLocation,
   setDraft,
+  validationError,
   viewModel,
 }: {
   onChooseSightingLocation?: () => void;
   setDraft: React.Dispatch<React.SetStateAction<SightingReportDraft>>;
+  validationError?: string;
   viewModel: SightingReportCreationViewModel;
 }) {
   return (
@@ -597,6 +994,11 @@ function LocationPrivacySection({
         }
         styles={styles}
       />
+      {validationError ? (
+        <Text maxFontSizeMultiplier={1.2} selectable style={styles.errorText}>
+          {validationError}
+        </Text>
+      ) : null}
     </ReportCreationSection>
   );
 }
@@ -608,32 +1010,45 @@ function ContactOptionSection({
   setDraft: React.Dispatch<React.SetStateAction<SightingReportDraft>>;
   viewModel: SightingReportCreationViewModel;
 }) {
+  const contactError =
+    viewModel.contact.whatsappField.visible &&
+    viewModel.contact.whatsappField.error
+      ? undefined
+      : viewModel.contact.error;
+
   return (
-    <ReportCreationContactOptionSection
-      accentColor={sightingAccent}
-      Icon={SightingReportCreationIcon}
-      onChangeWhatsappPhone={(value) =>
-        setDraft((current) => ({
-          ...current,
-          contact: {
-            ...current.contact,
-            whatsappPhone: value,
-          },
-        }))
-      }
-      onSelectOption={(option) =>
-        setDraft((current) =>
-          selectSightingReportContactOption({
-            draft: current,
-            option,
-          }),
-        )
-      }
-      options={viewModel.contact.options}
-      styles={styles}
-      title="Contacto"
-      whatsappField={viewModel.contact.whatsappField}
-    />
+    <>
+      <ReportCreationContactOptionSection
+        accentColor={sightingAccent}
+        Icon={SightingReportCreationIcon}
+        onChangeWhatsappPhone={(value) =>
+          setDraft((current) => ({
+            ...current,
+            contact: {
+              ...current.contact,
+              whatsappPhone: value,
+            },
+          }))
+        }
+        onSelectOption={(option) =>
+          setDraft((current) =>
+            selectSightingReportContactOption({
+              draft: current,
+              option,
+            }),
+          )
+        }
+        options={viewModel.contact.options}
+        styles={styles}
+        title="Contacto"
+        whatsappField={viewModel.contact.whatsappField}
+      />
+      {contactError ? (
+        <Text maxFontSizeMultiplier={1.2} selectable style={styles.errorText}>
+          {contactError}
+        </Text>
+      ) : null}
+    </>
   );
 }
 
@@ -664,13 +1079,191 @@ function ReviewPublishSection({
   );
 }
 
+function SightingReportStepActions({
+  canGoBack,
+  onBack,
+  onContinue,
+}: {
+  canGoBack: boolean;
+  onBack: () => void;
+  onContinue: () => void;
+}) {
+  return (
+    <View style={styles.buttonRow}>
+      {canGoBack ? (
+        <ReportCreationActionButton
+          accentColor={sightingAccent}
+          Icon={SightingReportCreationIcon}
+          icon="chevron.left"
+          label="Atrás"
+          onPress={onBack}
+          primaryTextColor={shellColors.white}
+          styles={styles}
+          variant="secondary"
+        />
+      ) : null}
+      <ReportCreationActionButton
+        accentColor={sightingAccent}
+        Icon={SightingReportCreationIcon}
+        icon="chevron.right"
+        label="Continuar"
+        onPress={onContinue}
+        primaryTextColor={shellColors.white}
+        styles={styles}
+      />
+    </View>
+  );
+}
+
+function toSightingReportJourneyInput(
+  journey: ReportCreationJourney,
+): SightingReportCreationJourneyInput {
+  return {
+    completedStepIds: journey.steps
+      .filter((step) => step.status === "completed")
+      .map((step) => step.id),
+    currentStepId: journey.currentStep.id,
+  };
+}
+
+function validateCurrentSightingReportStep({
+  draft,
+  journey,
+}: {
+  draft: SightingReportDraft;
+  journey: ReportCreationJourney;
+}): ReportCreationJourneyValidationResult {
+  const currentStepId = journey.currentStep.id;
+
+  switch (currentStepId) {
+    case "photos":
+      return { ok: true };
+    case "details": {
+      const attemptedViewModel = buildSightingReportCreationViewModel({
+        draft,
+        journey: toSightingReportJourneyInput(journey),
+        validationDisplay: {
+          attemptedStepId: currentStepId,
+        },
+      });
+
+      return toSightingReportValidationResult([
+        attemptedViewModel.sightingDetails.fields.observedAtLabel.error,
+        attemptedViewModel.sightingDetails.fields.observedCondition.error,
+        attemptedViewModel.sightingDetails.fields.direction.error,
+        attemptedViewModel.sightingDetails.fields.description.error,
+        attemptedViewModel.pet.fields.description.error,
+      ]);
+    }
+    case "location":
+      return toSightingReportValidationResult([
+        getSightingReportLocationValidationError(draft),
+      ]);
+    case "contact": {
+      const attemptedViewModel = buildSightingReportCreationViewModel({
+        draft,
+        journey: toSightingReportJourneyInput(journey),
+        validationDisplay: {
+          attemptedStepId: currentStepId,
+        },
+      });
+
+      return toSightingReportValidationResult([
+        attemptedViewModel.contact.error,
+        attemptedViewModel.contact.whatsappField.error,
+      ]);
+    }
+    case "review": {
+      const attemptedViewModel = buildSightingReportCreationViewModel({
+        draft,
+        journey: toSightingReportJourneyInput(journey),
+        validationDisplay: {
+          attemptedStepId: currentStepId,
+        },
+      });
+
+      return attemptedViewModel.canPublish
+        ? { ok: true }
+        : toSightingReportValidationResult(
+            attemptedViewModel.review.validationErrors,
+          );
+    }
+    default:
+      return { ok: true };
+  }
+}
+
+function getSightingReportLocationValidationError(draft: SightingReportDraft) {
+  return draft.exactSightingLocation
+    ? undefined
+    : "Selecciona donde fue visto el animal.";
+}
+
+function toSightingReportValidationResult(
+  errors: readonly (string | undefined)[],
+): ReportCreationJourneyValidationResult {
+  const visibleErrors = errors.filter(isSightingReportValidationError);
+
+  return visibleErrors.length === 0
+    ? { ok: true }
+    : {
+        errors: visibleErrors,
+        ok: false,
+      };
+}
+
+function isSightingReportValidationError(
+  value: string | undefined,
+): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function hasPreviousEditableSightingStep(journey: ReportCreationJourney) {
+  const currentStepIndex = journey.steps.findIndex(
+    (step) => step.id === journey.currentStep.id,
+  );
+
+  return journey.steps
+    .slice(0, currentStepIndex)
+    .some((step) => isEditableSightingStepId(step.id));
+}
+
+function isEditableSightingStepId(
+  stepId: ReportCreationJourneyStepId,
+): stepId is (typeof editableSightingStepIds)[number] {
+  return (
+    editableSightingStepIds as readonly ReportCreationJourneyStepId[]
+  ).includes(stepId);
+}
+
+const editableSightingStepIds = [
+  "photos",
+  "details",
+  "location",
+  "contact",
+  "review",
+] as const satisfies readonly ReportCreationJourneyStepId[];
+
 function createFallbackPhoto(index: number): SightingReportPhoto {
   return {
     alt: "Foto opcional de avistamiento",
     id: `sighting-report-photo-${index + 1}`,
+    mediaId: `sighting-report-media-${index + 1}`,
     status: "ready",
     uri: `file:///sighting-report-photo-${index + 1}.jpg`,
   };
+}
+
+function createReportCreationIdSuffix() {
+  const crypto = globalThis.crypto as
+    | {
+        randomUUID?: () => string;
+      }
+    | undefined;
+
+  return typeof crypto?.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
 const styles = StyleSheet.create({

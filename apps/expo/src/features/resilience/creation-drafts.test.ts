@@ -22,6 +22,10 @@ describe("durable creation drafts", () => {
     await createCreationDraftStore({ storage }).saveDraft({
       draft,
       kind: "pet-profile",
+      recovery: {
+        currentStep: "details",
+        idempotencyKey: "draft-idempotency-1",
+      },
       savedAt: "2026-06-18T14:30:00.000Z",
       scopeId: "member-camila",
     });
@@ -34,8 +38,12 @@ describe("durable creation drafts", () => {
     expect(loaded).toEqual({
       draft,
       kind: "pet-profile",
+      recovery: {
+        currentStep: "details",
+        idempotencyKey: "draft-idempotency-1",
+      },
       savedAt: "2026-06-18T14:30:00.000Z",
-      schemaVersion: 1,
+      schemaVersion: 2,
     });
   });
 
@@ -100,6 +108,137 @@ describe("durable creation drafts", () => {
       kind: "adoption-listing",
     });
   });
+
+  it("loads a saved draft as a recovery-aware found result", async () => {
+    const storage = createMemoryStorage();
+    const store = createCreationDraftStore({ storage });
+
+    await store.saveDraft({
+      draft: petProfileDraft,
+      kind: "pet-profile",
+      savedAt: "2026-06-18T14:30:00.000Z",
+      scopeId: "member-camila",
+    });
+
+    await expect(
+      store.loadDraftForRecovery("pet-profile", {
+        scopeId: "member-camila",
+      }),
+    ).resolves.toEqual({
+      draft: {
+        draft: petProfileDraft,
+        kind: "pet-profile",
+        savedAt: "2026-06-18T14:30:00.000Z",
+        schemaVersion: 2,
+      },
+      status: "found",
+    });
+  });
+
+  it("reports incompatible stored data without exposing it through the simple load API", async () => {
+    const storage = createMemoryStorage();
+    const store = createCreationDraftStore({ storage });
+
+    await storage.setItem(
+      "rastro:creation-draft:v2:member-camila:pet-profile",
+      JSON.stringify({
+        draft: petProfileDraft,
+        kind: "pet-profile",
+        savedAt: "2026-06-18T14:30:00.000Z",
+        schemaVersion: 99,
+      }),
+    );
+
+    await expect(
+      store.loadDraftForRecovery("pet-profile", {
+        scopeId: "member-camila",
+      }),
+    ).resolves.toEqual({
+      reason: "Stored draft is not compatible with this app version.",
+      status: "incompatible",
+    });
+    await expect(
+      store.loadDraft("pet-profile", { scopeId: "member-camila" }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("reports malformed stored data as incompatible instead of throwing", async () => {
+    const storage = createMemoryStorage();
+    const store = createCreationDraftStore({ storage });
+
+    await storage.setItem(
+      "rastro:creation-draft:v2:member-camila:pet-profile",
+      "{not valid json",
+    );
+
+    await expect(
+      store.loadDraftForRecovery("pet-profile", {
+        scopeId: "member-camila",
+      }),
+    ).resolves.toEqual({
+      reason: "Stored draft is not compatible with this app version.",
+      status: "incompatible",
+    });
+  });
+
+  it("loads a legacy v1 draft as a migrated recovery result", async () => {
+    const storage = createMemoryStorage();
+    const store = createCreationDraftStore({ storage });
+
+    await storage.setItem(
+      "rastro:creation-draft:v1:member-camila:pet-profile",
+      JSON.stringify({
+        draft: petProfileDraft,
+        kind: "pet-profile",
+        savedAt: "2026-06-18T14:30:00.000Z",
+        schemaVersion: 1,
+      }),
+    );
+
+    await expect(
+      store.loadDraftForRecovery("pet-profile", {
+        scopeId: "member-camila",
+      }),
+    ).resolves.toEqual({
+      draft: {
+        draft: petProfileDraft,
+        kind: "pet-profile",
+        savedAt: "2026-06-18T14:30:00.000Z",
+        schemaVersion: 2,
+      },
+      status: "migrated",
+    });
+  });
+
+  it("clears migrated legacy drafts so discard does not offer them again", async () => {
+    const storage = createMemoryStorage();
+    const store = createCreationDraftStore({ storage });
+    const scopeId = "member-camila";
+
+    await storage.setItem(
+      "rastro:creation-draft:v1:member-camila:pet-profile",
+      JSON.stringify({
+        draft: petProfileDraft,
+        kind: "pet-profile",
+        savedAt: "2026-06-18T14:30:00.000Z",
+        schemaVersion: 1,
+      }),
+    );
+
+    await expect(
+      store.loadDraftForRecovery("pet-profile", { scopeId }),
+    ).resolves.toMatchObject({
+      status: "migrated",
+    });
+
+    await store.clearDraft("pet-profile", { scopeId });
+
+    await expect(
+      store.loadDraftForRecovery("pet-profile", { scopeId }),
+    ).resolves.toEqual({
+      status: "missing",
+    });
+  });
 });
 
 function createMemoryStorage(): AsyncKeyValueStorage {
@@ -145,6 +284,7 @@ const lostReportDraft: LostReportDraft = {
     lastSeenAtLabel: "2026-06-18T10:00:00.000Z",
     markings: "Pecho blanco.",
   },
+  id: "lost-report-draft-1",
   petSelectionMode: "inline-create",
   photos: [],
   showExactPinPublicly: false,
@@ -161,6 +301,7 @@ const foundReportDraft: FoundReportDraft = {
     description: "Encontrado cerca del mercado.",
     foundAtLabel: "2026-06-18T11:00:00.000Z",
   },
+  idempotencyKey: "found-report-draft-1",
   pet: {
     breed: "Mestizo",
     description: "Collar azul.",
@@ -208,6 +349,7 @@ const adoptionListingDraft: AdoptionListingDraft = {
     name: "Nala",
     type: "Gato",
   },
+  id: "adoption-listing-draft-1",
   petSelectionMode: "inline-create",
   photos: [],
   showExactPinPublicly: false,

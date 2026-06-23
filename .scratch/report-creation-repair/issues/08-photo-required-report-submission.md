@@ -1,7 +1,7 @@
 # RC-010 Complete lost, found, and adoption submission using ready media IDs
 
-Status: ready-for-agent
-Labels: ready-for-agent
+Status: verified-automated
+Labels: verified-automated
 Severity: P0
 Issue ID: RC-010
 Type: AFK
@@ -112,3 +112,9 @@ Complete lost, found, and adoption report submission on top of the repaired stat
 - Redesigning unrelated browse/detail screens except for necessary refetch/render correctness.
 
 ## Comments
+
+### 2026-06-22 verification checkpoint
+
+- Implemented with `$tdd` after RC-002 and RC-003 verified the ready-media contract.
+- Fresh Verifier RC-010-V returned no findings for lost, found, and adoption submit transforms, ready media IDs, refetch/restart wiring, and duplicate submit guards.
+- Focused adapter and route tests passed as part of the full Expo suite: `pnpm -F @acme/expo exec vitest run` passed with 67 files and 391 tests; `pnpm -F @acme/expo exec tsc --noEmit --pretty false` and `pnpm -F @acme/expo lint` also passed.

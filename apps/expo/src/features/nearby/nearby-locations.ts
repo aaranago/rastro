@@ -1,56 +1,107 @@
 import type { NearbySearchLocation } from "./nearby-types";
 
-const nearbyBoliviaLocations = {
-  current: {
-    coordinates: { latitude: -16.5405, longitude: -68.0889 },
+export const boliviaDepartmentLocationOptions = [
+  {
+    coordinates: { latitude: -16.4897, longitude: -68.1193 },
     countryCode: "BO",
-    label: "Achumani, La Paz",
-    locationCellLabel: "Achumani",
-    source: "current",
-  },
-  lastDetected: {
-    coordinates: { latitude: -16.5, longitude: -68.1193 },
-    countryCode: "BO",
-    label: "Zona Sur, La Paz",
-    locationCellLabel: "Zona Sur",
-    source: "last",
-  },
-  manualZonaSur: {
-    coordinates: { latitude: -16.5, longitude: -68.1193 },
-    countryCode: "BO",
-    label: "Zona Sur, La Paz",
-    locationCellLabel: "Zona Sur",
+    department: "La Paz",
+    label: "La Paz",
+    locationCellLabel: "La Paz",
     manualLocationKind: "place",
+    municipality: "La Paz",
     source: "manual",
   },
-  manualSopocachi: {
-    coordinates: { latitude: -16.5103, longitude: -68.1299 },
+  {
+    coordinates: { latitude: -17.7833, longitude: -63.1821 },
     countryCode: "BO",
-    label: "Sopocachi, La Paz",
-    locationCellLabel: "Sopocachi",
+    department: "Santa Cruz",
+    label: "Santa Cruz de la Sierra",
+    locationCellLabel: "Santa Cruz de la Sierra",
     manualLocationKind: "place",
+    municipality: "Santa Cruz de la Sierra",
     source: "manual",
   },
-  manualCochabamba: {
+  {
     coordinates: { latitude: -17.3895, longitude: -66.1568 },
     countryCode: "BO",
-    label: "Queru Queru, Cochabamba",
-    locationCellLabel: "Queru Queru",
+    department: "Cochabamba",
+    label: "Cochabamba",
+    locationCellLabel: "Cochabamba",
     manualLocationKind: "place",
+    municipality: "Cochabamba",
     source: "manual",
   },
-  manualMapPin: {
+  {
+    coordinates: { latitude: -19.0196, longitude: -65.2619 },
     countryCode: "BO",
-    label: "Elegir punto en el mapa",
-    locationCellLabel: "Punto elegido",
-    manualLocationKind: "map-pin",
+    department: "Chuquisaca",
+    label: "Sucre",
+    locationCellLabel: "Sucre",
+    manualLocationKind: "place",
+    municipality: "Sucre",
     source: "manual",
   },
-} satisfies Record<string, NearbySearchLocation>;
+  {
+    coordinates: { latitude: -21.5355, longitude: -64.7296 },
+    countryCode: "BO",
+    department: "Tarija",
+    label: "Tarija",
+    locationCellLabel: "Tarija",
+    manualLocationKind: "place",
+    municipality: "Tarija",
+    source: "manual",
+  },
+  {
+    coordinates: { latitude: -17.9647, longitude: -67.106 },
+    countryCode: "BO",
+    department: "Oruro",
+    label: "Oruro",
+    locationCellLabel: "Oruro",
+    manualLocationKind: "place",
+    municipality: "Oruro",
+    source: "manual",
+  },
+  {
+    coordinates: { latitude: -19.5836, longitude: -65.7531 },
+    countryCode: "BO",
+    department: "Potosi",
+    label: "Potosi",
+    locationCellLabel: "Potosi",
+    manualLocationKind: "place",
+    municipality: "Potosi",
+    source: "manual",
+  },
+  {
+    coordinates: { latitude: -14.8333, longitude: -64.9 },
+    countryCode: "BO",
+    department: "Beni",
+    label: "Trinidad",
+    locationCellLabel: "Trinidad",
+    manualLocationKind: "place",
+    municipality: "Trinidad",
+    source: "manual",
+  },
+  {
+    coordinates: { latitude: -11.0267, longitude: -68.7692 },
+    countryCode: "BO",
+    department: "Pando",
+    label: "Cobija",
+    locationCellLabel: "Cobija",
+    manualLocationKind: "place",
+    municipality: "Cobija",
+    source: "manual",
+  },
+] as const satisfies readonly NearbySearchLocation[];
+
+const nearbyManualMapPinLocationOption = {
+  countryCode: "BO",
+  label: "Elegir punto en el mapa",
+  locationCellLabel: "Punto elegido",
+  manualLocationKind: "map-pin",
+  source: "manual",
+} as const satisfies NearbySearchLocation;
 
 export const nearbyManualLocationOptions = [
-  nearbyBoliviaLocations.manualZonaSur,
-  nearbyBoliviaLocations.manualSopocachi,
-  nearbyBoliviaLocations.manualCochabamba,
-  nearbyBoliviaLocations.manualMapPin,
+  ...boliviaDepartmentLocationOptions,
+  nearbyManualMapPinLocationOption,
 ] as const;

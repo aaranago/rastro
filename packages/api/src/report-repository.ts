@@ -99,8 +99,38 @@ export interface ReportRepository {
 
 type ReportRow = typeof Report.$inferSelect & {
   location: typeof ReportLocation.$inferSelect | null;
-  media: (typeof ReportMedia.$inferSelect)[];
 };
+
+const publicReportMediaColumns = {
+  altText: ReportMedia.altText,
+  canonicalUrl: ReportMedia.canonicalUrl,
+  height: ReportMedia.height,
+  id: ReportMedia.id,
+  mimeType: ReportMedia.mimeType,
+  objectKey: ReportMedia.objectKey,
+  position: ReportMedia.position,
+  sizeBytes: ReportMedia.sizeBytes,
+  thumbnailObjectKey: ReportMedia.thumbnailObjectKey,
+  width: ReportMedia.width,
+};
+
+type ReportMediaRow = Pick<
+  typeof ReportMedia.$inferSelect,
+  | "altText"
+  | "canonicalUrl"
+  | "height"
+  | "id"
+  | "mimeType"
+  | "objectKey"
+  | "position"
+  | "sizeBytes"
+  | "thumbnailObjectKey"
+  | "width"
+>;
+
+type ReportCreateTransactionResult =
+  | { kind: "created"; id: string }
+  | { kind: "existing"; report: PersistedReport };
 
 export function buildNearbyReportsOrigin(input: NearbyReportsInput) {
   return sql`ST_SetSRID(ST_MakePoint(${input.longitude}, ${input.latitude}), 4326)`;
@@ -139,7 +169,10 @@ function publicLocationFromInput(
   };
 }
 
-function toPersistedReport(row: ReportRow): PersistedReport {
+function toPersistedReport(
+  row: ReportRow,
+  mediaRows: ReportMediaRow[],
+): PersistedReport {
   if (!row.location) {
     throw new Error(`Report ${row.id} is missing its location row.`);
   }
@@ -175,7 +208,7 @@ function toPersistedReport(row: ReportRow): PersistedReport {
       label: row.location.label,
       locationCell: row.location.locationCell,
     },
-    media: row.media.map((media) => ({
+    media: mediaRows.map((media) => ({
       id: media.id,
       objectKey: media.objectKey,
       canonicalUrl: media.canonicalUrl,
@@ -236,19 +269,36 @@ function reportPatchFromInput(input: UpdateReportInput) {
 }
 
 export function createDrizzleReportRepository(db: Database): ReportRepository {
+  const findReadyMediaForReport = async (
+    reportId: string,
+  ): Promise<ReportMediaRow[]> => {
+    return db
+      .select(publicReportMediaColumns)
+      .from(ReportMedia)
+      .where(
+        and(
+          eq(ReportMedia.reportId, reportId),
+          eq(ReportMedia.status, "ready"),
+        ),
+      )
+      .orderBy(asc(ReportMedia.position));
+  };
+
+  const toPersistedReportWithMedia = async (row: ReportRow) => {
+    const media = await findReadyMediaForReport(row.id);
+
+    return toPersistedReport(row, media);
+  };
+
   const findById: ReportRepository["findById"] = async (id) => {
     const row = await db.query.Report.findFirst({
       where: eq(Report.id, id),
       with: {
         location: true,
-        media: {
-          orderBy: asc(ReportMedia.position),
-          where: eq(ReportMedia.status, "ready"),
-        },
       },
     });
 
-    return row ? toPersistedReport(row) : null;
+    return row ? toPersistedReportWithMedia(row) : null;
   };
 
   const repository: ReportRepository = {
@@ -264,14 +314,10 @@ export function createDrizzleReportRepository(db: Database): ReportRepository {
         ),
         with: {
           location: true,
-          media: {
-            orderBy: asc(ReportMedia.position),
-            where: eq(ReportMedia.status, "ready"),
-          },
         },
       });
 
-      return row ? toPersistedReport(row) : null;
+      return row ? toPersistedReportWithMedia(row) : null;
     },
     create: async ({ caretakerId, report }) => {
       const existing = await repository.findByCaretakerAndIdempotencyKey({
@@ -283,103 +329,112 @@ export function createDrizzleReportRepository(db: Database): ReportRepository {
         return existing;
       }
 
-      const created = await db.transaction(async (tx) => {
-        const [createdReport] = await tx
-          .insert(Report)
-          .values({
-            caretakerId,
-            color: report.pet.color,
-            contactPreference: report.contact.preference,
-            description: report.description,
-            distinguishingTraits: report.pet.distinguishingTraits ?? null,
-            eventOccurredAt: new Date(report.eventOccurredAt),
-            idempotencyKey: report.idempotencyKey,
-            petName: report.pet.name ?? null,
-            species: report.pet.species,
-            breed: report.pet.breed ?? null,
-            size: report.pet.size ?? null,
-            title: report.title,
-            type: report.type,
-            whatsappPhone: report.contact.whatsappPhone ?? null,
-          })
-          .onConflictDoNothing({
-            target: [Report.caretakerId, Report.idempotencyKey],
-          })
-          .returning({ id: Report.id });
+      const created: ReportCreateTransactionResult = await db.transaction(
+        async (tx): Promise<ReportCreateTransactionResult> => {
+          await tx.execute(
+            sql`select pg_advisory_xact_lock(hashtext(${caretakerId}), hashtext(${report.idempotencyKey}))`,
+          );
 
-        if (!createdReport) {
-          return null;
-        }
+          const transactionRepository = createDrizzleReportRepository(
+            tx as unknown as Database,
+          );
+          const lockedExisting =
+            await transactionRepository.findByCaretakerAndIdempotencyKey({
+              caretakerId,
+              idempotencyKey: report.idempotencyKey,
+            });
 
-        const persisted = createdReport;
-        const publicLocation = publicLocationFromInput(report.location);
-
-        await tx.insert(ReportLocation).values({
-          exactLatitude: report.location.exactLatitude,
-          exactLongitude: report.location.exactLongitude,
-          exactPoint: {
-            x: report.location.exactLongitude,
-            y: report.location.exactLatitude,
-          },
-          label: report.location.label,
-          locationCell: report.location.locationCell,
-          publicLatitude: publicLocation.publicLatitude,
-          publicLongitude: publicLocation.publicLongitude,
-          publicPoint: {
-            x: publicLocation.publicLongitude,
-            y: publicLocation.publicLatitude,
-          },
-          publicPrecision: publicLocation.precision,
-          reportId: persisted.id,
-        });
-
-        for (const [index, media] of report.media.entries()) {
-          const [attachedMedia] = await tx
-            .update(ReportMedia)
-            .set({
-              altText: media.altText ?? null,
-              position: index,
-              reportId: persisted.id,
-              status: "ready",
-            })
-            .where(
-              and(
-                eq(ReportMedia.id, media.mediaId),
-                eq(ReportMedia.ownerId, caretakerId),
-                eq(ReportMedia.uploadDraftId, report.idempotencyKey),
-                eq(ReportMedia.uploadReportType, report.type),
-                eq(ReportMedia.status, "ready"),
-                isNull(ReportMedia.reportId),
-              ),
-            )
-            .returning({ id: ReportMedia.id });
-
-          if (!attachedMedia) {
-            throw new Error("Report media must be ready and owned by member.");
+          if (lockedExisting) {
+            return { kind: "existing", report: lockedExisting };
           }
-        }
 
-        await tx.insert(ReportLifecycleEvent).values({
-          actorId: caretakerId,
-          reportId: persisted.id,
-          toStatus: "active",
-          type: "created",
-        });
+          const [createdReport] = await tx
+            .insert(Report)
+            .values({
+              caretakerId,
+              color: report.pet.color,
+              contactPreference: report.contact.preference,
+              description: report.description,
+              distinguishingTraits: report.pet.distinguishingTraits ?? null,
+              eventOccurredAt: new Date(report.eventOccurredAt),
+              idempotencyKey: report.idempotencyKey,
+              petName: report.pet.name ?? null,
+              species: report.pet.species,
+              breed: report.pet.breed ?? null,
+              size: report.pet.size ?? null,
+              title: report.title,
+              type: report.type,
+              whatsappPhone: report.contact.whatsappPhone ?? null,
+            })
+            .returning({ id: Report.id });
 
-        return persisted;
-      });
+          if (!createdReport) {
+            throw new Error("Report could not be created.");
+          }
 
-      if (!created) {
-        const duplicate = await repository.findByCaretakerAndIdempotencyKey({
-          caretakerId,
-          idempotencyKey: report.idempotencyKey,
-        });
+          const persisted = createdReport;
+          const publicLocation = publicLocationFromInput(report.location);
 
-        if (!duplicate) {
-          throw new Error("Duplicate report could not be reloaded.");
-        }
+          await tx.insert(ReportLocation).values({
+            exactLatitude: report.location.exactLatitude,
+            exactLongitude: report.location.exactLongitude,
+            exactPoint: {
+              x: report.location.exactLongitude,
+              y: report.location.exactLatitude,
+            },
+            label: report.location.label,
+            locationCell: report.location.locationCell,
+            publicLatitude: publicLocation.publicLatitude,
+            publicLongitude: publicLocation.publicLongitude,
+            publicPoint: {
+              x: publicLocation.publicLongitude,
+              y: publicLocation.publicLatitude,
+            },
+            publicPrecision: publicLocation.precision,
+            reportId: persisted.id,
+          });
 
-        return duplicate;
+          for (const [index, media] of report.media.entries()) {
+            const [attachedMedia] = await tx
+              .update(ReportMedia)
+              .set({
+                altText: media.altText ?? null,
+                position: index,
+                reportId: persisted.id,
+                status: "ready",
+              })
+              .where(
+                and(
+                  eq(ReportMedia.id, media.mediaId),
+                  eq(ReportMedia.ownerId, caretakerId),
+                  eq(ReportMedia.uploadDraftId, report.idempotencyKey),
+                  eq(ReportMedia.uploadReportType, report.type),
+                  eq(ReportMedia.status, "ready"),
+                  isNull(ReportMedia.reportId),
+                ),
+              )
+              .returning({ id: ReportMedia.id });
+
+            if (!attachedMedia) {
+              throw new Error(
+                "Report media must be ready and owned by member.",
+              );
+            }
+          }
+
+          await tx.insert(ReportLifecycleEvent).values({
+            actorId: caretakerId,
+            reportId: persisted.id,
+            toStatus: "active",
+            type: "created",
+          });
+
+          return { id: persisted.id, kind: "created" };
+        },
+      );
+
+      if (created.kind === "existing") {
+        return created.report;
       }
 
       const persistedReport = await repository.findById(created.id);

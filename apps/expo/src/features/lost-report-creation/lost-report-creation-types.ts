@@ -1,3 +1,5 @@
+import type { ReportLocationDraft } from "../report-creation/report-location-draft";
+
 export const lostReportPetTypeOptions = [
   "Perro",
   "Gato",
@@ -11,8 +13,13 @@ export type LostReportPetType = (typeof lostReportPetTypeOptions)[number];
 export interface LostReportPhoto {
   alt?: string;
   id: string;
+  localId?: string;
+  mediaId?: string;
+  originalUri?: string;
+  progress?: number;
   status?: "draft" | "ready" | "uploading" | "error";
   thumbUri?: string;
+  uploadUri?: string;
   uri?: string;
 }
 
@@ -34,19 +41,7 @@ export interface LostReportInlinePetProfileDraft {
 
 export type LostReportPetSelectionMode = "existing" | "inline-create";
 
-export interface LostReportCoordinates {
-  latitude: number;
-  longitude: number;
-}
-
-export interface LostReportExactLocation {
-  addressLabel: string;
-  coordinates: LostReportCoordinates;
-  department: string;
-  locationCellLabel: string;
-  municipality: string;
-  neighborhood?: string;
-}
+export type LostReportExactLocation = ReportLocationDraft;
 
 export interface LostReportDetailsDraft {
   circumstances: string;
@@ -65,7 +60,7 @@ export type LostReportContactOption = "chat" | "whatsapp" | "both";
 export interface LostReportDraft {
   contact: LostReportContactDraft;
   exactLocation?: LostReportExactLocation;
-  id?: string;
+  id: string;
   inlinePet: LostReportInlinePetProfileDraft;
   lostDetails: LostReportDetailsDraft;
   petProfileId?: string;
@@ -87,6 +82,12 @@ export interface LostReportPublishPayload {
     | {
         kind: "existing";
         petProfileId: string;
+        profile: {
+          breed: string;
+          description: string;
+          name: string;
+          type: LostReportPetType;
+        };
       }
     | {
         breed: string;

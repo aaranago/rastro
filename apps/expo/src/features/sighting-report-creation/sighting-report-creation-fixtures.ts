@@ -19,6 +19,7 @@ export const sightingReportCreationFixtures = {
     {
       alt: "Foto opcional de mascota vista",
       id: "sighting-report-photo-sample-1",
+      mediaId: "sighting-report-media-sample-1",
       status: "ready",
       thumbUri: "file:///sighting-report-photo-sample-1-thumb.jpg",
       uri: "file:///sighting-report-photo-sample-1.jpg",
@@ -26,6 +27,7 @@ export const sightingReportCreationFixtures = {
     {
       alt: "Foto adicional de avistamiento",
       id: "sighting-report-photo-sample-2",
+      mediaId: "sighting-report-media-sample-2",
       status: "ready",
       thumbUri: "file:///sighting-report-photo-sample-2-thumb.jpg",
       uri: "file:///sighting-report-photo-sample-2.jpg",
