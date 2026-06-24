@@ -531,8 +531,12 @@ describe("LostReportCreationScreen", () => {
 
     void getPressableOnPress(syncButton)();
 
+    expect(durableDraft.draft?.photos.map((photo) => photo.id)).toEqual([
+      "local-ready",
+      "local-uploading",
+    ]);
     expect(durableDraft.draft?.photos).toEqual([
-      {
+      expect.objectContaining({
         id: "local-ready",
         localId: "local-ready",
         mediaId: "ready-media-1",
@@ -542,8 +546,8 @@ describe("LostReportCreationScreen", () => {
         thumbUri: "file:///ready-upload.jpg",
         uploadUri: "file:///ready-upload.jpg",
         uri: "file:///ready-upload.jpg",
-      },
-      {
+      }),
+      expect.objectContaining({
         id: "local-uploading",
         localId: "local-uploading",
         originalUri: "file:///uploading-original.jpg",
@@ -552,7 +556,7 @@ describe("LostReportCreationScreen", () => {
         thumbUri: "file:///uploading-upload.jpg",
         uploadUri: "file:///uploading-upload.jpg",
         uri: "file:///uploading-upload.jpg",
-      },
+      }),
     ]);
   });
 

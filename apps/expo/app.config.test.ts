@@ -1,9 +1,10 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ConfigContext, ExpoConfig } from "expo/config";
 import { describe, expect, it } from "vitest";
 
-import createExpoConfig from "./app.config";
+import createExpoConfig, { loadExpoEnvFilesFromRepoRoot } from "./app.config";
 
 describe("Expo app config", () => {
   it("declares one preferred application scheme for React Navigation linking", () => {
@@ -93,6 +94,42 @@ describe("Expo app config", () => {
 
     expect(config.plugins).toContain("expo-font");
   });
+
+  it("loads only Expo-facing keys from repo-root env files", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "rastro-expo-env-"));
+
+    writeFileSync(
+      join(repoRoot, ".env"),
+      [
+        'CI=""',
+        'PORT="3000"',
+        'EXPO_PUBLIC_API_BASE_URL="http://127.0.0.1:3000"',
+        'EXPO_PUBLIC_EAS_PROJECT_ID="from-env-file"',
+      ].join("\n"),
+    );
+
+    withEnvSnapshot(
+      ["CI", "PORT", "EXPO_PUBLIC_API_BASE_URL", "EXPO_PUBLIC_EAS_PROJECT_ID"],
+      () => {
+        delete process.env.CI;
+        delete process.env.PORT;
+        delete process.env.EXPO_PUBLIC_API_BASE_URL;
+        process.env.EXPO_PUBLIC_EAS_PROJECT_ID = "from-shell";
+
+        loadExpoEnvFilesFromRepoRoot(repoRoot);
+
+        expect(process.env.CI).toBeUndefined();
+        expect(process.env.PORT).toBeUndefined();
+        expect(process.env.EXPO_PUBLIC_API_BASE_URL).toBe(
+          "http://127.0.0.1:3000",
+        );
+        expect(process.env.EXPO_PUBLIC_EAS_PROJECT_ID).toBe("from-shell");
+      },
+      () => {
+        rmSync(repoRoot, { force: true, recursive: true });
+      },
+    );
+  });
 });
 
 function withEnv(name: string, value: string | undefined, run: () => void) {
@@ -111,6 +148,30 @@ function withEnv(name: string, value: string | undefined, run: () => void) {
       delete process.env[name];
     } else {
       process.env[name] = previous;
+    }
+  }
+}
+
+function withEnvSnapshot(
+  names: string[],
+  run: () => void,
+  cleanup?: () => void,
+) {
+  const previous = new Map(
+    names.map((name) => [name, process.env[name]] as const),
+  );
+
+  try {
+    run();
+  } finally {
+    cleanup?.();
+
+    for (const [name, value] of previous.entries()) {
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
     }
   }
 }

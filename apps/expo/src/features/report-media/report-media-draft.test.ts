@@ -378,6 +378,73 @@ describe("report media draft", () => {
     );
   });
 
+  it("hydrates persisted ready media in order without starting uploads", () => {
+    const uploadTransport = {
+      putObject: vi.fn<ReportMediaUploadTransport["putObject"]>(() =>
+        Promise.resolve(),
+      ),
+    } satisfies ReportMediaUploadTransport;
+    const draft = createReportMediaDraft({
+      draftId: "lost-draft-device-1",
+      makeLocalId: createSequenceId("local-photo"),
+      reportType: "lost_pet",
+      uploadSessions: {
+        completeUploadSession: vi.fn(),
+        createUploadSession: vi.fn(),
+        refreshUploadSession: vi.fn(),
+      },
+      uploadTransport,
+    });
+
+    const snapshot = draft.hydrateReadyMedia([
+      {
+        height: 900,
+        localId: "persisted-local-2",
+        mediaId: "ready-media-2",
+        mimeType: "image/webp",
+        originalUri: "file:///persisted-original-2.webp",
+        sizeBytes: 220_000,
+        uploadUri: "file:///persisted-upload-2.webp",
+        width: 1200,
+      },
+      {
+        height: 700,
+        localId: "persisted-local-1",
+        mediaId: "ready-media-1",
+        mimeType: "image/jpeg",
+        originalUri: "file:///persisted-original-1.jpg",
+        sizeBytes: 180_000,
+        uploadUri: "file:///persisted-upload-1.jpg",
+        width: 1000,
+      },
+    ]);
+
+    expect(snapshot).toMatchObject({
+      items: [
+        {
+          localId: "persisted-local-2",
+          mediaId: "ready-media-2",
+          originalUri: "file:///persisted-original-2.webp",
+          progress: 1,
+          status: "ready",
+          uploadUri: "file:///persisted-upload-2.webp",
+        },
+        {
+          localId: "persisted-local-1",
+          mediaId: "ready-media-1",
+          originalUri: "file:///persisted-original-1.jpg",
+          progress: 1,
+          status: "ready",
+          uploadUri: "file:///persisted-upload-1.jpg",
+        },
+      ],
+      overallProgress: 1,
+      primaryLocalId: "persisted-local-2",
+      readyMedia: [{ mediaId: "ready-media-2" }, { mediaId: "ready-media-1" }],
+    });
+    expect(uploadTransport.putObject).not.toHaveBeenCalled();
+  });
+
   it("derives publish-ready media IDs from draft order and moves the primary image first", async () => {
     const createUploadSession = vi
       .fn<ReportMediaUploadSessionClient["createUploadSession"]>()

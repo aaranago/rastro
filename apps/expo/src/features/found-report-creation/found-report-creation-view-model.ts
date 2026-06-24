@@ -22,6 +22,10 @@ import {
   getReadyUploadedReportCreationPhotos,
   getRequiredReportCreationPhotoStepError,
 } from "../report-creation/report-creation-media-validation";
+import {
+  normalizeReportCreationEventTime,
+  reportCreationEventTimeValidationError,
+} from "../report-creation/report-creation-event-time";
 import { buildReportCreationContactViewModel } from "../report-creation/report-creation-view-model";
 import { toReportLocationPublishInput } from "../report-creation/report-location-draft";
 import { foundReportPetTypeOptions } from "./found-report-creation-types";
@@ -213,6 +217,7 @@ export function buildFoundReportCreationViewModel({
     validationDisplay,
     "details",
   );
+  const foundAtError = getFoundAtError(draft.foundDetails.foundAtLabel);
 
   return {
     canPublish,
@@ -254,11 +259,7 @@ export function buildFoundReportCreationViewModel({
           value: draft.foundDetails.description,
         },
         foundAtLabel: {
-          error:
-            showDetailsValidation &&
-            draft.foundDetails.foundAtLabel.trim().length === 0
-              ? "Indica cuando fue encontrada."
-              : undefined,
+          error: showDetailsValidation ? foundAtError : undefined,
           label: "Cuando la encontraste",
           placeholder: "Hoy, ayer, fecha y hora aproximada",
           value: draft.foundDetails.foundAtLabel,
@@ -371,9 +372,16 @@ export function toPublishFoundPetReportInput({
 }): PublishFoundPetReportInput {
   const errors = validateFoundReportDraft(draft);
   const readyPhotos = getReadyUploadedPhotos(draft.photos);
+  const foundAt = normalizeReportCreationEventTime(
+    draft.foundDetails.foundAtLabel,
+  );
 
   if (errors.length > 0) {
     throw new Error(errors.join(" "));
+  }
+
+  if (!foundAt) {
+    throw new Error(reportCreationEventTimeValidationError);
   }
 
   if (!draft.exactFoundLocation) {
@@ -387,7 +395,7 @@ export function toPublishFoundPetReportInput({
       whatsappPhone: draft.contact.whatsappPhone.trim(),
     }),
     exactLocation: toReportLocationPublishInput(draft.exactFoundLocation),
-    foundAt: draft.foundDetails.foundAtLabel.trim(),
+    foundAt,
     foundDescription: draft.foundDetails.description.trim(),
     idempotencyKey: draft.idempotencyKey,
     pet: {
@@ -413,8 +421,9 @@ function validateFoundReportDraft(draft: FoundReportDraft) {
     missingMessage: "Selecciona donde fue encontrada.",
   });
 
-  if (draft.foundDetails.foundAtLabel.trim().length === 0) {
-    errors.push("Indica cuando fue encontrada.");
+  const foundAtError = getFoundAtError(draft.foundDetails.foundAtLabel);
+  if (foundAtError) {
+    errors.push(foundAtError);
   }
 
   if (draft.foundDetails.condition.trim().length === 0) {
@@ -441,6 +450,18 @@ function validateFoundReportDraft(draft: FoundReportDraft) {
   }
 
   return errors;
+}
+
+function getFoundAtError(value: string) {
+  if (value.trim().length === 0) {
+    return "Indica cuando fue encontrada.";
+  }
+
+  if (!normalizeReportCreationEventTime(value)) {
+    return reportCreationEventTimeValidationError;
+  }
+
+  return undefined;
 }
 
 function getContactOption(contact: FoundReportContactDraft) {
@@ -599,7 +620,7 @@ function buildSteps({
     {
       id: "details" as const,
       isComplete:
-        draft.foundDetails.foundAtLabel.trim().length > 0 &&
+        !getFoundAtError(draft.foundDetails.foundAtLabel) &&
         draft.foundDetails.condition.trim().length > 0 &&
         draft.foundDetails.description.trim().length > 0 &&
         readyPhotos.length > 0,
@@ -658,7 +679,7 @@ function buildFoundReportJourney({
     {
       id: "details" as const,
       isComplete:
-        draft.foundDetails.foundAtLabel.trim().length > 0 &&
+        !getFoundAtError(draft.foundDetails.foundAtLabel) &&
         draft.foundDetails.condition.trim().length > 0 &&
         draft.foundDetails.description.trim().length > 0 &&
         draft.pet.description.trim().length > 0,

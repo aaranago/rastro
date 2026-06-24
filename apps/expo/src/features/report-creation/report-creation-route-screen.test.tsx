@@ -77,6 +77,7 @@ const reportMedia = vi.hoisted(() => {
   const draft = {
     acceptEditedImage: vi.fn(),
     getSnapshot: vi.fn(() => snapshot),
+    hydrateReadyMedia: vi.fn(() => snapshot),
     moveImage: vi.fn(),
     removeImage: vi.fn(),
     retryUpload: vi.fn(),
@@ -107,6 +108,49 @@ const reportMedia = vi.hoisted(() => {
     createNativeReportMediaSourceAdapter: vi.fn(),
     createNativeReportMediaUploadTransport: vi.fn(),
     createReportMediaDraft: vi.fn(),
+    reportMediaCreationPhotosToHydratedReadyMedia: vi.fn(
+      (photos: readonly unknown[]) =>
+        photos.flatMap((photo) => {
+          if (
+            typeof photo !== "object" ||
+            photo === null ||
+            !("status" in photo) ||
+            photo.status !== "ready" ||
+            !("mediaId" in photo) ||
+            typeof photo.mediaId !== "string"
+          ) {
+            return [];
+          }
+
+          const uploadUri =
+            "uploadUri" in photo && typeof photo.uploadUri === "string"
+              ? photo.uploadUri
+              : "uri" in photo && typeof photo.uri === "string"
+                ? photo.uri
+                : undefined;
+
+          if (!uploadUri) {
+            return [];
+          }
+
+          return [
+            {
+              localId:
+                "localId" in photo && typeof photo.localId === "string"
+                  ? photo.localId
+                  : "id" in photo && typeof photo.id === "string"
+                    ? photo.id
+                    : photo.mediaId,
+              mediaId: photo.mediaId,
+              originalUri:
+                "originalUri" in photo && typeof photo.originalUri === "string"
+                  ? photo.originalUri
+                  : uploadUri,
+              uploadUri,
+            },
+          ];
+        }),
+    ),
   };
 });
 
@@ -216,6 +260,8 @@ vi.mock("../report-media", () => ({
   createNativeReportMediaUploadTransport:
     reportMedia.createNativeReportMediaUploadTransport,
   createReportMediaDraft: reportMedia.createReportMediaDraft,
+  reportMediaCreationPhotosToHydratedReadyMedia:
+    reportMedia.reportMediaCreationPhotosToHydratedReadyMedia,
 }));
 
 vi.mock("../resilience/creation-drafts", () => ({
@@ -257,6 +303,7 @@ beforeEach(() => {
   router.canGoBack.mockReturnValue(true);
   reactState.cursor = 0;
   reactState.values = [];
+  reportMedia.createReportMediaDraft.mockReset();
   reportMedia.createApiReportMediaUploadSessionClient.mockReturnValue(
     reportMedia.uploadSessionClient,
   );
@@ -498,7 +545,7 @@ describe("ReportCreationRouteScreen", () => {
           },
           localId: "local-photo-1",
           rotateDegrees: 90,
-          sourceUri: "file:///camera/original.jpg",
+          sourceUri: "file:///edited/previous.jpg",
         }),
       );
 
@@ -554,6 +601,69 @@ describe("ReportCreationRouteScreen", () => {
     expect(reportMedia.createReportMediaDraft).toHaveBeenCalledTimes(1);
     expect(firstManager?.props.draft).toBe(firstDraft);
     expect(secondManager?.props.draft).toBe(firstDraft);
+  });
+
+  it("hydrates ready report media from persisted creation photos in order", () => {
+    const screen = renderScreen(<ReportCreationRouteScreen intent="found" />);
+    const foundScreen = findElement(
+      screen,
+      (element) => element.type === "FoundReportCreationScreen",
+    );
+    const renderReportMediaManager =
+      foundScreen?.props.renderReportMediaManager;
+
+    if (!isReportMediaManagerRender(renderReportMediaManager)) {
+      throw new Error("Expected report media manager render callback.");
+    }
+
+    void renderFunctionElement(
+      renderReportMediaManager({
+        mediaDraftId: "found-durable-media-draft-1",
+        onSnapshotChange: vi.fn(),
+        photos: [
+          {
+            id: "persisted-local-2",
+            localId: "persisted-local-2",
+            mediaId: "ready-media-2",
+            originalUri: "file:///persisted-original-2.webp",
+            status: "ready",
+            uploadUri: "file:///persisted-upload-2.webp",
+          },
+          {
+            id: "persisted-local-uploading",
+            mediaId: "uploading-media",
+            status: "uploading",
+            uploadUri: "file:///persisted-uploading.webp",
+          },
+          {
+            id: "persisted-local-missing-uri",
+            mediaId: "missing-uri-media",
+            status: "ready",
+          },
+          {
+            id: "persisted-local-1",
+            mediaId: "ready-media-1",
+            status: "ready",
+            uri: "file:///persisted-upload-1.jpg",
+          },
+        ],
+      }),
+    );
+
+    expect(reportMedia.draft.hydrateReadyMedia).toHaveBeenCalledWith([
+      {
+        localId: "persisted-local-2",
+        mediaId: "ready-media-2",
+        originalUri: "file:///persisted-original-2.webp",
+        uploadUri: "file:///persisted-upload-2.webp",
+      },
+      {
+        localId: "persisted-local-1",
+        mediaId: "ready-media-1",
+        originalUri: "file:///persisted-upload-1.jpg",
+        uploadUri: "file:///persisted-upload-1.jpg",
+      },
+    ]);
   });
 
   it("asks before closing a stacked lost creation route", () => {
@@ -1000,6 +1110,7 @@ function createMockReportMediaDraft(id: string) {
       primaryLocalId: `${id}-local-photo`,
       readyMedia: [{ mediaId: `${id}-media` }],
     })),
+    hydrateReadyMedia: vi.fn(),
     moveImage: vi.fn(),
     removeImage: vi.fn(),
     retryUpload: vi.fn(),

@@ -1,6 +1,6 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadEnvFile } from "node:process";
+import { parseEnv } from "node:util";
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 const defaultEasProjectId = "ba6b6ed0-beb7-429a-9410-19dc361607f3";
@@ -12,7 +12,7 @@ const defaultCameraPermission =
   "Rastro usa la camara para tomar fotos de reportes de mascotas.";
 const defaultSocialAuthProviders = "google,facebook";
 
-loadRepoRootEnvFiles();
+loadExpoEnvFilesFromRepoRoot();
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const apiBaseUrl = readOptionalUrlEnv("EXPO_PUBLIC_API_BASE_URL");
@@ -151,14 +151,22 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   };
 };
 
-function loadRepoRootEnvFiles(): void {
-  const repoRoot = join(__dirname, "..", "..");
-
+export function loadExpoEnvFilesFromRepoRoot(
+  repoRoot = join(__dirname, "..", ".."),
+): void {
   for (const fileName of [".env.local", ".env"]) {
     const envPath = join(repoRoot, fileName);
 
     if (existsSync(envPath)) {
-      loadEnvFile(envPath);
+      const env = parseEnv(readFileSync(envPath, "utf8"));
+
+      for (const [name, value] of Object.entries(env)) {
+        if (!name.startsWith("EXPO_") || process.env[name] !== undefined) {
+          continue;
+        }
+
+        process.env[name] = value;
+      }
     }
   }
 }

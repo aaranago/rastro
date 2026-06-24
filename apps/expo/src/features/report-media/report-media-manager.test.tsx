@@ -343,6 +343,81 @@ describe("ReportMediaManager", () => {
     });
   });
 
+  it("recrops an already edited tile from the latest edited local URI", async () => {
+    const draft = createDraft();
+    const onSnapshotChange = vi.fn();
+    const selected = draft.selectLocalImage({
+      height: 1200,
+      mimeType: "image/jpeg",
+      originalUri: "file:///original-camera.jpg",
+      sizeBytes: 600_000,
+      width: 1600,
+    });
+    const editAdapter = {
+      editImage: vi
+        .fn()
+        .mockResolvedValueOnce({
+          height: 900,
+          localId: selected.localId,
+          mimeType: "image/webp" as const,
+          sizeBytes: 280_000,
+          uri: "file:///edited-crop-1.webp",
+          width: 1200,
+        })
+        .mockResolvedValueOnce({
+          height: 800,
+          localId: selected.localId,
+          mimeType: "image/webp" as const,
+          sizeBytes: 240_000,
+          uri: "file:///edited-crop-2.webp",
+          width: 800,
+        }),
+    };
+    const firstScreen = renderFunctionElement(
+      <ReportMediaManager
+        draft={draft}
+        editAdapter={editAdapter}
+        onSnapshotChange={onSnapshotChange}
+        snapshot={draft.getSnapshot()}
+        sourceAdapter={emptySourceAdapter}
+      />,
+    );
+
+    await pressByLabel(firstScreen, "Recortar foto 1");
+
+    const secondScreen = renderFunctionElement(
+      <ReportMediaManager
+        draft={draft}
+        editAdapter={editAdapter}
+        onSnapshotChange={onSnapshotChange}
+        snapshot={draft.getSnapshot()}
+        sourceAdapter={emptySourceAdapter}
+      />,
+    );
+
+    await pressByLabel(secondScreen, "Recortar foto 1");
+
+    expect(editAdapter.editImage.mock.calls[0]?.[0]).toMatchObject({
+      localId: selected.localId,
+      originalUri: "file:///original-camera.jpg",
+      uploadUri: "file:///original-camera.jpg",
+    });
+    expect(editAdapter.editImage.mock.calls[1]?.[0]).toMatchObject({
+      localId: selected.localId,
+      originalUri: "file:///original-camera.jpg",
+      uploadUri: "file:///edited-crop-1.webp",
+    });
+    expect(lastSnapshot(onSnapshotChange)).toMatchObject({
+      items: [
+        expect.objectContaining({
+          originalUri: "file:///original-camera.jpg",
+          status: "ready",
+          uploadUri: "file:///edited-crop-2.webp",
+        }),
+      ],
+    });
+  });
+
   it("reflects reordering and primary selection in emitted order and visible labels", async () => {
     const draft = createDraft();
     const onSnapshotChange = vi.fn();
@@ -666,6 +741,48 @@ describe("ReportMediaManager", () => {
 
     uploadDeferred.resolve();
     await uploadPromise;
+  });
+
+  it("disables edit actions when a local image URI is unavailable", () => {
+    const draft = createDraft();
+    draft.hydrateReadyMedia([
+      {
+        height: 900,
+        localId: "local-photo-1",
+        mediaId: "ready-media-1",
+        mimeType: "image/jpeg",
+        originalUri: "",
+        sizeBytes: 200_000,
+        uploadUri: "",
+        width: 1200,
+      },
+    ]);
+    const screen = renderFunctionElement(
+      <ReportMediaManager
+        draft={draft}
+        editAdapter={{ editImage: vi.fn() }}
+        onSnapshotChange={vi.fn()}
+        snapshot={draft.getSnapshot()}
+        sourceAdapter={emptySourceAdapter}
+      />,
+    );
+
+    expect(
+      findElement(
+        screen,
+        (element) =>
+          element.props.accessibilityLabel ===
+          "Recortar foto 1 de 1, principal, subida",
+      )?.props.accessibilityState,
+    ).toMatchObject({ disabled: true });
+    expect(
+      findElement(
+        screen,
+        (element) =>
+          element.props.accessibilityLabel ===
+          "Girar foto 1 de 1, principal, subida",
+      )?.props.accessibilityState,
+    ).toMatchObject({ disabled: true });
   });
 });
 

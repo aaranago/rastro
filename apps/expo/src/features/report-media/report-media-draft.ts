@@ -46,6 +46,18 @@ export interface AcceptedEditedReportImage {
   width: number;
 }
 
+export interface HydratedReadyReportMedia {
+  checksumSha256?: string;
+  height?: number;
+  localId: string;
+  mediaId: string;
+  mimeType?: CreateUploadSessionInput["mimeType"];
+  originalUri: string;
+  sizeBytes?: number;
+  uploadUri: string;
+  width?: number;
+}
+
 export interface ReportMediaUploadInstruction {
   headers: Record<string, string>;
   method: "PUT";
@@ -125,6 +137,9 @@ export interface CreateReportMediaDraftInput {
 export interface ReportMediaDraft {
   acceptEditedImage(input: AcceptedEditedReportImage): ReportMediaDraftItem;
   getSnapshot(): ReportMediaDraftSnapshot;
+  hydrateReadyMedia(
+    input: readonly HydratedReadyReportMedia[],
+  ): ReportMediaDraftSnapshot;
   moveImage(localId: string, toIndex: number): ReportMediaDraftSnapshot;
   removeImage(localId: string): ReportMediaDraftSnapshot;
   retryUpload(localId: string): Promise<ReportMediaDraftItem>;
@@ -212,6 +227,44 @@ class InMemoryReportMediaDraft implements ReportMediaDraft {
           : [],
       ),
     };
+  }
+
+  hydrateReadyMedia(
+    input: readonly HydratedReadyReportMedia[],
+  ): ReportMediaDraftSnapshot {
+    const existingKeys = new Set(
+      this.items.flatMap((item) => [item.localId, item.mediaId ?? ""]),
+    );
+
+    for (const readyMedia of input) {
+      if (
+        existingKeys.has(readyMedia.localId) ||
+        existingKeys.has(readyMedia.mediaId)
+      ) {
+        continue;
+      }
+
+      const item = {
+        checksumSha256: readyMedia.checksumSha256,
+        height: readyMedia.height ?? 1,
+        localId: readyMedia.localId,
+        mediaId: readyMedia.mediaId,
+        mimeType: readyMedia.mimeType ?? "image/jpeg",
+        originalUri: readyMedia.originalUri,
+        progress: 1,
+        retryable: false,
+        sizeBytes: readyMedia.sizeBytes ?? 0,
+        status: "ready",
+        uploadUri: readyMedia.uploadUri,
+        width: readyMedia.width ?? 1,
+      } satisfies ReportMediaDraftItem;
+
+      this.items.push(item);
+      existingKeys.add(item.localId);
+      existingKeys.add(item.mediaId);
+    }
+
+    return this.getSnapshot();
   }
 
   moveImage(localId: string, toIndex: number): ReportMediaDraftSnapshot {

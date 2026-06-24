@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { PetProfileSummary } from "../pet-profiles/pet-profile-types";
 import {
@@ -218,6 +218,7 @@ describe("Lost Pet Report creation view model", () => {
         locationCellLabel: "Calacoto",
         longitude: -68.0772,
       },
+      lastSeenAt: "2026-06-18T10:50:00.000Z",
       petProfile: {
         kind: "inline",
         profile: {
@@ -227,6 +228,176 @@ describe("Lost Pet Report creation view model", () => {
       },
       showExactPublicLocation: true,
     });
+  });
+
+  it("normalizes the default Spanish relative last-seen label to ISO for publish", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-18T12:00:00.000Z"));
+
+    const draft = {
+      ...createInitialLostReportDraft({ petProfiles: [] }),
+      contact: {
+        inAppChatEnabled: true,
+        whatsappEnabled: false,
+        whatsappPhone: "",
+      },
+      exactLocation: {
+        addressLabel: "Calle 21 de Calacoto",
+        coordinates: {
+          latitude: -16.5406,
+          longitude: -68.0772,
+        },
+        department: "La Paz",
+        locationCellLabel: "Calacoto",
+        municipality: "La Paz",
+      },
+      inlinePet: {
+        breed: "Siames",
+        description: "Mancha blanca en el pecho.",
+        name: "Luna",
+        type: "Gato" as const,
+      },
+      photos: [
+        {
+          id: "report-photo-1",
+          mediaId: "ready-media-1",
+          status: "ready" as const,
+          uri: "file:///luna-lost.heic",
+        },
+      ],
+    };
+
+    try {
+      const viewModel = buildLostReportCreationViewModel({
+        draft,
+        petProfiles: [],
+      });
+      const publishInput = toPublishLostPetReportInput({ draft });
+
+      expect(viewModel.canPublish).toBe(true);
+      expect(viewModel.lostDetails.fields.lastSeenAtLabel.value).toBe(
+        "Hoy, hace 30 min",
+      );
+      expect(publishInput.lastSeenAt).toBe("2026-06-18T11:30:00.000Z");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("blocks publish for non-parseable last-seen labels with a Spanish validation error", () => {
+    const draft = {
+      ...createInitialLostReportDraft({ petProfiles: [] }),
+      contact: {
+        inAppChatEnabled: true,
+        whatsappEnabled: false,
+        whatsappPhone: "",
+      },
+      exactLocation: {
+        addressLabel: "Calle 21 de Calacoto",
+        coordinates: {
+          latitude: -16.5406,
+          longitude: -68.0772,
+        },
+        department: "La Paz",
+        locationCellLabel: "Calacoto",
+        municipality: "La Paz",
+      },
+      inlinePet: {
+        breed: "Siames",
+        description: "Mancha blanca en el pecho.",
+        name: "Luna",
+        type: "Gato" as const,
+      },
+      lostDetails: {
+        circumstances: "Salio por la puerta principal.",
+        lastSeenAtLabel: "Hoy en la manana",
+        markings: "Mancha blanca en el pecho.",
+      },
+      photos: [
+        {
+          id: "report-photo-1",
+          mediaId: "ready-media-1",
+          status: "ready" as const,
+          uri: "file:///luna-lost.heic",
+        },
+      ],
+    };
+
+    const viewModel = buildLostReportCreationViewModel({
+      draft,
+      petProfiles: [],
+    });
+
+    expect(viewModel.canPublish).toBe(false);
+    expect(viewModel.lostDetails.fields.lastSeenAtLabel.error).toContain(
+      "fecha y hora valida",
+    );
+    expect(viewModel.review.validationErrors).toEqual(
+      expect.arrayContaining([expect.stringContaining("fecha y hora valida")]),
+    );
+    expect(() => toPublishLostPetReportInput({ draft })).toThrow(
+      "fecha y hora valida",
+    );
+  });
+
+  it("blocks publish for absurdly large relative last-seen minutes without throwing RangeError", () => {
+    const draft = {
+      ...createInitialLostReportDraft({ petProfiles: [] }),
+      contact: {
+        inAppChatEnabled: true,
+        whatsappEnabled: false,
+        whatsappPhone: "",
+      },
+      exactLocation: {
+        addressLabel: "Calle 21 de Calacoto",
+        coordinates: {
+          latitude: -16.5406,
+          longitude: -68.0772,
+        },
+        department: "La Paz",
+        locationCellLabel: "Calacoto",
+        municipality: "La Paz",
+      },
+      inlinePet: {
+        breed: "Siames",
+        description: "Mancha blanca en el pecho.",
+        name: "Luna",
+        type: "Gato" as const,
+      },
+      lostDetails: {
+        circumstances: "Salio por la puerta principal.",
+        lastSeenAtLabel: "Hoy, hace 999999999999999999999999 min",
+        markings: "Mancha blanca en el pecho.",
+      },
+      photos: [
+        {
+          id: "report-photo-1",
+          mediaId: "ready-media-1",
+          status: "ready" as const,
+          uri: "file:///luna-lost.heic",
+        },
+      ],
+    };
+
+    expect(() =>
+      buildLostReportCreationViewModel({
+        draft,
+        petProfiles: [],
+      }),
+    ).not.toThrow();
+
+    const viewModel = buildLostReportCreationViewModel({
+      draft,
+      petProfiles: [],
+    });
+
+    expect(viewModel.canPublish).toBe(false);
+    expect(viewModel.lostDetails.fields.lastSeenAtLabel.error).toContain(
+      "fecha y hora valida",
+    );
+    expect(() => toPublishLostPetReportInput({ draft })).toThrow(
+      "fecha y hora valida",
+    );
   });
 
   it("blocks publishing when the photo step only has local media without a ready uploaded media ID", () => {

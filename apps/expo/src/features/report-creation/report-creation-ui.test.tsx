@@ -434,7 +434,7 @@ describe("shared report creation form controls", () => {
 });
 
 describe("ReportCreationProgressSteps", () => {
-  it("renders every canonical journey step with Spanish progress text", () => {
+  it("renders a compact Spanish progress summary with only the current step label visible", () => {
     const journey = createReportCreationJourney({
       completedStepIds: [
         "chooseType",
@@ -455,11 +455,12 @@ describe("ReportCreationProgressSteps", () => {
     );
 
     expect(findText(screen, "Paso 6 de 8")).toBe(true);
-    expect(findText(screen, "Tipo")).toBe(true);
-    expect(findText(screen, "Publicado")).toBe(true);
+    expect(findText(screen, "Revisar")).toBe(true);
+    expect(findText(screen, "Tipo")).toBe(false);
+    expect(findText(screen, "Publicado")).toBe(false);
   });
 
-  it("labels completed, current, and upcoming canonical steps accessibly and textually", () => {
+  it("labels every compact canonical step accessibly without visible status words", () => {
     const journey = createReportCreationJourney({
       completedStepIds: [
         "chooseType",
@@ -477,6 +478,12 @@ describe("ReportCreationProgressSteps", () => {
         steps={journey.steps}
         styles={progressStyles}
       />,
+    );
+    const stepMarkers = findElements(
+      screen,
+      (element) =>
+        typeof element.props.accessibilityLabel === "string" &&
+        /^Paso \d+ de 8, /.test(element.props.accessibilityLabel),
     );
     const completedStep = findElement(
       screen,
@@ -499,18 +506,20 @@ describe("ReportCreationProgressSteps", () => {
       screen,
       (element) =>
         element.props.accessibilityLabel ===
-        "Progreso de creacion, Paso 6 de 8",
+        "Progreso de creacion, Paso 6 de 8, Revisar",
     );
 
-    expect(findText(screen, "Completado")).toBe(true);
-    expect(findText(screen, "Actual")).toBe(true);
-    expect(findText(screen, "Pendiente")).toBe(true);
+    expect(stepMarkers).toHaveLength(8);
+    expect(findText(screen, "Completado")).toBe(false);
+    expect(findText(screen, "Actual")).toBe(false);
+    expect(findText(screen, "Pendiente")).toBe(false);
+    expect(findText(screen, "✓")).toBe(true);
     expect(overallProgress?.props.accessibilityRole).toBe("progressbar");
     expect(overallProgress?.props.accessibilityValue).toEqual({
       max: 8,
       min: 1,
       now: 6,
-      text: "Paso 6 de 8",
+      text: "Paso 6 de 8, Revisar",
     });
     expect(completedStep?.props.accessibilityRole).toBe("text");
     expect(completedStep?.props.accessibilityState).toMatchObject({
@@ -526,7 +535,7 @@ describe("ReportCreationProgressSteps", () => {
     });
   });
 
-  it("keeps legacy isComplete callers working while rendering every step", () => {
+  it("keeps legacy isComplete callers working while exposing every step accessibly", () => {
     const screen = renderFunctionElement(
       <ReportCreationProgressSteps
         steps={[
@@ -545,11 +554,21 @@ describe("ReportCreationProgressSteps", () => {
         element.props.accessibilityLabel ===
         "Paso 3 de 5, Contacto, paso actual",
     );
+    const publishedStep = findElement(
+      screen,
+      (element) =>
+        element.props.accessibilityLabel ===
+        "Paso 5 de 5, Publicado, pendiente",
+    );
 
     expect(findText(screen, "Paso 3 de 5")).toBe(true);
-    expect(findText(screen, "Publicado")).toBe(true);
+    expect(findText(screen, "Contacto")).toBe(true);
+    expect(findText(screen, "Publicado")).toBe(false);
     expect(currentStep?.props.accessibilityState).toMatchObject({
       selected: true,
+    });
+    expect(publishedStep?.props.accessibilityState).toMatchObject({
+      disabled: true,
     });
   });
 });
@@ -668,6 +687,24 @@ function findElement(
   }
 
   return undefined;
+}
+
+function findElements(
+  node: React.ReactNode,
+  predicate: (element: TestElement) => boolean,
+): TestElement[] {
+  const rendered = renderFunctionElement(node);
+
+  if (!React.isValidElement<ElementProps>(rendered)) {
+    return [];
+  }
+
+  return [
+    ...(predicate(rendered) ? [rendered] : []),
+    ...React.Children.toArray(rendered.props.children).flatMap((child) =>
+      findElements(child, predicate),
+    ),
+  ];
 }
 
 function findText(node: React.ReactNode, text: string): boolean {

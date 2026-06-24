@@ -846,82 +846,87 @@ export function ReportCreationProgressSteps({
 }) {
   const currentStepIndex = getReportCreationProgressCurrentStepIndex(steps);
   const progressText = `Paso ${currentStepIndex + 1} de ${steps.length}`;
+  const currentStep = steps[currentStepIndex];
 
   return (
     <View style={[styles.steps, progressStepStyles.steps]}>
-      <Text
-        accessibilityLabel={`Progreso de creacion, ${progressText}`}
-        accessibilityRole="progressbar"
-        accessibilityValue={{
-          max: steps.length,
-          min: 1,
-          now: currentStepIndex + 1,
-          text: progressText,
-        }}
-        maxFontSizeMultiplier={1.2}
-        style={[styles.stepLabel, progressStepStyles.progressText]}
-      >
-        {progressText}
-      </Text>
-      {steps.map((step, index) => {
-        const status = getReportCreationProgressStepStatus(
-          step,
-          index,
-          currentStepIndex,
-        );
-        const isCompleted = status === "completed";
-        const isCurrent = status === "current";
-        const stateLabel = getReportCreationProgressStateLabel(status);
-        const stepProgressText = `Paso ${index + 1} de ${steps.length}`;
-
-        return (
-          <View
-            accessible
-            accessibilityLabel={`${stepProgressText}, ${step.label}, ${getReportCreationProgressAccessibilityStateLabel(status)}`}
-            accessibilityRole="text"
-            accessibilityState={{
-              checked: isCompleted,
-              disabled: status === "upcoming",
-              selected: isCurrent,
-            }}
-            key={step.id}
-            style={[styles.stepItem, progressStepStyles.stepItem]}
+      <View style={progressStepStyles.progressHeader}>
+        <Text
+          accessibilityLabel={`Progreso de creacion, ${progressText}${currentStep ? `, ${currentStep.label}` : ""}`}
+          accessibilityRole="progressbar"
+          accessibilityValue={{
+            max: steps.length,
+            min: 1,
+            now: currentStepIndex + 1,
+            text: currentStep
+              ? `${progressText}, ${currentStep.label}`
+              : progressText,
+          }}
+          maxFontSizeMultiplier={1.2}
+          style={[styles.stepLabel, progressStepStyles.progressText]}
+        >
+          {progressText}
+        </Text>
+        {currentStep ? (
+          <Text
+            maxFontSizeMultiplier={1.2}
+            style={[styles.stepLabel, progressStepStyles.currentStepLabel]}
           >
+            {currentStep.label}
+          </Text>
+        ) : null}
+      </View>
+      <View style={progressStepStyles.markerRow}>
+        {steps.map((step, index) => {
+          const status = getReportCreationProgressStepStatus(
+            step,
+            index,
+            currentStepIndex,
+          );
+          const isCompleted = status === "completed";
+          const isCurrent = status === "current";
+          const stepProgressText = `Paso ${index + 1} de ${steps.length}`;
+
+          return (
             <View
-              style={[
-                styles.stepDot,
-                isCompleted ? styles.stepDotComplete : null,
-                isCurrent ? progressStepStyles.stepDotCurrent : null,
-                status === "upcoming"
-                  ? progressStepStyles.stepDotUpcoming
-                  : null,
-              ]}
+              accessible
+              accessibilityLabel={`${stepProgressText}, ${step.label}, ${getReportCreationProgressAccessibilityStateLabel(status)}`}
+              accessibilityRole="text"
+              accessibilityState={{
+                checked: isCompleted,
+                disabled: status === "upcoming",
+                selected: isCurrent,
+              }}
+              key={step.id}
+              style={[styles.stepItem, progressStepStyles.stepItem]}
             >
-              <Text
-                maxFontSizeMultiplier={1.1}
+              <View
                 style={[
-                  styles.stepNumber,
-                  isCompleted ? styles.stepNumberComplete : null,
+                  styles.stepDot,
+                  progressStepStyles.stepDot,
+                  isCompleted ? styles.stepDotComplete : null,
+                  isCompleted ? progressStepStyles.stepDotComplete : null,
+                  isCurrent ? progressStepStyles.stepDotCurrent : null,
+                  status === "upcoming"
+                    ? progressStepStyles.stepDotUpcoming
+                    : null,
                 ]}
               >
-                {index + 1}
-              </Text>
+                <Text
+                  maxFontSizeMultiplier={1.1}
+                  style={[
+                    styles.stepNumber,
+                    isCompleted ? styles.stepNumberComplete : null,
+                    isCompleted ? progressStepStyles.stepNumberComplete : null,
+                  ]}
+                >
+                  {isCompleted ? "✓" : index + 1}
+                </Text>
+              </View>
             </View>
-            <Text
-              maxFontSizeMultiplier={1.2}
-              style={[styles.stepLabel, progressStepStyles.stepLabel]}
-            >
-              {step.label}
-            </Text>
-            <Text
-              maxFontSizeMultiplier={1.1}
-              style={[styles.stepLabel, progressStepStyles.stepStatus]}
-            >
-              {stateLabel}
-            </Text>
-          </View>
-        );
-      })}
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -968,19 +973,6 @@ function getReportCreationProgressStepStatus(
   return "upcoming";
 }
 
-function getReportCreationProgressStateLabel(
-  status: ReportCreationJourneyStep["status"],
-) {
-  switch (status) {
-    case "completed":
-      return "Completado";
-    case "current":
-      return "Actual";
-    case "upcoming":
-      return "Pendiente";
-  }
-}
-
 function getReportCreationProgressAccessibilityStateLabel(
   status: ReportCreationJourneyStep["status"],
 ) {
@@ -995,42 +987,63 @@ function getReportCreationProgressAccessibilityStateLabel(
 }
 
 const progressStepStyles = StyleSheet.create({
+  currentStepLabel: {
+    flex: 1,
+    flexShrink: 1,
+    fontWeight: "800",
+    textAlign: "right",
+  },
+  markerRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "nowrap",
+    gap: 6,
+    justifyContent: "space-between",
+  },
+  progressHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
   progressText: {
-    flexBasis: "100%",
+    flexShrink: 0,
     fontWeight: "700",
-    marginBottom: 2,
     textAlign: "left",
-    width: "100%",
+  },
+  stepDot: {
+    borderStyle: "solid",
+    borderWidth: 1,
+    height: 28,
+    width: 28,
+  },
+  stepDotComplete: {
+    borderWidth: 0,
   },
   stepDotCurrent: {
     borderWidth: 2,
     transform: [{ scale: 1.08 }],
   },
   stepDotUpcoming: {
+    borderStyle: "dashed",
     opacity: 0.55,
   },
   stepItem: {
-    flexBasis: 92,
-    flexGrow: 1,
-    flexShrink: 1,
-    minWidth: 86,
+    flexBasis: 28,
+    flexGrow: 0,
+    flexShrink: 0,
+    height: 28,
+    minWidth: 28,
+    width: 28,
   },
-  stepLabel: {
-    flexShrink: 1,
-    textAlign: "center",
+  stepNumberComplete: {
+    fontSize: 14,
+    lineHeight: 18,
   },
   steps: {
     alignItems: "stretch",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  stepStatus: {
-    flexShrink: 1,
-    fontSize: 11,
-    fontWeight: "700",
-    lineHeight: 14,
-    marginTop: 2,
-    textAlign: "center",
+    flexDirection: "column",
+    flexWrap: "nowrap",
+    gap: 8,
   },
 });
 

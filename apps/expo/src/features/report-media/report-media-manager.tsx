@@ -281,6 +281,7 @@ function ReportMediaTile({
     isPrimary ? "principal" : "no principal"
   }, ${uploadAccessibilityStatusLabel}, progreso ${progressLabel}`;
   const isUploadBusy = isReportMediaUploadBusy(item.status);
+  const canEditLocalImage = hasEditableLocalImageUri(item);
 
   return (
     <View
@@ -368,7 +369,7 @@ function ReportMediaTile({
             <>
               <CompactAction
                 accessibilityLabel={`Recortar ${actionContext}`}
-                disabled={isUploadBusy}
+                disabled={isUploadBusy || !canEditLocalImage}
                 label="Recortar"
                 onPress={() =>
                   editDraftItemAndUpload({
@@ -382,7 +383,7 @@ function ReportMediaTile({
               />
               <CompactAction
                 accessibilityLabel={`Girar ${actionContext}`}
-                disabled={isUploadBusy}
+                disabled={isUploadBusy || !canEditLocalImage}
                 label="Girar"
                 onPress={() =>
                   editDraftItemAndUpload({
@@ -501,7 +502,7 @@ function CompactAction({
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
       style={styles.compactAction}
     >
       <Text maxFontSizeMultiplier={1.05} style={styles.compactActionText}>
@@ -549,6 +550,10 @@ function getReportMediaUploadAccessibilityStatusLabel(
 
 function isReportMediaUploadBusy(status: ReportMediaDraftItemStatus) {
   return status === "authorizing" || status === "uploading";
+}
+
+function hasEditableLocalImageUri(item: ReportMediaDraftItem) {
+  return item.uploadUri.trim().length > 0 || item.originalUri.trim().length > 0;
 }
 
 function clampProgress(progress: number) {

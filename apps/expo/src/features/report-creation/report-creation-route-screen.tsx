@@ -29,6 +29,7 @@ import {
   createNativeReportMediaSourceAdapter,
   createNativeReportMediaUploadTransport,
   createReportMediaDraft,
+  reportMediaCreationPhotosToHydratedReadyMedia,
   ReportMediaManager,
 } from "../report-media";
 import { createCreationDraftStore } from "../resilience/creation-drafts";
@@ -166,12 +167,17 @@ export function ReportCreationRouteScreen({
     new Map(),
   );
   const renderReportMediaManager = React.useCallback(
-    ({ mediaDraftId, onSnapshotChange }: ReportMediaManagerRenderProps) => (
+    ({
+      mediaDraftId,
+      onSnapshotChange,
+      photos,
+    }: ReportMediaManagerRenderProps) => (
       <ReportCreationRouteMediaManager
         draftCache={reportMediaDraftCacheRef.current}
         key={`${reportMediaReportType}:${mediaDraftId}`}
         mediaDraftId={mediaDraftId}
         onSnapshotChange={onSnapshotChange}
+        photos={photos}
         reportType={reportMediaReportType}
       />
     ),
@@ -313,11 +319,13 @@ function ReportCreationRouteMediaManager({
   draftCache,
   mediaDraftId,
   onSnapshotChange,
+  photos,
   reportType,
 }: {
   draftCache: ReportMediaDraftCache;
   mediaDraftId: string;
   onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
+  photos: readonly unknown[];
   reportType: ReportType;
 }) {
   const reportMediaUploadSessions = React.useMemo(
@@ -344,11 +352,22 @@ function ReportCreationRouteMediaManager({
     () => createReportMediaManagerEditAdapter(nativeReportMediaEditAdapter),
     [nativeReportMediaEditAdapter],
   );
+  const hydratedReadyMedia = React.useMemo(
+    () => reportMediaCreationPhotosToHydratedReadyMedia(photos),
+    [photos],
+  );
   const reportMediaDraft = React.useMemo(() => {
     const cacheKey = `${reportType}:${mediaDraftId}`;
     const cachedDraft = draftCache.get(cacheKey);
 
     if (cachedDraft) {
+      if (
+        cachedDraft.getSnapshot().items.length === 0 &&
+        hydratedReadyMedia.length > 0
+      ) {
+        cachedDraft.hydrateReadyMedia(hydratedReadyMedia);
+      }
+
       return cachedDraft;
     }
 
@@ -359,10 +378,15 @@ function ReportCreationRouteMediaManager({
       uploadTransport: reportMediaUploadTransport,
     });
 
+    if (hydratedReadyMedia.length > 0) {
+      createdDraft.hydrateReadyMedia(hydratedReadyMedia);
+    }
+
     draftCache.set(cacheKey, createdDraft);
     return createdDraft;
   }, [
     draftCache,
+    hydratedReadyMedia,
     mediaDraftId,
     reportMediaUploadSessions,
     reportMediaUploadTransport,
@@ -458,9 +482,13 @@ function createReportMediaManagerEditAdapter(
         },
         localId: item.localId,
         rotateDegrees: options?.rotateDegrees,
-        sourceUri: item.originalUri,
+        sourceUri: getEditableReportMediaSourceUri(item),
       }),
   };
+}
+
+function getEditableReportMediaSourceUri(item: ReportMediaDraftItem) {
+  return item.uploadUri.trim().length > 0 ? item.uploadUri : item.originalUri;
 }
 
 function getEditableReportMediaMimeType(

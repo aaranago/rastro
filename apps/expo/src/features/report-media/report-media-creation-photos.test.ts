@@ -45,15 +45,19 @@ describe("report media creation photos", () => {
 
     expect(reportMediaSnapshotToCreationPhotos(snapshot)).toEqual([
       {
+        height: 900,
         id: "local-ready",
         localId: "local-ready",
         mediaId: "ready-media-1",
+        mimeType: "image/jpeg",
         originalUri: "file:///ready-original.jpg",
         progress: 1,
+        sizeBytes: 200_000,
         status: "ready",
         thumbUri: "file:///ready-upload.jpg",
         uploadUri: "file:///ready-upload.jpg",
         uri: "file:///ready-upload.jpg",
+        width: 1200,
       },
       expect.objectContaining({
         id: "local-uploading",

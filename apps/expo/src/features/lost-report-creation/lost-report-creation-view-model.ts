@@ -28,6 +28,10 @@ import {
   getRequiredReportCreationPhotoStepError,
 } from "../report-creation/report-creation-media-validation";
 import {
+  normalizeReportCreationEventTime,
+  reportCreationEventTimeValidationError,
+} from "../report-creation/report-creation-event-time";
+import {
   getReportCreationSelectedPet,
   getReportCreationSelectedProfile,
   hasValidReportCreationInlinePet,
@@ -289,6 +293,9 @@ export function buildLostReportCreationViewModel({
     validationDisplay,
     "details",
   );
+  const lastSeenAtError = getLastSeenAtError(
+    draft.lostDetails.lastSeenAtLabel,
+  );
 
   return {
     canPublish,
@@ -325,11 +332,7 @@ export function buildLostReportCreationViewModel({
           value: draft.lostDetails.circumstances,
         },
         lastSeenAtLabel: {
-          error:
-            showDetailsValidation &&
-            draft.lostDetails.lastSeenAtLabel.trim().length === 0
-              ? "Indica cuando la viste por ultima vez."
-              : undefined,
+          error: showDetailsValidation ? lastSeenAtError : undefined,
           label: "Ultima vez vista",
           placeholder: "Hoy, ayer, fecha y hora aproximada",
           value: draft.lostDetails.lastSeenAtLabel,
@@ -429,6 +432,14 @@ export function toPublishLostPetReportInput({
     draft,
     petProfiles: profileOptions,
   });
+  const lastSeenAt = normalizeReportCreationEventTime(
+    draft.lostDetails.lastSeenAtLabel,
+  );
+
+  if (!lastSeenAt) {
+    throw new Error(reportCreationEventTimeValidationError);
+  }
+
   return {
     contactOption: toPublishContactOption({
       option: payload.contactOption,
@@ -436,7 +447,7 @@ export function toPublishLostPetReportInput({
     }),
     exactLocation: toReportLocationPublishInput(payload.exactLocation),
     idempotencyKey: draft.id,
-    lastSeenAt: draft.lostDetails.lastSeenAtLabel,
+    lastSeenAt,
     lastSeenDescription: draft.lostDetails.circumstances,
     petProfile:
       payload.selectedPet.kind === "existing"
@@ -592,8 +603,11 @@ function validateLostReportDraft({
     photos,
   });
 
-  if (draft.lostDetails.lastSeenAtLabel.trim().length === 0) {
-    errors.push("Indica cuando fue vista por ultima vez.");
+  const lastSeenAtError = getLastSeenAtError(
+    draft.lostDetails.lastSeenAtLabel,
+  );
+  if (lastSeenAtError) {
+    errors.push(lastSeenAtError);
   }
 
   if (draft.lostDetails.circumstances.trim().length === 0) {
@@ -612,6 +626,18 @@ function validateLostReportDraft({
   }
 
   return errors;
+}
+
+function getLastSeenAtError(value: string) {
+  if (value.trim().length === 0) {
+    return "Indica cuando la viste por ultima vez.";
+  }
+
+  if (!normalizeReportCreationEventTime(value)) {
+    return reportCreationEventTimeValidationError;
+  }
+
+  return undefined;
 }
 
 function buildContactOptions(currentOption: LostReportContactOption) {
@@ -761,7 +787,7 @@ function buildSteps({
       isComplete:
         Boolean(selectedPet) &&
         readyPhotos.length > 0 &&
-        draft.lostDetails.lastSeenAtLabel.trim().length > 0,
+        !getLastSeenAtError(draft.lostDetails.lastSeenAtLabel),
       label: "Detalles",
     },
     {
@@ -823,7 +849,7 @@ function buildLostReportJourney({
       id: "details" as const,
       isComplete:
         Boolean(selectedPet) &&
-        draft.lostDetails.lastSeenAtLabel.trim().length > 0 &&
+        !getLastSeenAtError(draft.lostDetails.lastSeenAtLabel) &&
         draft.lostDetails.circumstances.trim().length > 0,
     },
     {

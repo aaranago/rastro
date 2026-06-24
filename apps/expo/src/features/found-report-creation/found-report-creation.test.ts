@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   buildFoundReportCreationViewModel,
@@ -176,6 +176,111 @@ describe("Found Pet Report creation view model", () => {
       photos: [{ id: "found-ready-media-1", uri: "file:///husky-found.heic" }],
       showExactPublicLocation: false,
     });
+  });
+
+  it("normalizes a Spanish relative found-at label to ISO for publish", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-18T12:00:00.000Z"));
+
+    const draft = createFoundReportDraft({
+      contact: {
+        inAppChatEnabled: true,
+        whatsappEnabled: false,
+        whatsappPhone: "",
+      },
+      exactFoundLocation: {
+        addressLabel: "Jardin Botanico de La Paz",
+        coordinates: {
+          latitude: -16.5022,
+          longitude: -68.1213,
+        },
+        department: "La Paz",
+        locationCellLabel: "Miraflores",
+        municipality: "La Paz",
+      },
+      foundDetails: {
+        condition: "Amigable y sin heridas visibles.",
+        description: "Encontrada cerca de la fuente.",
+        foundAtLabel: "Hoy, hace 20 min",
+      },
+      pet: {
+        breed: "Husky mix",
+        description: "Pelaje gris y ojos claros.",
+        type: "Perro",
+      },
+      photos: [
+        {
+          id: "found-report-photo-1",
+          mediaId: "found-ready-media-1",
+          status: "ready",
+          uri: "file:///husky-found.heic",
+        },
+      ],
+    });
+
+    try {
+      const viewModel = buildFoundReportCreationViewModel({ draft });
+      const publishInput = toPublishFoundPetReportInput({ draft });
+
+      expect(viewModel.canPublish).toBe(true);
+      expect(viewModel.foundDetails.fields.foundAtLabel.value).toBe(
+        "Hoy, hace 20 min",
+      );
+      expect(publishInput.foundAt).toBe("2026-06-18T11:40:00.000Z");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("blocks publish for non-parseable found-at labels with a Spanish validation error", () => {
+    const draft = createFoundReportDraft({
+      contact: {
+        inAppChatEnabled: true,
+        whatsappEnabled: false,
+        whatsappPhone: "",
+      },
+      exactFoundLocation: {
+        addressLabel: "Jardin Botanico de La Paz",
+        coordinates: {
+          latitude: -16.5022,
+          longitude: -68.1213,
+        },
+        department: "La Paz",
+        locationCellLabel: "Miraflores",
+        municipality: "La Paz",
+      },
+      foundDetails: {
+        condition: "Amigable y sin heridas visibles.",
+        description: "Encontrada cerca de la fuente.",
+        foundAtLabel: "Hoy en la manana",
+      },
+      pet: {
+        breed: "Husky mix",
+        description: "Pelaje gris y ojos claros.",
+        type: "Perro",
+      },
+      photos: [
+        {
+          id: "found-report-photo-1",
+          mediaId: "found-ready-media-1",
+          status: "ready",
+          uri: "file:///husky-found.heic",
+        },
+      ],
+    });
+
+    const viewModel = buildFoundReportCreationViewModel({ draft });
+
+    expect(viewModel.canPublish).toBe(false);
+    expect(viewModel.foundDetails.fields.foundAtLabel.error).toContain(
+      "fecha y hora valida",
+    );
+    expect(viewModel.review.validationErrors).toEqual(
+      expect.arrayContaining([expect.stringContaining("fecha y hora valida")]),
+    );
+    expect(() => toPublishFoundPetReportInput({ draft })).toThrow(
+      "fecha y hora valida",
+    );
   });
 
   it("blocks required found reports until attached media has a ready uploaded media ID", () => {
