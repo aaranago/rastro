@@ -20,13 +20,13 @@ import {
   getOptionalReportCreationPhotoStepError,
   getReadyUploadedReportCreationPhotos,
 } from "../report-creation/report-creation-media-validation";
+import { getReportCreationMinimumDescriptionError } from "../report-creation/report-creation-text-validation";
 import { buildReportCreationContactViewModel } from "../report-creation/report-creation-view-model";
 import { toReportLocationPublishInput } from "../report-creation/report-location-draft";
 import { sightingReportPetTypeOptions } from "./sighting-report-creation-types";
 
 const sightingReportPhotoLimit = 5;
-const sightingObservedAtIsoError =
-  "Ingresa fecha y hora en formato ISO, por ejemplo 2026-06-18T10:15:00.000Z.";
+const sightingObservedAtIsoError = "Selecciona una fecha y hora valida.";
 
 export interface SightingReportCreationViewModel {
   canPublish: boolean;
@@ -409,8 +409,11 @@ function validateSightingReportDraft(draft: SightingReportDraft) {
     errors.push("Indica hacia donde iba.");
   }
 
-  if (draft.sightingDetails.description.trim().length === 0) {
-    errors.push("Agrega una descripcion del avistamiento.");
+  const sightingDescriptionError = getSightingDescriptionError(
+    draft.sightingDetails.description,
+  );
+  if (sightingDescriptionError) {
+    errors.push(sightingDescriptionError);
   }
 
   if (draft.pet.description.trim().length === 0) {
@@ -438,11 +441,9 @@ function buildSightingDetailsViewModel(
   return {
     fields: {
       description: {
-        error:
-          showValidation &&
-          draft.sightingDetails.description.trim().length === 0
-            ? "Agrega una descripcion del avistamiento."
-            : undefined,
+        error: showValidation
+          ? getSightingDescriptionError(draft.sightingDetails.description)
+          : undefined,
         label: "Descripcion del avistamiento",
         placeholder:
           "Que viste, desde donde, si se dejaba acercar o si habia riesgos",
@@ -462,7 +463,7 @@ function buildSightingDetailsViewModel(
           ? getObservedAtError(draft.sightingDetails.observedAtLabel)
           : undefined,
         label: "Cuando la viste",
-        placeholder: "2026-06-18T10:15:00.000Z",
+        placeholder: "Selecciona cuando la viste",
         value: draft.sightingDetails.observedAtLabel,
       },
       observedCondition: {
@@ -514,7 +515,7 @@ function buildLocationViewModel(draft: SightingReportDraft) {
     : "Selecciona el punto donde fue vista.";
   const approximatePublicLabel = location
     ? location.locationCellLabel
-    : "Zona aproximada pendiente";
+    : "Elige una ubicacion para calcular la zona.";
 
   return {
     approximatePublicLabel,
@@ -522,8 +523,8 @@ function buildLocationViewModel(draft: SightingReportDraft) {
     exactPinOptInLabel: "Mostrar pin exacto publicamente",
     hasExactLocation: Boolean(location),
     mapPreviewLabel: location
-      ? `Punto interno en ${location.locationCellLabel}`
-      : "Mapa de Bolivia pendiente",
+      ? `${location.locationCellLabel}, Bolivia`
+      : "Bolivia - elige una ubicacion",
     publicPrecisionLabel: draft.showExactPinPublicly
       ? "Pin exacto publico"
       : "Zona aproximada por defecto",
@@ -594,7 +595,7 @@ function buildSteps({
         !getObservedAtError(draft.sightingDetails.observedAtLabel) &&
         draft.sightingDetails.observedCondition.trim().length > 0 &&
         draft.sightingDetails.direction.trim().length > 0 &&
-        draft.sightingDetails.description.trim().length > 0 &&
+        !getSightingDescriptionError(draft.sightingDetails.description) &&
         draft.pet.description.trim().length > 0,
       label: "Detalles",
     },
@@ -651,7 +652,7 @@ function buildSightingReportJourney({
         !getObservedAtError(draft.sightingDetails.observedAtLabel) &&
         draft.sightingDetails.observedCondition.trim().length > 0 &&
         draft.sightingDetails.direction.trim().length > 0 &&
-        draft.sightingDetails.description.trim().length > 0 &&
+        !getSightingDescriptionError(draft.sightingDetails.description) &&
         draft.pet.description.trim().length > 0,
     },
     {
@@ -777,6 +778,14 @@ function buildContactOptions(currentOption: SightingReportContactOption) {
       value: "both" as const,
     },
   ];
+}
+
+function getSightingDescriptionError(value: string) {
+  return getReportCreationMinimumDescriptionError({
+    emptyMessage: "Agrega una descripcion del avistamiento.",
+    shortMessage: "Escribe una descripcion de al menos 10 caracteres.",
+    value,
+  });
 }
 
 function contactOptionLabel(option: SightingReportContactOption) {

@@ -1,11 +1,18 @@
 import type { Href, Router } from "expo-router";
 import * as React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 
 import type { ReportType } from "@acme/validators";
 
 import type { ReportIntent } from "../../i18n";
+import type { AdoptionListingPublishConfirmation } from "../adoption-listing-creation/adoption-listing-creation-screen";
+import type { FoundReportPublishConfirmation } from "../found-report-creation/found-report-creation-screen";
+import type { LostReportPublishConfirmation } from "../lost-report-creation/lost-report-creation-screen";
+import type {
+  NearbyPublicReportKind,
+  PublicReportShareTarget,
+} from "../nearby/nearby-types";
 import type {
   NativeReportMediaEditAdapter,
   NativeReportMediaSourceAdapter,
@@ -13,7 +20,9 @@ import type {
   ReportMediaDraftSnapshot,
   ReportMediaEditAdapter,
   ReportMediaSourceAdapter,
+  ReportMediaStepController,
 } from "../report-media";
+import type { SightingReportPublishConfirmation } from "../sighting-report-creation/sighting-report-publish-adapter";
 import { trpcClient } from "../../utils/api";
 import { AdoptionListingCreationScreen } from "../adoption-listing-creation/adoption-listing-creation-screen";
 import { createApiAdoptionListingPublishHandler } from "../adoption-listing-creation/adoption-listing-publish-adapter";
@@ -23,6 +32,8 @@ import { createApiFoundReportPublishHandler } from "../found-report-creation/fou
 import { LostReportCreationScreen } from "../lost-report-creation/lost-report-creation-screen";
 import { createApiLostReportPublishHandler } from "../lost-report-creation/lost-report-publish-adapter";
 import { expoNearbyLocationAdapter } from "../nearby/nearby-expo-location-adapter";
+import { buildNearbyReportRouteTarget } from "../nearby/nearby-navigation";
+import { shareNearbyLostReport } from "../nearby/nearby-share";
 import {
   createApiReportMediaUploadSessionClient,
   createNativeReportMediaEditAdapter,
@@ -31,6 +42,7 @@ import {
   createReportMediaDraft,
   reportMediaCreationPhotosToHydratedReadyMedia,
   ReportMediaManager,
+  uploadPendingReportMediaDraftItems,
 } from "../report-media";
 import { createCreationDraftStore } from "../resilience/creation-drafts";
 import { createExpoSecureStoreKeyValueStorage } from "../resilience/storage";
@@ -169,6 +181,7 @@ export function ReportCreationRouteScreen({
   const renderReportMediaManager = React.useCallback(
     ({
       mediaDraftId,
+      onControllerChange,
       onSnapshotChange,
       photos,
     }: ReportMediaManagerRenderProps) => (
@@ -176,6 +189,7 @@ export function ReportCreationRouteScreen({
         draftCache={reportMediaDraftCacheRef.current}
         key={`${reportMediaReportType}:${mediaDraftId}`}
         mediaDraftId={mediaDraftId}
+        onControllerChange={onControllerChange}
         onSnapshotChange={onSnapshotChange}
         photos={photos}
         reportType={reportMediaReportType}
@@ -213,6 +227,86 @@ export function ReportCreationRouteScreen({
     },
     [sponsorResourcesAdapter],
   );
+  const openPublishedLostReport = React.useCallback(
+    (confirmation: LostReportPublishConfirmation) => {
+      openHrefAfterClosingReportCreationRoute(
+        router,
+        buildCreatedReportHref({
+          id: confirmation.id,
+          reportKind: "lost-pet-report",
+        }),
+      );
+    },
+    [router],
+  );
+  const openPublishedFoundReport = React.useCallback(
+    (confirmation: FoundReportPublishConfirmation) => {
+      openHrefAfterClosingReportCreationRoute(
+        router,
+        buildCreatedReportHref({
+          id: confirmation.id,
+          reportKind: "found-pet-report",
+        }),
+      );
+    },
+    [router],
+  );
+  const openPublishedSightingReport = React.useCallback(
+    (confirmation: SightingReportPublishConfirmation) => {
+      openHrefAfterClosingReportCreationRoute(
+        router,
+        buildCreatedReportHref({
+          id: confirmation.id,
+          reportKind: "sighting-report",
+        }),
+      );
+    },
+    [router],
+  );
+  const openPublishedAdoptionListing = React.useCallback(
+    (confirmation: AdoptionListingPublishConfirmation) => {
+      openHrefAfterClosingReportCreationRoute(
+        router,
+        buildCreatedReportHref({
+          id: confirmation.id,
+          reportKind: "adoption-listing",
+        }),
+      );
+    },
+    [router],
+  );
+  const sharePublishedLostReport = React.useCallback(
+    (confirmation: LostReportPublishConfirmation) =>
+      shareCreatedReport({
+        id: confirmation.id,
+        reportKind: "lost-pet-report",
+      }),
+    [],
+  );
+  const sharePublishedFoundReport = React.useCallback(
+    (confirmation: FoundReportPublishConfirmation) =>
+      shareCreatedReport({
+        id: confirmation.id,
+        reportKind: "found-pet-report",
+      }),
+    [],
+  );
+  const sharePublishedSightingReport = React.useCallback(
+    (confirmation: SightingReportPublishConfirmation) =>
+      shareCreatedReport({
+        id: confirmation.id,
+        reportKind: "sighting-report",
+      }),
+    [],
+  );
+  const sharePublishedAdoptionListing = React.useCallback(
+    (confirmation: AdoptionListingPublishConfirmation) =>
+      shareCreatedReport({
+        id: confirmation.id,
+        reportKind: "adoption-listing",
+      }),
+    [],
+  );
 
   React.useEffect(() => {
     if (model.session.kind === "loading") {
@@ -242,9 +336,11 @@ export function ReportCreationRouteScreen({
         locationAdapter={expoNearbyLocationAdapter}
         onClose={closeRoute}
         onDraftPublished={markDraftPublished}
+        onOpenPublishedReport={openPublishedLostReport}
         onOpenSponsorPlacement={handleOpenSponsorPlacement}
         onPublishLostReport={publishLostReport}
         onReportSponsorPlacement={handleReportSponsorPlacement}
+        onSharePublishedReport={sharePublishedLostReport}
         renderReportMediaManager={renderReportMediaManager}
       />
     );
@@ -256,8 +352,10 @@ export function ReportCreationRouteScreen({
         locationAdapter={expoNearbyLocationAdapter}
         onClose={closeRoute}
         onDraftPublished={markDraftPublished}
+        onOpenPublishedReport={openPublishedFoundReport}
         onPublishFoundReport={publishFoundReport}
         onRequestMemberSignIn={requestMemberSignIn}
+        onSharePublishedReport={sharePublishedFoundReport}
         renderReportMediaManager={renderReportMediaManager}
         session={creationSession}
       />
@@ -270,8 +368,10 @@ export function ReportCreationRouteScreen({
         locationAdapter={expoNearbyLocationAdapter}
         onClose={closeRoute}
         onDraftPublished={markDraftPublished}
+        onOpenPublishedReport={openPublishedSightingReport}
         onPublishSightingReport={publishSightingReport}
         onRequestMemberSignIn={requestMemberSignIn}
+        onSharePublishedReport={sharePublishedSightingReport}
         renderReportMediaManager={renderReportMediaManager}
         session={creationSession}
       />
@@ -284,7 +384,9 @@ export function ReportCreationRouteScreen({
         locationAdapter={expoNearbyLocationAdapter}
         onClose={closeRoute}
         onDraftPublished={markDraftPublished}
+        onOpenPublishedListing={openPublishedAdoptionListing}
         onPublishAdoptionListing={publishAdoptionListing}
+        onSharePublishedListing={sharePublishedAdoptionListing}
         renderReportMediaManager={renderReportMediaManager}
         session={creationSession}
       />
@@ -306,6 +408,7 @@ export function ReportCreationRouteScreen({
 
 interface ReportMediaManagerRenderProps {
   mediaDraftId: string;
+  onControllerChange?: (controller: ReportMediaStepController | null) => void;
   onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
   photos: readonly unknown[];
 }
@@ -318,12 +421,14 @@ type ReportMediaDraftCache = Map<
 function ReportCreationRouteMediaManager({
   draftCache,
   mediaDraftId,
+  onControllerChange,
   onSnapshotChange,
   photos,
   reportType,
 }: {
   draftCache: ReportMediaDraftCache;
   mediaDraftId: string;
+  onControllerChange?: (controller: ReportMediaStepController | null) => void;
   onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
   photos: readonly unknown[];
   reportType: ReportType;
@@ -395,15 +500,38 @@ function ReportCreationRouteMediaManager({
   const [reportMediaSnapshot, setReportMediaSnapshot] = React.useState(() =>
     reportMediaDraft.getSnapshot(),
   );
+  const emitSnapshot = React.useCallback(
+    (snapshot: ReportMediaDraftSnapshot) => {
+      setReportMediaSnapshot(snapshot);
+      onSnapshotChange(snapshot);
+    },
+    [onSnapshotChange],
+  );
+  const reportMediaController = React.useMemo<ReportMediaStepController>(
+    () => ({
+      getSnapshot: () => reportMediaDraft.getSnapshot(),
+      uploadPendingImages: () =>
+        uploadPendingReportMediaDraftItems({
+          draft: reportMediaDraft,
+          onSnapshotChange: emitSnapshot,
+        }),
+    }),
+    [emitSnapshot, reportMediaDraft],
+  );
+
+  React.useEffect(() => {
+    onControllerChange?.(reportMediaController);
+
+    return () => {
+      onControllerChange?.(null);
+    };
+  }, [onControllerChange, reportMediaController]);
 
   return (
     <ReportMediaManager
       draft={reportMediaDraft}
       editAdapter={reportMediaEditAdapter}
-      onSnapshotChange={(snapshot) => {
-        setReportMediaSnapshot(snapshot);
-        onSnapshotChange(snapshot);
-      }}
+      onSnapshotChange={emitSnapshot}
       snapshot={reportMediaSnapshot}
       sourceAdapter={reportMediaSourceAdapter}
     />
@@ -420,6 +548,81 @@ function getReportMediaReportType(intent: ReportIntent): ReportType {
       return "sighting";
     case "adoption":
       return "adoption";
+  }
+}
+
+const publicWebBaseUrl = "https://rastro.bo";
+
+function buildCreatedReportHref({
+  id,
+  reportKind,
+}: {
+  id: string;
+  reportKind: NearbyPublicReportKind;
+}) {
+  return buildNearbyReportRouteTarget({ id, reportKind }).href as Href;
+}
+
+async function shareCreatedReport({
+  id,
+  reportKind,
+}: {
+  id: string;
+  reportKind: NearbyPublicReportKind;
+}) {
+  await shareNearbyLostReport(
+    {
+      reportKind,
+      shareTarget: buildCreatedReportShareTarget({ id, reportKind }),
+    },
+    Share,
+  );
+}
+
+function buildCreatedReportShareTarget({
+  id,
+  reportKind,
+}: {
+  id: string;
+  reportKind: NearbyPublicReportKind;
+}): PublicReportShareTarget {
+  const path = buildNearbyReportRouteTarget({ id, reportKind }).href;
+  const webUrl = `${publicWebBaseUrl}${path}`;
+  const appDeepLink = `rastro://${path.replace(/^\//, "")}`;
+
+  switch (reportKind) {
+    case "adoption-listing":
+      return {
+        appDeepLink,
+        message: `Conoce esta mascota en adopcion en Rastro: ${webUrl}`,
+        path,
+        title: "Mascota en adopcion en Rastro",
+        webUrl,
+      };
+    case "found-pet-report":
+      return {
+        appDeepLink,
+        message: `Ayuda a reunir a esta mascota en Rastro: ${webUrl}`,
+        path,
+        title: "Mascota encontrada en Rastro",
+        webUrl,
+      };
+    case "sighting-report":
+      return {
+        appDeepLink,
+        message: `Ayuda a ubicar este avistamiento en Rastro: ${webUrl}`,
+        path,
+        title: "Avistamiento en Rastro",
+        webUrl,
+      };
+    case "lost-pet-report":
+      return {
+        appDeepLink,
+        message: `Ayuda a encontrar esta mascota en Rastro: ${webUrl}`,
+        path,
+        title: "Mascota perdida en Rastro",
+        webUrl,
+      };
   }
 }
 
@@ -481,6 +684,7 @@ function createReportMediaManagerEditAdapter(
           mimeType: getEditableReportMediaMimeType(item),
         },
         localId: item.localId,
+        rotateBeforeCrop: options?.rotateBeforeCrop,
         rotateDegrees: options?.rotateDegrees,
         sourceUri: getEditableReportMediaSourceUri(item),
       }),

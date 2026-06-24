@@ -1,7 +1,6 @@
 import type { ScrollView } from "react-native";
 import * as React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Image } from "expo-image";
 
 import type { NearbyLocationAdapter } from "../nearby/nearby-location-adapter";
 import type {
@@ -10,7 +9,10 @@ import type {
   ReportCreationJourneyValidationResult,
 } from "../report-creation/report-creation-journey";
 import type { ReportLocationDraft } from "../report-creation/report-location-draft";
-import type { ReportMediaDraftSnapshot } from "../report-media";
+import type {
+  ReportMediaDraftSnapshot,
+  ReportMediaStepController,
+} from "../report-media";
 import type { CreationDraftStore } from "../resilience/creation-drafts";
 import type {
   DurableCreationDraftPersistence,
@@ -39,7 +41,9 @@ import {
   ReportCreationDetailsFieldsSection,
   ReportCreationDraftPersistenceAlert,
   ReportCreationDraftRecoveryPrompt,
+  ReportCreationErrorText,
   ReportCreationInfoRow,
+  ReportCreationLocationPreview,
   ReportCreationPetSnapshotSection,
   ReportCreationPhotoSection,
   ReportCreationProgressSteps,
@@ -48,10 +52,12 @@ import {
   ReportCreationSection,
   ReportCreationToggleRow,
   useReportCreationPetDraftUpdaters,
+  useReportCreationPublishedResultActions,
 } from "../report-creation/report-creation-ui";
 import { ReportLocationPickerScreen } from "../report-location-picker";
 import { reportMediaSnapshotToCreationPhotos } from "../report-media";
 import { useDurableCreationDraft } from "../resilience/use-durable-creation-draft";
+import { ShellIcon } from "../shell/shell-overlays";
 import { shellColors } from "../shell/shell-theme";
 import { sightingReportCreationFixtures } from "./sighting-report-creation-fixtures";
 import { sightingReportPetTypeOptions } from "./sighting-report-creation-types";
@@ -68,7 +74,6 @@ import {
 const errorAccent = "#D6453D";
 const sightingAccent = shellColors.sighting;
 const sightingAccentSoft = "#E6F0F7";
-const mapPreviewBlocks = Array.from({ length: 12 }, (_, index) => index);
 
 type PublishState = "editing" | "publishing" | "success";
 type SightingReportCreationViewModel = ReturnType<
@@ -83,6 +88,9 @@ export interface SightingReportCreationScreenProps {
   onChooseSightingLocation?: () => void;
   onClose?: () => void;
   onDraftPublished?: () => void;
+  onOpenPublishedReport?: (
+    confirmation: SightingReportPublishConfirmation,
+  ) => void;
   onPublishSightingReport?: (
     input: PublishSightingReportInput,
   ) =>
@@ -90,12 +98,16 @@ export interface SightingReportCreationScreenProps {
     | SightingReportPublishConfirmation
     | void;
   onRequestMemberSignIn?: (action: SightingReportCreationVisitorAction) => void;
+  onSharePublishedReport?: (
+    confirmation: SightingReportPublishConfirmation,
+  ) => Promise<void> | void;
   pickSightingReportPhoto?: () =>
     | SightingReportPhoto
     | Promise<SightingReportPhoto | undefined>
     | undefined;
   renderReportMediaManager?: (props: {
     mediaDraftId: string;
+    onControllerChange?: (controller: ReportMediaStepController | null) => void;
     onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
     photos: readonly SightingReportPhoto[];
   }) => React.ReactNode;
@@ -111,14 +123,7 @@ function SightingReportCreationIcon({
   name: string;
   size?: number;
 }) {
-  return (
-    <Image
-      contentFit="contain"
-      source={`sf:${name}`}
-      style={{ height: size, width: size }}
-      tintColor={color}
-    />
-  );
+  return <ShellIcon color={color} name={name} size={size} />;
 }
 
 export function SightingReportCreationScreen({
@@ -129,8 +134,10 @@ export function SightingReportCreationScreen({
   onChooseSightingLocation,
   onClose,
   onDraftPublished,
+  onOpenPublishedReport,
   onPublishSightingReport,
   onRequestMemberSignIn,
+  onSharePublishedReport,
   pickSightingReportPhoto,
   renderReportMediaManager,
   session = { kind: "member", memberId: "member-preview" },
@@ -283,6 +290,7 @@ export function SightingReportCreationScreen({
     }
 
     setSubmitError(null);
+    setPublishedReport(null);
     setPublishState("publishing");
 
     const publishDraft = ensureSightingReportDraftIdempotencyKey({ draft });
@@ -344,6 +352,8 @@ export function SightingReportCreationScreen({
     return (
       <ReportLocationPickerScreen
         adapter={locationAdapter}
+        initialDepartment={draft.exactSightingLocation?.department}
+        initialMapCoordinate={draft.exactSightingLocation?.coordinates}
         onCancel={closeLocationPicker}
         onConfirm={confirmLocation}
       />
@@ -354,6 +364,8 @@ export function SightingReportCreationScreen({
     return (
       <SightingReportCreationSuccess
         onClose={onClose}
+        onOpenPublishedReport={onOpenPublishedReport}
+        onSharePublishedReport={onSharePublishedReport}
         publishedReport={publishedReport}
         viewModel={viewModel}
       />
@@ -441,13 +453,29 @@ function SightingReportVisitorHandoff({
 
 function SightingReportCreationSuccess({
   onClose,
+  onOpenPublishedReport,
+  onSharePublishedReport,
   publishedReport,
   viewModel,
 }: {
   onClose?: () => void;
+  onOpenPublishedReport?: (
+    confirmation: SightingReportPublishConfirmation,
+  ) => void;
+  onSharePublishedReport?: (
+    confirmation: SightingReportPublishConfirmation,
+  ) => Promise<void> | void;
   publishedReport: SightingReportPublishConfirmation | null;
   viewModel: SightingReportCreationViewModel;
 }) {
+  const { canSharePublishedResult, openPublishedResult, sharePublishedResult } =
+    useReportCreationPublishedResultActions({
+      onClose,
+      onOpenPublishedResult: onOpenPublishedReport,
+      onSharePublishedResult: onSharePublishedReport,
+      publishedResult: publishedReport,
+    });
+
   return (
     <ReportCreationScreenFrame
       contentContainerStyle={styles.content}
@@ -467,33 +495,15 @@ function SightingReportCreationSuccess({
         <Text maxFontSizeMultiplier={1.25} style={styles.bodyText}>
           {viewModel.success.body}
         </Text>
-        {publishedReport ? (
-          <View style={styles.confirmationPanel}>
-            <View style={styles.reviewRow}>
-              <Text maxFontSizeMultiplier={1.15} style={styles.reviewLabel}>
-                ID backend
-              </Text>
-              <Text maxFontSizeMultiplier={1.15} style={styles.reviewValue}>
-                {publishedReport.id}
-              </Text>
-            </View>
-            <View style={styles.reviewRow}>
-              <Text maxFontSizeMultiplier={1.15} style={styles.reviewLabel}>
-                Estado
-              </Text>
-              <Text maxFontSizeMultiplier={1.15} style={styles.reviewValue}>
-                {publishedReport.status}
-              </Text>
-            </View>
-          </View>
-        ) : null}
       </View>
       <View style={styles.buttonRow}>
         <ReportCreationActionButton
           accentColor={sightingAccent}
+          disabled={!canSharePublishedResult}
           Icon={SightingReportCreationIcon}
           icon="square.and.arrow.up"
           label={viewModel.success.shareActionLabel}
+          onPress={sharePublishedResult}
           primaryTextColor={shellColors.white}
           styles={styles}
           variant="secondary"
@@ -503,7 +513,7 @@ function SightingReportCreationSuccess({
           Icon={SightingReportCreationIcon}
           icon="list.bullet.rectangle"
           label={viewModel.success.primaryActionLabel}
-          onPress={onClose}
+          onPress={openPublishedResult}
           primaryTextColor={shellColors.white}
           styles={styles}
         />
@@ -558,10 +568,13 @@ function SightingReportCreationEditor({
   const sightingPetDraft = useReportCreationPetDraftUpdaters(setDraft);
   const scrollViewRef =
     React.useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const mediaControllerRef = React.useRef<ReportMediaStepController | null>(
+    null,
+  );
   const currentStepId = viewModel.journey.currentStep.id;
   const hasPreviousStep = hasPreviousEditableSightingStep(viewModel.journey);
-  const showStepActions =
-    isEditableSightingStepId(currentStepId) && currentStepId !== "review";
+  const showStepActions = isEditableSightingStepId(currentStepId);
+  const canContinueCurrentStep = currentStepId !== "review";
   const locationValidationError =
     validationDisplay.attemptedStepId === "location"
       ? getSightingReportLocationValidationError(draft)
@@ -569,11 +582,29 @@ function SightingReportCreationEditor({
   const scrollToActiveStep = React.useCallback(() => {
     scrollViewRef.current?.scrollTo({ animated: true, y: 0 });
   }, []);
-  const continueToNextStep = React.useCallback(() => {
+  const continueToNextStep = React.useCallback(async () => {
+    let draftForValidation = draft;
+
+    if (currentStepId === "photos" && mediaControllerRef.current) {
+      const uploadedSnapshot =
+        await mediaControllerRef.current.uploadPendingImages();
+      const uploadedPhotos =
+        reportMediaSnapshotToCreationPhotos(uploadedSnapshot);
+
+      draftForValidation = {
+        ...draft,
+        photos: uploadedPhotos,
+      };
+      setDraft((current) => ({
+        ...current,
+        photos: uploadedPhotos,
+      }));
+    }
+
     const result = advanceReportCreationJourney(viewModel.journey, {
       [currentStepId]: () =>
         validateCurrentSightingReportStep({
-          draft,
+          draft: draftForValidation,
           journey: viewModel.journey,
         }),
     });
@@ -596,6 +627,7 @@ function SightingReportCreationEditor({
     currentStepId,
     draft,
     scrollToActiveStep,
+    setDraft,
     setJourney,
     setValidationDisplay,
     viewModel.journey,
@@ -621,6 +653,7 @@ function SightingReportCreationEditor({
       footer={
         showStepActions ? (
           <SightingReportStepActions
+            canContinue={canContinueCurrentStep}
             canGoBack={hasPreviousStep}
             onBack={goBack}
             onContinue={continueToNextStep}
@@ -660,6 +693,9 @@ function SightingReportCreationEditor({
         publish={publish}
         publishState={publishState}
         renderReportMediaManager={renderReportMediaManager}
+        onMediaControllerChange={(controller) => {
+          mediaControllerRef.current = controller;
+        }}
         setDraft={setDraft}
         submitError={submitError}
         viewModel={viewModel}
@@ -677,6 +713,7 @@ function SightingReportCreationStepContent({
   onChangePetBreed,
   onChangePetDescription,
   onChooseSightingLocation,
+  onMediaControllerChange,
   onSelectPetType,
   publish,
   publishState,
@@ -693,6 +730,9 @@ function SightingReportCreationStepContent({
   onChangePetBreed: (value: string) => void;
   onChangePetDescription: (value: string) => void;
   onChooseSightingLocation?: () => void;
+  onMediaControllerChange?: (
+    controller: ReportMediaStepController | null,
+  ) => void;
   onSelectPetType: (value: SightingReportDraft["pet"]["type"]) => void;
   publish: () => void;
   publishState: PublishState;
@@ -707,6 +747,7 @@ function SightingReportCreationStepContent({
         <SightingReportPhotosStep
           addPhoto={addPhoto}
           mediaDraftId={mediaDraftId}
+          onMediaControllerChange={onMediaControllerChange}
           renderReportMediaManager={renderReportMediaManager}
           setDraft={setDraft}
           viewModel={viewModel}
@@ -726,6 +767,7 @@ function SightingReportCreationStepContent({
     case "location":
       return (
         <LocationPrivacySection
+          coordinates={draft.exactSightingLocation?.coordinates}
           onChooseSightingLocation={onChooseSightingLocation}
           setDraft={setDraft}
           validationError={locationValidationError}
@@ -751,18 +793,23 @@ function SightingReportCreationStepContent({
 function SightingReportPhotosStep({
   addPhoto,
   mediaDraftId,
+  onMediaControllerChange,
   renderReportMediaManager,
   setDraft,
   viewModel,
 }: {
   addPhoto: () => void;
   mediaDraftId: string;
+  onMediaControllerChange?: (
+    controller: ReportMediaStepController | null,
+  ) => void;
   renderReportMediaManager?: SightingReportCreationScreenProps["renderReportMediaManager"];
   setDraft: React.Dispatch<React.SetStateAction<SightingReportDraft>>;
   viewModel: SightingReportCreationViewModel;
 }) {
   const renderedReportMediaManager = renderReportMediaManager?.({
     mediaDraftId,
+    onControllerChange: onMediaControllerChange,
     onSnapshotChange: (snapshot) =>
       setDraft((current) => ({
         ...current,
@@ -843,6 +890,7 @@ function SightingReportDetailsStep({
         fields={[
           {
             field: viewModel.sightingDetails.fields.observedAtLabel,
+            input: "dateTime",
             key: "observedAtLabel" as const,
           },
           {
@@ -859,6 +907,7 @@ function SightingReportDetailsStep({
             multiline: true,
           },
         ]}
+        dateTimeAccentColor={sightingAccent}
         onChangeField={(key, value) =>
           setDraft((current) => ({
             ...current,
@@ -911,7 +960,7 @@ function CreationHeader({
         >
           <SightingReportCreationIcon
             color={shellColors.muted}
-            name="chevron.left"
+            name="xmark"
             size={18}
           />
         </Pressable>
@@ -921,11 +970,13 @@ function CreationHeader({
 }
 
 function LocationPrivacySection({
+  coordinates,
   onChooseSightingLocation,
   setDraft,
   validationError,
   viewModel,
 }: {
+  coordinates?: { latitude: number; longitude: number };
   onChooseSightingLocation?: () => void;
   setDraft: React.Dispatch<React.SetStateAction<SightingReportDraft>>;
   validationError?: string;
@@ -933,23 +984,12 @@ function LocationPrivacySection({
 }) {
   return (
     <ReportCreationSection styles={styles} title="Ubicacion y privacidad">
-      <View style={styles.mapPreview}>
-        <View style={styles.mapGrid}>
-          {mapPreviewBlocks.map((index) => (
-            <View key={index} style={styles.mapBlock} />
-          ))}
-        </View>
-        <View style={styles.mapPin}>
-          <SightingReportCreationIcon
-            color={shellColors.white}
-            name="mappin"
-            size={22}
-          />
-        </View>
-        <Text maxFontSizeMultiplier={1.15} style={styles.mapLabel}>
-          {viewModel.location.mapPreviewLabel}
-        </Text>
-      </View>
+      <ReportCreationLocationPreview
+        accentColor={sightingAccent}
+        coordinates={coordinates}
+        Icon={SightingReportCreationIcon}
+        label={viewModel.location.mapPreviewLabel}
+      />
       <ReportCreationInfoRow
         accentColor={sightingAccent}
         Icon={SightingReportCreationIcon}
@@ -994,11 +1034,11 @@ function LocationPrivacySection({
         }
         styles={styles}
       />
-      {validationError ? (
-        <Text maxFontSizeMultiplier={1.2} selectable style={styles.errorText}>
-          {validationError}
-        </Text>
-      ) : null}
+      <ReportCreationErrorText
+        maxFontSizeMultiplier={1.2}
+        message={validationError}
+        styles={styles}
+      />
     </ReportCreationSection>
   );
 }
@@ -1080,10 +1120,12 @@ function ReviewPublishSection({
 }
 
 function SightingReportStepActions({
+  canContinue,
   canGoBack,
   onBack,
   onContinue,
 }: {
+  canContinue: boolean;
   canGoBack: boolean;
   onBack: () => void;
   onContinue: () => void;
@@ -1102,15 +1144,17 @@ function SightingReportStepActions({
           variant="secondary"
         />
       ) : null}
-      <ReportCreationActionButton
-        accentColor={sightingAccent}
-        Icon={SightingReportCreationIcon}
-        icon="chevron.right"
-        label="Continuar"
-        onPress={onContinue}
-        primaryTextColor={shellColors.white}
-        styles={styles}
-      />
+      {canContinue ? (
+        <ReportCreationActionButton
+          accentColor={sightingAccent}
+          Icon={SightingReportCreationIcon}
+          icon="arrow.right"
+          label="Continuar"
+          onPress={onContinue}
+          primaryTextColor={shellColors.white}
+          styles={styles}
+        />
+      ) : null}
     </View>
   );
 }
@@ -1137,7 +1181,15 @@ function validateCurrentSightingReportStep({
 
   switch (currentStepId) {
     case "photos":
-      return { ok: true };
+      return toSightingReportValidationResult([
+        buildSightingReportCreationViewModel({
+          draft,
+          journey: toSightingReportJourneyInput(journey),
+          validationDisplay: {
+            attemptedStepId: currentStepId,
+          },
+        }).photos.error,
+      ]);
     case "details": {
       const attemptedViewModel = buildSightingReportCreationViewModel({
         draft,

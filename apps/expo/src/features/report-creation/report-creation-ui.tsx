@@ -1,5 +1,7 @@
+import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import type { ReactNode } from "react";
 import type {
+  DimensionValue,
   ImageStyle,
   KeyboardTypeOptions,
   StyleProp,
@@ -20,6 +22,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 import type { CreationDraftKind } from "../resilience/creation-drafts";
 import type {
@@ -27,6 +30,7 @@ import type {
   DurableCreationDraftRecovery,
 } from "../resilience/use-durable-creation-draft";
 import type { ReportCreationJourneyStep } from "./report-creation-journey";
+import { normalizeReportCreationEventTime } from "./report-creation-event-time";
 
 export interface ReportCreationFieldViewModel {
   error?: string;
@@ -78,7 +82,7 @@ export type ReportCreationIconComponent = (props: {
 const minimumTopSafeArea = 12;
 const screenTopContentSpacing = 16;
 const minimumBottomSafeArea = 16;
-const stickyFooterContentReserve = 88;
+const stickyFooterContentClearance = 172;
 
 export interface ReportCreationScreenInsets {
   contentInsetBottom: number;
@@ -98,14 +102,15 @@ export function getReportCreationScreenInsets({
 }): ReportCreationScreenInsets {
   const safeTop = Math.max(top, minimumTopSafeArea);
   const safeBottom = Math.max(bottom, minimumBottomSafeArea);
-  const footerReserve = hasFooter ? stickyFooterContentReserve : 0;
-  const bottomContentInset = safeBottom + footerReserve;
+  const bottomContentInset = hasFooter
+    ? stickyFooterContentClearance + safeBottom
+    : safeBottom;
 
   return {
     contentInsetBottom: bottomContentInset,
     contentPaddingTop: safeTop + screenTopContentSpacing,
     footerPaddingBottom: safeBottom,
-    scrollIndicatorInsetBottom: bottomContentInset,
+    scrollIndicatorInsetBottom: hasFooter ? 0 : bottomContentInset,
   };
 }
 
@@ -170,6 +175,10 @@ export function ReportCreationScreenFrame({
 
 const screenFrameStyles = StyleSheet.create({
   footer: {
+    backgroundColor: "#F8FBF9",
+    borderTopColor: "#DDE8E1",
+    borderTopWidth: 1,
+    boxShadow: "0 -10px 22px rgba(23, 32, 28, 0.08)",
     paddingHorizontal: 16,
     paddingTop: 12,
   },
@@ -367,13 +376,280 @@ export function ReportCreationField({
         style={[styles.input, multiline ? styles.multilineInput : null]}
         value={field.value}
       />
-      {field.error ? (
-        <Text maxFontSizeMultiplier={1.15} selectable style={styles.errorText}>
-          {field.error}
+      <ReportCreationErrorText message={field.error} styles={styles} />
+    </View>
+  );
+}
+
+type ReportCreationDateTimePickerMode = "date" | "time";
+
+export function ReportCreationDateTimeField({
+  accentColor = "#0F7665",
+  field,
+  maximumDate,
+  onChangeDateTime,
+  placeholderTextColor,
+  styles,
+}: {
+  accentColor?: string;
+  field: ReportCreationFieldViewModel;
+  maximumDate?: Date;
+  onChangeDateTime: (value: string) => void;
+  placeholderTextColor: string;
+  styles: ReportCreationStyles;
+}) {
+  const [pickerMode, setPickerMode] =
+    React.useState<ReportCreationDateTimePickerMode | null>(null);
+  const selectedDate = React.useMemo(
+    () => parseReportCreationDateTimeValue(field.value),
+    [field.value],
+  );
+  const pickerDate = React.useMemo(
+    () => selectedDate ?? maximumDate ?? new Date(),
+    [maximumDate, selectedDate],
+  );
+  const displayValue = selectedDate
+    ? formatReportCreationDateTime(selectedDate)
+    : field.placeholder;
+
+  const handlePickerChange = React.useCallback(
+    (event: DateTimePickerEvent, value?: Date) => {
+      if (event.type === "dismissed") {
+        setPickerMode(null);
+        return;
+      }
+
+      if (!value || !pickerMode) {
+        return;
+      }
+
+      const merged =
+        pickerMode === "date"
+          ? mergeReportCreationDatePart(pickerDate, value)
+          : mergeReportCreationTimePart(pickerDate, value);
+      const clamped = clampReportCreationDateTime(
+        merged,
+        maximumDate ?? new Date(),
+      );
+
+      onChangeDateTime(clamped.toISOString());
+      setPickerMode(null);
+    },
+    [maximumDate, onChangeDateTime, pickerDate, pickerMode],
+  );
+
+  return (
+    <View style={styles.field}>
+      <Text maxFontSizeMultiplier={1.1} style={styles.fieldLabel}>
+        {field.label}
+      </Text>
+      <View
+        accessibilityHint={field.error}
+        accessibilityLabel={field.label}
+        style={[
+          dateTimeFieldStyles.container,
+          field.error ? dateTimeFieldStyles.containerError : null,
+        ]}
+      >
+        <Text
+          maxFontSizeMultiplier={1.1}
+          style={[
+            dateTimeFieldStyles.valueText,
+            selectedDate ? null : { color: placeholderTextColor },
+          ]}
+        >
+          {displayValue}
         </Text>
+        <View style={dateTimeFieldStyles.actionRow}>
+          <Pressable
+            accessibilityLabel={`Cambiar fecha de ${field.label}`}
+            accessibilityRole="button"
+            onPress={() => setPickerMode("date")}
+            style={({ pressed }) => [
+              dateTimeFieldStyles.actionButton,
+              { borderColor: accentColor },
+              pressed ? dateTimeFieldStyles.actionButtonPressed : null,
+            ]}
+          >
+            <Text
+              maxFontSizeMultiplier={1.05}
+              style={[dateTimeFieldStyles.actionText, { color: accentColor }]}
+            >
+              Fecha
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityLabel={`Cambiar hora de ${field.label}`}
+            accessibilityRole="button"
+            onPress={() => setPickerMode("time")}
+            style={({ pressed }) => [
+              dateTimeFieldStyles.actionButton,
+              { borderColor: accentColor },
+              pressed ? dateTimeFieldStyles.actionButtonPressed : null,
+            ]}
+          >
+            <Text
+              maxFontSizeMultiplier={1.05}
+              style={[dateTimeFieldStyles.actionText, { color: accentColor }]}
+            >
+              Hora
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+      <ReportCreationErrorText message={field.error} styles={styles} />
+      {pickerMode ? (
+        <DateTimePicker
+          display="default"
+          is24Hour
+          locale="es-BO"
+          maximumDate={maximumDate ?? new Date()}
+          minuteInterval={5}
+          mode={pickerMode}
+          onChange={handlePickerChange}
+          value={pickerDate}
+        />
       ) : null}
     </View>
   );
+}
+
+function parseReportCreationDateTimeValue(value: string) {
+  const normalized = normalizeReportCreationEventTime(value);
+
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = new Date(normalized);
+
+  return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
+function formatReportCreationDateTime(date: Date) {
+  return new Intl.DateTimeFormat("es-BO", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function mergeReportCreationDatePart(baseDate: Date, selectedDate: Date) {
+  const nextDate = new Date(baseDate);
+
+  nextDate.setFullYear(
+    selectedDate.getFullYear(),
+    selectedDate.getMonth(),
+    selectedDate.getDate(),
+  );
+
+  return nextDate;
+}
+
+function mergeReportCreationTimePart(baseDate: Date, selectedDate: Date) {
+  const nextDate = new Date(baseDate);
+
+  nextDate.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+
+  return nextDate;
+}
+
+function clampReportCreationDateTime(date: Date, maximumDate: Date) {
+  return date.getTime() > maximumDate.getTime() ? maximumDate : date;
+}
+
+const dateTimeFieldStyles = StyleSheet.create({
+  actionButton: {
+    alignItems: "center",
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 42,
+    paddingHorizontal: 12,
+  },
+  actionButtonPressed: {
+    opacity: 0.76,
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  actionText: {
+    fontSize: 14,
+    fontWeight: "900",
+    lineHeight: 18,
+  },
+  container: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#DDE8E1",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 12,
+    padding: 12,
+  },
+  containerError: {
+    borderColor: "#D6453D",
+  },
+  valueText: {
+    color: "#1E2A24",
+    fontSize: 16,
+    lineHeight: 22,
+    minHeight: 22,
+  },
+});
+
+export function ReportCreationErrorText({
+  maxFontSizeMultiplier = 1.15,
+  message,
+  styles,
+}: {
+  maxFontSizeMultiplier?: number;
+  message?: string;
+  styles: ReportCreationStyles;
+}) {
+  return message ? (
+    <Text
+      maxFontSizeMultiplier={maxFontSizeMultiplier}
+      selectable
+      style={styles.errorText}
+    >
+      {message}
+    </Text>
+  ) : null;
+}
+
+export function useReportCreationPublishedResultActions<TConfirmation>({
+  onClose,
+  onOpenPublishedResult,
+  onSharePublishedResult,
+  publishedResult,
+}: {
+  onClose?: () => void;
+  onOpenPublishedResult?: (confirmation: TConfirmation) => void;
+  onSharePublishedResult?: (
+    confirmation: TConfirmation,
+  ) => Promise<void> | void;
+  publishedResult: TConfirmation | null;
+}) {
+  const sharePublishedResult = React.useCallback(() => {
+    if (publishedResult) {
+      void onSharePublishedResult?.(publishedResult);
+    }
+  }, [onSharePublishedResult, publishedResult]);
+  const openPublishedResult = React.useCallback(() => {
+    if (publishedResult && onOpenPublishedResult) {
+      onOpenPublishedResult(publishedResult);
+      return;
+    }
+
+    onClose?.();
+  }, [onClose, onOpenPublishedResult, publishedResult]);
+
+  return {
+    canSharePublishedResult: Boolean(publishedResult && onSharePublishedResult),
+    openPublishedResult,
+    sharePublishedResult,
+  };
 }
 
 export function ReportCreationDraftRecoveryPrompt<K extends CreationDraftKind>({
@@ -707,6 +983,7 @@ export function ReportCreationInlinePetTypeRow<TType extends string>({
 }
 
 export function ReportCreationDetailsFieldsSection<TKey extends string>({
+  dateTimeAccentColor,
   fields,
   onChangeField,
   placeholderTextColor,
@@ -714,10 +991,12 @@ export function ReportCreationDetailsFieldsSection<TKey extends string>({
   title,
 }: {
   fields: readonly {
+    input?: "dateTime" | "text";
     field: ReportCreationFieldViewModel;
     key: TKey;
     multiline?: boolean;
   }[];
+  dateTimeAccentColor?: string;
   onChangeField: (key: TKey, value: string) => void;
   placeholderTextColor: string;
   styles: ReportCreationStyles;
@@ -725,16 +1004,27 @@ export function ReportCreationDetailsFieldsSection<TKey extends string>({
 }) {
   return (
     <ReportCreationSection styles={styles} title={title}>
-      {fields.map((item) => (
-        <ReportCreationField
-          field={item.field}
-          key={item.key}
-          multiline={item.multiline}
-          onChangeText={(value) => onChangeField(item.key, value)}
-          placeholderTextColor={placeholderTextColor}
-          styles={styles}
-        />
-      ))}
+      {fields.map((item) =>
+        item.input === "dateTime" ? (
+          <ReportCreationDateTimeField
+            accentColor={dateTimeAccentColor}
+            field={item.field}
+            key={item.key}
+            onChangeDateTime={(value) => onChangeField(item.key, value)}
+            placeholderTextColor={placeholderTextColor}
+            styles={styles}
+          />
+        ) : (
+          <ReportCreationField
+            field={item.field}
+            key={item.key}
+            multiline={item.multiline}
+            onChangeText={(value) => onChangeField(item.key, value)}
+            placeholderTextColor={placeholderTextColor}
+            styles={styles}
+          />
+        ),
+      )}
     </ReportCreationSection>
   );
 }
@@ -844,9 +1134,11 @@ export function ReportCreationProgressSteps({
   steps: readonly ReportCreationProgressStep[];
   styles: ReportCreationStyles;
 }) {
-  const currentStepIndex = getReportCreationProgressCurrentStepIndex(steps);
-  const progressText = `Paso ${currentStepIndex + 1} de ${steps.length}`;
-  const currentStep = steps[currentStepIndex];
+  const visibleSteps = getVisibleReportCreationProgressSteps(steps);
+  const currentStepIndex =
+    getReportCreationProgressCurrentStepIndex(visibleSteps);
+  const progressText = `Paso ${currentStepIndex + 1} de ${visibleSteps.length}`;
+  const currentStep = visibleSteps[currentStepIndex];
 
   return (
     <View style={[styles.steps, progressStepStyles.steps]}>
@@ -855,7 +1147,7 @@ export function ReportCreationProgressSteps({
           accessibilityLabel={`Progreso de creacion, ${progressText}${currentStep ? `, ${currentStep.label}` : ""}`}
           accessibilityRole="progressbar"
           accessibilityValue={{
-            max: steps.length,
+            max: visibleSteps.length,
             min: 1,
             now: currentStepIndex + 1,
             text: currentStep
@@ -877,7 +1169,7 @@ export function ReportCreationProgressSteps({
         ) : null}
       </View>
       <View style={progressStepStyles.markerRow}>
-        {steps.map((step, index) => {
+        {visibleSteps.map((step, index) => {
           const status = getReportCreationProgressStepStatus(
             step,
             index,
@@ -885,7 +1177,7 @@ export function ReportCreationProgressSteps({
           );
           const isCompleted = status === "completed";
           const isCurrent = status === "current";
-          const stepProgressText = `Paso ${index + 1} de ${steps.length}`;
+          const stepProgressText = `Paso ${index + 1} de ${visibleSteps.length}`;
 
           return (
             <View
@@ -929,6 +1221,22 @@ export function ReportCreationProgressSteps({
       </View>
     </View>
   );
+}
+
+const hiddenReportCreationProgressStepIds = new Set<string>([
+  "chooseType",
+  "submitting",
+  "success",
+]);
+
+function getVisibleReportCreationProgressSteps(
+  steps: readonly ReportCreationProgressStep[],
+) {
+  const visibleSteps = steps.filter(
+    (step) => !hiddenReportCreationProgressStepIds.has(step.id),
+  );
+
+  return visibleSteps.length > 0 ? visibleSteps : steps;
 }
 
 function getReportCreationProgressCurrentStepIndex(
@@ -1114,8 +1422,230 @@ export function ReportCreationInfoRow({
   );
 }
 
+export function ReportCreationLocationPreview({
+  accentColor,
+  coordinates,
+  Icon,
+  label,
+}: {
+  accentColor: string;
+  coordinates?: { latitude: number; longitude: number };
+  Icon: ReportCreationIconComponent;
+  label: string;
+}) {
+  const pinPosition = getBoliviaPreviewPinPosition(coordinates);
+
+  return (
+    <View
+      accessibilityLabel={`Mapa de Bolivia, ${label}`}
+      accessibilityRole="image"
+      style={locationPreviewStyles.mapPreview}
+    >
+      <View style={locationPreviewStyles.mapBackdrop}>
+        <View
+          style={[
+            locationPreviewStyles.boliviaShape,
+            locationPreviewStyles.boliviaShapeNorth,
+          ]}
+        />
+        <View
+          style={[
+            locationPreviewStyles.boliviaShape,
+            locationPreviewStyles.boliviaShapeCenter,
+          ]}
+        />
+        <View
+          style={[
+            locationPreviewStyles.boliviaShape,
+            locationPreviewStyles.boliviaShapeWest,
+          ]}
+        />
+        <View
+          style={[
+            locationPreviewStyles.boliviaShape,
+            locationPreviewStyles.boliviaShapeEast,
+          ]}
+        />
+        <View
+          style={[
+            locationPreviewStyles.boliviaShape,
+            locationPreviewStyles.boliviaShapeSouth,
+          ]}
+        />
+        <View style={locationPreviewStyles.mapRoute} />
+      </View>
+      <View
+        style={[
+          locationPreviewStyles.mapPin,
+          {
+            backgroundColor: accentColor,
+            left: pinPosition.left,
+            top: pinPosition.top,
+          },
+        ]}
+      >
+        <Icon color="#FFFFFF" name="mappin" size={22} />
+      </View>
+      <Text
+        maxFontSizeMultiplier={1.15}
+        numberOfLines={2}
+        style={locationPreviewStyles.mapLabel}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function getBoliviaPreviewPinPosition(coordinates?: {
+  latitude: number;
+  longitude: number;
+}): { left: DimensionValue; top: DimensionValue } {
+  if (!coordinates) {
+    return {
+      left: "52%",
+      top: "48%",
+    };
+  }
+
+  const minLongitude = -69.8;
+  const maxLongitude = -57.4;
+  const minLatitude = -23.1;
+  const maxLatitude = -9.6;
+  const longitudeProgress =
+    (coordinates.longitude - minLongitude) / (maxLongitude - minLongitude);
+  const latitudeProgress =
+    (maxLatitude - coordinates.latitude) / (maxLatitude - minLatitude);
+
+  return {
+    left: `${clampPercent(longitudeProgress, 0.22, 0.78) * 100}%`,
+    top: `${clampPercent(latitudeProgress, 0.18, 0.76) * 100}%`,
+  };
+}
+
+function clampPercent(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) {
+    return (min + max) / 2;
+  }
+
+  return Math.min(max, Math.max(min, value));
+}
+
+const locationPreviewStyles = StyleSheet.create({
+  boliviaShape: {
+    backgroundColor: "#B9D8CC",
+    borderColor: "#91BCAF",
+    borderCurve: "continuous",
+    borderWidth: 1,
+    position: "absolute",
+  },
+  boliviaShapeCenter: {
+    borderRadius: 22,
+    height: "42%",
+    left: "35%",
+    top: "30%",
+    transform: [{ rotate: "-8deg" }],
+    width: "28%",
+  },
+  boliviaShapeEast: {
+    borderRadius: 20,
+    height: "35%",
+    left: "52%",
+    top: "28%",
+    transform: [{ rotate: "10deg" }],
+    width: "25%",
+  },
+  boliviaShapeNorth: {
+    borderRadius: 24,
+    height: "34%",
+    left: "42%",
+    top: "13%",
+    transform: [{ rotate: "12deg" }],
+    width: "28%",
+  },
+  boliviaShapeSouth: {
+    borderRadius: 22,
+    height: "28%",
+    left: "38%",
+    top: "59%",
+    transform: [{ rotate: "13deg" }],
+    width: "27%",
+  },
+  boliviaShapeWest: {
+    borderRadius: 18,
+    height: "38%",
+    left: "25%",
+    top: "35%",
+    transform: [{ rotate: "15deg" }],
+    width: "24%",
+  },
+  mapBackdrop: {
+    backgroundColor: "#E2F1F4",
+    borderColor: "#C8E1E5",
+    borderCurve: "continuous",
+    borderRadius: 8,
+    bottom: 0,
+    left: 0,
+    overflow: "hidden",
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  mapLabel: {
+    alignSelf: "flex-start",
+    backgroundColor: "#FFFFFF",
+    borderCurve: "continuous",
+    borderRadius: 8,
+    bottom: 12,
+    color: "#0F5E50",
+    fontSize: 12,
+    fontWeight: "900",
+    left: 12,
+    lineHeight: 16,
+    maxWidth: "78%",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    position: "absolute",
+  },
+  mapPin: {
+    alignItems: "center",
+    borderColor: "#FFFFFF",
+    borderCurve: "continuous",
+    borderRadius: 999,
+    borderWidth: 3,
+    boxShadow: "0 6px 14px rgba(23, 32, 28, 0.18)",
+    height: 48,
+    justifyContent: "center",
+    marginLeft: -24,
+    marginTop: -24,
+    position: "absolute",
+    width: 48,
+  },
+  mapPreview: {
+    aspectRatio: 2.35,
+    borderColor: "#C8E1E5",
+    borderCurve: "continuous",
+    borderRadius: 8,
+    borderWidth: 1,
+    overflow: "hidden",
+    position: "relative",
+    width: "100%",
+  },
+  mapRoute: {
+    backgroundColor: "rgba(255, 255, 255, 0.58)",
+    borderRadius: 999,
+    height: 5,
+    left: "22%",
+    position: "absolute",
+    top: "33%",
+    transform: [{ rotate: "-18deg" }],
+    width: "58%",
+  },
+});
+
 export function ReportCreationActionButton({
   accentColor,
+  disabled = false,
   Icon,
   icon,
   label,
@@ -1125,6 +1655,7 @@ export function ReportCreationActionButton({
   variant = "primary",
 }: {
   accentColor: string;
+  disabled?: boolean;
   Icon: ReportCreationIconComponent;
   icon: string;
   label: string;
@@ -1138,10 +1669,13 @@ export function ReportCreationActionButton({
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={onPress}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={disabled ? undefined : onPress}
       style={[
         styles.actionButton,
         isPrimary ? styles.actionButtonPrimary : styles.actionButtonSecondary,
+        disabled ? styles.disabledButton : null,
       ]}
     >
       <Icon

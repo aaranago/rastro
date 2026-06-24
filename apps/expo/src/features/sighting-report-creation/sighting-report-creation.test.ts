@@ -74,6 +74,9 @@ describe("Sighting Report creation view model", () => {
     expect(
       attemptedDetailsViewModel.sightingDetails.fields.observedAtLabel.error,
     ).toBe("Indica cuando fue visto.");
+    expect(
+      attemptedDetailsViewModel.sightingDetails.fields.description.error,
+    ).toBe("Agrega una descripcion del avistamiento.");
     expect(attemptedDetailsViewModel.pet.fields.description.error).toBe(
       "Agrega senas visibles de la mascota vista.",
     );
@@ -92,6 +95,36 @@ describe("Sighting Report creation view model", () => {
     expect(attemptedContactViewModel.contact.error).toBe(
       "Elige chat, WhatsApp o ambos.",
     );
+  });
+
+  it("blocks sighting reports with a too-short public description before publish", () => {
+    const viewModel = buildSightingReportCreationViewModel({
+      draft: createSightingReportDraft({
+        pet: {
+          breed: "",
+          description: "Collar verde y patas blancas.",
+          type: "Perro",
+        },
+        sightingDetails: {
+          description: "sdf",
+          direction: "Hacia la avenida.",
+          observedAtLabel: "2026-06-18T10:50:00.000Z",
+          observedCondition: "Asustada pero caminando.",
+        },
+      }),
+      journey: {
+        completedStepIds: ["chooseType", "photos"],
+        currentStepId: "details",
+      },
+      validationDisplay: {
+        attemptedStepId: "details",
+      },
+    });
+
+    expect(viewModel.sightingDetails.fields.description.error).toBe(
+      "Escribe una descripcion de al menos 10 caracteres.",
+    );
+    expect(viewModel.canPublish).toBe(false);
   });
 
   it("requires time, exact internal location, description, condition, direction, and visible pet details when no photo is present", () => {
@@ -333,13 +366,13 @@ describe("Sighting Report creation view model", () => {
 
     expect(viewModel.canPublish).toBe(false);
     expect(viewModel.sightingDetails.fields.observedAtLabel.error).toBe(
-      "Ingresa fecha y hora en formato ISO, por ejemplo 2026-06-18T10:15:00.000Z.",
+      "Selecciona una fecha y hora valida.",
     );
     expect(viewModel.review.validationErrors).toContain(
-      "Ingresa fecha y hora en formato ISO, por ejemplo 2026-06-18T10:15:00.000Z.",
+      "Selecciona una fecha y hora valida.",
     );
     expect(() => toPublishSightingReportInput({ draft })).toThrow(
-      "Ingresa fecha y hora en formato ISO",
+      "Selecciona una fecha y hora valida",
     );
   });
 });

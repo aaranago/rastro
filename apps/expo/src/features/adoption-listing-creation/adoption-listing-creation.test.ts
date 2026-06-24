@@ -145,6 +145,32 @@ describe("Adoption Listing creation view model", () => {
     );
   });
 
+  it("blocks adoption listings with a too-short summary before publish", () => {
+    const viewModel = buildAdoptionListingCreationViewModel({
+      draft: {
+        ...createInitialAdoptionListingDraft({ petProfiles: profiles }),
+        adoptionDetails: {
+          adoptionSummary: "sdf",
+          healthNotes: "",
+          idealHome: "",
+        },
+      },
+      journey: {
+        completedStepIds: ["chooseType", "photos"],
+        currentStepId: "details",
+      },
+      petProfiles: profiles,
+      validationDisplay: {
+        attemptedStepId: "details",
+      },
+    });
+
+    expect(viewModel.adoptionDetails.fields.adoptionSummary.error).toBe(
+      "Describe la adopcion con al menos 10 caracteres.",
+    );
+    expect(viewModel.canPublish).toBe(false);
+  });
+
   it("converts a complete inline Pet Profile draft into a non-monetary Adoption Listing publish input", () => {
     const draft = {
       ...createInitialAdoptionListingDraft({ petProfiles: [] }),

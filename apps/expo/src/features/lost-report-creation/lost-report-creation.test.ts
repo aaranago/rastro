@@ -147,6 +147,9 @@ describe("Lost Pet Report creation view model", () => {
     expect(
       attemptedDetailsViewModel.lostDetails.fields.lastSeenAtLabel.error,
     ).toBe("Indica cuando la viste por ultima vez.");
+    expect(
+      attemptedDetailsViewModel.lostDetails.fields.circumstances.error,
+    ).toBe("Cuenta que paso.");
 
     const attemptedContactViewModel = buildLostReportCreationViewModel({
       draft,
@@ -163,6 +166,34 @@ describe("Lost Pet Report creation view model", () => {
     expect(attemptedContactViewModel.contact.error).toBe(
       "Elige chat, WhatsApp o ambos.",
     );
+  });
+
+  it("blocks lost reports with a too-short public description before publish", () => {
+    const draft = {
+      ...createInitialLostReportDraft({ petProfiles: [] }),
+      lostDetails: {
+        circumstances: "sdf",
+        lastSeenAtLabel: "2026-06-18T10:50:00.000Z",
+        markings: "",
+      },
+    };
+
+    const viewModel = buildLostReportCreationViewModel({
+      draft,
+      journey: {
+        completedStepIds: ["chooseType", "photos"],
+        currentStepId: "details",
+      },
+      petProfiles: [],
+      validationDisplay: {
+        attemptedStepId: "details",
+      },
+    });
+
+    expect(viewModel.lostDetails.fields.circumstances.error).toBe(
+      "Cuenta que paso con al menos 10 caracteres.",
+    );
+    expect(viewModel.canPublish).toBe(false);
   });
 
   it("converts a complete inline Pet Profile draft into publish input", () => {
@@ -230,7 +261,22 @@ describe("Lost Pet Report creation view model", () => {
     });
   });
 
-  it("normalizes the default Spanish relative last-seen label to ISO for publish", () => {
+  it("starts lost detail fields empty so examples remain placeholders", () => {
+    const draft = createInitialLostReportDraft({ petProfiles: [] });
+    const viewModel = buildLostReportCreationViewModel({
+      draft,
+      petProfiles: [],
+    });
+
+    expect(viewModel.lostDetails.fields.lastSeenAtLabel.value).toBe("");
+    expect(viewModel.lostDetails.fields.lastSeenAtLabel.placeholder).toBe(
+      "Selecciona fecha y hora aproximada",
+    );
+    expect(viewModel.lostDetails.fields.circumstances.value).toBe("");
+    expect(viewModel.lostDetails.fields.markings.value).toBe("");
+  });
+
+  it("normalizes a Spanish relative last-seen label to ISO for publish", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-18T12:00:00.000Z"));
 
@@ -256,6 +302,11 @@ describe("Lost Pet Report creation view model", () => {
         description: "Mancha blanca en el pecho.",
         name: "Luna",
         type: "Gato" as const,
+      },
+      lostDetails: {
+        circumstances: "Salio por la puerta principal.",
+        lastSeenAtLabel: "Hoy, hace 30 min",
+        markings: "Mancha blanca en el pecho.",
       },
       photos: [
         {

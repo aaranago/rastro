@@ -139,8 +139,20 @@ vi.mock("react-native", () => ({
   View: "View",
 }));
 
+vi.mock("@react-native-community/datetimepicker", () => ({
+  default: "DateTimePicker",
+}));
+
 vi.mock("expo-image", () => ({
   Image: "Image",
+}));
+
+vi.mock("@expo/vector-icons", () => ({
+  MaterialCommunityIcons: "MaterialCommunityIcons",
+}));
+
+vi.mock("../shell/shell-overlays", () => ({
+  ShellIcon: "ShellIcon",
 }));
 
 vi.mock("react-native-safe-area-context", () => ({
@@ -241,7 +253,7 @@ describe("AdoptionListingCreationScreen", () => {
     const screen = renderScreen(<AdoptionListingCreationScreen />);
 
     expect(durableDraft.hookInput?.recoveryMode).toBe("explicit");
-    expect(findText(screen, "Paso 2 de 8")).toBe(true);
+    expect(findText(screen, "Paso 1 de 5")).toBe(true);
     expect(findText(screen, "Mascota")).toBe(true);
     expect(findText(screen, "Antes de abrir tus fotos")).toBe(true);
     expect(findText(screen, "Detalles de adopcion")).toBe(false);
@@ -284,8 +296,8 @@ describe("AdoptionListingCreationScreen", () => {
     );
 
     expect(keyboardFrame?.props.behavior).toBe("padding");
-    expect(scrollView?.props.contentInset).toEqual({ bottom: 122 });
-    expect(scrollView?.props.scrollIndicatorInsets).toEqual({ bottom: 122 });
+    expect(scrollView?.props.contentInset).toEqual({ bottom: 206 });
+    expect(scrollView?.props.scrollIndicatorInsets).toEqual({ bottom: 0 });
     expect(findText(scrollView, "Continuar")).toBe(false);
     expect(findText(footer, "Continuar")).toBe(true);
   });
@@ -302,7 +314,7 @@ describe("AdoptionListingCreationScreen", () => {
 
     const attemptedScreen = renderScreen(<AdoptionListingCreationScreen />);
 
-    expect(findText(attemptedScreen, "Paso 2 de 8")).toBe(true);
+    expect(findText(attemptedScreen, "Paso 1 de 5")).toBe(true);
     expect(findText(attemptedScreen, "Agrega al menos una foto.")).toBe(true);
     expect(findText(attemptedScreen, "Detalles de adopcion")).toBe(false);
     expect(
@@ -335,9 +347,13 @@ describe("AdoptionListingCreationScreen", () => {
       ],
     });
 
-    const detailsScreen = renderScreen(<AdoptionListingCreationScreen />);
+    const detailsScreen = renderScreen(
+      <AdoptionListingCreationScreen
+        petProfiles={adoptionListingCreationFixtures.petProfiles}
+      />,
+    );
 
-    expect(findText(detailsScreen, "Paso 3 de 8")).toBe(true);
+    expect(findText(detailsScreen, "Paso 2 de 5")).toBe(true);
     expect(findText(detailsScreen, "Detalles de adopcion")).toBe(true);
     expect(findText(detailsScreen, "Antes de abrir tus fotos")).toBe(false);
     expect(findText(detailsScreen, "Chat en Rastro")).toBe(false);
@@ -350,9 +366,13 @@ describe("AdoptionListingCreationScreen", () => {
 
     void getPressableOnPress(backButton)();
 
-    const photosScreen = renderScreen(<AdoptionListingCreationScreen />);
+    const photosScreen = renderScreen(
+      <AdoptionListingCreationScreen
+        petProfiles={adoptionListingCreationFixtures.petProfiles}
+      />,
+    );
 
-    expect(findText(photosScreen, "Paso 2 de 8")).toBe(true);
+    expect(findText(photosScreen, "Paso 1 de 5")).toBe(true);
     expect(findText(photosScreen, "Antes de abrir tus fotos")).toBe(true);
     expect(findText(photosScreen, "Detalles de adopcion")).toBe(false);
     expect(
@@ -376,9 +396,13 @@ describe("AdoptionListingCreationScreen", () => {
       status: "available",
     };
 
-    const editedFreshScreen = renderScreen(<AdoptionListingCreationScreen />);
+    const editedFreshScreen = renderScreen(
+      <AdoptionListingCreationScreen
+        petProfiles={adoptionListingCreationFixtures.petProfiles}
+      />,
+    );
 
-    expect(findText(editedFreshScreen, "Paso 3 de 8")).toBe(true);
+    expect(findText(editedFreshScreen, "Paso 2 de 5")).toBe(true);
     expect(findText(editedFreshScreen, "Detalles de adopcion")).toBe(true);
 
     const discardButton = findElement(
@@ -388,15 +412,23 @@ describe("AdoptionListingCreationScreen", () => {
     );
 
     await getPressableOnPress(discardButton)();
-    void renderScreen(<AdoptionListingCreationScreen />);
+    void renderScreen(
+      <AdoptionListingCreationScreen
+        petProfiles={adoptionListingCreationFixtures.petProfiles}
+      />,
+    );
 
-    const resetScreen = renderScreen(<AdoptionListingCreationScreen />);
+    const resetScreen = renderScreen(
+      <AdoptionListingCreationScreen
+        petProfiles={adoptionListingCreationFixtures.petProfiles}
+      />,
+    );
 
     expect(durableDraft.discardDraft).toHaveBeenCalledTimes(1);
     expect(findText(resetScreen, "Encontramos un borrador guardado.")).toBe(
       false,
     );
-    expect(findText(resetScreen, "Paso 2 de 8")).toBe(true);
+    expect(findText(resetScreen, "Paso 1 de 5")).toBe(true);
     expect(findText(resetScreen, "Antes de abrir tus fotos")).toBe(true);
     expect(findText(resetScreen, "Detalles de adopcion")).toBe(false);
     expect(
@@ -448,11 +480,16 @@ describe("AdoptionListingCreationScreen", () => {
       status: "active",
     });
     const draftPublished = vi.fn();
+    const openPublishedListing = vi.fn();
+    const sharePublishedListing = vi.fn();
 
     const screen = renderScreen(
       <AdoptionListingCreationScreen
         onDraftPublished={draftPublished}
+        onOpenPublishedListing={openPublishedListing}
         onPublishAdoptionListing={publishAdoptionListing}
+        onSharePublishedListing={sharePublishedListing}
+        petProfiles={adoptionListingCreationFixtures.petProfiles}
       />,
     );
     const publishButton = findElement(
@@ -466,15 +503,68 @@ describe("AdoptionListingCreationScreen", () => {
     const successScreen = renderScreen(
       <AdoptionListingCreationScreen
         onDraftPublished={draftPublished}
+        onOpenPublishedListing={openPublishedListing}
         onPublishAdoptionListing={publishAdoptionListing}
+        onSharePublishedListing={sharePublishedListing}
+        petProfiles={adoptionListingCreationFixtures.petProfiles}
       />,
     );
+    const shareButton = findElement(
+      successScreen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Compartir"),
+    );
+    const viewListingButton = findElement(
+      successScreen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Ver adopcion"),
+    );
+
+    void getPressableOnPress(shareButton)();
+    void getPressableOnPress(viewListingButton)();
 
     expect(publishAdoptionListing).toHaveBeenCalledTimes(1);
     expect(durableDraft.clearDraft).toHaveBeenCalledTimes(1);
     expect(draftPublished).toHaveBeenCalledTimes(1);
-    expect(findText(successScreen, "report-adoption-backend-1")).toBe(true);
-    expect(findText(successScreen, "active")).toBe(true);
+    expect(sharePublishedListing).toHaveBeenCalledWith({
+      id: "report-adoption-backend-1",
+      status: "active",
+    });
+    expect(openPublishedListing).toHaveBeenCalledWith({
+      id: "report-adoption-backend-1",
+      status: "active",
+    });
+    expect(findText(successScreen, "report-adoption-backend-1")).toBe(false);
+    expect(findText(successScreen, "active")).toBe(false);
+  });
+
+  it("lets people go back from review before publishing", () => {
+    durableDraft.draft = createReadyDraft();
+
+    const reviewScreen = renderScreen(
+      <AdoptionListingCreationScreen
+        petProfiles={adoptionListingCreationFixtures.petProfiles}
+      />,
+    );
+    const backButton = findElement(
+      reviewScreen,
+      (element) => element.type === "Pressable" && findText(element, "Atrás"),
+    );
+
+    expect(findText(reviewScreen, "Publicar adopcion")).toBe(true);
+    expect(findText(reviewScreen, "Continuar")).toBe(false);
+
+    void getPressableOnPress(backButton)();
+
+    const contactScreen = renderScreen(
+      <AdoptionListingCreationScreen
+        petProfiles={adoptionListingCreationFixtures.petProfiles}
+      />,
+    );
+
+    expect(findText(contactScreen, "Contacto")).toBe(true);
+    expect(findText(contactScreen, "Publicar adopcion")).toBe(false);
+    expect(findText(contactScreen, "Continuar")).toBe(true);
   });
 
   it("opens the location picker from an empty location step and applies the confirmed adoption location", () => {
@@ -482,7 +572,10 @@ describe("AdoptionListingCreationScreen", () => {
     const adapter = createNearbyLocationAdapterBoundary();
 
     const screen = renderScreen(
-      <AdoptionListingCreationScreen locationAdapter={adapter} />,
+      <AdoptionListingCreationScreen
+        locationAdapter={adapter}
+        petProfiles={adoptionListingCreationFixtures.petProfiles}
+      />,
     );
     const chooseLocationButton = findElement(
       screen,
@@ -498,7 +591,10 @@ describe("AdoptionListingCreationScreen", () => {
     void getPressableOnPress(chooseLocationButton)();
 
     const pickerScreen = renderScreen(
-      <AdoptionListingCreationScreen locationAdapter={adapter} />,
+      <AdoptionListingCreationScreen
+        locationAdapter={adapter}
+        petProfiles={adoptionListingCreationFixtures.petProfiles}
+      />,
     );
     const picker = findElement(
       pickerScreen,
@@ -523,7 +619,10 @@ describe("AdoptionListingCreationScreen", () => {
     );
 
     const updatedScreen = renderScreen(
-      <AdoptionListingCreationScreen locationAdapter={adapter} />,
+      <AdoptionListingCreationScreen
+        locationAdapter={adapter}
+        petProfiles={adoptionListingCreationFixtures.petProfiles}
+      />,
     );
 
     expect(findText(updatedScreen, "Cambiar ubicacion")).toBe(true);

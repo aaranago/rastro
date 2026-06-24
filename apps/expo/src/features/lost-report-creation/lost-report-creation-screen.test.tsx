@@ -141,8 +141,20 @@ vi.mock("react-native", () => ({
   View: "View",
 }));
 
+vi.mock("@react-native-community/datetimepicker", () => ({
+  default: "DateTimePicker",
+}));
+
 vi.mock("expo-image", () => ({
   Image: "Image",
+}));
+
+vi.mock("@expo/vector-icons", () => ({
+  MaterialCommunityIcons: "MaterialCommunityIcons",
+}));
+
+vi.mock("../shell/shell-overlays", () => ({
+  ShellIcon: "ShellIcon",
 }));
 
 vi.mock("react-native-safe-area-context", () => ({
@@ -300,11 +312,11 @@ describe("LostReportCreationScreen", () => {
         element.type === "Pressable" && findText(element, "Continuar"),
     );
 
-    void getPressableOnPress(continueButton)();
+    await getPressableOnPress(continueButton)();
 
     const editedFreshScreen = renderScreen(<LostReportCreationScreen />);
 
-    expect(findText(editedFreshScreen, "Paso 3 de 8")).toBe(true);
+    expect(findText(editedFreshScreen, "Paso 2 de 5")).toBe(true);
     expect(findText(editedFreshScreen, "Detalles de la perdida")).toBe(true);
 
     const discardButton = findElement(
@@ -322,7 +334,7 @@ describe("LostReportCreationScreen", () => {
     expect(findText(freshScreen, "Encontramos un borrador guardado.")).toBe(
       false,
     );
-    expect(findText(freshScreen, "Paso 2 de 8")).toBe(true);
+    expect(findText(freshScreen, "Paso 1 de 5")).toBe(true);
     expect(findText(freshScreen, "Antes de abrir tus fotos")).toBe(true);
     expect(findText(freshScreen, "Detalles de la perdida")).toBe(false);
     expect(findText(freshScreen, "1/5")).toBe(false);
@@ -331,7 +343,7 @@ describe("LostReportCreationScreen", () => {
   it("starts on the canonical photos step without showing other step content or photo validation", () => {
     const screen = renderScreen(<LostReportCreationScreen />);
 
-    expect(findText(screen, "Paso 2 de 8")).toBe(true);
+    expect(findText(screen, "Paso 1 de 5")).toBe(true);
     expect(findText(screen, "Fotos")).toBe(true);
     expect(findText(screen, "Detalles de la perdida")).toBe(false);
     expect(
@@ -373,13 +385,13 @@ describe("LostReportCreationScreen", () => {
     );
 
     expect(keyboardFrame?.props.behavior).toBe("padding");
-    expect(scrollView?.props.contentInset).toEqual({ bottom: 122 });
-    expect(scrollView?.props.scrollIndicatorInsets).toEqual({ bottom: 122 });
+    expect(scrollView?.props.contentInset).toEqual({ bottom: 206 });
+    expect(scrollView?.props.scrollIndicatorInsets).toEqual({ bottom: 0 });
     expect(findText(scrollView, "Continuar")).toBe(false);
     expect(findText(footer, "Continuar")).toBe(true);
   });
 
-  it("keeps default drafts on photos and shows only the photo validation after continuing", () => {
+  it("keeps default drafts on photos and shows only the photo validation after continuing", async () => {
     const screen = renderScreen(<LostReportCreationScreen />);
     const continueButton = findElement(
       screen,
@@ -387,11 +399,11 @@ describe("LostReportCreationScreen", () => {
         element.type === "Pressable" && findText(element, "Continuar"),
     );
 
-    void getPressableOnPress(continueButton)();
+    await getPressableOnPress(continueButton)();
 
     const attemptedScreen = renderScreen(<LostReportCreationScreen />);
 
-    expect(findText(attemptedScreen, "Paso 2 de 8")).toBe(true);
+    expect(findText(attemptedScreen, "Paso 1 de 5")).toBe(true);
     expect(findText(attemptedScreen, "Agrega al menos una foto.")).toBe(true);
     expect(findText(attemptedScreen, "Detalles de la perdida")).toBe(false);
     expect(findText(attemptedScreen, "Ingresa el nombre de la mascota.")).toBe(
@@ -400,7 +412,7 @@ describe("LostReportCreationScreen", () => {
     expect(findText(attemptedScreen, "Ubicacion publica")).toBe(false);
   });
 
-  it("advances ready-photo drafts to details and returns to photos without rendering every section", () => {
+  it("advances ready-photo drafts to details and returns to photos without rendering every section", async () => {
     const screen = renderScreen(<LostReportCreationScreen />);
     const addPhotoButton = findElement(
       screen,
@@ -418,11 +430,11 @@ describe("LostReportCreationScreen", () => {
         element.type === "Pressable" && findText(element, "Continuar"),
     );
 
-    void getPressableOnPress(continueButton)();
+    await getPressableOnPress(continueButton)();
 
     const detailsScreen = renderScreen(<LostReportCreationScreen />);
 
-    expect(findText(detailsScreen, "Paso 3 de 8")).toBe(true);
+    expect(findText(detailsScreen, "Paso 2 de 5")).toBe(true);
     expect(findText(detailsScreen, "Detalles de la perdida")).toBe(true);
     expect(findText(detailsScreen, "Antes de abrir tus fotos")).toBe(false);
     expect(
@@ -443,7 +455,7 @@ describe("LostReportCreationScreen", () => {
 
     const photosScreen = renderScreen(<LostReportCreationScreen />);
 
-    expect(findText(photosScreen, "Paso 2 de 8")).toBe(true);
+    expect(findText(photosScreen, "Paso 1 de 5")).toBe(true);
     expect(findText(photosScreen, "Antes de abrir tus fotos")).toBe(true);
     expect(findText(photosScreen, "1/5")).toBe(true);
     expect(findText(photosScreen, "Detalles de la perdida")).toBe(false);
@@ -492,9 +504,8 @@ describe("LostReportCreationScreen", () => {
           <Text>Camara</Text>
           <Text>Progreso total 60%</Text>
           <Text>Reintentar</Text>
-          <Text>Principal</Text>
-          <Text>Arriba</Text>
-          <Text>Abajo</Text>
+          <Text>Portada</Text>
+          <Text>Usar portada</Text>
           <Pressable
             accessibilityLabel="Sincronizar fotos del manager"
             onPress={() => onSnapshotChange(managerSnapshot)}
@@ -512,9 +523,9 @@ describe("LostReportCreationScreen", () => {
     expect(findText(screen, "Camara")).toBe(true);
     expect(findText(screen, "Progreso total 60%")).toBe(true);
     expect(findText(screen, "Reintentar")).toBe(true);
-    expect(findText(screen, "Principal")).toBe(true);
-    expect(findText(screen, "Arriba")).toBe(true);
-    expect(findText(screen, "Abajo")).toBe(true);
+    expect(findText(screen, "Portada")).toBe(true);
+    expect(findText(screen, "Usar portada")).toBe(true);
+    expect(findText(screen, "Principal")).toBe(false);
     expect(findText(screen, "Antes de abrir tus fotos")).toBe(false);
     expect(renderReportMediaManager).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -560,6 +571,74 @@ describe("LostReportCreationScreen", () => {
     ]);
   });
 
+  it("uploads staged media manager photos before continuing from photos", async () => {
+    const readySnapshot: ReportMediaDraftSnapshot = {
+      items: [
+        {
+          height: 900,
+          localId: "local-ready",
+          mediaId: "ready-media-1",
+          mimeType: "image/jpeg",
+          originalUri: "file:///ready-original.jpg",
+          progress: 1,
+          retryable: false,
+          sizeBytes: 200_000,
+          status: "ready",
+          uploadUri: "file:///ready-upload.jpg",
+          width: 1200,
+        },
+      ],
+      overallProgress: 1,
+      primaryLocalId: "local-ready",
+      readyMedia: [{ mediaId: "ready-media-1" }],
+    };
+    const uploadPendingImages = vi.fn(() => Promise.resolve(readySnapshot));
+    const renderReportMediaManager = vi.fn(
+      ({ onControllerChange }: ReportMediaManagerRenderTestProps) => {
+        onControllerChange?.({
+          getSnapshot: () => readySnapshot,
+          uploadPendingImages,
+        });
+
+        return (
+          <View>
+            <Text>Media manager listo</Text>
+          </View>
+        );
+      },
+    );
+    const screen = renderScreen(
+      <LostReportCreationScreen
+        renderReportMediaManager={renderReportMediaManager}
+      />,
+    );
+    const continueButton = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Continuar"),
+    );
+
+    await getPressableOnPress(continueButton)();
+
+    const detailsScreen = renderScreen(
+      <LostReportCreationScreen
+        renderReportMediaManager={renderReportMediaManager}
+      />,
+    );
+
+    expect(uploadPendingImages).toHaveBeenCalledOnce();
+    expect(durableDraft.draft?.photos).toMatchObject([
+      {
+        localId: "local-ready",
+        mediaId: "ready-media-1",
+        status: "ready",
+        uri: "file:///ready-upload.jpg",
+      },
+    ]);
+    expect(findText(detailsScreen, "Paso 2 de 5")).toBe(true);
+    expect(findText(detailsScreen, "Detalles de la perdida")).toBe(true);
+  });
+
   it("reports the draft as published after a successful publish clears the draft", async () => {
     durableDraft.draft = createReadyDraft();
     const publishLostReport = vi.fn().mockResolvedValue({
@@ -567,11 +646,16 @@ describe("LostReportCreationScreen", () => {
       status: "active",
     });
     const draftPublished = vi.fn();
+    const openPublishedReport = vi.fn();
+    const sharePublishedReport = vi.fn();
 
     const screen = renderScreen(
       <LostReportCreationScreen
         onDraftPublished={draftPublished}
+        onOpenPublishedReport={openPublishedReport}
         onPublishLostReport={publishLostReport}
+        onSharePublishedReport={sharePublishedReport}
+        petProfiles={lostReportCreationFixtures.petProfiles}
       />,
     );
     const publishButton = findElement(
@@ -585,15 +669,68 @@ describe("LostReportCreationScreen", () => {
     const successScreen = renderScreen(
       <LostReportCreationScreen
         onDraftPublished={draftPublished}
+        onOpenPublishedReport={openPublishedReport}
         onPublishLostReport={publishLostReport}
+        onSharePublishedReport={sharePublishedReport}
+        petProfiles={lostReportCreationFixtures.petProfiles}
       />,
     );
+    const shareButton = findElement(
+      successScreen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Compartir"),
+    );
+    const viewReportButton = findElement(
+      successScreen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Ver reporte"),
+    );
+
+    void getPressableOnPress(shareButton)();
+    void getPressableOnPress(viewReportButton)();
 
     expect(publishLostReport).toHaveBeenCalledTimes(1);
     expect(durableDraft.clearDraft).toHaveBeenCalledTimes(1);
     expect(draftPublished).toHaveBeenCalledTimes(1);
-    expect(findText(successScreen, "report-lost-backend-1")).toBe(true);
-    expect(findText(successScreen, "active")).toBe(true);
+    expect(sharePublishedReport).toHaveBeenCalledWith({
+      id: "report-lost-backend-1",
+      status: "active",
+    });
+    expect(openPublishedReport).toHaveBeenCalledWith({
+      id: "report-lost-backend-1",
+      status: "active",
+    });
+    expect(findText(successScreen, "report-lost-backend-1")).toBe(false);
+    expect(findText(successScreen, "active")).toBe(false);
+  });
+
+  it("lets people go back from review before publishing", () => {
+    durableDraft.draft = createReadyDraft();
+
+    const reviewScreen = renderScreen(
+      <LostReportCreationScreen
+        petProfiles={lostReportCreationFixtures.petProfiles}
+      />,
+    );
+    const backButton = findElement(
+      reviewScreen,
+      (element) => element.type === "Pressable" && findText(element, "Atrás"),
+    );
+
+    expect(findText(reviewScreen, "Publicar reporte")).toBe(true);
+    expect(findText(reviewScreen, "Continuar")).toBe(false);
+
+    void getPressableOnPress(backButton)();
+
+    const contactScreen = renderScreen(
+      <LostReportCreationScreen
+        petProfiles={lostReportCreationFixtures.petProfiles}
+      />,
+    );
+
+    expect(findText(contactScreen, "Contacto")).toBe(true);
+    expect(findText(contactScreen, "Publicar reporte")).toBe(false);
+    expect(findText(contactScreen, "Continuar")).toBe(true);
   });
 
   it("opens the location picker from an empty location step and applies the confirmed location", () => {
@@ -601,7 +738,10 @@ describe("LostReportCreationScreen", () => {
     const adapter = createNearbyLocationAdapterBoundary();
 
     const screen = renderScreen(
-      <LostReportCreationScreen locationAdapter={adapter} />,
+      <LostReportCreationScreen
+        locationAdapter={adapter}
+        petProfiles={lostReportCreationFixtures.petProfiles}
+      />,
     );
     const chooseLocationButton = findElement(
       screen,
@@ -617,7 +757,10 @@ describe("LostReportCreationScreen", () => {
     void getPressableOnPress(chooseLocationButton)();
 
     const pickerScreen = renderScreen(
-      <LostReportCreationScreen locationAdapter={adapter} />,
+      <LostReportCreationScreen
+        locationAdapter={adapter}
+        petProfiles={lostReportCreationFixtures.petProfiles}
+      />,
     );
     const picker = findElement(
       pickerScreen,
@@ -642,7 +785,10 @@ describe("LostReportCreationScreen", () => {
     );
 
     const updatedScreen = renderScreen(
-      <LostReportCreationScreen locationAdapter={adapter} />,
+      <LostReportCreationScreen
+        locationAdapter={adapter}
+        petProfiles={lostReportCreationFixtures.petProfiles}
+      />,
     );
 
     expect(findText(updatedScreen, "Cambiar ubicacion")).toBe(true);
@@ -659,6 +805,10 @@ type TestElement = React.ReactElement<ElementProps>;
 
 interface ReportMediaManagerRenderTestProps {
   mediaDraftId: string;
+  onControllerChange?: (controller: {
+    getSnapshot: () => ReportMediaDraftSnapshot;
+    uploadPendingImages: () => Promise<ReportMediaDraftSnapshot>;
+  }) => void;
   onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
   photos: readonly unknown[];
 }
@@ -683,6 +833,11 @@ function createReadyDraft() {
 
   return createLostReportDraft({
     exactLocation: lostReportCreationFixtures.defaultLocation,
+    lostDetails: {
+      circumstances: "Se perdio cerca de la zona.",
+      lastSeenAtLabel: "2026-06-18T10:50:00.000Z",
+      markings: "Collar rojo.",
+    },
     petProfileId: lostReportCreationFixtures.petProfiles[0]?.id,
     photos: [readyPhoto],
   });
@@ -699,6 +854,11 @@ function createLocationReadyDraftWithoutLocation() {
     ...createInitialLostReportDraft({
       petProfiles: lostReportCreationFixtures.petProfiles,
     }),
+    lostDetails: {
+      circumstances: "Se perdio cerca de la zona.",
+      lastSeenAtLabel: "2026-06-18T10:50:00.000Z",
+      markings: "Collar rojo.",
+    },
     petProfileId: lostReportCreationFixtures.petProfiles[0]?.id,
     photos: [readyPhoto],
   });

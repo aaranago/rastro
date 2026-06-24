@@ -19,6 +19,10 @@ import type {
   LostReportPublishPayload,
 } from "./lost-report-creation-types";
 import {
+  normalizeReportCreationEventTime,
+  reportCreationEventTimeValidationError,
+} from "../report-creation/report-creation-event-time";
+import {
   createReportCreationJourney,
   deriveReportCreationJourney,
 } from "../report-creation/report-creation-journey";
@@ -28,14 +32,11 @@ import {
   getRequiredReportCreationPhotoStepError,
 } from "../report-creation/report-creation-media-validation";
 import {
-  normalizeReportCreationEventTime,
-  reportCreationEventTimeValidationError,
-} from "../report-creation/report-creation-event-time";
-import {
   getReportCreationSelectedPet,
   getReportCreationSelectedProfile,
   hasValidReportCreationInlinePet,
 } from "../report-creation/report-creation-pet-selection";
+import { getReportCreationMinimumDescriptionError } from "../report-creation/report-creation-text-validation";
 import { toReportLocationPublishInput } from "../report-creation/report-location-draft";
 import { lostReportPetTypeOptions } from "./lost-report-creation-types";
 
@@ -196,10 +197,9 @@ export function createLostReportDraft(
       type: "",
     },
     lostDetails: {
-      circumstances:
-        "Se perdio cerca de la zona y puede estar asustada. Responde a su nombre.",
-      lastSeenAtLabel: "Hoy, hace 30 min",
-      markings: "Collar visible y senas faciles de reconocer.",
+      circumstances: "",
+      lastSeenAtLabel: "",
+      markings: "",
     },
     id: createLostReportDraftId(),
     petSelectionMode: "existing",
@@ -293,9 +293,7 @@ export function buildLostReportCreationViewModel({
     validationDisplay,
     "details",
   );
-  const lastSeenAtError = getLastSeenAtError(
-    draft.lostDetails.lastSeenAtLabel,
-  );
+  const lastSeenAtError = getLastSeenAtError(draft.lostDetails.lastSeenAtLabel);
 
   return {
     canPublish,
@@ -322,11 +320,9 @@ export function buildLostReportCreationViewModel({
     lostDetails: {
       fields: {
         circumstances: {
-          error:
-            showDetailsValidation &&
-            draft.lostDetails.circumstances.trim().length === 0
-              ? "Cuenta que paso."
-              : undefined,
+          error: showDetailsValidation
+            ? getLostCircumstancesError(draft.lostDetails.circumstances)
+            : undefined,
           label: "Que paso",
           placeholder: "Ej. salio por la puerta, se asusto por ruido...",
           value: draft.lostDetails.circumstances,
@@ -334,7 +330,7 @@ export function buildLostReportCreationViewModel({
         lastSeenAtLabel: {
           error: showDetailsValidation ? lastSeenAtError : undefined,
           label: "Ultima vez vista",
-          placeholder: "Hoy, ayer, fecha y hora aproximada",
+          placeholder: "Selecciona fecha y hora aproximada",
           value: draft.lostDetails.lastSeenAtLabel,
         },
         markings: {
@@ -603,15 +599,16 @@ function validateLostReportDraft({
     photos,
   });
 
-  const lastSeenAtError = getLastSeenAtError(
-    draft.lostDetails.lastSeenAtLabel,
-  );
+  const lastSeenAtError = getLastSeenAtError(draft.lostDetails.lastSeenAtLabel);
   if (lastSeenAtError) {
     errors.push(lastSeenAtError);
   }
 
-  if (draft.lostDetails.circumstances.trim().length === 0) {
-    errors.push("Agrega detalles de la perdida.");
+  const circumstancesError = getLostCircumstancesError(
+    draft.lostDetails.circumstances,
+  );
+  if (circumstancesError) {
+    errors.push(circumstancesError);
   }
 
   if (!draft.contact.inAppChatEnabled && !draft.contact.whatsappEnabled) {
@@ -711,15 +708,15 @@ function buildLocationViewModel(draft: LostReportDraft) {
     : "Selecciona un punto exacto para uso interno.";
   const approximatePublicLabel = location
     ? location.locationCellLabel
-    : "Zona aproximada pendiente";
+    : "Elige una ubicacion para calcular la zona.";
 
   return {
     approximatePublicLabel,
     exactInternalLabel,
     hasExactLocation: Boolean(location),
     mapPreviewLabel: location
-      ? `Pin interno en ${location.locationCellLabel}`
-      : "Mapa de Bolivia pendiente",
+      ? `${location.locationCellLabel}, Bolivia`
+      : "Bolivia - elige una ubicacion",
     publicPrecisionLabel: draft.showExactPinPublicly
       ? "Pin exacto publico"
       : "Zona aproximada por defecto",
@@ -787,7 +784,8 @@ function buildSteps({
       isComplete:
         Boolean(selectedPet) &&
         readyPhotos.length > 0 &&
-        !getLastSeenAtError(draft.lostDetails.lastSeenAtLabel),
+        !getLastSeenAtError(draft.lostDetails.lastSeenAtLabel) &&
+        !getLostCircumstancesError(draft.lostDetails.circumstances),
       label: "Detalles",
     },
     {
@@ -850,7 +848,7 @@ function buildLostReportJourney({
       isComplete:
         Boolean(selectedPet) &&
         !getLastSeenAtError(draft.lostDetails.lastSeenAtLabel) &&
-        draft.lostDetails.circumstances.trim().length > 0,
+        !getLostCircumstancesError(draft.lostDetails.circumstances),
     },
     {
       id: "location" as const,
@@ -876,6 +874,14 @@ function shouldShowValidationError(
     validationDisplay === undefined ||
     validationDisplay.attemptedStepId === stepId
   );
+}
+
+function getLostCircumstancesError(value: string) {
+  return getReportCreationMinimumDescriptionError({
+    emptyMessage: "Cuenta que paso.",
+    shortMessage: "Cuenta que paso con al menos 10 caracteres.",
+    value,
+  });
 }
 
 function getSelectedProfile(

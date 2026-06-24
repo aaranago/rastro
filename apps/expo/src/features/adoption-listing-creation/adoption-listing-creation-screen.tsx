@@ -1,7 +1,6 @@
 import type { ScrollView } from "react-native";
 import * as React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Image } from "expo-image";
 
 import type { PublishAdoptionListingInput } from "../adoption-listings/adoption-listings";
 import type { NearbyLocationAdapter } from "../nearby/nearby-location-adapter";
@@ -10,7 +9,10 @@ import type {
   ReportCreationJourneyStepId,
 } from "../report-creation/report-creation-journey";
 import type { ReportCreationFieldViewModel } from "../report-creation/report-creation-ui";
-import type { ReportMediaDraftSnapshot } from "../report-media";
+import type {
+  ReportMediaDraftSnapshot,
+  ReportMediaStepController,
+} from "../report-media";
 import type { CreationDraftStore } from "../resilience/creation-drafts";
 import type {
   DurableCreationDraftPersistence,
@@ -37,21 +39,25 @@ import {
   ReportCreationDetailsFieldsSection,
   ReportCreationDraftPersistenceAlert,
   ReportCreationDraftRecoveryPrompt,
+  ReportCreationErrorText,
   ReportCreationExistingPetProfileList,
   ReportCreationField,
   ReportCreationInfoRow,
   ReportCreationInlinePetTypeRow,
+  ReportCreationLocationPreview,
   ReportCreationPhotoSection,
   ReportCreationProgressSteps,
   ReportCreationReviewPublishSection,
   ReportCreationScreenFrame,
   ReportCreationSection,
   ReportCreationToggleRow,
+  useReportCreationPublishedResultActions,
 } from "../report-creation/report-creation-ui";
 import { ReportLocationPickerScreen } from "../report-location-picker";
 import { useReportLocationPickerDraft } from "../report-location-picker/use-report-location-picker";
 import { reportMediaSnapshotToCreationPhotos } from "../report-media";
 import { useDurableCreationDraft } from "../resilience/use-durable-creation-draft";
+import { ShellIcon } from "../shell/shell-overlays";
 import { shellColors } from "../shell/shell-theme";
 import { adoptionListingCreationFixtures } from "./adoption-listing-creation-fixtures";
 import {
@@ -68,7 +74,6 @@ const adoptionAccent = shellColors.adoption;
 const adoptionAccentSoft = "#F8E9EE";
 const errorAccent = "#D6453D";
 const listingPhotoLimit = 5;
-const mapPreviewBlocks = Array.from({ length: 12 }, (_, index) => index);
 const editableStepIds = [
   "photos",
   "details",
@@ -95,12 +100,18 @@ export interface AdoptionListingCreationScreenProps {
   onChooseAdoptionLocation?: () => void;
   onClose?: () => void;
   onDraftPublished?: () => void;
+  onOpenPublishedListing?: (
+    confirmation: AdoptionListingPublishConfirmation,
+  ) => void;
   onPublishAdoptionListing?: (
     input: PublishAdoptionListingInput,
   ) =>
     | AdoptionListingPublishConfirmation
     | Promise<AdoptionListingPublishConfirmation | void>
     | void;
+  onSharePublishedListing?: (
+    confirmation: AdoptionListingPublishConfirmation,
+  ) => Promise<void> | void;
   petProfiles?: readonly AdoptionListingPetProfileOption[];
   pickAdoptionListingPhoto?: () =>
     | AdoptionListingPhoto
@@ -108,6 +119,7 @@ export interface AdoptionListingCreationScreenProps {
     | undefined;
   renderReportMediaManager?: (props: {
     mediaDraftId: string;
+    onControllerChange?: (controller: ReportMediaStepController | null) => void;
     onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
     photos: readonly AdoptionListingPhoto[];
   }) => React.ReactNode;
@@ -123,14 +135,7 @@ function AdoptionListingCreationIcon({
   name: string;
   size?: number;
 }) {
-  return (
-    <Image
-      contentFit="contain"
-      source={`sf:${name}`}
-      style={{ height: size, width: size }}
-      tintColor={color}
-    />
-  );
+  return <ShellIcon color={color} name={name} size={size} />;
 }
 
 export function AdoptionListingCreationScreen({
@@ -141,8 +146,10 @@ export function AdoptionListingCreationScreen({
   onChooseAdoptionLocation,
   onClose,
   onDraftPublished,
+  onOpenPublishedListing,
   onPublishAdoptionListing,
-  petProfiles = adoptionListingCreationFixtures.petProfiles,
+  onSharePublishedListing,
+  petProfiles = [],
   pickAdoptionListingPhoto,
   renderReportMediaManager,
   session = { kind: "member", memberId: "member-preview" },
@@ -170,7 +177,7 @@ export function AdoptionListingCreationScreen({
   });
   const [publishState, setPublishState] =
     React.useState<PublishState>("editing");
-  const [publishConfirmation, setPublishConfirmation] =
+  const [publishedListing, setPublishedListing] =
     React.useState<AdoptionListingPublishConfirmation | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [journey, setJourney] =
@@ -183,6 +190,9 @@ export function AdoptionListingCreationScreen({
     );
   const [validationDisplay, setValidationDisplay] =
     React.useState<AdoptionListingCreationValidationDisplayInput>({});
+  const mediaControllerRef = React.useRef<ReportMediaStepController | null>(
+    null,
+  );
   const draftResetToken = `${restoredDraft?.savedAt ?? "fresh"}:${draftResetVersion}`;
   const draftResetTokenRef = React.useRef(draftResetToken);
 
@@ -215,9 +225,30 @@ export function AdoptionListingCreationScreen({
     [draft, journey, petProfiles, session, validationDisplay],
   );
 
-  const continueToNextStep = React.useCallback(() => {
+  const continueToNextStep = React.useCallback(async () => {
+    let draftForValidation = draft;
+
+    if (
+      viewModel.journey.currentStep.id === "photos" &&
+      mediaControllerRef.current
+    ) {
+      const uploadedSnapshot =
+        await mediaControllerRef.current.uploadPendingImages();
+      const uploadedPhotos =
+        reportMediaSnapshotToCreationPhotos(uploadedSnapshot);
+
+      draftForValidation = {
+        ...draft,
+        photos: uploadedPhotos,
+      };
+      setDraft((current) => ({
+        ...current,
+        photos: uploadedPhotos,
+      }));
+    }
+
     const validationResult = validateCurrentAdoptionListingStep({
-      draft,
+      draft: draftForValidation,
       petProfiles,
       session,
       stepId: viewModel.journey.currentStep.id,
@@ -238,7 +269,7 @@ export function AdoptionListingCreationScreen({
 
     setJourney(toAdoptionListingJourneyInput(transition.journey));
     setValidationDisplay({});
-  }, [draft, petProfiles, session, viewModel.journey]);
+  }, [draft, petProfiles, session, setDraft, viewModel.journey]);
 
   const returnToPreviousStep = React.useCallback(() => {
     const transition = retreatReportCreationJourney(viewModel.journey);
@@ -300,6 +331,7 @@ export function AdoptionListingCreationScreen({
     }
 
     setSubmitError(null);
+    setPublishedListing(null);
     setPublishState("publishing");
 
     const result = await publishReportCreation({
@@ -310,7 +342,7 @@ export function AdoptionListingCreationScreen({
     });
 
     if (result.ok) {
-      setPublishConfirmation(result.confirmation ?? null);
+      setPublishedListing(result.confirmation ?? null);
       onDraftPublished?.();
       setPublishState("success");
       return;
@@ -336,6 +368,8 @@ export function AdoptionListingCreationScreen({
     return (
       <ReportLocationPickerScreen
         adapter={locationAdapter}
+        initialDepartment={draft.exactLocation?.department}
+        initialMapCoordinate={draft.exactLocation?.coordinates}
         onCancel={closeLocationPicker}
         onConfirm={confirmLocation}
       />
@@ -346,7 +380,9 @@ export function AdoptionListingCreationScreen({
     return (
       <AdoptionListingCreationSuccess
         onClose={onClose}
-        publishConfirmation={publishConfirmation}
+        onOpenPublishedListing={onOpenPublishedListing}
+        onSharePublishedListing={onSharePublishedListing}
+        publishedListing={publishedListing}
         viewModel={viewModel}
       />
     );
@@ -362,6 +398,9 @@ export function AdoptionListingCreationScreen({
       onChooseLocation={openLocationPicker}
       onClose={onClose}
       onContinue={continueToNextStep}
+      onMediaControllerChange={(controller) => {
+        mediaControllerRef.current = controller;
+      }}
       onPrevious={returnToPreviousStep}
       onResumeRecoveredDraft={resumeDraft}
       publish={publish}
@@ -377,13 +416,29 @@ export function AdoptionListingCreationScreen({
 
 function AdoptionListingCreationSuccess({
   onClose,
-  publishConfirmation,
+  onOpenPublishedListing,
+  onSharePublishedListing,
+  publishedListing,
   viewModel,
 }: {
   onClose?: () => void;
-  publishConfirmation: AdoptionListingPublishConfirmation | null;
+  onOpenPublishedListing?: (
+    confirmation: AdoptionListingPublishConfirmation,
+  ) => void;
+  onSharePublishedListing?: (
+    confirmation: AdoptionListingPublishConfirmation,
+  ) => Promise<void> | void;
+  publishedListing: AdoptionListingPublishConfirmation | null;
   viewModel: AdoptionListingCreationViewModel;
 }) {
+  const { canSharePublishedResult, openPublishedResult, sharePublishedResult } =
+    useReportCreationPublishedResultActions({
+      onClose,
+      onOpenPublishedResult: onOpenPublishedListing,
+      onSharePublishedResult: onSharePublishedListing,
+      publishedResult: publishedListing,
+    });
+
   return (
     <ReportCreationScreenFrame
       contentContainerStyle={styles.content}
@@ -403,19 +458,15 @@ function AdoptionListingCreationSuccess({
         <Text maxFontSizeMultiplier={1.25} style={styles.bodyText}>
           {viewModel.success.body}
         </Text>
-        {publishConfirmation ? (
-          <Text maxFontSizeMultiplier={1.2} style={styles.bodyText}>
-            Reporte confirmado: {publishConfirmation.id}. Estado:{" "}
-            {publishConfirmation.status}.
-          </Text>
-        ) : null}
       </View>
       <View style={styles.buttonRow}>
         <ReportCreationActionButton
           accentColor={adoptionAccent}
+          disabled={!canSharePublishedResult}
           Icon={AdoptionListingCreationIcon}
           icon="square.and.arrow.up"
           label={viewModel.success.shareActionLabel}
+          onPress={sharePublishedResult}
           primaryTextColor={shellColors.white}
           styles={styles}
           variant="secondary"
@@ -425,7 +476,7 @@ function AdoptionListingCreationSuccess({
           Icon={AdoptionListingCreationIcon}
           icon="heart.text.square.fill"
           label={viewModel.success.primaryActionLabel}
-          onPress={onClose}
+          onPress={openPublishedResult}
           primaryTextColor={shellColors.white}
           styles={styles}
         />
@@ -443,6 +494,7 @@ function AdoptionListingCreationEditor({
   onChooseLocation,
   onClose,
   onContinue,
+  onMediaControllerChange,
   onPrevious,
   onResumeRecoveredDraft,
   publish,
@@ -460,7 +512,10 @@ function AdoptionListingCreationEditor({
   onDiscardRecoveredDraft: () => Promise<void>;
   onChooseLocation: () => void;
   onClose?: () => void;
-  onContinue: () => void;
+  onContinue: () => Promise<void> | void;
+  onMediaControllerChange?: (
+    controller: ReportMediaStepController | null,
+  ) => void;
   onPrevious: () => void;
   onResumeRecoveredDraft: () => void;
   publish: () => void;
@@ -475,8 +530,8 @@ function AdoptionListingCreationEditor({
   const scrollToActiveStep = React.useCallback(() => {
     scrollViewRef.current?.scrollTo({ animated: true, y: 0 });
   }, []);
-  const continueAndScroll = React.useCallback(() => {
-    onContinue();
+  const continueAndScroll = React.useCallback(async () => {
+    await onContinue();
     scrollToActiveStep();
   }, [onContinue, scrollToActiveStep]);
   const previousAndScroll = React.useCallback(() => {
@@ -490,6 +545,7 @@ function AdoptionListingCreationEditor({
       footer={
         shouldShowStepActions(viewModel.journey.currentStep.id) ? (
           <StepActions
+            canContinue={viewModel.journey.currentStep.id !== "review"}
             canGoBack={hasPreviousEditableStep(
               viewModel.journey.currentStep.id,
             )}
@@ -518,6 +574,7 @@ function AdoptionListingCreationEditor({
         addPhoto={addPhoto}
         draft={draft}
         onChooseLocation={onChooseLocation}
+        onMediaControllerChange={onMediaControllerChange}
         publish={publish}
         publishState={publishState}
         renderReportMediaManager={renderReportMediaManager}
@@ -534,6 +591,7 @@ function CurrentStepContent({
   addPhoto,
   draft,
   onChooseLocation,
+  onMediaControllerChange,
   publish,
   publishState,
   renderReportMediaManager,
@@ -545,6 +603,9 @@ function CurrentStepContent({
   addPhoto: () => void;
   draft: AdoptionListingDraft;
   onChooseLocation: () => void;
+  onMediaControllerChange?: (
+    controller: ReportMediaStepController | null,
+  ) => void;
   publish: () => void;
   publishState: PublishState;
   renderReportMediaManager?: AdoptionListingCreationScreenProps["renderReportMediaManager"];
@@ -561,6 +622,7 @@ function CurrentStepContent({
     });
     const renderedReportMediaManager = renderReportMediaManager?.({
       mediaDraftId: draft.id,
+      onControllerChange: onMediaControllerChange,
       onSnapshotChange: (snapshot) =>
         setDraft((current) => ({
           ...current,
@@ -651,8 +713,15 @@ function CurrentStepContent({
   }
 
   if (viewModel.journey.currentStep.id === "location") {
+    const locationError =
+      validationDisplay.attemptedStepId === "location" && !draft.exactLocation
+        ? "Selecciona la ubicacion interna."
+        : undefined;
+
     return (
       <LocationPrivacySection
+        coordinates={draft.exactLocation?.coordinates}
+        error={locationError}
         onChooseLocation={onChooseLocation}
         setDraft={setDraft}
         viewModel={viewModel}
@@ -688,10 +757,12 @@ function CurrentStepContent({
 }
 
 function StepActions({
+  canContinue,
   canGoBack,
   onContinue,
   onPrevious,
 }: {
+  canContinue: boolean;
   canGoBack: boolean;
   onContinue: () => void;
   onPrevious: () => void;
@@ -710,15 +781,17 @@ function StepActions({
           variant="secondary"
         />
       ) : null}
-      <ReportCreationActionButton
-        accentColor={adoptionAccent}
-        Icon={AdoptionListingCreationIcon}
-        icon="arrow.right"
-        label="Continuar"
-        onPress={onContinue}
-        primaryTextColor={shellColors.white}
-        styles={styles}
-      />
+      {canContinue ? (
+        <ReportCreationActionButton
+          accentColor={adoptionAccent}
+          Icon={AdoptionListingCreationIcon}
+          icon="arrow.right"
+          label="Continuar"
+          onPress={onContinue}
+          primaryTextColor={shellColors.white}
+          styles={styles}
+        />
+      ) : null}
     </View>
   );
 }
@@ -858,7 +931,7 @@ function isDefinedString(value: string | undefined): value is string {
 }
 
 function shouldShowStepActions(stepId: ReportCreationJourneyStepId) {
-  return isAdoptionEditableStepId(stepId) && stepId !== "review";
+  return isAdoptionEditableStepId(stepId);
 }
 
 function hasPreviousEditableStep(stepId: ReportCreationJourneyStepId) {
@@ -917,7 +990,7 @@ function CreationHeader({
         >
           <AdoptionListingCreationIcon
             color={shellColors.muted}
-            name="chevron.left"
+            name="xmark"
             size={18}
           />
         </Pressable>
@@ -1053,33 +1126,26 @@ function InlinePetForm({
 }
 
 function LocationPrivacySection({
+  coordinates,
+  error,
   onChooseLocation,
   setDraft,
   viewModel,
 }: {
+  coordinates?: { latitude: number; longitude: number };
+  error?: string;
   onChooseLocation: () => void;
   setDraft: React.Dispatch<React.SetStateAction<AdoptionListingDraft>>;
   viewModel: AdoptionListingCreationViewModel;
 }) {
   return (
     <ReportCreationSection styles={styles} title="Ubicacion y privacidad">
-      <View style={styles.mapPreview}>
-        <View style={styles.mapGrid}>
-          {mapPreviewBlocks.map((index) => (
-            <View key={index} style={styles.mapBlock} />
-          ))}
-        </View>
-        <View style={styles.mapPin}>
-          <AdoptionListingCreationIcon
-            color={shellColors.white}
-            name="mappin"
-            size={22}
-          />
-        </View>
-        <Text maxFontSizeMultiplier={1.15} style={styles.mapLabel}>
-          {viewModel.location.mapPreviewLabel}
-        </Text>
-      </View>
+      <ReportCreationLocationPreview
+        accentColor={adoptionAccent}
+        coordinates={coordinates}
+        Icon={AdoptionListingCreationIcon}
+        label={viewModel.location.mapPreviewLabel}
+      />
       <ReportCreationInfoRow
         accentColor={adoptionAccent}
         Icon={AdoptionListingCreationIcon}
@@ -1122,6 +1188,7 @@ function LocationPrivacySection({
         }
         styles={styles}
       />
+      <ReportCreationErrorText message={error} styles={styles} />
     </ReportCreationSection>
   );
 }

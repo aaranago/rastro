@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createNativeReportMediaSourceAdapter } from "./native-report-media-source-adapter";
 
@@ -14,6 +14,10 @@ vi.mock("expo-image-picker", () => ({
 }));
 
 describe("native report media source adapter", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("does not load native modules until the user chooses a media source", async () => {
     const adapter = createNativeReportMediaSourceAdapter({
       loadFileSystem: () => {
@@ -31,6 +35,20 @@ describe("native report media source adapter", () => {
   });
 
   it("maps a picked library image into selected local report-image metadata", async () => {
+    const launchImageLibraryAsync = vi.fn(() =>
+      Promise.resolve({
+        assets: [
+          {
+            height: 900,
+            mimeType: "image/jpeg",
+            type: "image" as const,
+            uri: "file:///library/photo-1.jpg",
+            width: 1200,
+          },
+        ],
+        canceled: false as const,
+      }),
+    );
     const adapter = createNativeReportMediaSourceAdapter({
       fileSystem: {
         getInfoAsync: vi.fn(() =>
@@ -44,20 +62,7 @@ describe("native report media source adapter", () => {
       },
       imagePicker: {
         launchCameraAsync: vi.fn(),
-        launchImageLibraryAsync: vi.fn(() =>
-          Promise.resolve({
-            assets: [
-              {
-                height: 900,
-                mimeType: "image/jpeg",
-                type: "image" as const,
-                uri: "file:///library/photo-1.jpg",
-                width: 1200,
-              },
-            ],
-            canceled: false as const,
-          }),
-        ),
+        launchImageLibraryAsync,
         requestCameraPermissionsAsync: vi.fn(),
         requestMediaLibraryPermissionsAsync: vi.fn(() =>
           Promise.resolve({
@@ -82,6 +87,81 @@ describe("native report media source adapter", () => {
       ],
       status: "selected",
     });
+    expect(launchImageLibraryAsync).toHaveBeenCalledWith({
+      allowsEditing: false,
+      allowsMultipleSelection: false,
+      base64: false,
+      mediaTypes: ["images"],
+      quality: 1,
+    });
+  });
+
+  it("copies Android content picker assets into cache before returning them for editing", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_725_000_000_000);
+    vi.spyOn(Math, "random").mockReturnValue(0.42);
+    const copyAsync = vi.fn(() => Promise.resolve());
+    const getInfoAsync = vi.fn((uri: string) =>
+      Promise.resolve({
+        exists: true,
+        isDirectory: false,
+        size: uri.startsWith("file:///cache/") ? 456_000 : 0,
+        uri,
+      }),
+    );
+    const adapter = createNativeReportMediaSourceAdapter({
+      fileSystem: {
+        cacheDirectory: "file:///cache/",
+        copyAsync,
+        getInfoAsync,
+      },
+      imagePicker: {
+        launchCameraAsync: vi.fn(),
+        launchImageLibraryAsync: vi.fn(() =>
+          Promise.resolve({
+            assets: [
+              {
+                height: 1000,
+                mimeType: "image/jpeg",
+                type: "image" as const,
+                uri: "content://media/external/images/media/42",
+                width: 1000,
+              },
+            ],
+            canceled: false as const,
+          }),
+        ),
+        requestCameraPermissionsAsync: vi.fn(),
+        requestMediaLibraryPermissionsAsync: vi.fn(() =>
+          Promise.resolve({
+            canAskAgain: true,
+            expires: "never",
+            granted: true,
+            status: "granted",
+          }),
+        ),
+      },
+    });
+
+    await expect(adapter.pickImagesFromLibrary()).resolves.toEqual({
+      images: [
+        {
+          height: 1000,
+          mimeType: "image/jpeg",
+          originalUri:
+            "file:///cache/rastro-report-media-1725000000000-420000.jpg",
+          sizeBytes: 456_000,
+          width: 1000,
+        },
+      ],
+      status: "selected",
+    });
+    expect(copyAsync).toHaveBeenCalledWith({
+      from: "content://media/external/images/media/42",
+      to: "file:///cache/rastro-report-media-1725000000000-420000.jpg",
+    });
+    expect(getInfoAsync).toHaveBeenCalledWith(
+      "file:///cache/rastro-report-media-1725000000000-420000.jpg",
+    );
   });
 
   it("returns recoverable source states when permission, picker, or native capability blocks selection", async () => {
@@ -137,14 +217,15 @@ describe("native report media source adapter", () => {
       status: "canceled",
     });
 
+    const launchCameraAsync = vi.fn(() =>
+      Promise.reject(new Error("Camera unavailable")),
+    );
     const unavailableAdapter = createNativeReportMediaSourceAdapter({
       fileSystem: {
         getInfoAsync: vi.fn(),
       },
       imagePicker: {
-        launchCameraAsync: vi.fn(() =>
-          Promise.reject(new Error("Camera unavailable")),
-        ),
+        launchCameraAsync,
         launchImageLibraryAsync: vi.fn(),
         requestCameraPermissionsAsync: vi.fn(() =>
           Promise.resolve({
@@ -161,6 +242,12 @@ describe("native report media source adapter", () => {
     await expect(unavailableAdapter.launchCamera()).resolves.toEqual({
       message: "Camera unavailable",
       status: "unavailable",
+    });
+    expect(launchCameraAsync).toHaveBeenCalledWith({
+      allowsEditing: false,
+      base64: false,
+      mediaTypes: ["images"],
+      quality: 1,
     });
 
     const permissionUnavailableAdapter = createNativeReportMediaSourceAdapter({

@@ -83,6 +83,7 @@ const reportMedia = vi.hoisted(() => {
     retryUpload: vi.fn(),
     selectLocalImage: vi.fn(),
     setPrimaryImage: vi.fn(),
+    uploadImage: vi.fn(),
   };
 
   return {
@@ -151,6 +152,19 @@ const reportMedia = vi.hoisted(() => {
           ];
         }),
     ),
+    uploadPendingReportMediaDraftItems: vi.fn(
+      ({
+        draft,
+        onSnapshotChange,
+      }: {
+        draft: { getSnapshot: () => unknown };
+        onSnapshotChange: (snapshot: unknown) => void;
+      }) => {
+        const snapshot = draft.getSnapshot();
+        onSnapshotChange(snapshot);
+        return Promise.resolve(snapshot);
+      },
+    ),
   };
 });
 
@@ -195,6 +209,9 @@ vi.mock("react", async () => {
 
 vi.mock("react-native", () => ({
   Pressable: "Pressable",
+  Share: {
+    share: vi.fn(),
+  },
   StyleSheet: {
     create: <TStyles extends Record<string, unknown>>(styles: TStyles) =>
       styles,
@@ -262,6 +279,8 @@ vi.mock("../report-media", () => ({
   createReportMediaDraft: reportMedia.createReportMediaDraft,
   reportMediaCreationPhotosToHydratedReadyMedia:
     reportMedia.reportMediaCreationPhotosToHydratedReadyMedia,
+  uploadPendingReportMediaDraftItems:
+    reportMedia.uploadPendingReportMediaDraftItems,
 }));
 
 vi.mock("../resilience/creation-drafts", () => ({
@@ -440,10 +459,12 @@ describe("ReportCreationRouteScreen", () => {
       }
 
       const childSnapshotChange = vi.fn();
+      const controllerChange = vi.fn();
       const mediaDraftId = `${intent}-durable-media-draft-1`;
       const managerHost = renderFunctionElement(
         renderReportMediaManager({
           mediaDraftId,
+          onControllerChange: controllerChange,
           onSnapshotChange: childSnapshotChange,
           photos: [],
         }),
@@ -480,6 +501,7 @@ describe("ReportCreationRouteScreen", () => {
       expect(mediaManager?.props.snapshot).toBe(reportMedia.snapshot);
       expect(mediaManager?.props.sourceAdapter).toEqual(expect.any(Object));
       expect(mediaManager?.props.editAdapter).toEqual(expect.any(Object));
+      expect(controllerChange).toHaveBeenCalledTimes(1);
 
       reportMedia.sourceAdapter.pickImagesFromLibrary.mockResolvedValueOnce({
         canAskAgain: false,
@@ -514,6 +536,7 @@ describe("ReportCreationRouteScreen", () => {
                 width: number;
               };
               rotateDegrees: number;
+              rotateBeforeCrop?: boolean;
             },
           ) => Promise<unknown>;
         }
@@ -531,6 +554,7 @@ describe("ReportCreationRouteScreen", () => {
             originY: 25,
             width: 1200,
           },
+          rotateBeforeCrop: true,
           rotateDegrees: 90,
         },
       );
@@ -544,10 +568,25 @@ describe("ReportCreationRouteScreen", () => {
             width: 1200,
           },
           localId: "local-photo-1",
+          rotateBeforeCrop: true,
           rotateDegrees: 90,
           sourceUri: "file:///edited/previous.jpg",
         }),
       );
+
+      const controller = toReportMediaStepController(
+        controllerChange.mock.calls[0]?.[0],
+      );
+
+      expect(controller.getSnapshot()).toBe(reportMedia.snapshot);
+      await controller.uploadPendingImages();
+
+      const pendingUploadCall = toPendingUploadInput(
+        reportMedia.uploadPendingReportMediaDraftItems.mock.calls[0]?.[0],
+      );
+
+      expect(pendingUploadCall.draft).toBe(reportMedia.draft);
+      expect(typeof pendingUploadCall.onSnapshotChange).toBe("function");
 
       (mediaManager?.props.onSnapshotChange as (snapshot: unknown) => void)(
         nextSnapshot,
@@ -1062,6 +1101,7 @@ type VisitorHandoffCallback = (
 
 type ReportMediaManagerRender = (props: {
   mediaDraftId: string;
+  onControllerChange?: (controller: unknown) => void;
   onSnapshotChange: (snapshot: unknown) => void;
   photos: readonly unknown[];
 }) => React.ReactNode;
@@ -1085,6 +1125,48 @@ function isReportMediaManagerRender(
   value: unknown,
 ): value is ReportMediaManagerRender {
   return typeof value === "function";
+}
+
+function toReportMediaStepController(value: unknown): {
+  getSnapshot: () => unknown;
+  uploadPendingImages: () => Promise<unknown>;
+} {
+  if (!isRecord(value)) {
+    throw new Error("Expected report media step controller.");
+  }
+
+  const getSnapshot = value.getSnapshot;
+  const uploadPendingImages = value.uploadPendingImages;
+
+  if (
+    typeof getSnapshot !== "function" ||
+    typeof uploadPendingImages !== "function"
+  ) {
+    throw new Error("Expected report media step controller.");
+  }
+
+  return {
+    getSnapshot: getSnapshot as () => unknown,
+    uploadPendingImages: uploadPendingImages as () => Promise<unknown>,
+  };
+}
+
+function toPendingUploadInput(value: unknown): {
+  draft: unknown;
+  onSnapshotChange: unknown;
+} {
+  if (!isRecord(value)) {
+    throw new Error("Expected pending upload input.");
+  }
+
+  return {
+    draft: value.draft,
+    onSnapshotChange: value.onSnapshotChange,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function createMockReportMediaDraft(id: string) {
@@ -1116,6 +1198,7 @@ function createMockReportMediaDraft(id: string) {
     retryUpload: vi.fn(),
     selectLocalImage: vi.fn(),
     setPrimaryImage: vi.fn(),
+    uploadImage: vi.fn(),
   };
 }
 

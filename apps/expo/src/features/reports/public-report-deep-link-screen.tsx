@@ -53,9 +53,6 @@ export function PublicReportDeepLinkScreen({
         <Text selectable style={styles.body}>
           {body}
         </Text>
-        <Text selectable style={styles.reportId}>
-          {reportId}
-        </Text>
         {lifecycle ? (
           <ReportLifecycleDetail
             lifecycle={lifecycle}
@@ -283,12 +280,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 14,
     padding: 18,
-  },
-  reportId: {
-    color: shellColors.text,
-    fontSize: 14,
-    fontVariant: ["tabular-nums"],
-    fontWeight: "700",
   },
   reportButton: {
     alignItems: "center",

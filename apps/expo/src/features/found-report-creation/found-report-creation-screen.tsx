@@ -1,7 +1,6 @@
 import type { ScrollView } from "react-native";
 import * as React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Image } from "expo-image";
 
 import type { NearbyLocationAdapter } from "../nearby/nearby-location-adapter";
 import type {
@@ -9,7 +8,10 @@ import type {
   ReportCreationJourneyStepId,
 } from "../report-creation/report-creation-journey";
 import type { ReportLocationDraft } from "../report-creation/report-location-draft";
-import type { ReportMediaDraftSnapshot } from "../report-media";
+import type {
+  ReportMediaDraftSnapshot,
+  ReportMediaStepController,
+} from "../report-media";
 import type { CreationDraftStore } from "../resilience/creation-drafts";
 import type {
   DurableCreationDraftPersistence,
@@ -30,7 +32,9 @@ import {
   ReportCreationDetailsFieldsSection,
   ReportCreationDraftPersistenceAlert,
   ReportCreationDraftRecoveryPrompt,
+  ReportCreationErrorText,
   ReportCreationInfoRow,
+  ReportCreationLocationPreview,
   ReportCreationPetSnapshotSection,
   ReportCreationPhotoSection,
   ReportCreationProgressSteps,
@@ -39,10 +43,12 @@ import {
   ReportCreationSection,
   ReportCreationToggleRow,
   useReportCreationPetDraftUpdaters,
+  useReportCreationPublishedResultActions,
 } from "../report-creation/report-creation-ui";
 import { ReportLocationPickerScreen } from "../report-location-picker";
 import { reportMediaSnapshotToCreationPhotos } from "../report-media";
 import { useDurableCreationDraft } from "../resilience/use-durable-creation-draft";
+import { ShellIcon } from "../shell/shell-overlays";
 import { shellColors } from "../shell/shell-theme";
 import { foundReportCreationFixtures } from "./found-report-creation-fixtures";
 import { foundReportPetTypeOptions } from "./found-report-creation-types";
@@ -58,7 +64,6 @@ import {
 const errorAccent = "#D6453D";
 const foundAccent = shellColors.found;
 const foundAccentSoft = "#E2F4EA";
-const mapPreviewBlocks = Array.from({ length: 12 }, (_, index) => index);
 const foundReportEditorStepIds = [
   "photos",
   "details",
@@ -85,6 +90,9 @@ export interface FoundReportCreationScreenProps {
   onChooseFoundLocation?: () => void;
   onClose?: () => void;
   onDraftPublished?: () => void;
+  onOpenPublishedReport?: (
+    confirmation: FoundReportPublishConfirmation,
+  ) => void;
   onPublishFoundReport?: (
     input: PublishFoundPetReportInput,
   ) =>
@@ -92,12 +100,16 @@ export interface FoundReportCreationScreenProps {
     | Promise<FoundReportPublishConfirmation | void>
     | void;
   onRequestMemberSignIn?: (action: FoundReportCreationVisitorAction) => void;
+  onSharePublishedReport?: (
+    confirmation: FoundReportPublishConfirmation,
+  ) => Promise<void> | void;
   pickFoundReportPhoto?: () =>
     | FoundReportPhoto
     | Promise<FoundReportPhoto | undefined>
     | undefined;
   renderReportMediaManager?: (props: {
     mediaDraftId: string;
+    onControllerChange?: (controller: ReportMediaStepController | null) => void;
     onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
     photos: readonly FoundReportPhoto[];
   }) => React.ReactNode;
@@ -113,14 +125,7 @@ function FoundReportCreationIcon({
   name: string;
   size?: number;
 }) {
-  return (
-    <Image
-      contentFit="contain"
-      source={`sf:${name}`}
-      style={{ height: size, width: size }}
-      tintColor={color}
-    />
-  );
+  return <ShellIcon color={color} name={name} size={size} />;
 }
 
 export function FoundReportCreationScreen({
@@ -131,8 +136,10 @@ export function FoundReportCreationScreen({
   onChooseFoundLocation,
   onClose,
   onDraftPublished,
+  onOpenPublishedReport,
   onPublishFoundReport,
   onRequestMemberSignIn,
+  onSharePublishedReport,
   pickFoundReportPhoto,
   renderReportMediaManager,
   session = { kind: "member", memberId: "member-preview" },
@@ -161,7 +168,7 @@ export function FoundReportCreationScreen({
   });
   const [publishState, setPublishState] =
     React.useState<PublishState>("editing");
-  const [publishConfirmation, setPublishConfirmation] =
+  const [publishedReport, setPublishedReport] =
     React.useState<FoundReportPublishConfirmation | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [isLocationPickerVisible, setLocationPickerVisible] =
@@ -235,6 +242,7 @@ export function FoundReportCreationScreen({
     }
 
     setSubmitError(null);
+    setPublishedReport(null);
     setPublishState("publishing");
 
     const result = await publishReportCreation({
@@ -245,7 +253,7 @@ export function FoundReportCreationScreen({
     });
 
     if (result.ok) {
-      setPublishConfirmation(result.confirmation ?? null);
+      setPublishedReport(result.confirmation ?? null);
       onDraftPublished?.();
       setPublishState("success");
       return;
@@ -280,6 +288,8 @@ export function FoundReportCreationScreen({
     return (
       <ReportLocationPickerScreen
         adapter={locationAdapter}
+        initialDepartment={draft.exactFoundLocation?.department}
+        initialMapCoordinate={draft.exactFoundLocation?.coordinates}
         onCancel={closeLocationPicker}
         onConfirm={confirmLocation}
       />
@@ -290,7 +300,9 @@ export function FoundReportCreationScreen({
     return (
       <FoundReportCreationSuccess
         onClose={onClose}
-        publishConfirmation={publishConfirmation}
+        onOpenPublishedReport={onOpenPublishedReport}
+        onSharePublishedReport={onSharePublishedReport}
+        publishedReport={publishedReport}
         viewModel={quietViewModel}
       />
     );
@@ -378,13 +390,29 @@ function FoundReportVisitorHandoff({
 
 function FoundReportCreationSuccess({
   onClose,
-  publishConfirmation,
+  onOpenPublishedReport,
+  onSharePublishedReport,
+  publishedReport,
   viewModel,
 }: {
   onClose?: () => void;
-  publishConfirmation: FoundReportPublishConfirmation | null;
+  onOpenPublishedReport?: (
+    confirmation: FoundReportPublishConfirmation,
+  ) => void;
+  onSharePublishedReport?: (
+    confirmation: FoundReportPublishConfirmation,
+  ) => Promise<void> | void;
+  publishedReport: FoundReportPublishConfirmation | null;
   viewModel: FoundReportCreationViewModel;
 }) {
+  const { canSharePublishedResult, openPublishedResult, sharePublishedResult } =
+    useReportCreationPublishedResultActions({
+      onClose,
+      onOpenPublishedResult: onOpenPublishedReport,
+      onSharePublishedResult: onSharePublishedReport,
+      publishedResult: publishedReport,
+    });
+
   return (
     <ReportCreationScreenFrame
       contentContainerStyle={styles.content}
@@ -404,19 +432,15 @@ function FoundReportCreationSuccess({
         <Text maxFontSizeMultiplier={1.25} style={styles.bodyText}>
           {viewModel.success.body}
         </Text>
-        {publishConfirmation ? (
-          <Text maxFontSizeMultiplier={1.2} style={styles.bodyText}>
-            Reporte confirmado: {publishConfirmation.id}. Estado:{" "}
-            {publishConfirmation.status}.
-          </Text>
-        ) : null}
       </View>
       <View style={styles.buttonRow}>
         <ReportCreationActionButton
           accentColor={foundAccent}
+          disabled={!canSharePublishedResult}
           Icon={FoundReportCreationIcon}
           icon="square.and.arrow.up"
           label={viewModel.success.shareActionLabel}
+          onPress={sharePublishedResult}
           primaryTextColor={shellColors.white}
           styles={styles}
           variant="secondary"
@@ -426,7 +450,7 @@ function FoundReportCreationSuccess({
           Icon={FoundReportCreationIcon}
           icon="list.bullet.rectangle"
           label={viewModel.success.primaryActionLabel}
-          onPress={onClose}
+          onPress={openPublishedResult}
           primaryTextColor={shellColors.white}
           styles={styles}
         />
@@ -470,6 +494,9 @@ function FoundReportCreationEditor({
 }) {
   const foundPetDraft = useReportCreationPetDraftUpdaters(setDraft);
   const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
+  const mediaControllerRef = React.useRef<ReportMediaStepController | null>(
+    null,
+  );
   const inferredViewModel = React.useMemo(
     () =>
       buildFoundReportCreationViewModel({
@@ -520,7 +547,7 @@ function FoundReportCreationEditor({
       ? "Selecciona donde fue encontrada."
       : undefined;
 
-  const continueToNextStep = React.useCallback(() => {
+  const continueToNextStep = React.useCallback(async () => {
     if (
       !currentEditorStepId ||
       currentEditorStepId === "review" ||
@@ -529,8 +556,26 @@ function FoundReportCreationEditor({
       return;
     }
 
+    let draftForValidation = draft;
+
+    if (currentEditorStepId === "photos" && mediaControllerRef.current) {
+      const uploadedSnapshot =
+        await mediaControllerRef.current.uploadPendingImages();
+      const uploadedPhotos =
+        reportMediaSnapshotToCreationPhotos(uploadedSnapshot);
+
+      draftForValidation = {
+        ...draft,
+        photos: uploadedPhotos,
+      };
+      setDraft((current) => ({
+        ...current,
+        photos: uploadedPhotos,
+      }));
+    }
+
     const errors = validateFoundReportCurrentStep({
-      draft,
+      draft: draftForValidation,
       stepId: currentEditorStepId,
     });
 
@@ -542,7 +587,7 @@ function FoundReportCreationEditor({
 
     setJourney((current) => advanceFoundReportJourney(current));
     setValidationDisplay({});
-  }, [currentEditorStepId, draft]);
+  }, [currentEditorStepId, draft, setDraft]);
 
   const goBack = React.useCallback(() => {
     setJourney((current) => retreatFoundReportJourney(current));
@@ -553,8 +598,9 @@ function FoundReportCreationEditor({
     <ReportCreationScreenFrame
       contentContainerStyle={styles.content}
       footer={
-        currentEditorStepId && currentEditorStepId !== "review" ? (
+        currentEditorStepId ? (
           <FoundReportStepActions
+            canContinue={canRenderFoundReportStepActions(currentEditorStepId)}
             canGoBack={Boolean(previousEditableStep)}
             onBack={goBack}
             onContinue={continueToNextStep}
@@ -593,6 +639,9 @@ function FoundReportCreationEditor({
         publish={publish}
         publishState={publishState}
         renderReportMediaManager={renderReportMediaManager}
+        onMediaControllerChange={(controller) => {
+          mediaControllerRef.current = controller;
+        }}
         setDraft={setDraft}
         submitError={submitError}
         viewModel={viewModel}
@@ -609,6 +658,7 @@ function FoundReportCreationStepContent({
   onChangePetBreed,
   onChangePetDescription,
   onChooseFoundLocation,
+  onMediaControllerChange,
   onSelectPetType,
   publish,
   publishState,
@@ -624,6 +674,9 @@ function FoundReportCreationStepContent({
   onChangePetBreed: (value: string) => void;
   onChangePetDescription: (value: string) => void;
   onChooseFoundLocation?: () => void;
+  onMediaControllerChange?: (
+    controller: ReportMediaStepController | null,
+  ) => void;
   onSelectPetType: (value: FoundReportDraft["pet"]["type"]) => void;
   publish: () => void;
   publishState: PublishState;
@@ -638,6 +691,7 @@ function FoundReportCreationStepContent({
         <FoundReportPhotosStep
           addPhoto={addPhoto}
           draft={draft}
+          onMediaControllerChange={onMediaControllerChange}
           renderReportMediaManager={renderReportMediaManager}
           setDraft={setDraft}
           viewModel={viewModel}
@@ -657,6 +711,7 @@ function FoundReportCreationStepContent({
     case "location":
       return (
         <LocationPrivacySection
+          coordinates={draft.exactFoundLocation?.coordinates}
           error={locationError}
           onChooseFoundLocation={onChooseFoundLocation}
           setDraft={setDraft}
@@ -682,18 +737,23 @@ function FoundReportCreationStepContent({
 function FoundReportPhotosStep({
   addPhoto,
   draft,
+  onMediaControllerChange,
   renderReportMediaManager,
   setDraft,
   viewModel,
 }: {
   addPhoto: () => void;
   draft: FoundReportDraft;
+  onMediaControllerChange?: (
+    controller: ReportMediaStepController | null,
+  ) => void;
   renderReportMediaManager?: FoundReportCreationScreenProps["renderReportMediaManager"];
   setDraft: React.Dispatch<React.SetStateAction<FoundReportDraft>>;
   viewModel: FoundReportCreationViewModel;
 }) {
   const renderedReportMediaManager = renderReportMediaManager?.({
     mediaDraftId: draft.idempotencyKey,
+    onControllerChange: onMediaControllerChange,
     onSnapshotChange: (snapshot) =>
       setDraft((current) => ({
         ...current,
@@ -775,6 +835,7 @@ function FoundReportDetailsStep({
         fields={[
           {
             field: viewModel.foundDetails.fields.foundAtLabel,
+            input: "dateTime",
             key: "foundAtLabel" as const,
           },
           {
@@ -787,6 +848,7 @@ function FoundReportDetailsStep({
             multiline: true,
           },
         ]}
+        dateTimeAccentColor={foundAccent}
         onChangeField={(key, value) =>
           setDraft((current) => ({
             ...current,
@@ -839,7 +901,7 @@ function CreationHeader({
         >
           <FoundReportCreationIcon
             color={shellColors.muted}
-            name="chevron.left"
+            name="xmark"
             size={18}
           />
         </Pressable>
@@ -849,11 +911,13 @@ function CreationHeader({
 }
 
 function LocationPrivacySection({
+  coordinates,
   error,
   onChooseFoundLocation,
   setDraft,
   viewModel,
 }: {
+  coordinates?: { latitude: number; longitude: number };
   error?: string;
   onChooseFoundLocation?: () => void;
   setDraft: React.Dispatch<React.SetStateAction<FoundReportDraft>>;
@@ -861,23 +925,12 @@ function LocationPrivacySection({
 }) {
   return (
     <ReportCreationSection styles={styles} title="Ubicacion y privacidad">
-      <View style={styles.mapPreview}>
-        <View style={styles.mapGrid}>
-          {mapPreviewBlocks.map((index) => (
-            <View key={index} style={styles.mapBlock} />
-          ))}
-        </View>
-        <View style={styles.mapPin}>
-          <FoundReportCreationIcon
-            color={shellColors.white}
-            name="mappin"
-            size={22}
-          />
-        </View>
-        <Text maxFontSizeMultiplier={1.15} style={styles.mapLabel}>
-          {viewModel.location.mapPreviewLabel}
-        </Text>
-      </View>
+      <ReportCreationLocationPreview
+        accentColor={foundAccent}
+        coordinates={coordinates}
+        Icon={FoundReportCreationIcon}
+        label={viewModel.location.mapPreviewLabel}
+      />
       <ReportCreationInfoRow
         accentColor={foundAccent}
         Icon={FoundReportCreationIcon}
@@ -922,11 +975,7 @@ function LocationPrivacySection({
         }
         styles={styles}
       />
-      {error ? (
-        <Text maxFontSizeMultiplier={1.15} selectable style={styles.errorText}>
-          {error}
-        </Text>
-      ) : null}
+      <ReportCreationErrorText message={error} styles={styles} />
     </ReportCreationSection>
   );
 }
@@ -995,10 +1044,12 @@ function ReviewPublishSection({
 }
 
 function FoundReportStepActions({
+  canContinue,
   canGoBack,
   onBack,
   onContinue,
 }: {
+  canContinue: boolean;
   canGoBack: boolean;
   onBack: () => void;
   onContinue: () => void;
@@ -1017,15 +1068,17 @@ function FoundReportStepActions({
           variant="secondary"
         />
       ) : null}
-      <ReportCreationActionButton
-        accentColor={foundAccent}
-        Icon={FoundReportCreationIcon}
-        icon="chevron.right"
-        label="Continuar"
-        onPress={onContinue}
-        primaryTextColor={shellColors.white}
-        styles={styles}
-      />
+      {canContinue ? (
+        <ReportCreationActionButton
+          accentColor={foundAccent}
+          Icon={FoundReportCreationIcon}
+          icon="arrow.right"
+          label="Continuar"
+          onPress={onContinue}
+          primaryTextColor={shellColors.white}
+          styles={styles}
+        />
+      ) : null}
     </View>
   );
 }
@@ -1124,8 +1177,11 @@ function validateFoundReportDetailsStep(draft: FoundReportDraft) {
     errors.push("Describe la condicion de la mascota encontrada.");
   }
 
-  if (draft.foundDetails.description.trim().length === 0) {
+  const foundDescriptionLength = draft.foundDetails.description.trim().length;
+  if (foundDescriptionLength === 0) {
     errors.push("Agrega una descripcion de la mascota encontrada.");
+  } else if (foundDescriptionLength < 10) {
+    errors.push("Escribe una descripcion de al menos 10 caracteres.");
   }
 
   return errors;

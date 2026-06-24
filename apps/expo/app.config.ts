@@ -136,6 +136,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ],
       "expo-font",
       "expo-notifications",
+      "@react-native-community/datetimepicker",
       [
         "expo-splash-screen",
         {

@@ -50,6 +50,9 @@ export type NativeReportMediaSourceFileInfo =
     };
 
 export interface NativeReportMediaSourceFileSystem {
+  cacheDirectory?: string | null;
+  copyAsync?: (options: { from: string; to: string }) => Promise<void>;
+  documentDirectory?: string | null;
   getInfoAsync(uri: string): Promise<NativeReportMediaSourceFileInfo>;
 }
 
@@ -135,7 +138,7 @@ export function createNativeReportMediaSourceAdapter({
 
         return picker.launchImageLibraryAsync({
           allowsEditing: false,
-          allowsMultipleSelection: true,
+          allowsMultipleSelection: false,
           base64: false,
           mediaTypes: ["images"],
           quality: 1,
@@ -182,15 +185,54 @@ export function createNativeReportMediaSourceAdapter({
       throw new Error("Selected image dimensions are unavailable.");
     }
 
-    const fileSize = await resolveAssetFileSize(asset);
+    const mimeType = toSupportedImageMimeType(asset.mimeType);
+    const originalUri = await resolveCropperReadableAssetUri(asset, mimeType);
+    const fileSize = await resolveAssetFileSize({
+      ...asset,
+      uri: originalUri,
+    });
 
     return {
       height: asset.height,
-      mimeType: toSupportedImageMimeType(asset.mimeType),
-      originalUri: asset.uri,
+      mimeType,
+      originalUri,
       sizeBytes: fileSize,
       width: asset.width,
     };
+  }
+
+  async function resolveCropperReadableAssetUri(
+    asset: NativeImagePickerAsset,
+    mimeType: SelectedLocalReportImage["mimeType"],
+  ) {
+    if (isNativeFileUri(asset.uri)) {
+      return asset.uri.startsWith("file://")
+        ? asset.uri
+        : `file://${asset.uri}`;
+    }
+
+    const fileSystem = resolveFileSystem();
+
+    if (!fileSystem.copyAsync) {
+      throw new Error("Selected image cannot be prepared for editing.");
+    }
+
+    const cacheRoot = fileSystem.cacheDirectory ?? fileSystem.documentDirectory;
+
+    if (!cacheRoot) {
+      throw new Error("Media cache is unavailable.");
+    }
+
+    const destinationUri = `${cacheRoot.replace(/\/?$/, "/")}rastro-report-media-${Date.now()}-${Math.round(
+      Math.random() * 1_000_000,
+    )}.${extensionForMimeType(mimeType)}`;
+
+    await fileSystem.copyAsync({
+      from: asset.uri,
+      to: destinationUri,
+    });
+
+    return destinationUri;
   }
 
   async function resolveAssetFileSize(asset: NativeImagePickerAsset) {
@@ -239,5 +281,24 @@ function toSupportedImageMimeType(
       return mimeType;
     default:
       throw new Error("Selected image type is unsupported.");
+  }
+}
+
+function isNativeFileUri(uri: string) {
+  return uri.startsWith("file://") || uri.startsWith("/");
+}
+
+function extensionForMimeType(mimeType: SelectedLocalReportImage["mimeType"]) {
+  switch (mimeType) {
+    case "image/jpeg":
+      return "jpg";
+    case "image/png":
+      return "png";
+    case "image/webp":
+      return "webp";
+    case "image/heic":
+      return "heic";
+    case "image/heif":
+      return "heif";
   }
 }

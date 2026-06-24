@@ -17,6 +17,7 @@ import { createReportLocationPickerAdapter } from "./report-location-picker-adap
 
 export interface ReportLocationPickerScreenProps {
   adapter: NearbyLocationAdapter;
+  initialDepartment?: string;
   initialMapCoordinate?: NearbyCoordinates;
   manualLocationOptions?: readonly NearbySearchLocation[];
   mapProviderState?: ReportMapProviderState;
@@ -25,12 +26,14 @@ export interface ReportLocationPickerScreenProps {
 }
 
 type PickerMode = "list" | "map";
+type MapCoordinateSource = "department" | "manual";
 
 const defaultMapCoordinate = { latitude: -16.5, longitude: -68.1193 };
 
 export function ReportLocationPickerScreen({
   adapter,
-  initialMapCoordinate = defaultMapCoordinate,
+  initialDepartment,
+  initialMapCoordinate,
   manualLocationOptions = nearbyManualLocationOptions,
   mapProviderState,
   onCancel,
@@ -42,13 +45,24 @@ export function ReportLocationPickerScreen({
   );
   const [feedback, setFeedback] =
     React.useState<ReportLocationPickerResult | null>(null);
-  const [mapCoordinate, setMapCoordinate] =
-    React.useState<NearbyCoordinates>(initialMapCoordinate);
   const [mode, setMode] = React.useState<PickerMode>("list");
   const manualLocationGroups = React.useMemo(
     () => groupManualLocationOptionsByDepartment(manualLocationOptions),
     [manualLocationOptions],
   );
+  const initialDepartmentGroup = React.useMemo(() => {
+    if (!initialDepartment) {
+      return undefined;
+    }
+
+    return manualLocationGroups.find(
+      (group) => group.department === initialDepartment,
+    );
+  }, [initialDepartment, manualLocationGroups]);
+  const initialSelectedDepartment =
+    initialDepartmentGroup?.department ??
+    manualLocationGroups[0]?.department ??
+    "";
   const mapPinLocationOptions = React.useMemo(
     () =>
       manualLocationOptions.filter(
@@ -56,8 +70,18 @@ export function ReportLocationPickerScreen({
       ),
     [manualLocationOptions],
   );
+  const [mapCoordinateSource, setMapCoordinateSource] =
+    React.useState<MapCoordinateSource>(
+      initialMapCoordinate ? "manual" : "department",
+    );
+  const [mapCoordinate, setMapCoordinate] = React.useState<NearbyCoordinates>(
+    initialMapCoordinate ??
+      getDepartmentReferenceCoordinate(initialDepartmentGroup) ??
+      getDepartmentReferenceCoordinate(manualLocationGroups[0]) ??
+      defaultMapCoordinate,
+  );
   const [selectedDepartment, setSelectedDepartment] = React.useState(
-    () => manualLocationGroups[0]?.department ?? "",
+    initialSelectedDepartment,
   );
   const [isDepartmentMenuOpen, setDepartmentMenuOpen] = React.useState(false);
   const selectedDepartmentGroup =
@@ -66,6 +90,9 @@ export function ReportLocationPickerScreen({
     ) ??
     manualLocationGroups[0] ??
     null;
+  const selectedDepartmentLocation =
+    selectedDepartmentGroup?.locations[0] ?? null;
+  const mapPinLocation = mapPinLocationOptions[0] ?? null;
   const resolvedMapProviderState =
     mapProviderState ?? getNativeMapProviderState();
 
@@ -88,6 +115,14 @@ export function ReportLocationPickerScreen({
   const handleManualLocation = React.useCallback(
     (location: NearbySearchLocation) => {
       if (location.manualLocationKind === "map-pin" && !location.coordinates) {
+        if (mapCoordinateSource === "department") {
+          const referenceCoordinate =
+            getDepartmentReferenceCoordinate(selectedDepartmentGroup) ??
+            defaultMapCoordinate;
+
+          setMapCoordinate(referenceCoordinate);
+        }
+
         setMode("map");
         setDepartmentMenuOpen(false);
         return;
@@ -96,13 +131,33 @@ export function ReportLocationPickerScreen({
       setDepartmentMenuOpen(false);
       applyPickerResult(pickerAdapter.selectLocation(location));
     },
-    [applyPickerResult, pickerAdapter],
+    [
+      applyPickerResult,
+      mapCoordinateSource,
+      pickerAdapter,
+      selectedDepartmentGroup,
+    ],
   );
 
-  const handleDepartmentPress = React.useCallback((department: string) => {
-    setSelectedDepartment(department);
-    setDepartmentMenuOpen(false);
-  }, []);
+  const handleDepartmentPress = React.useCallback(
+    (department: string) => {
+      const nextDepartmentGroup =
+        manualLocationGroups.find((group) => group.department === department) ??
+        null;
+
+      setSelectedDepartment(department);
+      setDepartmentMenuOpen(false);
+
+      if (mapCoordinateSource === "department") {
+        const referenceCoordinate =
+          getDepartmentReferenceCoordinate(nextDepartmentGroup) ??
+          defaultMapCoordinate;
+
+        setMapCoordinate(referenceCoordinate);
+      }
+    },
+    [manualLocationGroups, mapCoordinateSource],
+  );
 
   return (
     <ReportCreationScreenFrame
@@ -126,8 +181,8 @@ export function ReportLocationPickerScreen({
           Ubicacion del reporte
         </Text>
         <Text selectable style={styles.body}>
-          Usamos tu ubicacion solo para ubicar este reporte. Puedes elegir una
-          ciudad, un departamento o un punto en el mapa.
+          Elige una zona aproximada o marca un punto exacto. Por defecto
+          mostramos solo la zona al publico.
         </Text>
         <Pressable
           accessibilityLabel="Usar mi ubicacion actual"
@@ -160,121 +215,197 @@ export function ReportLocationPickerScreen({
           cancelLabel="Volver a la lista"
           onCancel={() => setMode("list")}
           onConfirm={(location) =>
-            applyPickerResult(pickerAdapter.selectLocation(location))
+            applyPickerResult(
+              pickerAdapter.selectLocation(
+                withSelectedDepartmentForMapPin(
+                  location,
+                  mapCoordinateSource === "department"
+                    ? selectedDepartmentGroup
+                    : null,
+                ),
+              ),
+            )
           }
-          onSelectedCoordinateChange={setMapCoordinate}
+          onSelectedCoordinateChange={(coordinate) => {
+            setMapCoordinateSource("manual");
+            setMapCoordinate(coordinate);
+          }}
           providerState={resolvedMapProviderState}
           selectedCoordinate={mapCoordinate}
         />
       ) : null}
 
-      <View style={styles.section}>
-        <Text selectable style={styles.sectionTitle}>
-          Elegir por departamento
-        </Text>
-        {selectedDepartmentGroup ? (
-          <View style={styles.selectPanel}>
-            <Text selectable style={styles.fieldLabel}>
-              Departamento
-            </Text>
-            <Pressable
-              accessibilityLabel={`Cambiar departamento. Seleccion actual: ${selectedDepartmentGroup.department}`}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: isDepartmentMenuOpen }}
-              onPress={() => setDepartmentMenuOpen((isOpen) => !isOpen)}
-              style={styles.departmentTrigger}
-            >
-              <View style={styles.optionCopy}>
-                <Text selectable style={styles.optionTitle}>
-                  {selectedDepartmentGroup.department}
-                </Text>
-                <Text selectable style={styles.optionMeta}>
-                  {getDepartmentSummary(selectedDepartmentGroup)}
-                </Text>
-              </View>
-              <Text style={styles.departmentTriggerText}>
-                {isDepartmentMenuOpen ? "Cerrar" : "Cambiar"}
-              </Text>
-            </Pressable>
+      <ManualLocationDecisionSection
+        isDepartmentMenuOpen={isDepartmentMenuOpen}
+        manualLocationGroups={manualLocationGroups}
+        mapPinLocation={mapPinLocation}
+        onSelectDepartment={handleDepartmentPress}
+        onSelectLocation={handleManualLocation}
+        onToggleDepartmentMenu={() =>
+          setDepartmentMenuOpen((isOpen) => !isOpen)
+        }
+        selectedDepartmentGroup={selectedDepartmentGroup}
+        selectedDepartmentLocation={selectedDepartmentLocation}
+      />
+    </ReportCreationScreenFrame>
+  );
+}
 
-            {isDepartmentMenuOpen ? (
-              <View style={styles.departmentMenu}>
-                {manualLocationGroups.map((group) => {
-                  const isSelected =
-                    group.department === selectedDepartmentGroup.department;
+function ManualLocationDecisionSection({
+  isDepartmentMenuOpen,
+  manualLocationGroups,
+  mapPinLocation,
+  onSelectDepartment,
+  onSelectLocation,
+  onToggleDepartmentMenu,
+  selectedDepartmentGroup,
+  selectedDepartmentLocation,
+}: {
+  isDepartmentMenuOpen: boolean;
+  manualLocationGroups: readonly ManualLocationDepartmentGroup[];
+  mapPinLocation: NearbySearchLocation | null;
+  onSelectDepartment: (department: string) => void;
+  onSelectLocation: (location: NearbySearchLocation) => void;
+  onToggleDepartmentMenu: () => void;
+  selectedDepartmentGroup: ManualLocationDepartmentGroup | null;
+  selectedDepartmentLocation: NearbySearchLocation | null;
+}) {
+  if (!selectedDepartmentGroup) {
+    return null;
+  }
 
-                  return (
-                    <Pressable
-                      accessibilityLabel={`Mostrar ciudades de ${group.department}`}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: isSelected }}
-                      key={group.department}
-                      onPress={() => handleDepartmentPress(group.department)}
-                      style={[
-                        styles.departmentRow,
-                        isSelected ? styles.departmentRowActive : null,
-                      ]}
-                    >
-                      <Text
-                        selectable
-                        style={[
-                          styles.departmentRowText,
-                          isSelected ? styles.departmentRowTextActive : null,
-                        ]}
-                      >
-                        {group.department}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            ) : null}
-
-            <View style={styles.optionList}>
-              {selectedDepartmentGroup.locations.map((location) => (
-                <Pressable
-                  accessibilityLabel={`Elegir ${location.label}`}
-                  accessibilityRole="button"
-                  key={`${location.source}:${location.label}`}
-                  onPress={() => handleManualLocation(location)}
-                  style={styles.option}
-                >
-                  <View style={styles.optionCopy}>
-                    <Text selectable style={styles.optionTitle}>
-                      {location.label}
-                    </Text>
-                    <Text selectable style={styles.optionMeta}>
-                      {getLocationMetaLabel(location)}
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
-          </View>
+  return (
+    <View style={styles.section}>
+      <Text selectable style={styles.sectionTitle}>
+        Ubicacion manual
+      </Text>
+      <View style={styles.selectPanel}>
+        <DepartmentTrigger
+          isDepartmentMenuOpen={isDepartmentMenuOpen}
+          onPress={onToggleDepartmentMenu}
+          selectedDepartment={selectedDepartmentGroup.department}
+        />
+        {isDepartmentMenuOpen ? (
+          <DepartmentMenu
+            groups={manualLocationGroups}
+            onSelectDepartment={onSelectDepartment}
+            selectedDepartment={selectedDepartmentGroup.department}
+          />
         ) : null}
-
-        <View style={styles.optionList}>
-          {mapPinLocationOptions.map((location) => (
+        <View style={styles.decisionList}>
+          {selectedDepartmentLocation ? (
             <Pressable
-              accessibilityLabel="Elegir punto en el mapa"
+              accessibilityLabel={`Usar ${selectedDepartmentGroup.department} como zona aproximada`}
               accessibilityRole="button"
-              key={`${location.source}:${location.label}`}
-              onPress={() => handleManualLocation(location)}
-              style={[styles.option, styles.mapOption]}
+              onPress={() => onSelectLocation(selectedDepartmentLocation)}
+              style={styles.decisionCard}
             >
               <View style={styles.optionCopy}>
-                <Text selectable style={styles.optionTitle}>
-                  {location.label}
+                <Text selectable style={styles.decisionTitle}>
+                  Usar {selectedDepartmentGroup.department} como zona aproximada
                 </Text>
-                <Text selectable style={styles.optionMeta}>
-                  Punto exacto elegido por ti
+                <Text selectable style={styles.decisionMeta}>
+                  Mas rapido. Se mostrara el departamento sin exponer un pin
+                  exacto.
                 </Text>
               </View>
             </Pressable>
-          ))}
+          ) : null}
+          {mapPinLocation ? (
+            <Pressable
+              accessibilityLabel={`Marcar punto exacto en ${selectedDepartmentGroup.department}`}
+              accessibilityRole="button"
+              onPress={() => onSelectLocation(mapPinLocation)}
+              style={[styles.decisionCard, styles.decisionCardPrimary]}
+            >
+              <View style={styles.optionCopy}>
+                <Text selectable style={styles.decisionTitle}>
+                  Marcar punto exacto en el mapa
+                </Text>
+                <Text selectable style={styles.decisionMeta}>
+                  Mas preciso. Tu decides el punto y luego eliges si puede verse
+                  publicamente.
+                </Text>
+              </View>
+            </Pressable>
+          ) : null}
         </View>
       </View>
-    </ReportCreationScreenFrame>
+    </View>
+  );
+}
+
+function DepartmentTrigger({
+  isDepartmentMenuOpen,
+  onPress,
+  selectedDepartment,
+}: {
+  isDepartmentMenuOpen: boolean;
+  onPress: () => void;
+  selectedDepartment: string;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={`Cambiar departamento. Seleccion actual: ${selectedDepartment}`}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: isDepartmentMenuOpen }}
+      onPress={onPress}
+      style={styles.departmentTrigger}
+    >
+      <View style={styles.optionCopy}>
+        <Text selectable style={styles.optionTitle}>
+          {selectedDepartment}
+        </Text>
+        <Text selectable style={styles.optionMeta}>
+          Departamento seleccionado
+        </Text>
+      </View>
+      <Text style={styles.departmentTriggerText}>
+        {isDepartmentMenuOpen ? "Cerrar" : "Cambiar"}
+      </Text>
+    </Pressable>
+  );
+}
+
+function DepartmentMenu({
+  groups,
+  onSelectDepartment,
+  selectedDepartment,
+}: {
+  groups: readonly ManualLocationDepartmentGroup[];
+  onSelectDepartment: (department: string) => void;
+  selectedDepartment: string;
+}) {
+  return (
+    <View style={styles.departmentMenu}>
+      {groups.map((group) => {
+        const isSelected = group.department === selectedDepartment;
+
+        return (
+          <Pressable
+            accessibilityLabel={`Mostrar ciudades de ${group.department}`}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isSelected }}
+            key={group.department}
+            onPress={() => onSelectDepartment(group.department)}
+            style={[
+              styles.departmentRow,
+              isSelected ? styles.departmentRowActive : null,
+            ]}
+          >
+            <Text
+              selectable
+              style={[
+                styles.departmentRowText,
+                isSelected ? styles.departmentRowTextActive : null,
+              ]}
+            >
+              {group.department}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -322,14 +453,38 @@ function getLocationDepartmentLabel(location: NearbySearchLocation) {
   return knownArea?.department ?? "Bolivia";
 }
 
-function getLocationMetaLabel(location: NearbySearchLocation) {
-  return `Departamento de ${getLocationDepartmentLabel(location)}`;
+function getDepartmentReferenceCoordinate(
+  group: ManualLocationDepartmentGroup | null | undefined,
+) {
+  return group?.locations.find((location) => location.coordinates)?.coordinates;
 }
 
-function getDepartmentSummary(group: ManualLocationDepartmentGroup) {
-  return group.locations.length === 1
-    ? `${group.locations[0]?.label ?? group.department} disponible`
-    : `${group.locations.length} ciudades disponibles`;
+function withSelectedDepartmentForMapPin(
+  location: NearbySearchLocation,
+  selectedDepartmentGroup: ManualLocationDepartmentGroup | null,
+): NearbySearchLocation {
+  if (location.manualLocationKind !== "map-pin" || !selectedDepartmentGroup) {
+    return location;
+  }
+
+  const referenceLocation =
+    selectedDepartmentGroup.locations.find(
+      (candidate) => candidate.department && candidate.municipality,
+    ) ?? selectedDepartmentGroup.locations[0];
+  const department =
+    referenceLocation?.department ?? selectedDepartmentGroup.department;
+  const municipality =
+    referenceLocation?.municipality ??
+    referenceLocation?.label ??
+    selectedDepartmentGroup.department;
+
+  return {
+    ...location,
+    department,
+    label: `Punto manual en ${municipality}`,
+    locationCellLabel: `Departamento de ${department}`,
+    municipality,
+  };
 }
 
 function getKnownBoliviaArea(location: NearbySearchLocation) {
@@ -371,6 +526,31 @@ const styles = StyleSheet.create({
   content: {
     gap: 16,
     paddingHorizontal: 16,
+  },
+  decisionCard: {
+    backgroundColor: colors.panel,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 14,
+  },
+  decisionCardPrimary: {
+    backgroundColor: "#E3F3EE",
+    borderColor: "#BFE0D5",
+  },
+  decisionList: {
+    gap: 8,
+  },
+  decisionMeta: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  decisionTitle: {
+    color: colors.ink,
+    fontSize: 15,
+    fontWeight: "900",
+    lineHeight: 20,
   },
   departmentMenu: {
     backgroundColor: colors.panel,
@@ -416,13 +596,6 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     lineHeight: 18,
   },
-  fieldLabel: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: "800",
-    lineHeight: 18,
-    textTransform: "uppercase",
-  },
   feedback: {
     backgroundColor: colors.panel,
     borderColor: colors.border,
@@ -437,19 +610,9 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     lineHeight: 21,
   },
-  option: {
-    backgroundColor: colors.panel,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 14,
-  },
   optionCopy: {
     flex: 1,
     gap: 4,
-  },
-  optionList: {
-    gap: 8,
   },
   optionMeta: {
     color: colors.muted,
@@ -474,9 +637,6 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 15,
     fontWeight: "900",
-  },
-  mapOption: {
-    borderStyle: "dashed",
   },
   screen: {
     backgroundColor: colors.bg,

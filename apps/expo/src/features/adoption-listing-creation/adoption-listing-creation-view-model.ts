@@ -31,6 +31,7 @@ import {
   getReportCreationSelectedProfile,
   hasValidReportCreationInlinePet,
 } from "../report-creation/report-creation-pet-selection";
+import { getReportCreationMinimumDescriptionError } from "../report-creation/report-creation-text-validation";
 import { toReportLocationPublishInput } from "../report-creation/report-location-draft";
 import {
   adoptionListingPetTypeOptions,
@@ -508,8 +509,11 @@ function validateAdoptionListingDraft({
     photos,
   });
 
-  if (draft.adoptionDetails.adoptionSummary.trim().length === 0) {
-    errors.push("Cuenta que tipo de hogar necesita.");
+  const adoptionSummaryError = getAdoptionSummaryError(
+    draft.adoptionDetails.adoptionSummary,
+  );
+  if (adoptionSummaryError) {
+    errors.push(adoptionSummaryError);
   }
 
   if (!draft.contact.inAppChatEnabled && !draft.contact.whatsappEnabled) {
@@ -533,11 +537,9 @@ function buildAdoptionDetailsViewModel(
   return {
     fields: {
       adoptionSummary: {
-        error:
-          showValidation &&
-          draft.adoptionDetails.adoptionSummary.trim().length === 0
-            ? "Cuenta que tipo de hogar necesita."
-            : undefined,
+        error: showValidation
+          ? getAdoptionSummaryError(draft.adoptionDetails.adoptionSummary)
+          : undefined,
         label: "Sobre la adopcion",
         placeholder:
           "Personalidad, historia y el cuidado que necesita para su nuevo hogar",
@@ -582,6 +584,14 @@ function buildContactOptions(currentOption: AdoptionListingContactChoice) {
       value: "both" as const,
     },
   ];
+}
+
+function getAdoptionSummaryError(value: string) {
+  return getReportCreationMinimumDescriptionError({
+    emptyMessage: "Cuenta que tipo de hogar necesita.",
+    shortMessage: "Describe la adopcion con al menos 10 caracteres.",
+    value,
+  });
 }
 
 function buildInlinePetForm({
@@ -629,15 +639,15 @@ function buildLocationViewModel(draft: AdoptionListingDraft) {
     : "Selecciona un punto exacto para uso interno.";
   const approximatePublicLabel = location
     ? location.locationCellLabel
-    : "Zona aproximada pendiente";
+    : "Elige una ubicacion para calcular la zona.";
 
   return {
     approximatePublicLabel,
     exactInternalLabel,
     hasExactLocation: Boolean(location),
     mapPreviewLabel: location
-      ? `Pin interno en ${location.locationCellLabel}`
-      : "Mapa de Bolivia pendiente",
+      ? `${location.locationCellLabel}, Bolivia`
+      : "Bolivia - elige una ubicacion",
     publicPrecisionLabel: draft.showExactPinPublicly
       ? "Pin exacto publico"
       : "Zona aproximada por defecto",
@@ -713,7 +723,9 @@ function buildSteps({
     },
     {
       id: "details" as const,
-      isComplete: draft.adoptionDetails.adoptionSummary.trim().length > 0,
+      isComplete: !getAdoptionSummaryError(
+        draft.adoptionDetails.adoptionSummary,
+      ),
       label: "Detalles",
     },
     {
@@ -774,7 +786,9 @@ function buildAdoptionListingJourney({
     },
     {
       id: "details" as const,
-      isComplete: draft.adoptionDetails.adoptionSummary.trim().length > 0,
+      isComplete: !getAdoptionSummaryError(
+        draft.adoptionDetails.adoptionSummary,
+      ),
     },
     {
       id: "location" as const,

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   ReportMediaDraftSnapshot,
+  ReportMediaDraftItem,
   ReportMediaUploadSessionClient,
   ReportMediaUploadTransport,
 } from "./report-media-draft";
@@ -10,10 +11,18 @@ import {
   createReportMediaDraft,
   ReportMediaUploadFailure,
 } from "./report-media-draft";
-import { ReportMediaManager } from "./report-media-manager";
+import {
+  ReportMediaManager,
+  uploadPendingReportMediaDraftItems,
+} from "./report-media-manager";
 
 const reactState = vi.hoisted(() => ({
   cursor: 0,
+  effectCursor: 0,
+  effects: [] as {
+    dependencies?: readonly unknown[];
+  }[],
+  pendingEffects: [] as (() => void)[],
   values: [] as unknown[],
 }));
 
@@ -22,6 +31,45 @@ vi.mock("react", async () => {
 
   return {
     ...actual,
+    useCallback: <TCallback,>(callback: TCallback) => callback,
+    useEffect: (
+      effect: () => void | (() => void),
+      dependencies?: readonly unknown[],
+    ) => {
+      const index = reactState.effectCursor;
+      reactState.effectCursor += 1;
+      const previous = reactState.effects[index]?.dependencies;
+      const hasChanged =
+        dependencies === undefined ||
+        previous === undefined ||
+        dependencies.length !== previous.length ||
+        dependencies.some(
+          (dependency, dependencyIndex) =>
+            !Object.is(dependency, previous[dependencyIndex]),
+        );
+
+      if (!hasChanged) {
+        return;
+      }
+
+      reactState.effects[index] = {
+        dependencies: dependencies ? [...dependencies] : undefined,
+      };
+      reactState.pendingEffects.push(() => {
+        effect();
+      });
+    },
+    useMemo: <TValue,>(factory: () => TValue) => factory(),
+    useRef: <TValue,>(initialValue: TValue) => {
+      const index = reactState.cursor;
+      reactState.cursor += 1;
+
+      if (reactState.values.length <= index) {
+        reactState.values[index] = { current: initialValue };
+      }
+
+      return reactState.values[index] as React.MutableRefObject<TValue>;
+    },
     useState: <TValue,>(initialValue: TValue) => {
       const index = reactState.cursor;
       reactState.cursor += 1;
@@ -49,12 +97,24 @@ vi.mock("react", async () => {
 });
 
 vi.mock("react-native", () => ({
+  Modal: "Modal",
+  PanResponder: {
+    create: (handlers: Record<string, unknown>) => ({
+      panHandlers: handlers,
+    }),
+  },
   Pressable: "Pressable",
   StyleSheet: {
     create: <TStyles extends Record<string, unknown>>(styles: TStyles) =>
       styles,
   },
   Text: "Text",
+  useWindowDimensions: () => ({
+    fontScale: 1,
+    height: 844,
+    scale: 1,
+    width: 390,
+  }),
   View: "View",
 }));
 
@@ -62,13 +122,20 @@ vi.mock("expo-image", () => ({
   Image: "Image",
 }));
 
+vi.mock("@expo/vector-icons", () => ({
+  MaterialCommunityIcons: "MaterialCommunityIcons",
+}));
+
 beforeEach(() => {
   reactState.cursor = 0;
+  reactState.effectCursor = 0;
+  reactState.effects = [];
+  reactState.pendingEffects = [];
   reactState.values = [];
 });
 
 describe("ReportMediaManager", () => {
-  it("adds selected library images, emits the selected draft snapshot, then emits the uploaded snapshot", async () => {
+  it("adds selected library images and uploads them through the continue flow", async () => {
     const draft = createDraft();
     const onSnapshotChange = vi.fn();
     const sourceAdapter = {
@@ -97,8 +164,8 @@ describe("ReportMediaManager", () => {
     await pressByLabel(screen, "Agregar desde biblioteca");
 
     expect(sourceAdapter.selectFromLibrary).toHaveBeenCalledOnce();
-    expect(onSnapshotChange).toHaveBeenCalledTimes(3);
-    expect(onSnapshotChange.mock.calls[0]?.[0]).toMatchObject({
+    expect(onSnapshotChange).toHaveBeenCalledTimes(1);
+    expect(lastSnapshot(onSnapshotChange)).toMatchObject({
       items: [
         expect.objectContaining({
           originalUri: "file:///library-photo.webp",
@@ -110,6 +177,41 @@ describe("ReportMediaManager", () => {
       overallProgress: 0,
       readyMedia: [],
     });
+
+    const selectedScreen = renderFunctionElement(
+      <ReportMediaManager
+        draft={draft}
+        onSnapshotChange={onSnapshotChange}
+        snapshot={draft.getSnapshot()}
+        sourceAdapter={sourceAdapter}
+      />,
+    );
+
+    expect(findText(selectedScreen, "Foto 1")).toBe(true);
+    expect(findText(selectedScreen, "Portada")).toBe(true);
+    expect(findText(selectedScreen, "Principal")).toBe(false);
+    expect(findText(selectedScreen, "Se subira al continuar")).toBe(true);
+    expect(findText(selectedScreen, "Progreso total 0%")).toBe(true);
+    expect(
+      findElement(
+        selectedScreen,
+        (element) =>
+          element.props.accessibilityLabel ===
+          "Foto 1 de 1, portada, pendiente de subir al continuar, progreso 0%",
+      ),
+    ).toBeDefined();
+    expect(
+      findElement(
+        selectedScreen,
+        (element) =>
+          element.props.accessibilityLabel ===
+          "Quitar foto 1 de 1, portada, pendiente de subir al continuar",
+      )?.props.accessibilityState,
+    ).toMatchObject({ disabled: false });
+    expect(findText(selectedScreen, "Subir")).toBe(false);
+
+    await uploadPendingReportMediaDraftItems({ draft, onSnapshotChange });
+
     expect(onSnapshotChange.mock.calls[1]?.[0]).toMatchObject({
       items: [
         expect.objectContaining({
@@ -129,39 +231,108 @@ describe("ReportMediaManager", () => {
       overallProgress: 1,
       readyMedia: [{ mediaId: "11111111-1111-4111-8111-111111111111" }],
     });
+  });
 
-    const selectedScreen = renderFunctionElement(
+  it("opens the native cropper immediately after selecting a library image", async () => {
+    const draft = createDraft();
+    const onSnapshotChange = vi.fn();
+    const sourceAdapter = {
+      captureWithCamera: vi.fn(),
+      selectFromLibrary: vi.fn(() =>
+        Promise.resolve([
+          {
+            height: 900,
+            mimeType: "image/webp" as const,
+            originalUri: "file:///library-photo.webp",
+            sizeBytes: 300_000,
+            width: 1200,
+          },
+        ]),
+      ),
+    };
+    const editAdapter = {
+      editImage: vi.fn((item: ReportMediaDraftItem) =>
+        Promise.resolve({
+          height: 800,
+          localId: item.localId,
+          mimeType: "image/webp" as const,
+          sizeBytes: 220_000,
+          uri: "file:///library-photo-cropped.webp",
+          width: 800,
+        }),
+      ),
+    };
+    const screen = renderFunctionElement(
       <ReportMediaManager
         draft={draft}
+        editAdapter={editAdapter}
         onSnapshotChange={onSnapshotChange}
         snapshot={draft.getSnapshot()}
         sourceAdapter={sourceAdapter}
       />,
     );
 
-    expect(findText(selectedScreen, "Foto 1")).toBe(true);
-    expect(findText(selectedScreen, "Principal")).toBe(true);
-    expect(findText(selectedScreen, "Lista")).toBe(true);
-    expect(findText(selectedScreen, "Progreso total 100%")).toBe(true);
-    expect(
-      findElement(
-        selectedScreen,
-        (element) =>
-          element.props.accessibilityLabel ===
-          "Foto 1 de 1, principal, subida, progreso 100%",
-      ),
-    ).toBeDefined();
-    expect(
-      findElement(
-        selectedScreen,
-        (element) =>
-          element.props.accessibilityLabel ===
-          "Quitar foto 1 de 1, principal, subida",
-      )?.props.accessibilityState,
-    ).toMatchObject({ disabled: false });
+    await pressByLabel(screen, "Agregar desde biblioteca");
+
+    expect(editAdapter.editImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        originalUri: "file:///library-photo.webp",
+        uploadUri: "file:///library-photo.webp",
+      }),
+    );
+    expect(lastSnapshot(onSnapshotChange)).toMatchObject({
+      items: [
+        expect.objectContaining({
+          originalUri: "file:///library-photo.webp",
+          status: "selected",
+          uploadUri: "file:///library-photo-cropped.webp",
+        }),
+      ],
+    });
+    expect(findText(screen, "Recortar y girar")).toBe(false);
   });
 
-  it("captures a camera image, emits the selected draft snapshot, then emits the uploaded snapshot", async () => {
+  it("removes a newly selected library image when native cropping is canceled", async () => {
+    const draft = createDraft();
+    const onSnapshotChange = vi.fn();
+    const sourceAdapter = {
+      captureWithCamera: vi.fn(),
+      selectFromLibrary: vi.fn(() =>
+        Promise.resolve([
+          {
+            height: 900,
+            mimeType: "image/webp" as const,
+            originalUri: "file:///library-photo.webp",
+            sizeBytes: 300_000,
+            width: 1200,
+          },
+        ]),
+      ),
+    };
+    const editAdapter = {
+      editImage: vi.fn(() => Promise.resolve(undefined)),
+    };
+    const screen = renderFunctionElement(
+      <ReportMediaManager
+        draft={draft}
+        editAdapter={editAdapter}
+        onSnapshotChange={onSnapshotChange}
+        snapshot={draft.getSnapshot()}
+        sourceAdapter={sourceAdapter}
+      />,
+    );
+
+    await pressByLabel(screen, "Agregar desde biblioteca");
+
+    expect(lastSnapshot(onSnapshotChange)).toMatchObject({
+      items: [],
+      overallProgress: 0,
+      readyMedia: [],
+    });
+    expect(draft.getSnapshot().items).toHaveLength(0);
+  });
+
+  it("captures a camera image and stages it before upload", async () => {
     const draft = createDraft();
     const onSnapshotChange = vi.fn();
     const sourceAdapter = {
@@ -188,8 +359,8 @@ describe("ReportMediaManager", () => {
     await pressByLabel(screen, "Agregar con camara");
 
     expect(sourceAdapter.captureWithCamera).toHaveBeenCalledOnce();
-    expect(onSnapshotChange).toHaveBeenCalledTimes(3);
-    expect(onSnapshotChange.mock.calls[0]?.[0]).toMatchObject({
+    expect(onSnapshotChange).toHaveBeenCalledTimes(1);
+    expect(lastSnapshot(onSnapshotChange)).toMatchObject({
       items: [
         expect.objectContaining({
           originalUri: "file:///camera-photo.webp",
@@ -200,25 +371,6 @@ describe("ReportMediaManager", () => {
       ],
       overallProgress: 0,
       readyMedia: [],
-    });
-    expect(onSnapshotChange.mock.calls[1]?.[0]).toMatchObject({
-      items: [
-        expect.objectContaining({
-          status: "authorizing",
-        }),
-      ],
-    });
-    expect(lastSnapshot(onSnapshotChange)).toMatchObject({
-      items: [
-        expect.objectContaining({
-          originalUri: "file:///camera-photo.webp",
-          progress: 1,
-          status: "ready",
-          uploadUri: "file:///camera-photo.webp",
-        }),
-      ],
-      overallProgress: 1,
-      readyMedia: [{ mediaId: "11111111-1111-4111-8111-111111111111" }],
     });
   });
 
@@ -263,7 +415,7 @@ describe("ReportMediaManager", () => {
     expect(onSnapshotChange).not.toHaveBeenCalled();
   });
 
-  it("preserves the original local URI when accepting an edited image and uploads the edit", async () => {
+  it("opens the native cropper from the edit action and preserves the original local URI", async () => {
     const draft = createDraft();
     const onSnapshotChange = vi.fn();
     const selected = draft.selectLocalImage({
@@ -295,24 +447,16 @@ describe("ReportMediaManager", () => {
       />,
     );
 
-    await pressByLabel(screen, "Recortar foto 1");
+    await pressByLabel(screen, "Editar foto 1");
 
     expect(editAdapter.editImage).toHaveBeenCalledWith(
       expect.objectContaining({
         localId: selected.localId,
         originalUri: "file:///original-camera.jpg",
       }),
-      {
-        crop: {
-          height: 1200,
-          originX: 200,
-          originY: 0,
-          width: 1200,
-        },
-      },
     );
-    expect(onSnapshotChange).toHaveBeenCalledTimes(3);
-    expect(onSnapshotChange.mock.calls[0]?.[0]).toMatchObject({
+    expect(onSnapshotChange).toHaveBeenCalledTimes(1);
+    expect(lastSnapshot(onSnapshotChange)).toMatchObject({
       items: [
         expect.objectContaining({
           originalUri: "file:///original-camera.jpg",
@@ -322,24 +466,6 @@ describe("ReportMediaManager", () => {
         }),
       ],
       readyMedia: [],
-    });
-    expect(onSnapshotChange.mock.calls[1]?.[0]).toMatchObject({
-      items: [
-        expect.objectContaining({
-          status: "authorizing",
-        }),
-      ],
-    });
-    expect(lastSnapshot(onSnapshotChange)).toMatchObject({
-      items: [
-        expect.objectContaining({
-          originalUri: "file:///original-camera.jpg",
-          progress: 1,
-          status: "ready",
-          uploadUri: "file:///edited-crop.webp",
-        }),
-      ],
-      readyMedia: [{ mediaId: "11111111-1111-4111-8111-111111111111" }],
     });
   });
 
@@ -383,7 +509,7 @@ describe("ReportMediaManager", () => {
       />,
     );
 
-    await pressByLabel(firstScreen, "Recortar foto 1");
+    await pressByLabel(firstScreen, "Editar foto 1");
 
     const secondScreen = renderFunctionElement(
       <ReportMediaManager
@@ -395,7 +521,7 @@ describe("ReportMediaManager", () => {
       />,
     );
 
-    await pressByLabel(secondScreen, "Recortar foto 1");
+    await pressByLabel(secondScreen, "Editar foto 1");
 
     expect(editAdapter.editImage.mock.calls[0]?.[0]).toMatchObject({
       localId: selected.localId,
@@ -411,7 +537,7 @@ describe("ReportMediaManager", () => {
       items: [
         expect.objectContaining({
           originalUri: "file:///original-camera.jpg",
-          status: "ready",
+          status: "selected",
           uploadUri: "file:///edited-crop-2.webp",
         }),
       ],
@@ -444,7 +570,11 @@ describe("ReportMediaManager", () => {
       />,
     );
 
-    await pressByLabel(initialScreen, "Hacer principal foto 2");
+    expect(findText(initialScreen, "Hacer principal")).toBe(false);
+    expect(findText(initialScreen, "Arriba")).toBe(false);
+    expect(findText(initialScreen, "Abajo")).toBe(false);
+
+    await pressByLabel(initialScreen, "Usar foto 2 de 2 como portada");
 
     expect(lastSnapshot(onSnapshotChange)).toMatchObject({
       items: [
@@ -464,7 +594,8 @@ describe("ReportMediaManager", () => {
     );
 
     expect(findText(primaryScreen, "Foto 1")).toBe(true);
-    expect(findText(primaryScreen, "Principal")).toBe(true);
+    expect(findText(primaryScreen, "Portada")).toBe(true);
+    expect(findText(primaryScreen, "Principal")).toBe(false);
 
     await pressByLabel(primaryScreen, "Mover foto 2 de 2");
 
@@ -719,7 +850,7 @@ describe("ReportMediaManager", () => {
         progressScreen,
         (element) =>
           element.props.accessibilityLabel ===
-          "Foto 1 de 2, principal, subiendo, progreso 50%",
+          "Foto 1 de 2, portada, subiendo, progreso 50%",
       ),
     ).toBeDefined();
     expect(
@@ -735,7 +866,7 @@ describe("ReportMediaManager", () => {
         progressScreen,
         (element) =>
           element.props.accessibilityLabel ===
-          "Recortar foto 1 de 2, principal, subiendo",
+          "Editar foto 1 de 2, portada, subiendo",
       )?.props.accessibilityState,
     ).toMatchObject({ disabled: true });
 
@@ -772,15 +903,7 @@ describe("ReportMediaManager", () => {
         screen,
         (element) =>
           element.props.accessibilityLabel ===
-          "Recortar foto 1 de 1, principal, subida",
-      )?.props.accessibilityState,
-    ).toMatchObject({ disabled: true });
-    expect(
-      findElement(
-        screen,
-        (element) =>
-          element.props.accessibilityLabel ===
-          "Girar foto 1 de 1, principal, subida",
+          "Editar foto 1 de 1, portada, subida",
       )?.props.accessibilityState,
     ).toMatchObject({ disabled: true });
   });
@@ -845,8 +968,12 @@ type TestElement = React.ReactElement<ElementProps>;
 
 function renderFunctionElement(node: React.ReactNode): React.ReactNode {
   reactState.cursor = 0;
+  reactState.effectCursor = 0;
+  reactState.pendingEffects = [];
+  const rendered = renderFunctionElementInner(node);
 
-  return renderFunctionElementInner(node);
+  flushEffects();
+  return rendered;
 }
 
 function renderFunctionElementInner(node: React.ReactNode): React.ReactNode {
@@ -854,20 +981,32 @@ function renderFunctionElementInner(node: React.ReactNode): React.ReactNode {
     return node;
   }
 
-  if (typeof node.type !== "function") {
-    return node;
+  if (typeof node.type === "function") {
+    const Component = node.type as (props: ElementProps) => React.ReactNode;
+
+    return renderFunctionElementInner(Component(node.props));
   }
 
-  const Component = node.type as (props: ElementProps) => React.ReactNode;
+  const children = React.Children.toArray(node.props.children).map((child) =>
+    renderFunctionElementInner(child),
+  );
 
-  return renderFunctionElementInner(Component(node.props));
+  return React.cloneElement(node, {
+    ...node.props,
+    children:
+      children.length === 0
+        ? undefined
+        : children.length === 1
+          ? children[0]
+          : children,
+  });
 }
 
 function findElement(
   node: React.ReactNode,
   predicate: (element: TestElement) => boolean,
 ): TestElement | undefined {
-  const rendered = renderFunctionElement(node);
+  const rendered = node;
 
   if (!React.isValidElement<ElementProps>(rendered)) {
     return undefined;
@@ -889,7 +1028,7 @@ function findElement(
 }
 
 function findText(node: React.ReactNode, text: string): boolean {
-  const rendered = renderFunctionElement(node);
+  const rendered = node;
 
   if (typeof rendered === "string") {
     return rendered === text;
@@ -950,6 +1089,14 @@ function createDeferred<TValue>() {
   });
 
   return { promise, resolve };
+}
+
+function flushEffects() {
+  while (reactState.pendingEffects.length > 0) {
+    const effect = reactState.pendingEffects.shift();
+
+    effect?.();
+  }
 }
 
 async function flushPromises() {

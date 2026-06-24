@@ -58,6 +58,10 @@ vi.mock("react-native", () => ({
   View: "View",
 }));
 
+vi.mock("@react-native-community/datetimepicker", () => ({
+  default: "DateTimePicker",
+}));
+
 vi.mock("react-native-maps", () => ({
   default: "MapView",
   Marker: "Marker",
@@ -100,13 +104,22 @@ describe("ReportLocationPickerScreen", () => {
     expect(
       findText(
         screen,
-        "Usamos tu ubicacion solo para ubicar este reporte. Puedes elegir una ciudad, un departamento o un punto en el mapa.",
+        "Elige una zona aproximada o marca un punto exacto. Por defecto mostramos solo la zona al publico.",
       ),
     ).toBe(true);
     expect(findText(screen, "Usar mi ubicacion actual")).toBe(true);
-    expect(findText(screen, "Departamento")).toBe(true);
+    expect(findText(screen, "Departamento seleccionado")).toBe(true);
     expect(findText(screen, "La Paz")).toBe(true);
-    expect(findText(screen, "Elegir punto en el mapa")).toBe(true);
+    expect(
+      findElement(
+        screen,
+        (element) =>
+          element.type === "Pressable" &&
+          element.props.accessibilityLabel ===
+            "Usar La Paz como zona aproximada",
+      ),
+    ).toBeTruthy();
+    expect(findText(screen, "Marcar punto exacto en el mapa")).toBe(true);
     expect(adapter.resolveForegroundLocation).not.toHaveBeenCalled();
   });
 
@@ -153,14 +166,15 @@ describe("ReportLocationPickerScreen", () => {
         onConfirm={onConfirm}
       />,
     );
-    const cityButton = findElement(
+    const departmentChoiceButton = findElement(
       santaCruzScreen,
       (element) =>
         element.type === "Pressable" &&
-        element.props.accessibilityLabel === "Elegir Santa Cruz de la Sierra",
+        element.props.accessibilityLabel ===
+          "Usar Santa Cruz como zona aproximada",
     );
 
-    void getPressableOnPress(cityButton)();
+    void getPressableOnPress(departmentChoiceButton)();
 
     expect(onConfirm).toHaveBeenCalledWith({
       addressLabel: "Santa Cruz de la Sierra",
@@ -260,7 +274,7 @@ describe("ReportLocationPickerScreen", () => {
       ),
     ).toBe(true);
     expect(findText(deniedScreen, "La Paz")).toBe(true);
-    expect(findText(deniedScreen, "Elegir punto en el mapa")).toBe(true);
+    expect(findText(deniedScreen, "Marcar punto exacto en el mapa")).toBe(true);
   });
 
   it("confirms a manually selected map pin as a report location draft", () => {
@@ -278,7 +292,7 @@ describe("ReportLocationPickerScreen", () => {
       screen,
       (element) =>
         element.type === "Pressable" &&
-        element.props.accessibilityLabel === "Elegir punto en el mapa",
+        element.props.accessibilityLabel === "Marcar punto exacto en La Paz",
     );
 
     void getPressableOnPress(mapOption)();
@@ -305,7 +319,85 @@ describe("ReportLocationPickerScreen", () => {
       coordinates: { latitude: -16.5022, longitude: -68.1213 },
       department: "Bolivia",
       locationCellLabel: "Punto elegido",
-      municipality: "Bolivia",
+      municipality: "Punto manual",
+    });
+  });
+
+  it("seeds an untouched map pin from the selected department", () => {
+    const onConfirm = vi.fn();
+    const adapter = createNearbyLocationAdapterBoundary();
+    const screen = renderScreen(
+      <ReportLocationPickerScreen
+        adapter={adapter}
+        manualLocationOptions={manualLocationOptions}
+        onConfirm={onConfirm}
+      />,
+    );
+    const departmentButton = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel ===
+          "Cambiar departamento. Seleccion actual: La Paz",
+    );
+
+    void getPressableOnPress(departmentButton)();
+
+    const expandedScreen = renderScreen(
+      <ReportLocationPickerScreen
+        adapter={adapter}
+        manualLocationOptions={manualLocationOptions}
+        onConfirm={onConfirm}
+      />,
+    );
+    const santaCruzButton = findElement(
+      expandedScreen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel === "Mostrar ciudades de Santa Cruz",
+    );
+
+    void getPressableOnPress(santaCruzButton)();
+
+    const santaCruzScreen = renderScreen(
+      <ReportLocationPickerScreen
+        adapter={adapter}
+        manualLocationOptions={manualLocationOptions}
+        onConfirm={onConfirm}
+      />,
+    );
+    const mapOption = findElement(
+      santaCruzScreen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel ===
+          "Marcar punto exacto en Santa Cruz",
+    );
+
+    void getPressableOnPress(mapOption)();
+
+    const mapScreen = renderScreen(
+      <ReportLocationPickerScreen
+        adapter={adapter}
+        manualLocationOptions={manualLocationOptions}
+        onConfirm={onConfirm}
+      />,
+    );
+    const confirmPinButton = findElement(
+      mapScreen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel === "Confirmar punto elegido",
+    );
+
+    void getPressableOnPress(confirmPinButton)();
+
+    expect(onConfirm).toHaveBeenCalledWith({
+      addressLabel: "Punto manual en Santa Cruz de la Sierra",
+      coordinates: { latitude: -17.7833, longitude: -63.1821 },
+      department: "Santa Cruz",
+      locationCellLabel: "Departamento de Santa Cruz",
+      municipality: "Santa Cruz de la Sierra",
     });
   });
 
@@ -324,7 +416,7 @@ describe("ReportLocationPickerScreen", () => {
       screen,
       (element) =>
         element.type === "Pressable" &&
-        element.props.accessibilityLabel === "Elegir punto en el mapa",
+        element.props.accessibilityLabel === "Marcar punto exacto en La Paz",
     );
 
     void getPressableOnPress(mapOption)();
@@ -366,7 +458,9 @@ describe("ReportLocationPickerScreen", () => {
       ),
     ).toBe(true);
     expect(findText(recoverableScreen, "La Paz")).toBe(true);
-    expect(findText(recoverableScreen, "Elegir punto en el mapa")).toBe(true);
+    expect(findText(recoverableScreen, "Marcar punto exacto en el mapa")).toBe(
+      true,
+    );
   });
 
   it("keeps manual place options visible when the map provider is unavailable", () => {
@@ -386,7 +480,7 @@ describe("ReportLocationPickerScreen", () => {
       screen,
       (element) =>
         element.type === "Pressable" &&
-        element.props.accessibilityLabel === "Elegir punto en el mapa",
+        element.props.accessibilityLabel === "Marcar punto exacto en La Paz",
     );
 
     void getPressableOnPress(mapOption)();
@@ -409,7 +503,9 @@ describe("ReportLocationPickerScreen", () => {
     ).toBe(true);
     expect(findText(mapErrorScreen, "Volver a la lista")).toBe(true);
     expect(findText(mapErrorScreen, "La Paz")).toBe(true);
-    expect(findText(mapErrorScreen, "Elegir punto en el mapa")).toBe(true);
+    expect(findText(mapErrorScreen, "Marcar punto exacto en el mapa")).toBe(
+      true,
+    );
   });
 });
 

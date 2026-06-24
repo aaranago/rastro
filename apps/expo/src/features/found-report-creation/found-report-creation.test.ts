@@ -91,6 +91,9 @@ describe("Found Pet Report creation view model", () => {
     expect(attemptedDetailsViewModel.foundDetails.fields.condition.error).toBe(
       "Describe la condicion de la mascota encontrada.",
     );
+    expect(
+      attemptedDetailsViewModel.foundDetails.fields.description.error,
+    ).toBe("Agrega una descripcion de la mascota encontrada.");
     expect(attemptedDetailsViewModel.pet.fields.description.error).toBe(
       "Agrega senas visibles de la mascota encontrada.",
     );
@@ -109,6 +112,35 @@ describe("Found Pet Report creation view model", () => {
     expect(attemptedContactViewModel.contact.error).toBe(
       "Elige chat, WhatsApp o ambos.",
     );
+  });
+
+  it("blocks found reports with a too-short public description before publish", () => {
+    const viewModel = buildFoundReportCreationViewModel({
+      draft: createFoundReportDraft({
+        foundDetails: {
+          condition: "Esta tranquila y segura.",
+          description: "sdf",
+          foundAtLabel: "2026-06-18T10:50:00.000Z",
+        },
+        pet: {
+          breed: "",
+          description: "Collar rojo y patas blancas.",
+          type: "Perro",
+        },
+      }),
+      journey: {
+        completedStepIds: ["chooseType", "photos"],
+        currentStepId: "details",
+      },
+      validationDisplay: {
+        attemptedStepId: "details",
+      },
+    });
+
+    expect(viewModel.foundDetails.fields.description.error).toBe(
+      "Escribe una descripcion de al menos 10 caracteres.",
+    );
+    expect(viewModel.canPublish).toBe(false);
   });
 
   it("converts a complete found pet draft into publish input with location, timing, condition, description, and contact", () => {

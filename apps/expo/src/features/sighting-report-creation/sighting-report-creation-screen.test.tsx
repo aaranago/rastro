@@ -134,8 +134,20 @@ vi.mock("react-native", () => ({
   View: "View",
 }));
 
+vi.mock("@react-native-community/datetimepicker", () => ({
+  default: "DateTimePicker",
+}));
+
 vi.mock("expo-image", () => ({
   Image: "Image",
+}));
+
+vi.mock("@expo/vector-icons", () => ({
+  MaterialCommunityIcons: "MaterialCommunityIcons",
+}));
+
+vi.mock("../shell/shell-overlays", () => ({
+  ShellIcon: "ShellIcon",
 }));
 
 vi.mock("react-native-safe-area-context", () => ({
@@ -239,7 +251,7 @@ describe("SightingReportCreationScreen", () => {
     const screen = renderScreen(<SightingReportCreationScreen />);
 
     expect(durableDraft.hookInput?.recoveryMode).toBe("explicit");
-    expect(findText(screen, "Paso 3 de 8")).toBe(true);
+    expect(findText(screen, "Paso 2 de 5")).toBe(true);
     expect(findText(screen, "Detalles del avistamiento")).toBe(true);
     expect(findText(screen, "Mascota vista")).toBe(true);
     expect(findText(screen, "Fotos opcionales")).toBe(false);
@@ -290,8 +302,8 @@ describe("SightingReportCreationScreen", () => {
     );
 
     expect(keyboardFrame?.props.behavior).toBe("padding");
-    expect(scrollView?.props.contentInset).toEqual({ bottom: 122 });
-    expect(scrollView?.props.scrollIndicatorInsets).toEqual({ bottom: 122 });
+    expect(scrollView?.props.contentInset).toEqual({ bottom: 206 });
+    expect(scrollView?.props.scrollIndicatorInsets).toEqual({ bottom: 0 });
     expect(findText(scrollView, "Continuar")).toBe(false);
     expect(findText(footer, "Continuar")).toBe(true);
   });
@@ -318,7 +330,7 @@ describe("SightingReportCreationScreen", () => {
 
     const editedFreshScreen = renderScreen(<SightingReportCreationScreen />);
 
-    expect(findText(editedFreshScreen, "Paso 2 de 8")).toBe(true);
+    expect(findText(editedFreshScreen, "Paso 1 de 5")).toBe(true);
     expect(findText(editedFreshScreen, "Fotos opcionales")).toBe(true);
 
     const discardButton = findElement(
@@ -336,7 +348,7 @@ describe("SightingReportCreationScreen", () => {
     expect(findText(resetScreen, "Encontramos un borrador guardado.")).toBe(
       false,
     );
-    expect(findText(resetScreen, "Paso 3 de 8")).toBe(true);
+    expect(findText(resetScreen, "Paso 2 de 5")).toBe(true);
     expect(findText(resetScreen, "Detalles del avistamiento")).toBe(true);
     expect(findText(resetScreen, "Fotos opcionales")).toBe(false);
   });
@@ -353,7 +365,7 @@ describe("SightingReportCreationScreen", () => {
 
     const attemptedScreen = renderScreen(<SightingReportCreationScreen />);
 
-    expect(findText(attemptedScreen, "Paso 3 de 8")).toBe(true);
+    expect(findText(attemptedScreen, "Paso 2 de 5")).toBe(true);
     expect(findText(attemptedScreen, "Detalles del avistamiento")).toBe(true);
     expect(findText(attemptedScreen, "Fotos opcionales")).toBe(false);
     expect(findText(attemptedScreen, "Chat en Rastro")).toBe(false);
@@ -530,11 +542,15 @@ describe("SightingReportCreationScreen", () => {
         }),
     );
     const draftPublished = vi.fn();
+    const openPublishedReport = vi.fn();
+    const sharePublishedReport = vi.fn();
 
     const editingScreen = renderScreen(
       <SightingReportCreationScreen
         onDraftPublished={draftPublished}
+        onOpenPublishedReport={openPublishedReport}
         onPublishSightingReport={publishSightingReport}
+        onSharePublishedReport={sharePublishedReport}
       />,
     );
     const publishButton = findElement(
@@ -550,7 +566,9 @@ describe("SightingReportCreationScreen", () => {
     const pendingScreen = renderScreen(
       <SightingReportCreationScreen
         onDraftPublished={draftPublished}
+        onOpenPublishedReport={openPublishedReport}
         onPublishSightingReport={publishSightingReport}
+        onSharePublishedReport={sharePublishedReport}
       />,
     );
 
@@ -566,14 +584,58 @@ describe("SightingReportCreationScreen", () => {
     const successScreen = renderScreen(
       <SightingReportCreationScreen
         onDraftPublished={draftPublished}
+        onOpenPublishedReport={openPublishedReport}
         onPublishSightingReport={publishSightingReport}
+        onSharePublishedReport={sharePublishedReport}
       />,
     );
+    const shareButton = findElement(
+      successScreen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Compartir"),
+    );
+    const viewReportButton = findElement(
+      successScreen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Ver avistamiento"),
+    );
+
+    void getPressableOnPress(shareButton)();
+    void getPressableOnPress(viewReportButton)();
 
     expect(durableDraft.clearDraft).toHaveBeenCalledTimes(1);
     expect(draftPublished).toHaveBeenCalledTimes(1);
-    expect(findText(successScreen, "report-sighting-backend-1")).toBe(true);
-    expect(findText(successScreen, "active")).toBe(true);
+    expect(sharePublishedReport).toHaveBeenCalledWith({
+      id: "report-sighting-backend-1",
+      status: "active",
+    });
+    expect(openPublishedReport).toHaveBeenCalledWith({
+      id: "report-sighting-backend-1",
+      status: "active",
+    });
+    expect(findText(successScreen, "report-sighting-backend-1")).toBe(false);
+    expect(findText(successScreen, "active")).toBe(false);
+  });
+
+  it("lets people go back from review before publishing", () => {
+    durableDraft.draft = createReadyDraft();
+
+    const reviewScreen = renderScreen(<SightingReportCreationScreen />);
+    const backButton = findElement(
+      reviewScreen,
+      (element) => element.type === "Pressable" && findText(element, "Atrás"),
+    );
+
+    expect(findText(reviewScreen, "Publicar avistamiento")).toBe(true);
+    expect(findText(reviewScreen, "Continuar")).toBe(false);
+
+    void getPressableOnPress(backButton)();
+
+    const contactScreen = renderScreen(<SightingReportCreationScreen />);
+
+    expect(findText(contactScreen, "Contacto")).toBe(true);
+    expect(findText(contactScreen, "Publicar avistamiento")).toBe(false);
+    expect(findText(contactScreen, "Continuar")).toBe(true);
   });
 
   it("submits one backend request when publish is tapped repeatedly during a slow response", async () => {

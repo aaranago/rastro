@@ -13,6 +13,10 @@ import type {
   PublishFoundReportContactOption,
 } from "./found-report-creation-types";
 import {
+  normalizeReportCreationEventTime,
+  reportCreationEventTimeValidationError,
+} from "../report-creation/report-creation-event-time";
+import {
   createReportCreationJourney,
   deriveReportCreationJourney,
 } from "../report-creation/report-creation-journey";
@@ -22,10 +26,7 @@ import {
   getReadyUploadedReportCreationPhotos,
   getRequiredReportCreationPhotoStepError,
 } from "../report-creation/report-creation-media-validation";
-import {
-  normalizeReportCreationEventTime,
-  reportCreationEventTimeValidationError,
-} from "../report-creation/report-creation-event-time";
+import { getReportCreationMinimumDescriptionError } from "../report-creation/report-creation-text-validation";
 import { buildReportCreationContactViewModel } from "../report-creation/report-creation-view-model";
 import { toReportLocationPublishInput } from "../report-creation/report-location-draft";
 import { foundReportPetTypeOptions } from "./found-report-creation-types";
@@ -248,11 +249,9 @@ export function buildFoundReportCreationViewModel({
           value: draft.foundDetails.condition,
         },
         description: {
-          error:
-            showDetailsValidation &&
-            draft.foundDetails.description.trim().length === 0
-              ? "Agrega una descripcion de la mascota encontrada."
-              : undefined,
+          error: showDetailsValidation
+            ? getFoundDescriptionError(draft.foundDetails.description)
+            : undefined,
           label: "Descripcion",
           placeholder:
             "Color, tamano, marcas visibles y donde la tienes segura",
@@ -261,7 +260,7 @@ export function buildFoundReportCreationViewModel({
         foundAtLabel: {
           error: showDetailsValidation ? foundAtError : undefined,
           label: "Cuando la encontraste",
-          placeholder: "Hoy, ayer, fecha y hora aproximada",
+          placeholder: "Selecciona cuando la encontraste",
           value: draft.foundDetails.foundAtLabel,
         },
       },
@@ -430,8 +429,11 @@ function validateFoundReportDraft(draft: FoundReportDraft) {
     errors.push("Describe la condicion de la mascota encontrada.");
   }
 
-  if (draft.foundDetails.description.trim().length === 0) {
-    errors.push("Agrega una descripcion de la mascota encontrada.");
+  const foundDescriptionError = getFoundDescriptionError(
+    draft.foundDetails.description,
+  );
+  if (foundDescriptionError) {
+    errors.push(foundDescriptionError);
   }
 
   if (draft.pet.description.trim().length === 0) {
@@ -548,7 +550,7 @@ function buildLocationViewModel(draft: FoundReportDraft) {
     : "Selecciona el punto donde fue encontrada.";
   const approximatePublicLabel = location
     ? location.locationCellLabel
-    : "Zona aproximada pendiente";
+    : "Elige una ubicacion para calcular la zona.";
 
   return {
     approximatePublicLabel,
@@ -556,8 +558,8 @@ function buildLocationViewModel(draft: FoundReportDraft) {
     exactPinOptInLabel: "Mostrar pin exacto publicamente",
     hasExactLocation: Boolean(location),
     mapPreviewLabel: location
-      ? `Punto interno en ${location.locationCellLabel}`
-      : "Mapa de Bolivia pendiente",
+      ? `${location.locationCellLabel}, Bolivia`
+      : "Bolivia - elige una ubicacion",
     publicPrecisionLabel: draft.showExactPinPublicly
       ? "Pin exacto publico"
       : "Zona aproximada por defecto",
@@ -622,7 +624,7 @@ function buildSteps({
       isComplete:
         !getFoundAtError(draft.foundDetails.foundAtLabel) &&
         draft.foundDetails.condition.trim().length > 0 &&
-        draft.foundDetails.description.trim().length > 0 &&
+        !getFoundDescriptionError(draft.foundDetails.description) &&
         readyPhotos.length > 0,
       label: "Detalles",
     },
@@ -681,7 +683,7 @@ function buildFoundReportJourney({
       isComplete:
         !getFoundAtError(draft.foundDetails.foundAtLabel) &&
         draft.foundDetails.condition.trim().length > 0 &&
-        draft.foundDetails.description.trim().length > 0 &&
+        !getFoundDescriptionError(draft.foundDetails.description) &&
         draft.pet.description.trim().length > 0,
     },
     {
@@ -735,6 +737,14 @@ function shouldShowValidationError(
     validationDisplay === undefined ||
     validationDisplay.attemptedStepId === stepId
   );
+}
+
+function getFoundDescriptionError(value: string) {
+  return getReportCreationMinimumDescriptionError({
+    emptyMessage: "Agrega una descripcion de la mascota encontrada.",
+    shortMessage: "Escribe una descripcion de al menos 10 caracteres.",
+    value,
+  });
 }
 
 function contactOptionLabel(option: FoundReportContactOption) {

@@ -2,6 +2,7 @@ import type { DimensionValue } from "react-native";
 import * as React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import type {
   AcceptedEditedReportImage,
@@ -51,6 +52,7 @@ export interface ReportMediaEditOptions {
     originY: number;
     width: number;
   };
+  rotateBeforeCrop?: boolean;
   rotateDegrees?: number;
 }
 
@@ -66,6 +68,11 @@ export type ReportMediaManagerDraftBridge = Pick<
   | "uploadImage"
 >;
 
+export interface ReportMediaStepController {
+  getSnapshot(): ReportMediaDraftSnapshot;
+  uploadPendingImages(): Promise<ReportMediaDraftSnapshot>;
+}
+
 export interface ReportMediaManagerLabels {
   cameraButton: string;
   libraryButton: string;
@@ -76,6 +83,7 @@ export interface ReportMediaManagerProps {
   draft: ReportMediaManagerDraftBridge;
   editAdapter?: ReportMediaEditAdapter;
   labels?: Partial<ReportMediaManagerLabels>;
+  maxItems?: number;
   onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
   snapshot: ReportMediaDraftSnapshot;
   sourceAdapter: ReportMediaSourceAdapter;
@@ -91,12 +99,16 @@ export function ReportMediaManager({
   draft,
   editAdapter,
   labels,
+  maxItems = 5,
   onSnapshotChange,
   snapshot,
   sourceAdapter,
 }: ReportMediaManagerProps) {
   const [sourceFeedback, setSourceFeedback] =
     React.useState<ReportMediaSourceFeedback | null>(null);
+  const [editingLocalId, setEditingLocalId] = React.useState<string | null>(
+    null,
+  );
   const resolvedLabels = { ...defaultLabels, ...labels };
   const overallProgressLabel = `Progreso total ${formatReportMediaProgress(snapshot.overallProgress)}`;
   const overallProgressPercent = Math.round(
@@ -104,6 +116,25 @@ export function ReportMediaManager({
   );
   const isOverallUploadBusy = snapshot.items.some((item) =>
     isReportMediaUploadBusy(item.status),
+  );
+  const canAddMoreMedia = snapshot.items.length < maxItems;
+  const mediaLimitFeedback = `Puedes subir hasta ${maxItems} fotos por reporte.`;
+  const editDraftItem = React.useCallback(
+    (item: ReportMediaDraftItem, removeOnCancel: boolean) => {
+      if (!editAdapter) {
+        return Promise.resolve(false);
+      }
+
+      return editDraftItemAndEmitSnapshot({
+        draft,
+        editAdapter,
+        item,
+        onEditingLocalIdChange: setEditingLocalId,
+        onSnapshotChange,
+        removeOnCancel,
+      });
+    },
+    [draft, editAdapter, onSnapshotChange],
   );
 
   return (
@@ -130,8 +161,14 @@ export function ReportMediaManager({
       </View>
       <View style={styles.sourceActions}>
         <Pressable
-          accessibilityLabel="Agregar desde biblioteca"
+          accessibilityLabel={
+            canAddMoreMedia
+              ? "Agregar desde biblioteca"
+              : "Limite de fotos alcanzado"
+          }
           accessibilityRole="button"
+          accessibilityState={{ disabled: !canAddMoreMedia }}
+          disabled={!canAddMoreMedia}
           onPress={async () => {
             const sourceResult = await sourceAdapter.selectFromLibrary();
 
@@ -141,23 +178,21 @@ export function ReportMediaManager({
             }
 
             setSourceFeedback(null);
-            const selectedItems: ReportMediaDraftItem[] = [];
+            const selectedItems = sourceResult
+              .slice(0, Math.max(maxItems - snapshot.items.length, 0))
+              .map((image) => draft.selectLocalImage(image));
 
-            for (const image of sourceResult) {
-              selectedItems.push(draft.selectLocalImage(image));
-            }
-
-            onSnapshotChange(draft.getSnapshot());
-
-            for (const item of selectedItems) {
-              await uploadDraftItemAndEmitSnapshot({
-                draft,
-                localId: item.localId,
-                onSnapshotChange,
-              });
+            if (selectedItems.length > 0) {
+              onSnapshotChange(draft.getSnapshot());
+              for (const selectedItem of selectedItems) {
+                await editDraftItem(selectedItem, true);
+              }
             }
           }}
-          style={styles.sourceButton}
+          style={[
+            styles.sourceButton,
+            !canAddMoreMedia ? styles.disabledAction : null,
+          ]}
         >
           <Text maxFontSizeMultiplier={1.1} style={styles.sourceButtonIcon}>
             +
@@ -167,8 +202,12 @@ export function ReportMediaManager({
           </Text>
         </Pressable>
         <Pressable
-          accessibilityLabel="Agregar con camara"
+          accessibilityLabel={
+            canAddMoreMedia ? "Agregar con camara" : "Limite de fotos alcanzado"
+          }
           accessibilityRole="button"
+          accessibilityState={{ disabled: !canAddMoreMedia }}
+          disabled={!canAddMoreMedia}
           onPress={async () => {
             const sourceResult = await sourceAdapter.captureWithCamera();
 
@@ -182,15 +221,13 @@ export function ReportMediaManager({
             if (sourceResult) {
               const selectedItem = draft.selectLocalImage(sourceResult);
               onSnapshotChange(draft.getSnapshot());
-
-              await uploadDraftItemAndEmitSnapshot({
-                draft,
-                localId: selectedItem.localId,
-                onSnapshotChange,
-              });
+              await editDraftItem(selectedItem, true);
             }
           }}
-          style={styles.sourceButton}
+          style={[
+            styles.sourceButton,
+            !canAddMoreMedia ? styles.disabledAction : null,
+          ]}
         >
           <Text maxFontSizeMultiplier={1.1} style={styles.sourceButtonIcon}>
             +
@@ -200,6 +237,11 @@ export function ReportMediaManager({
           </Text>
         </Pressable>
       </View>
+      {!canAddMoreMedia ? (
+        <Text maxFontSizeMultiplier={1.15} style={styles.limitText}>
+          {mediaLimitFeedback}
+        </Text>
+      ) : null}
       {sourceFeedback ? renderReportMediaSourceFeedback(sourceFeedback) : null}
       <View style={styles.grid}>
         {snapshot.items.map((item, index) => (
@@ -207,10 +249,20 @@ export function ReportMediaManager({
             draft={draft}
             editAdapter={editAdapter}
             index={index}
+            isEditing={editingLocalId === item.localId}
             isPrimary={snapshot.primaryLocalId === item.localId}
             item={item}
             itemCount={snapshot.items.length}
             key={item.localId}
+            onEdit={async (localId) => {
+              const draftItem = draft
+                .getSnapshot()
+                .items.find((snapshotItem) => snapshotItem.localId === localId);
+
+              if (draftItem) {
+                await editDraftItem(draftItem, false);
+              }
+            }}
             onSnapshotChange={onSnapshotChange}
           />
         ))}
@@ -255,17 +307,21 @@ function ReportMediaTile({
   draft,
   editAdapter,
   index,
+  isEditing,
   isPrimary,
   item,
   itemCount,
+  onEdit,
   onSnapshotChange,
 }: {
   draft: ReportMediaManagerDraftBridge;
   editAdapter?: ReportMediaEditAdapter;
   index: number;
+  isEditing: boolean;
   isPrimary: boolean;
   item: ReportMediaDraftItem;
   itemCount: number;
+  onEdit: (localId: string) => Promise<void> | void;
   onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
 }) {
   const photoNumber = index + 1;
@@ -275,199 +331,370 @@ function ReportMediaTile({
   const uploadAccessibilityStatusLabel =
     getReportMediaUploadAccessibilityStatusLabel(item.status);
   const actionContext = `${photoLabel.toLowerCase()} de ${itemCount}, ${
-    isPrimary ? "principal" : "no principal"
+    isPrimary ? "portada" : "sin portada"
   }, ${uploadAccessibilityStatusLabel}`;
+  const coverActionAccessibilityLabel = `Usar ${photoLabel.toLowerCase()} de ${itemCount} como portada, ${uploadAccessibilityStatusLabel}`;
   const tileAccessibilityLabel = `${photoLabel} de ${itemCount}, ${
-    isPrimary ? "principal" : "no principal"
+    isPrimary ? "portada" : "sin portada"
   }, ${uploadAccessibilityStatusLabel}, progreso ${progressLabel}`;
   const isUploadBusy = isReportMediaUploadBusy(item.status);
+  const isInteractionBusy = isUploadBusy || isEditing;
   const canEditLocalImage = hasEditableLocalImageUri(item);
 
   return (
-    <View
-      accessible
-      accessibilityLabel={tileAccessibilityLabel}
-      style={styles.tile}
-    >
-      <Image
-        accessibilityLabel={photoLabel}
-        contentFit="cover"
-        source={{ uri: item.uploadUri }}
-        style={styles.image}
-      />
+    <View style={styles.tile}>
+      <View style={styles.thumbnailFrame}>
+        <Image
+          accessibilityLabel={tileAccessibilityLabel}
+          contentFit="cover"
+          source={{ uri: item.uploadUri }}
+          style={styles.thumbnailImage}
+        />
+        <ReportMediaCoverBadge isVisible={isPrimary} />
+      </View>
       <View style={styles.tileBody}>
         <View style={styles.tileHeader}>
           <Text maxFontSizeMultiplier={1.1} style={styles.tileTitle}>
             {photoLabel}
           </Text>
-          {isPrimary ? (
-            <Text maxFontSizeMultiplier={1.1} style={styles.primaryPill}>
-              Principal
-            </Text>
-          ) : null}
         </View>
         <Text maxFontSizeMultiplier={1.1} style={styles.statusText}>
           {statusLabel}
         </Text>
-        <View
-          accessibilityLabel={`Progreso de foto ${photoNumber} ${progressLabel}`}
-          accessibilityRole="progressbar"
-          accessibilityState={{ busy: isUploadBusy }}
-          accessibilityValue={{
-            max: 100,
-            min: 0,
-            now: Math.round(item.progress * 100),
-          }}
-          style={styles.progressTrack}
-        >
-          <View
-            style={[
-              styles.progressFill,
-              { width: progressLabel as DimensionValue },
-            ]}
-          />
-        </View>
+        <ReportMediaTileProgress
+          isUploadBusy={isUploadBusy}
+          photoNumber={photoNumber}
+          progress={item.progress}
+          progressLabel={progressLabel}
+        />
         <Text maxFontSizeMultiplier={1.1} style={styles.progressText}>
           {progressLabel}
         </Text>
-        <View style={styles.tileActions}>
-          <CompactAction
-            accessibilityLabel={`Quitar ${actionContext}`}
-            label="Quitar"
-            onPress={() => {
-              onSnapshotChange(draft.removeImage(item.localId));
-            }}
-          />
-          {!isPrimary ? (
-            <CompactAction
-              accessibilityLabel={`Hacer principal ${actionContext}`}
-              label="Principal"
-              onPress={() => {
-                onSnapshotChange(draft.setPrimaryImage(item.localId));
-              }}
-            />
-          ) : null}
-          {index > 0 ? (
-            <CompactAction
-              accessibilityLabel={`Mover ${actionContext} arriba`}
-              label="Arriba"
-              onPress={() => {
-                onSnapshotChange(draft.moveImage(item.localId, index - 1));
-              }}
-            />
-          ) : null}
-          {index < itemCount - 1 ? (
-            <CompactAction
-              accessibilityLabel={`Mover ${actionContext} abajo`}
-              label="Abajo"
-              onPress={() => {
-                onSnapshotChange(draft.moveImage(item.localId, index + 1));
-              }}
-            />
-          ) : null}
-          {editAdapter ? (
-            <>
-              <CompactAction
-                accessibilityLabel={`Recortar ${actionContext}`}
-                disabled={isUploadBusy || !canEditLocalImage}
-                label="Recortar"
-                onPress={() =>
-                  editDraftItemAndUpload({
-                    draft,
-                    editAdapter,
-                    item,
-                    onSnapshotChange,
-                    options: createCenteredSquareCrop(item),
-                  })
-                }
-              />
-              <CompactAction
-                accessibilityLabel={`Girar ${actionContext}`}
-                disabled={isUploadBusy || !canEditLocalImage}
-                label="Girar"
-                onPress={() =>
-                  editDraftItemAndUpload({
-                    draft,
-                    editAdapter,
-                    item,
-                    onSnapshotChange,
-                    options: { rotateDegrees: 90 },
-                  })
-                }
-              />
-            </>
-          ) : null}
-          {item.status === "failed" && item.retryable ? (
-            <CompactAction
-              accessibilityLabel={`Reintentar ${actionContext}`}
-              label="Reintentar"
-              onPress={async () => {
-                await draft.retryUpload(item.localId);
-                onSnapshotChange(draft.getSnapshot());
-              }}
-            />
-          ) : null}
-        </View>
+        <ReportMediaTileToolbar
+          actionContext={actionContext}
+          canEditLocalImage={canEditLocalImage}
+          coverActionAccessibilityLabel={coverActionAccessibilityLabel}
+          draft={draft}
+          editAdapter={editAdapter}
+          index={index}
+          isInteractionBusy={isInteractionBusy}
+          isPrimary={isPrimary}
+          item={item}
+          itemCount={itemCount}
+          onEdit={onEdit}
+          onSnapshotChange={onSnapshotChange}
+        />
+        <ReportMediaRetryAction
+          actionContext={actionContext}
+          draft={draft}
+          item={item}
+          onSnapshotChange={onSnapshotChange}
+        />
+        <ReportMediaTileError message={item.errorMessage} />
       </View>
     </View>
   );
 }
 
-function createCenteredSquareCrop(
-  item: ReportMediaDraftItem,
-): ReportMediaEditOptions {
-  const size = Math.min(item.width, item.height);
+function ReportMediaCoverBadge({ isVisible }: { isVisible: boolean }) {
+  if (!isVisible) {
+    return null;
+  }
 
-  return {
-    crop: {
-      height: size,
-      originX: Math.max(0, Math.floor((item.width - size) / 2)),
-      originY: Math.max(0, Math.floor((item.height - size) / 2)),
-      width: size,
-    },
-  };
+  return (
+    <View pointerEvents="none" style={styles.coverBadge}>
+      <MaterialCommunityIcons color="#FFFFFF" name="star" size={13} />
+      <Text maxFontSizeMultiplier={1.05} style={styles.coverBadgeText}>
+        Portada
+      </Text>
+    </View>
+  );
 }
 
-async function editDraftItemAndUpload({
+function ReportMediaTileProgress({
+  isUploadBusy,
+  photoNumber,
+  progress,
+  progressLabel,
+}: {
+  isUploadBusy: boolean;
+  photoNumber: number;
+  progress: number;
+  progressLabel: string;
+}) {
+  return (
+    <View
+      accessibilityLabel={`Progreso de foto ${photoNumber} ${progressLabel}`}
+      accessibilityRole="progressbar"
+      accessibilityState={{ busy: isUploadBusy }}
+      accessibilityValue={{
+        max: 100,
+        min: 0,
+        now: Math.round(progress * 100),
+      }}
+      style={styles.progressTrack}
+    >
+      <View
+        style={[
+          styles.progressFill,
+          { width: progressLabel as DimensionValue },
+        ]}
+      />
+    </View>
+  );
+}
+
+function ReportMediaTileToolbar({
+  actionContext,
+  canEditLocalImage,
+  coverActionAccessibilityLabel,
+  draft,
+  editAdapter,
+  index,
+  isInteractionBusy,
+  isPrimary,
+  item,
+  itemCount,
+  onEdit,
+  onSnapshotChange,
+}: {
+  actionContext: string;
+  canEditLocalImage: boolean;
+  coverActionAccessibilityLabel: string;
+  draft: ReportMediaManagerDraftBridge;
+  editAdapter?: ReportMediaEditAdapter;
+  index: number;
+  isInteractionBusy: boolean;
+  isPrimary: boolean;
+  item: ReportMediaDraftItem;
+  itemCount: number;
+  onEdit: (localId: string) => Promise<void> | void;
+  onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
+}) {
+  return (
+    <View style={styles.tileToolbar}>
+      {!isPrimary ? (
+        <TileIconAction
+          accessibilityLabel={coverActionAccessibilityLabel}
+          disabled={isInteractionBusy}
+          iconName="star-outline"
+          onPress={() => {
+            onSnapshotChange(draft.setPrimaryImage(item.localId));
+          }}
+        />
+      ) : null}
+      {editAdapter ? (
+        <TileIconAction
+          accessibilityLabel={`Editar ${actionContext}`}
+          disabled={isInteractionBusy || !canEditLocalImage}
+          iconName="pencil-outline"
+          onPress={() => {
+            void onEdit(item.localId);
+          }}
+        />
+      ) : null}
+      {index > 0 ? (
+        <TileIconAction
+          accessibilityLabel={`Mover ${actionContext} arriba`}
+          disabled={isInteractionBusy}
+          iconName="arrow-up"
+          onPress={() => {
+            onSnapshotChange(draft.moveImage(item.localId, index - 1));
+          }}
+        />
+      ) : null}
+      {index < itemCount - 1 ? (
+        <TileIconAction
+          accessibilityLabel={`Mover ${actionContext} abajo`}
+          disabled={isInteractionBusy}
+          iconName="arrow-down"
+          onPress={() => {
+            onSnapshotChange(draft.moveImage(item.localId, index + 1));
+          }}
+        />
+      ) : null}
+      <TileIconAction
+        accessibilityLabel={`Quitar ${actionContext}`}
+        danger
+        disabled={isInteractionBusy}
+        iconName="trash-can-outline"
+        onPress={() => {
+          onSnapshotChange(draft.removeImage(item.localId));
+        }}
+      />
+    </View>
+  );
+}
+
+function ReportMediaRetryAction({
+  actionContext,
+  draft,
+  item,
+  onSnapshotChange,
+}: {
+  actionContext: string;
+  draft: ReportMediaManagerDraftBridge;
+  item: ReportMediaDraftItem;
+  onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
+}) {
+  if (item.status !== "failed" || !item.retryable) {
+    return null;
+  }
+
+  return (
+    <View style={styles.retryRow}>
+      <CompactAction
+        accessibilityLabel={`Reintentar ${actionContext}`}
+        label="Reintentar subida"
+        onPress={async () => {
+          await uploadDraftItemAndEmitSnapshot({
+            draft,
+            onSnapshotChange,
+            upload: () => draft.retryUpload(item.localId),
+          });
+        }}
+        primary
+      />
+    </View>
+  );
+}
+
+function ReportMediaTileError({ message }: { message?: string }) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <Text
+      accessibilityLiveRegion="polite"
+      maxFontSizeMultiplier={1.15}
+      selectable
+      style={styles.tileErrorText}
+    >
+      {message}
+    </Text>
+  );
+}
+
+type ReportMediaIconName = React.ComponentProps<
+  typeof MaterialCommunityIcons
+>["name"];
+
+function TileIconAction({
+  accessibilityLabel,
+  danger = false,
+  disabled = false,
+  iconName,
+  onPress,
+}: {
+  accessibilityLabel: string;
+  danger?: boolean;
+  disabled?: boolean;
+  iconName: ReportMediaIconName;
+  onPress: () => Promise<void> | void;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={disabled ? undefined : onPress}
+      style={[
+        styles.iconAction,
+        danger ? styles.iconActionDanger : null,
+        disabled ? styles.disabledAction : null,
+      ]}
+    >
+      <MaterialCommunityIcons
+        color={danger ? "#A33A2A" : "#146C5A"}
+        name={iconName}
+        size={21}
+      />
+    </Pressable>
+  );
+}
+
+async function editDraftItemAndEmitSnapshot({
   draft,
   editAdapter,
   item,
+  onEditingLocalIdChange,
   onSnapshotChange,
-  options,
+  removeOnCancel,
 }: {
   draft: ReportMediaManagerDraftBridge;
   editAdapter: ReportMediaEditAdapter;
   item: ReportMediaDraftItem;
+  onEditingLocalIdChange: (localId: string | null) => void;
   onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
-  options: ReportMediaEditOptions;
-}) {
-  const editedImage = await editAdapter.editImage(item, options);
+  removeOnCancel: boolean;
+}): Promise<boolean> {
+  let editedImage: AcceptedEditedReportImage | undefined;
 
-  if (!editedImage) {
-    return;
+  onEditingLocalIdChange(item.localId);
+
+  try {
+    editedImage = await editAdapter.editImage(item);
+  } catch {
+    if (removeOnCancel) {
+      onSnapshotChange(draft.removeImage(item.localId));
+    }
+
+    onEditingLocalIdChange(null);
+    return false;
   }
 
-  const editedItem = draft.acceptEditedImage(editedImage);
-  onSnapshotChange(draft.getSnapshot());
+  if (!editedImage) {
+    if (removeOnCancel) {
+      onSnapshotChange(draft.removeImage(item.localId));
+    }
 
-  await uploadDraftItemAndEmitSnapshot({
-    draft,
-    localId: editedItem.localId,
-    onSnapshotChange,
-  });
+    onEditingLocalIdChange(null);
+    return false;
+  }
+
+  draft.acceptEditedImage(editedImage);
+  onSnapshotChange(draft.getSnapshot());
+  onEditingLocalIdChange(null);
+  return true;
+}
+
+export async function uploadPendingReportMediaDraftItems({
+  draft,
+  onSnapshotChange,
+}: {
+  draft: ReportMediaManagerDraftBridge;
+  onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
+}) {
+  const pendingItems = draft
+    .getSnapshot()
+    .items.filter((item) => item.status === "selected");
+
+  for (const item of pendingItems) {
+    await uploadDraftItemAndEmitSnapshot({
+      draft,
+      onSnapshotChange,
+      upload: () => draft.uploadImage(item.localId),
+    });
+  }
+
+  const finalSnapshot = draft.getSnapshot();
+  onSnapshotChange(finalSnapshot);
+  return finalSnapshot;
 }
 
 async function uploadDraftItemAndEmitSnapshot({
   draft,
-  localId,
   onSnapshotChange,
+  upload,
 }: {
   draft: ReportMediaManagerDraftBridge;
-  localId: string;
   onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
+  upload: () => Promise<ReportMediaDraftItem>;
 }) {
   let isSettled = false;
-  const uploadPromise = draft.uploadImage(localId);
+  const uploadPromise = upload();
   const progressInterval = setInterval(() => {
     if (!isSettled) {
       onSnapshotChange(draft.getSnapshot());
@@ -487,14 +714,18 @@ async function uploadDraftItemAndEmitSnapshot({
 
 function CompactAction({
   accessibilityLabel,
+  danger = false,
   disabled = false,
   label,
   onPress,
+  primary = false,
 }: {
   accessibilityLabel: string;
+  danger?: boolean;
   disabled?: boolean;
   label: string;
   onPress: () => Promise<void> | void;
+  primary?: boolean;
 }) {
   return (
     <Pressable
@@ -503,9 +734,21 @@ function CompactAction({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={disabled ? undefined : onPress}
-      style={styles.compactAction}
+      style={[
+        styles.compactAction,
+        primary ? styles.compactActionPrimary : null,
+        danger ? styles.compactActionDanger : null,
+        disabled ? styles.disabledAction : null,
+      ]}
     >
-      <Text maxFontSizeMultiplier={1.05} style={styles.compactActionText}>
+      <Text
+        maxFontSizeMultiplier={1.05}
+        style={[
+          styles.compactActionText,
+          primary ? styles.compactActionTextPrimary : null,
+          danger ? styles.compactActionTextDanger : null,
+        ]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -525,7 +768,7 @@ function getReportMediaStatusLabel(status: ReportMediaDraftItemStatus) {
     case "ready":
       return "Lista";
     case "selected":
-      return "Seleccionada";
+      return "Se subira al continuar";
     case "uploading":
       return "Subiendo";
   }
@@ -542,7 +785,7 @@ function getReportMediaUploadAccessibilityStatusLabel(
     case "ready":
       return "subida";
     case "selected":
-      return "seleccionada";
+      return "pendiente de subir al continuar";
     case "uploading":
       return "subiendo";
   }
@@ -576,15 +819,33 @@ const styles = StyleSheet.create({
     borderCurve: "continuous",
     borderRadius: 8,
     borderWidth: 1,
-    minHeight: 32,
-    paddingHorizontal: 9,
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: 10,
     paddingVertical: 7,
+  },
+  compactActionDanger: {
+    backgroundColor: "#FFF2EF",
+    borderColor: "#F0B7AA",
+  },
+  compactActionPrimary: {
+    backgroundColor: "#146C5A",
+    borderColor: "#146C5A",
   },
   compactActionText: {
     color: "#146C5A",
     fontSize: 12,
     fontWeight: "800",
     lineHeight: 16,
+  },
+  compactActionTextDanger: {
+    color: "#A33A2A",
+  },
+  compactActionTextPrimary: {
+    color: "#FFFFFF",
+  },
+  disabledAction: {
+    opacity: 0.45,
   },
   grid: {
     gap: 10,
@@ -606,21 +867,49 @@ const styles = StyleSheet.create({
   header: {
     gap: 4,
   },
-  image: {
-    backgroundColor: "#E7EEE9",
-    height: 88,
-    width: 88,
-  },
-  primaryPill: {
-    backgroundColor: "#DDF2EA",
+  iconAction: {
+    alignItems: "center",
+    backgroundColor: "#F5F7F6",
+    borderColor: "#DDE5E1",
     borderCurve: "continuous",
     borderRadius: 8,
-    color: "#146C5A",
-    fontSize: 12,
-    fontWeight: "900",
-    lineHeight: 16,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  iconActionDanger: {
+    backgroundColor: "#FFF2EF",
+    borderColor: "#F0B7AA",
+  },
+  limitText: {
+    color: "#66756E",
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
+  coverBadge: {
+    alignItems: "center",
+    backgroundColor: "#146C5A",
+    borderColor: "#FFFFFF",
+    borderCurve: "continuous",
+    borderRadius: 999,
+    borderWidth: 1,
+    bottom: 6,
+    flexDirection: "row",
+    gap: 3,
+    left: 6,
+    maxWidth: 86,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 5,
+    position: "absolute",
+  },
+  coverBadgeText: {
+    color: "#FFFFFF",
+    flexShrink: 1,
+    fontSize: 10,
+    fontWeight: "900",
+    lineHeight: 12,
   },
   progressFill: {
     backgroundColor: "#146C5A",
@@ -681,6 +970,24 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 18,
   },
+  retryRow: {
+    alignItems: "flex-start",
+  },
+  thumbnailFrame: {
+    backgroundColor: "#E7EEE9",
+    borderColor: "#DDE5E1",
+    borderCurve: "continuous",
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 96,
+    overflow: "hidden",
+    position: "relative",
+    width: 96,
+  },
+  thumbnailImage: {
+    height: "100%",
+    width: "100%",
+  },
   tile: {
     backgroundColor: "#FFFFFF",
     borderColor: "#DDE5E1",
@@ -688,14 +995,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: "row",
-    gap: 10,
+    gap: 12,
     overflow: "hidden",
     padding: 8,
-  },
-  tileActions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
   },
   tileBody: {
     flex: 1,
@@ -708,12 +1010,23 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 6,
   },
+  tileToolbar: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
   tileTitle: {
     color: "#17201C",
     flexShrink: 1,
     fontSize: 14,
     fontWeight: "900",
     lineHeight: 18,
+  },
+  tileErrorText: {
+    color: "#A33A2A",
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 17,
   },
   title: {
     color: "#17201C",

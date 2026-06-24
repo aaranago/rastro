@@ -138,8 +138,20 @@ vi.mock("react-native", () => ({
   View: "View",
 }));
 
+vi.mock("@react-native-community/datetimepicker", () => ({
+  default: "DateTimePicker",
+}));
+
 vi.mock("expo-image", () => ({
   Image: "Image",
+}));
+
+vi.mock("@expo/vector-icons", () => ({
+  MaterialCommunityIcons: "MaterialCommunityIcons",
+}));
+
+vi.mock("../shell/shell-overlays", () => ({
+  ShellIcon: "ShellIcon",
 }));
 
 vi.mock("react-native-safe-area-context", () => ({
@@ -236,7 +248,7 @@ describe("FoundReportCreationScreen", () => {
     const screen = renderScreen(<FoundReportCreationScreen />);
 
     expect(durableDraft.hookInput?.recoveryMode).toBe("explicit");
-    expect(findText(screen, "Paso 2 de 8")).toBe(true);
+    expect(findText(screen, "Paso 1 de 5")).toBe(true);
     expect(findText(screen, "Antes de abrir tus fotos")).toBe(true);
     expect(findText(screen, "Detalles de la encontrada")).toBe(false);
     expect(findText(screen, "Ubicacion y privacidad")).toBe(false);
@@ -279,8 +291,8 @@ describe("FoundReportCreationScreen", () => {
     );
 
     expect(keyboardFrame?.props.behavior).toBe("padding");
-    expect(scrollView?.props.contentInset).toEqual({ bottom: 122 });
-    expect(scrollView?.props.scrollIndicatorInsets).toEqual({ bottom: 122 });
+    expect(scrollView?.props.contentInset).toEqual({ bottom: 206 });
+    expect(scrollView?.props.scrollIndicatorInsets).toEqual({ bottom: 0 });
     expect(findText(scrollView, "Continuar")).toBe(false);
     expect(findText(footer, "Continuar")).toBe(true);
   });
@@ -297,7 +309,7 @@ describe("FoundReportCreationScreen", () => {
 
     const attemptedScreen = renderScreen(<FoundReportCreationScreen />);
 
-    expect(findText(attemptedScreen, "Paso 2 de 8")).toBe(true);
+    expect(findText(attemptedScreen, "Paso 1 de 5")).toBe(true);
     expect(findText(attemptedScreen, "Agrega al menos una foto.")).toBe(true);
     expect(findText(attemptedScreen, "Indica cuando fue encontrada.")).toBe(
       false,
@@ -333,7 +345,7 @@ describe("FoundReportCreationScreen", () => {
 
     const detailsScreen = renderScreen(<FoundReportCreationScreen />);
 
-    expect(findText(detailsScreen, "Paso 3 de 8")).toBe(true);
+    expect(findText(detailsScreen, "Paso 2 de 5")).toBe(true);
     expect(findText(detailsScreen, "Detalles de la encontrada")).toBe(true);
     expect(findText(detailsScreen, "Antes de abrir tus fotos")).toBe(false);
     expect(findText(detailsScreen, "Ubicacion y privacidad")).toBe(false);
@@ -348,7 +360,7 @@ describe("FoundReportCreationScreen", () => {
 
     const photosScreen = renderScreen(<FoundReportCreationScreen />);
 
-    expect(findText(photosScreen, "Paso 2 de 8")).toBe(true);
+    expect(findText(photosScreen, "Paso 1 de 5")).toBe(true);
     expect(findText(photosScreen, "Antes de abrir tus fotos")).toBe(true);
     expect(findText(photosScreen, "1/5")).toBe(true);
     expect(findText(photosScreen, "Detalles de la encontrada")).toBe(false);
@@ -385,7 +397,7 @@ describe("FoundReportCreationScreen", () => {
 
     const editedFreshScreen = renderScreen(<FoundReportCreationScreen />);
 
-    expect(findText(editedFreshScreen, "Paso 3 de 8")).toBe(true);
+    expect(findText(editedFreshScreen, "Paso 2 de 5")).toBe(true);
     expect(findText(editedFreshScreen, "Detalles de la encontrada")).toBe(true);
 
     const discardButton = findElement(
@@ -403,7 +415,7 @@ describe("FoundReportCreationScreen", () => {
     expect(findText(resetScreen, "Encontramos un borrador guardado.")).toBe(
       false,
     );
-    expect(findText(resetScreen, "Paso 2 de 8")).toBe(true);
+    expect(findText(resetScreen, "Paso 1 de 5")).toBe(true);
     expect(findText(resetScreen, "Antes de abrir tus fotos")).toBe(true);
     expect(findText(resetScreen, "Detalles de la encontrada")).toBe(false);
     expect(findText(resetScreen, "1/5")).toBe(false);
@@ -542,11 +554,15 @@ describe("FoundReportCreationScreen", () => {
       status: "active",
     });
     const draftPublished = vi.fn();
+    const openPublishedReport = vi.fn();
+    const sharePublishedReport = vi.fn();
 
     const screen = renderScreen(
       <FoundReportCreationScreen
         onDraftPublished={draftPublished}
+        onOpenPublishedReport={openPublishedReport}
         onPublishFoundReport={publishFoundReport}
+        onSharePublishedReport={sharePublishedReport}
       />,
     );
     const publishButton = findElement(
@@ -561,15 +577,59 @@ describe("FoundReportCreationScreen", () => {
     const successScreen = renderScreen(
       <FoundReportCreationScreen
         onDraftPublished={draftPublished}
+        onOpenPublishedReport={openPublishedReport}
         onPublishFoundReport={publishFoundReport}
+        onSharePublishedReport={sharePublishedReport}
       />,
     );
+    const shareButton = findElement(
+      successScreen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Compartir"),
+    );
+    const viewReportButton = findElement(
+      successScreen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Ver reporte"),
+    );
+
+    void getPressableOnPress(shareButton)();
+    void getPressableOnPress(viewReportButton)();
 
     expect(publishFoundReport).toHaveBeenCalledTimes(1);
     expect(durableDraft.clearDraft).toHaveBeenCalledTimes(1);
     expect(draftPublished).toHaveBeenCalledTimes(1);
-    expect(findText(successScreen, "report-found-backend-1")).toBe(true);
-    expect(findText(successScreen, "active")).toBe(true);
+    expect(sharePublishedReport).toHaveBeenCalledWith({
+      id: "report-found-backend-1",
+      status: "active",
+    });
+    expect(openPublishedReport).toHaveBeenCalledWith({
+      id: "report-found-backend-1",
+      status: "active",
+    });
+    expect(findText(successScreen, "report-found-backend-1")).toBe(false);
+    expect(findText(successScreen, "active")).toBe(false);
+  });
+
+  it("lets people go back from review before publishing", () => {
+    durableDraft.draft = createReadyDraft();
+
+    const reviewScreen = renderScreen(<FoundReportCreationScreen />);
+    const backButton = findElement(
+      reviewScreen,
+      (element) => element.type === "Pressable" && findText(element, "Atrás"),
+    );
+
+    expect(findText(reviewScreen, "Publicar encontrada")).toBe(true);
+    expect(findText(reviewScreen, "Continuar")).toBe(false);
+
+    void getPressableOnPress(backButton)();
+
+    const contactScreen = renderScreen(<FoundReportCreationScreen />);
+
+    expect(findText(contactScreen, "Contacto")).toBe(true);
+    expect(findText(contactScreen, "Publicar encontrada")).toBe(false);
+    expect(findText(contactScreen, "Continuar")).toBe(true);
   });
 
   it("opens the location picker from an empty location step and applies the confirmed found location", () => {

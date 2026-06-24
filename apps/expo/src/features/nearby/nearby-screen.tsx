@@ -72,6 +72,7 @@ const defaultManualMapCoordinate: NearbyCoordinates = {
   latitude: -16.5,
   longitude: -68.1193,
 };
+const fallbackMapGridBlocks = Array.from({ length: 12 }, (_, index) => index);
 
 const keyExtractor = (item: NearbyLostReportCardViewModel) => item.id;
 
@@ -1143,9 +1144,7 @@ function LocationFallbackState({
       contentInsetAdjustmentBehavior="automatic"
       style={styles.screen}
     >
-      <View style={styles.fallbackIllustration}>
-        <Text style={styles.fallbackIllustrationText}>?</Text>
-      </View>
+      <BoliviaSearchIllustration />
       <Text selectable style={styles.fallbackTitle}>
         {viewModel.title}
       </Text>
@@ -1191,6 +1190,38 @@ function LocationFallbackState({
         />
       ) : null}
     </ScrollView>
+  );
+}
+
+function BoliviaSearchIllustration() {
+  return (
+    <View
+      accessibilityLabel="Mapa ilustrado de Bolivia"
+      accessibilityRole="image"
+      style={styles.fallbackIllustration}
+    >
+      <View style={styles.fallbackMapGrid}>
+        {fallbackMapGridBlocks.map((index) => (
+          <View key={index} style={styles.fallbackMapGridBlock} />
+        ))}
+      </View>
+      <View style={styles.boliviaShape}>
+        <View style={[styles.boliviaShapePart, styles.boliviaShapeNorth]} />
+        <View style={[styles.boliviaShapePart, styles.boliviaShapeWest]} />
+        <View style={[styles.boliviaShapePart, styles.boliviaShapeCenter]} />
+        <View style={[styles.boliviaShapePart, styles.boliviaShapeEast]} />
+        <View style={[styles.boliviaShapePart, styles.boliviaShapeSouth]} />
+      </View>
+      <View style={[styles.fallbackMapPin, styles.fallbackMapPinWest]}>
+        <View style={styles.fallbackMapPinDot} />
+      </View>
+      <View style={[styles.fallbackMapPin, styles.fallbackMapPinEast]}>
+        <View style={styles.fallbackMapPinDot} />
+      </View>
+      <Text maxFontSizeMultiplier={1.1} style={styles.fallbackMapLabel}>
+        Bolivia
+      </Text>
+    </View>
   );
 }
 
@@ -1437,6 +1468,54 @@ const styles = StyleSheet.create({
   categoryTextActive: {
     color: colors.white,
   },
+  boliviaShape: {
+    height: 196,
+    position: "absolute",
+    width: 176,
+  },
+  boliviaShapeCenter: {
+    height: 76,
+    left: 56,
+    top: 62,
+    transform: [{ rotate: "7deg" }],
+    width: 74,
+  },
+  boliviaShapeEast: {
+    height: 88,
+    left: 102,
+    top: 56,
+    transform: [{ rotate: "-12deg" }],
+    width: 56,
+  },
+  boliviaShapeNorth: {
+    height: 58,
+    left: 68,
+    top: 14,
+    transform: [{ rotate: "-10deg" }],
+    width: 76,
+  },
+  boliviaShapePart: {
+    backgroundColor: colors.inkStrong,
+    borderColor: "rgba(255, 255, 255, 0.68)",
+    borderCurve: "continuous",
+    borderRadius: 22,
+    borderWidth: 2,
+    position: "absolute",
+  },
+  boliviaShapeSouth: {
+    height: 72,
+    left: 52,
+    top: 122,
+    transform: [{ rotate: "-5deg" }],
+    width: 64,
+  },
+  boliviaShapeWest: {
+    height: 92,
+    left: 18,
+    top: 58,
+    transform: [{ rotate: "16deg" }],
+    width: 62,
+  },
   distancePill: {
     backgroundColor: colors.card,
     borderRadius: 999,
@@ -1466,12 +1545,58 @@ const styles = StyleSheet.create({
     borderCurve: "continuous",
     borderRadius: 28,
     justifyContent: "center",
+    maxWidth: 320,
+    overflow: "hidden",
+    position: "relative",
     width: "78%",
   },
-  fallbackIllustrationText: {
+  fallbackMapGrid: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    opacity: 0.42,
+    padding: 18,
+  },
+  fallbackMapGridBlock: {
+    backgroundColor: colors.card,
+    borderCurve: "continuous",
+    borderRadius: 16,
+    height: "28%",
+    width: "29%",
+  },
+  fallbackMapLabel: {
+    bottom: 20,
     color: colors.inkStrong,
-    fontSize: 64,
+    fontSize: 15,
     fontWeight: "900",
+    letterSpacing: 0,
+    position: "absolute",
+  },
+  fallbackMapPin: {
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderColor: colors.inkStrong,
+    borderRadius: 999,
+    borderWidth: 3,
+    height: 28,
+    justifyContent: "center",
+    position: "absolute",
+    width: 28,
+  },
+  fallbackMapPinDot: {
+    backgroundColor: colors.inkStrong,
+    borderRadius: 999,
+    height: 8,
+    width: 8,
+  },
+  fallbackMapPinEast: {
+    right: "28%",
+    top: "38%",
+  },
+  fallbackMapPinWest: {
+    left: "31%",
+    top: "47%",
   },
   fallbackMessage: {
     color: colors.inkMuted,

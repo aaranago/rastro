@@ -1,5 +1,5 @@
 export const reportCreationEventTimeValidationError =
-  "Ingresa una fecha y hora valida, por ejemplo 2026-06-18T10:15:00.000Z o Hoy, hace 30 min.";
+  "Selecciona una fecha y hora valida.";
 
 const isoDateTimePattern =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
@@ -27,9 +27,7 @@ export function normalizeReportCreationEventTime(
       minutesAgo >= 0 &&
       minutesAgo <= maxTodayRelativeMinutes
     ) {
-      return toIsoStringIfValid(
-        new Date(now.getTime() - minutesAgo * 60_000),
-      );
+      return toIsoStringIfValid(new Date(now.getTime() - minutesAgo * 60_000));
     }
   }
 

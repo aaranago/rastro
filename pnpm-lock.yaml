@@ -125,6 +125,9 @@ importers:
       '@legendapp/list':
         specifier: ^2.0.14
         version: 2.0.14(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.12)(bufferutil@4.0.8)(react@19.1.0)(utf-8-validate@6.0.4))(react@19.1.0)
+      '@react-native-community/datetimepicker':
+        specifier: 8.4.4
+        version: 8.4.4(expo@54.0.35)(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.12)(bufferutil@4.0.8)(react@19.1.0)(utf-8-validate@6.0.4))(react@19.1.0)
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.90.8(react@19.1.0)
@@ -212,6 +215,9 @@ importers:
       react-native-gesture-handler:
         specifier: ~2.28.0
         version: 2.28.0(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.12)(bufferutil@4.0.8)(react@19.1.0)(utf-8-validate@6.0.4))(react@19.1.0)
+      react-native-image-crop-picker:
+        specifier: 0.51.1
+        version: 0.51.1(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.12)(bufferutil@4.0.8)(react@19.1.0)(utf-8-validate@6.0.4))(react@19.1.0)
       react-native-maps:
         specifier: 1.20.1
         version: 1.20.1(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.12)(bufferutil@4.0.8)(react@19.1.0)(utf-8-validate@6.0.4))(react@19.1.0)
@@ -3466,6 +3472,19 @@ packages:
 
   '@radix-ui/rect@1.1.1':
     resolution: {integrity: sha512-HPwpGIzkl28mWyZqG52jiqDJ12waP11Pa1lGoiyUkIEuMLBP0oeK/C89esbXrxsky5we7dfd8U58nm0SgAWpVw==}
+
+  '@react-native-community/datetimepicker@8.4.4':
+    resolution: {integrity: sha512-bc4ZixEHxZC9/qf5gbdYvIJiLZ5CLmEsC3j+Yhe1D1KC/3QhaIfGDVdUcid0PdlSoGOSEq4VlB93AWyetEyBSQ==}
+    peerDependencies:
+      expo: '>=52.0.0'
+      react: '*'
+      react-native: '*'
+      react-native-windows: '*'
+    peerDependenciesMeta:
+      expo:
+        optional: true
+      react-native-windows:
+        optional: true
 
   '@react-native/assets-registry@0.81.5':
     resolution: {integrity: sha512-705B6x/5Kxm1RKRvSv0ADYWm5JOnoiQ1ufW7h8uu2E6G9Of/eE6hP/Ivw3U5jI16ERqZxiKQwk34VJbB0niX9w==}
@@ -7678,6 +7697,12 @@ packages:
 
   react-native-gesture-handler@2.28.0:
     resolution: {integrity: sha512-0msfJ1vRxXKVgTgvL+1ZOoYw3/0z1R+Ked0+udoJhyplC2jbVKIJ8Z1bzWdpQRCV3QcQ87Op0zJVE5DhKK2A0A==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
+
+  react-native-image-crop-picker@0.51.1:
+    resolution: {integrity: sha512-GIFRyXJgv1dPceKd/hraK9q9V38v45rSg2ONR6RiSePcOJemkHpc/PMU86pq6lWPilDYHSxbZmea2pNMk85ayw==}
     peerDependencies:
       react: '*'
       react-native: '*'
@@ -12155,6 +12180,14 @@ snapshots:
       '@types/react-dom': 19.1.9(@types/react@19.1.12)
 
   '@radix-ui/rect@1.1.1': {}
+
+  '@react-native-community/datetimepicker@8.4.4(expo@54.0.35)(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.12)(bufferutil@4.0.8)(react@19.1.0)(utf-8-validate@6.0.4))(react@19.1.0)':
+    dependencies:
+      invariant: 2.2.4
+      react: 19.1.0
+      react-native: 0.81.5(@babel/core@7.28.5)(@types/react@19.1.12)(bufferutil@4.0.8)(react@19.1.0)(utf-8-validate@6.0.4)
+    optionalDependencies:
+      expo: 54.0.35(@babel/core@7.28.5)(@expo/metro-runtime@6.1.2)(bufferutil@4.0.8)(expo-router@6.0.24)(graphql@15.8.0)(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.12)(bufferutil@4.0.8)(react@19.1.0)(utf-8-validate@6.0.4))(react@19.1.0)(typescript@5.9.3)(utf-8-validate@6.0.4)
 
   '@react-native/assets-registry@0.81.5': {}
 
@@ -17149,6 +17182,11 @@ snapshots:
       '@egjs/hammerjs': 2.0.17
       hoist-non-react-statics: 3.3.2
       invariant: 2.2.4
+      react: 19.1.0
+      react-native: 0.81.5(@babel/core@7.28.5)(@types/react@19.1.12)(bufferutil@4.0.8)(react@19.1.0)(utf-8-validate@6.0.4)
+
+  react-native-image-crop-picker@0.51.1(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.12)(bufferutil@4.0.8)(react@19.1.0)(utf-8-validate@6.0.4))(react@19.1.0):
+    dependencies:
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.28.5)(@types/react@19.1.12)(bufferutil@4.0.8)(react@19.1.0)(utf-8-validate@6.0.4)
 

@@ -142,6 +142,7 @@ function inferAdministrativeArea(location: NearbySearchLocation) {
 
   return {
     department: "Bolivia",
-    municipality: "Bolivia",
+    municipality:
+      location.manualLocationKind === "map-pin" ? "Punto manual" : "Bolivia",
   };
 }

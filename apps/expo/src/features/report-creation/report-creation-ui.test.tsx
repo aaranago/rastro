@@ -14,6 +14,7 @@ import {
   ReportCreationDraftRecoveryPrompt,
   ReportCreationExistingPetProfileList,
   ReportCreationInlinePetTypeRow,
+  ReportCreationLocationPreview,
   ReportCreationProgressSteps,
   ReportCreationReviewPublishSection,
   ReportCreationScreenFrame,
@@ -34,6 +35,10 @@ vi.mock("react-native", () => ({
   Text: "Text",
   TextInput: "TextInput",
   View: "View",
+}));
+
+vi.mock("@react-native-community/datetimepicker", () => ({
+  default: "DateTimePicker",
 }));
 
 vi.mock("expo-image", () => ({
@@ -73,10 +78,10 @@ describe("getReportCreationScreenInsets", () => {
         top: 0,
       }),
     ).toEqual({
-      contentInsetBottom: 104,
+      contentInsetBottom: 188,
       contentPaddingTop: 28,
       footerPaddingBottom: 16,
-      scrollIndicatorInsetBottom: 104,
+      scrollIndicatorInsetBottom: 0,
     });
   });
 });
@@ -109,13 +114,13 @@ describe("ReportCreationScreenFrame", () => {
 
     expect(keyboardFrame?.props.behavior).toBe("padding");
     expect(scrollView?.props.keyboardShouldPersistTaps).toBe("handled");
-    expect(scrollView?.props.contentInset).toEqual({ bottom: 122 });
-    expect(scrollView?.props.scrollIndicatorInsets).toEqual({ bottom: 122 });
+    expect(scrollView?.props.contentInset).toEqual({ bottom: 206 });
+    expect(scrollView?.props.scrollIndicatorInsets).toEqual({ bottom: 0 });
     expect(scrollView?.props.ref).toBe(scrollRef);
     expect(scrollView?.props.contentContainerStyle).toEqual([
       { gap: 14, padding: 16, paddingBottom: 36 },
       {
-        paddingBottom: 122,
+        paddingBottom: 206,
         paddingTop: 63,
       },
     ]);
@@ -125,6 +130,30 @@ describe("ReportCreationScreenFrame", () => {
       expect.anything(),
       { paddingBottom: 34 },
     ]);
+  });
+});
+
+describe("ReportCreationLocationPreview", () => {
+  it("renders a native Bolivia preview without placeholder location copy", () => {
+    const preview = renderFunctionElement(
+      <ReportCreationLocationPreview
+        accentColor="#147A68"
+        coordinates={{ latitude: -16.4897, longitude: -68.1193 }}
+        Icon={TestIcon}
+        label="La Paz, Bolivia"
+      />,
+    );
+    const previewImage = findElement(
+      preview,
+      (element) =>
+        element.props.accessibilityRole === "image" &&
+        element.props.accessibilityLabel === "Mapa de Bolivia, La Paz, Bolivia",
+    );
+
+    expect(previewImage).toBeDefined();
+    expect(findText(preview, "La Paz, Bolivia")).toBe(true);
+    expect(findText(preview, "Mapa de Bolivia pendiente")).toBe(false);
+    expect(findText(preview, "Pin interno")).toBe(false);
   });
 });
 
@@ -454,7 +483,7 @@ describe("ReportCreationProgressSteps", () => {
       />,
     );
 
-    expect(findText(screen, "Paso 6 de 8")).toBe(true);
+    expect(findText(screen, "Paso 5 de 5")).toBe(true);
     expect(findText(screen, "Revisar")).toBe(true);
     expect(findText(screen, "Tipo")).toBe(false);
     expect(findText(screen, "Publicado")).toBe(false);
@@ -483,43 +512,37 @@ describe("ReportCreationProgressSteps", () => {
       screen,
       (element) =>
         typeof element.props.accessibilityLabel === "string" &&
-        /^Paso \d+ de 8, /.test(element.props.accessibilityLabel),
+        /^Paso \d+ de 5, /.test(element.props.accessibilityLabel),
     );
     const completedStep = findElement(
       screen,
       (element) =>
-        element.props.accessibilityLabel === "Paso 1 de 8, Tipo, completado",
+        element.props.accessibilityLabel === "Paso 1 de 5, Fotos, completado",
     );
     const currentStep = findElement(
       screen,
       (element) =>
         element.props.accessibilityLabel ===
-        "Paso 6 de 8, Revisar, paso actual",
-    );
-    const upcomingStep = findElement(
-      screen,
-      (element) =>
-        element.props.accessibilityLabel ===
-        "Paso 8 de 8, Publicado, pendiente",
+        "Paso 5 de 5, Revisar, paso actual",
     );
     const overallProgress = findElement(
       screen,
       (element) =>
         element.props.accessibilityLabel ===
-        "Progreso de creacion, Paso 6 de 8, Revisar",
+        "Progreso de creacion, Paso 5 de 5, Revisar",
     );
 
-    expect(stepMarkers).toHaveLength(8);
+    expect(stepMarkers).toHaveLength(5);
     expect(findText(screen, "Completado")).toBe(false);
     expect(findText(screen, "Actual")).toBe(false);
     expect(findText(screen, "Pendiente")).toBe(false);
     expect(findText(screen, "✓")).toBe(true);
     expect(overallProgress?.props.accessibilityRole).toBe("progressbar");
     expect(overallProgress?.props.accessibilityValue).toEqual({
-      max: 8,
+      max: 5,
       min: 1,
-      now: 6,
-      text: "Paso 6 de 8, Revisar",
+      now: 5,
+      text: "Paso 5 de 5, Revisar",
     });
     expect(completedStep?.props.accessibilityRole).toBe("text");
     expect(completedStep?.props.accessibilityState).toMatchObject({
@@ -528,10 +551,6 @@ describe("ReportCreationProgressSteps", () => {
     expect(currentStep?.props.accessibilityRole).toBe("text");
     expect(currentStep?.props.accessibilityState).toMatchObject({
       selected: true,
-    });
-    expect(upcomingStep?.props.accessibilityRole).toBe("text");
-    expect(upcomingStep?.props.accessibilityState).toMatchObject({
-      disabled: true,
     });
   });
 
@@ -552,23 +571,14 @@ describe("ReportCreationProgressSteps", () => {
       screen,
       (element) =>
         element.props.accessibilityLabel ===
-        "Paso 3 de 5, Contacto, paso actual",
-    );
-    const publishedStep = findElement(
-      screen,
-      (element) =>
-        element.props.accessibilityLabel ===
-        "Paso 5 de 5, Publicado, pendiente",
+        "Paso 3 de 4, Contacto, paso actual",
     );
 
-    expect(findText(screen, "Paso 3 de 5")).toBe(true);
+    expect(findText(screen, "Paso 3 de 4")).toBe(true);
     expect(findText(screen, "Contacto")).toBe(true);
     expect(findText(screen, "Publicado")).toBe(false);
     expect(currentStep?.props.accessibilityState).toMatchObject({
       selected: true,
-    });
-    expect(publishedStep?.props.accessibilityState).toMatchObject({
-      disabled: true,
     });
   });
 });
