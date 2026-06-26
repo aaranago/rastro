@@ -77,77 +77,144 @@ export const ResourceProviderCard = memo(function ResourceProviderCard({
       </View>
 
       <View style={styles.content}>
-        <View style={styles.topRow}>
-          <View style={styles.titleColumn}>
-            <Text selectable numberOfLines={2} style={styles.name}>
-              {name}
-            </Text>
-            <Text selectable numberOfLines={1} style={styles.description}>
-              {description}
-            </Text>
-          </View>
-          {distanceLabel ? (
-            <View style={styles.distancePill}>
-              <Image
-                source="sf:location.fill"
-                style={styles.inlineIcon}
-                tintColor={resourcesColors.primary}
-              />
-              <Text selectable style={styles.distanceText}>
-                {distanceLabel}
-              </Text>
-            </View>
-          ) : null}
-        </View>
+        <ProviderCardHeader
+          description={description}
+          distanceLabel={distanceLabel}
+          name={name}
+        />
 
         <Text selectable numberOfLines={1} style={styles.location}>
           {locationLabel}
         </Text>
 
-        <View style={styles.badgeRow}>
-          <Badge label={categoryLabel} tone="neutral" />
-          {isSponsored ? (
-            <SponsorBadge label={sponsorLabel ?? "Patrocinado"} />
-          ) : null}
-          {isVerified ? <VerificationBadge /> : null}
-          {emergencyLabel ? <Badge label={emergencyLabel} tone="blue" /> : null}
-          {availabilityLabel ? (
-            <Badge label={availabilityLabel} tone="green" />
-          ) : null}
-        </View>
+        <ProviderBadgeRow
+          availabilityLabel={availabilityLabel}
+          categoryLabel={categoryLabel}
+          emergencyLabel={emergencyLabel}
+          isSponsored={isSponsored}
+          isVerified={isVerified}
+          sponsorLabel={sponsorLabel}
+        />
 
-        <View style={styles.actionsRow}>
-          {contactLabels.slice(0, 2).map((label) => (
-            <View key={label} style={styles.contactPill}>
-              <Text selectable style={styles.contactText}>
-                {label}
-              </Text>
-            </View>
-          ))}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Reportar ${name}`}
-            hitSlop={8}
-            onPress={handleReportProvider}
-            style={styles.reportButton}
-          >
-            <Text selectable style={styles.reportText}>
-              Reportar
-            </Text>
-          </Pressable>
-        </View>
+        <ProviderActionsRow
+          contactLabels={contactLabels}
+          name={name}
+          onReportProvider={onReportProvider ? handleReportProvider : undefined}
+        />
       </View>
     </Pressable>
   );
 });
 
-export function VerificationBadge() {
+function ProviderCardHeader({
+  description,
+  distanceLabel,
+  name,
+}: {
+  description: string;
+  distanceLabel?: string;
+  name: string;
+}) {
+  return (
+    <View style={styles.topRow}>
+      <View style={styles.titleColumn}>
+        <Text selectable numberOfLines={2} style={styles.name}>
+          {name}
+        </Text>
+        <Text selectable numberOfLines={1} style={styles.description}>
+          {description}
+        </Text>
+      </View>
+      {distanceLabel ? <DistancePill label={distanceLabel} /> : null}
+    </View>
+  );
+}
+
+function DistancePill({ label }: { label: string }) {
+  return (
+    <View style={styles.distancePill}>
+      <Image
+        source="sf:location.fill"
+        style={styles.inlineIcon}
+        tintColor={resourcesColors.primary}
+      />
+      <Text selectable style={styles.distanceText}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function ProviderBadgeRow({
+  availabilityLabel,
+  categoryLabel,
+  emergencyLabel,
+  isSponsored,
+  isVerified,
+  sponsorLabel,
+}: {
+  availabilityLabel?: string;
+  categoryLabel: string;
+  emergencyLabel?: string;
+  isSponsored: boolean;
+  isVerified: boolean;
+  sponsorLabel?: string;
+}) {
+  return (
+    <View style={styles.badgeRow}>
+      <Badge label={categoryLabel} tone="neutral" />
+      {isSponsored ? (
+        <SponsorBadge label={sponsorLabel ?? "Patrocinado"} />
+      ) : null}
+      {isVerified ? <VerificationBadge /> : null}
+      {emergencyLabel ? <Badge label={emergencyLabel} tone="blue" /> : null}
+      {availabilityLabel ? <Badge label={availabilityLabel} tone="green" /> : null}
+    </View>
+  );
+}
+
+function ProviderActionsRow({
+  contactLabels,
+  name,
+  onReportProvider,
+}: {
+  contactLabels: readonly string[];
+  name: string;
+  onReportProvider?: () => void;
+}) {
+  return (
+    <View style={styles.actionsRow}>
+      {contactLabels.slice(0, 2).map((label) => (
+        <View key={label} style={styles.contactPill}>
+          <Text selectable style={styles.contactText}>
+            {label}
+          </Text>
+        </View>
+      ))}
+      {onReportProvider ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Reportar ${name}`}
+          hitSlop={8}
+          onPress={onReportProvider}
+          style={styles.reportButton}
+        >
+          <Text selectable style={styles.reportText}>
+            Reportar
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+function VerificationBadge() {
   return (
     <Badge label="Verificado" tone="blue" iconName="checkmark.seal.fill" />
   );
 }
 
-export function SponsorBadge({ label }: { label: string }) {
+function SponsorBadge({ label }: { label: string }) {
   return <Badge label={label} tone="sponsor" iconName="star.fill" />;
 }
 

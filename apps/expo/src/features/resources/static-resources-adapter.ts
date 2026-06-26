@@ -428,7 +428,7 @@ function assertResourceProviderSearchQuery(query: ResourceProviderSearchQuery) {
   }
 }
 
-function toResolvedResourceProviderSearchLocation(
+export function toResolvedResourceProviderSearchLocation(
   location: ResourceSearchLocation,
 ): ResourceProviderSearchLocation | null {
   if (location.kind === "denied" || location.kind === "none") {

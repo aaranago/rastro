@@ -1,18 +1,13 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type { AdminResourceManagementViewer } from "./admin-resources";
-import { createInMemoryAdminResourceManagement } from "./admin-resources";
+import type { AdminResourceProviderProfile } from "./admin-resource-provider-admin-model";
+import { buildAdminResourceProviderListViewModel } from "./admin-resource-provider-admin-model";
 import { AdminResourcesDashboard } from "./admin-resources-dashboard";
 import {
   buildForbiddenAdminResourcesDashboardProps,
   toAdminResourcesDashboardProps,
 } from "./admin-resources-dashboard-adapter";
-
-const adminViewer = {
-  memberId: "member-admin-la-paz",
-  role: "admin",
-} satisfies AdminResourceManagementViewer;
 
 const forbiddenTerms = new RegExp(
   [
@@ -25,54 +20,41 @@ const marketplaceTerms = /marketplace|seller|comprar|vender/i;
 
 describe("AdminResourcesDashboard", () => {
   it("renders dense provider management controls with Spanish Bolivia copy", () => {
-    const resources = createInMemoryAdminResourceManagement({
-      now: "2026-07-15",
-    });
-
-    resources.attachSponsorPlacement(adminViewer, {
-      endsOn: "2026-08-31",
-      placementId: "patrocinio-san-roque-julio",
-      providerId: "clinic-san-roque",
-      startsOn: "2026-07-01",
-      surface: "resources_directory",
-    });
-
-    const listResult = resources.listProviders(adminViewer);
-    const metricsResult = resources.getMetrics(adminViewer);
-
-    if (
-      listResult.status !== "authorized" ||
-      metricsResult.status !== "authorized"
-    ) {
-      throw new Error("Expected admin resource access");
-    }
+    const viewModel = buildAdminResourceProviderListViewModel([
+      providerProfile(),
+    ]);
 
     const html = renderToStaticMarkup(
       <AdminResourcesDashboard
-        {...toAdminResourcesDashboardProps(
-          listResult.viewModel,
-          metricsResult.metrics,
-          {
-            displayName: "Admin Rastro",
-            role: "admin",
-          },
-        )}
+        {...toAdminResourcesDashboardProps(viewModel, viewModel.metrics, {
+          displayName: "Admin Rastro",
+          role: "admin",
+        })}
       />,
     );
 
-    expect(html).toContain("Gestion de proveedores de recursos");
-    expect(html).toContain("Administracion de recursos");
-    expect(html).toContain("modelo administrativo temporal");
-    expect(html).toContain("Clinica San Roque");
-    expect(html).toContain("Santa Cruz de la Sierra");
+    expect(html).toContain("Gestión de proveedores de recursos");
+    expect(html).toContain("Administración de recursos");
+    expect(html).not.toContain("modelo administrativo temporal");
+    expect(html).not.toContain("no confirma publicacion");
+    expect(html).toContain("Clinica Veterinaria San Roque");
+    expect(html).toContain("Sopocachi");
     expect(html).toContain("Registrar proveedor");
+    expect(html).toContain("Latitud exacta");
+    expect(html).toContain("Valor de contacto");
+    expect(html).toContain("Guardar detalles");
+    expect(html).not.toContain("Falta contrato API para actualizar detalles");
     expect(html).toContain("Guardar identidad");
     expect(html).toContain("Adjuntar patrocinio local");
-    expect(html).toContain("Retirar patrocinio local");
-    expect(html).toContain("Metricas por departamento");
-    expect(html).toContain("Metricas por ciudad");
-    expect(html).toContain("No cambia la prioridad de recuperacion");
-    expect(html).toContain("No activa alertas push");
+    expect(html).toContain("Retirar por ID");
+    expect(html).toContain("22222222-2222-4222-8222-222222222222");
+    expect(html).toContain("Identidad revisada por Rastro.");
+    expect(html).toContain("Archivar proveedor");
+    expect(html).not.toContain("Falta contrato API para archivar o eliminar");
+    expect(html).toContain("Métricas por departamento");
+    expect(html).toContain("Métricas por ciudad");
+    expect(html).toContain("No cambia la prioridad de recuperación");
+    expect(html).toContain("No activa notificaciones push");
     expect(html).not.toMatch(forbiddenTerms);
     expect(html).not.toMatch(marketplaceTerms);
   });
@@ -103,4 +85,82 @@ describe("AdminResourcesDashboard", () => {
     expect(html).not.toMatch(forbiddenTerms);
     expect(html).not.toMatch(marketplaceTerms);
   });
+
+  it("renders empty states for providers and metrics", () => {
+    const viewModel = buildAdminResourceProviderListViewModel([]);
+
+    const html = renderToStaticMarkup(
+      <AdminResourcesDashboard
+        {...toAdminResourcesDashboardProps(viewModel, viewModel.metrics, {
+          displayName: "Admin Rastro",
+          role: "admin",
+        })}
+      />,
+    );
+
+    expect(html).toContain("Todavía no hay proveedores registrados.");
+    expect(html).toContain(
+      "Sin métricas disponibles hasta registrar proveedores.",
+    );
+  });
 });
+
+function providerProfile(): AdminResourceProviderProfile {
+  return {
+    id: "11111111-1111-4111-8111-111111111111",
+    name: "Clinica Veterinaria San Roque",
+    categoryId: "veterinary",
+    description: "Veterinaria local con atencion general y urgencias.",
+    approximateLocationLabel: "Sopocachi, La Paz",
+    approximateLocation: {
+      latitude: -16.51051,
+      longitude: -68.124602,
+      precision: "approximate",
+      label: "Sopocachi, La Paz",
+      locationCell: "bo-lpb-sopocachi",
+    },
+    serviceAreaLabel: "Atiende La Paz y El Alto",
+    hoursLabel: "Lun - Dom: 24 horas",
+    shortDescription:
+      "Atencion veterinaria general y orientacion para familias cuidadoras.",
+    isVerified: true,
+    sponsorPlacement: {
+      kind: "Local Sponsor Placement",
+      label: "Patrocinado",
+      disclosure:
+        "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+      eligibleSurfaces: ["resources_directory"],
+      safetyPolicy: {
+        recoveryPriority: {
+          label: "Recovery Priority",
+          canAffect: false,
+        },
+        pushNotifications: {
+          eligible: false,
+        },
+      },
+    },
+    emergencyAvailable: true,
+    isOpenNow: true,
+    contactOptions: [
+      {
+        kind: "phone",
+        label: "Llamar",
+        value: "+591 2 222 1111",
+      },
+    ],
+    sponsorPlacements: [
+      {
+        disclosure:
+          "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+        endsOn: "2026-07-31",
+        isActive: true,
+        label: "Patrocinado",
+        placementId: "22222222-2222-4222-8222-222222222222",
+        startsOn: "2026-07-01",
+        surface: "resources_directory",
+      },
+    ],
+    verificationNote: "Identidad revisada por Rastro.",
+  };
+}

@@ -1,3 +1,5 @@
+import { buildAdminResourceMetricGroup } from "./admin-resource-metrics";
+
 export type AdminResourceManagementRole = "admin" | "member" | "visitor";
 
 export interface AdminResourceManagementViewer {
@@ -888,34 +890,14 @@ function buildMetricGroup(
   asOfDate: Date,
   getLabel: (provider: ResourceProviderState) => string,
 ): AdminResourceMetricGroupViewModel[] {
-  const metricsByLabel = new Map<string, AdminResourceMetricGroupViewModel>();
-
-  for (const provider of providers) {
-    const label = getLabel(provider);
-    const metric = metricsByLabel.get(label) ?? {
-      activeSponsorPlacementCount: 0,
-      label,
-      providerCount: 0,
-      verifiedProviderCount: 0,
-    };
-
-    metric.activeSponsorPlacementCount += provider.sponsorPlacements.filter(
-      (placement) => isSponsorPlacementActive(placement, asOfDate),
-    ).length;
-    metric.providerCount += 1;
-
-    if (provider.verificationBadge.status === "verified") {
-      metric.verifiedProviderCount += 1;
-    }
-
-    metricsByLabel.set(label, metric);
-  }
-
-  return Array.from(metricsByLabel.values()).sort(
-    (left, right) =>
-      right.activeSponsorPlacementCount - left.activeSponsorPlacementCount ||
-      right.providerCount - left.providerCount ||
-      left.label.localeCompare(right.label),
+  return buildAdminResourceMetricGroup(
+    providers.map((provider) => ({
+      activeSponsorPlacementCount: provider.sponsorPlacements.filter(
+        (placement) => isSponsorPlacementActive(placement, asOfDate),
+      ).length,
+      isVerified: provider.verificationBadge.status === "verified",
+      label: getLabel(provider),
+    })),
   );
 }
 

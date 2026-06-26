@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type {
   CreateResourceProviderInput,
   PublicResourceProviderProfile,
+  UpdateResourceProviderInput,
 } from "@acme/validators";
 
 import { appRouter } from "../root";
@@ -245,6 +246,120 @@ describe("resources router", () => {
     expect(JSON.stringify(created)).not.toContain("-16.510231");
   });
 
+  it("lets allowlisted admins update provider details, contact, and location", async () => {
+    let updateInput:
+      | {
+          adminId: string;
+          provider: UpdateResourceProviderInput;
+        }
+      | undefined;
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      resourceProviderRepository: {
+        updateProvider: (input: NonNullable<typeof updateInput>) => {
+          updateInput = input;
+          return Promise.resolve(
+            providerProfile({
+              name: input.provider.name,
+              contactOptions: input.provider.contactOptions,
+            }),
+          );
+        },
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin-la-paz",
+        },
+      },
+    });
+
+    const updated = await caller.resources.admin.updateProvider({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      name: "Clinica Veterinaria San Roque Norte",
+      logoUrl: null,
+      location: {
+        exactLatitude: -16.510231,
+        exactLongitude: -68.123881,
+        approximateLocationLabel: "Sopocachi, La Paz",
+        locationCell: "bo-lpb-sopocachi",
+      },
+      contactOptions: [
+        {
+          kind: "whatsapp",
+          label: "WhatsApp",
+          value: "+591 70000001",
+        },
+      ],
+    });
+
+    expect(updateInput).toMatchObject({
+      adminId: "member-admin-la-paz",
+      provider: {
+        name: "Clinica Veterinaria San Roque Norte",
+        logoUrl: null,
+        location: {
+          exactLatitude: -16.510231,
+          exactLongitude: -68.123881,
+        },
+      },
+    });
+    expect(updated).toMatchObject({
+      name: "Clinica Veterinaria San Roque Norte",
+      contactOptions: [
+        {
+          kind: "whatsapp",
+          label: "WhatsApp",
+          value: "+591 70000001",
+        },
+      ],
+    });
+    expect(JSON.stringify(updated)).not.toContain("-16.510231");
+  });
+
+  it("lets allowlisted admins soft-delete providers through the repository", async () => {
+    let deleteInput:
+      | {
+          adminId: string;
+          provider: { providerId: string };
+        }
+      | undefined;
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      resourceProviderRepository: {
+        deleteProvider: (input: NonNullable<typeof deleteInput>) => {
+          deleteInput = input;
+          return Promise.resolve({
+            deletedAt: new Date("2026-07-15T12:00:00.000Z"),
+            providerId: input.provider.providerId,
+          });
+        },
+      },
+      session: {
+        user: {
+          email: "ADMIN@rastro.bo",
+          id: "member-admin-la-paz",
+        },
+      },
+    });
+
+    const deleted = await caller.resources.admin.deleteProvider({
+      providerId: "11111111-1111-4111-8111-111111111111",
+    });
+
+    expect(deleteInput).toEqual({
+      adminId: "member-admin-la-paz",
+      provider: {
+        providerId: "11111111-1111-4111-8111-111111111111",
+      },
+    });
+    expect(deleted).toEqual({
+      deleted: true,
+      deletedAt: "2026-07-15T12:00:00.000Z",
+      providerId: "11111111-1111-4111-8111-111111111111",
+    });
+  });
+
   it("runs verification and sponsor admin mutations behind the same allowlist", async () => {
     const operations: string[] = [];
     const caller = createCaller({
@@ -342,6 +457,8 @@ describe("resources router", () => {
       adminEmailList: "admin@rastro.bo",
       resourceProviderRepository: {
         updateVerification: () => Promise.resolve(null),
+        updateProvider: () => Promise.resolve(null),
+        deleteProvider: () => Promise.resolve(null),
       },
       session: {
         user: {
@@ -355,6 +472,21 @@ describe("resources router", () => {
       caller.resources.admin.updateVerification({
         providerId: "11111111-1111-4111-8111-111111111111",
         status: "verified",
+      }),
+    ).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await expect(
+      caller.resources.admin.updateProvider({
+        providerId: "11111111-1111-4111-8111-111111111111",
+        name: "Clinica Veterinaria San Roque Norte",
+      }),
+    ).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await expect(
+      caller.resources.admin.deleteProvider({
+        providerId: "11111111-1111-4111-8111-111111111111",
       }),
     ).rejects.toMatchObject({
       code: "NOT_FOUND",

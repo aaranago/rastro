@@ -5,11 +5,24 @@ import {
   buildResourceProviderProfileHref,
   ResourcesScreen,
 } from "~/features/resources";
-import { defaultCachedResourcesAdapter } from "~/features/resources/default-resources-adapter";
+import { defaultApiResourcesAdapter } from "~/features/resources/resources-default-api-adapter";
+import type { ResourceSearchLocation } from "~/features/resources/resource-types";
+
+const defaultResourcesSearchLocation: ResourceSearchLocation = {
+  coordinate: {
+    latitude: -16.510231,
+    longitude: -68.123881,
+  },
+  countryCode: "BO",
+  kind: "manual",
+  label: "Sopocachi, La Paz",
+  locationCellLabel: "bo-lpb-sopocachi",
+  manualLocationKind: "place",
+};
 
 export default function ResourcesRoute() {
   const router = useRouter();
-  const adapter = defaultCachedResourcesAdapter;
+  const adapter = defaultApiResourcesAdapter;
 
   const handleOpenProvider = useCallback(
     (providerId: string) => {
@@ -18,22 +31,11 @@ export default function ResourcesRoute() {
     [router],
   );
 
-  const handleReportProvider = useCallback(
-    (providerId: string) => {
-      void adapter.reportProvider({
-        detail: "Reporte enviado desde la lista de Recursos.",
-        providerId,
-        reason: "other",
-      });
-    },
-    [adapter],
-  );
-
   return (
     <ResourcesScreen
       adapter={adapter}
+      initialLocation={defaultResourcesSearchLocation}
       onOpenProvider={handleOpenProvider}
-      onReportProvider={handleReportProvider}
     />
   );
 }

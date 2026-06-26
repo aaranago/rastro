@@ -5,6 +5,7 @@ import {
   attachLocalSponsorPlacementInputSchema,
   buildApproximatePublicResourceProviderLocation,
   createResourceProviderInputSchema,
+  deleteResourceProviderInputSchema,
   localSponsorPlacementPolicySchema,
   localSponsorPlacementSurfaceSchema,
   nearbyResourceProvidersInputSchema,
@@ -12,6 +13,7 @@ import {
   resourceProviderApproximatePublicLocationRadiusMeters,
   resourceProviderCategorySchema,
   resourceProviderContactKindSchema,
+  updateResourceProviderInputSchema,
 } from "./index";
 
 const createProviderInput = {
@@ -105,6 +107,55 @@ describe("resource provider validation contracts", () => {
 
     expect(result.success).toBe(false);
     expect(JSON.stringify(result.error?.issues)).toContain("Unrecognized keys");
+  });
+
+  it("accepts admin provider updates while requiring at least one changed field", () => {
+    const result = updateResourceProviderInputSchema.safeParse({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      name: "Clinica Veterinaria San Roque Norte",
+      logoUrl: null,
+      contactOptions: [
+        {
+          kind: "whatsapp",
+          label: "WhatsApp",
+          value: "+591 70000001",
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    expect(
+      updateResourceProviderInputSchema.safeParse({
+        providerId: "11111111-1111-4111-8111-111111111111",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects caller-supplied public coordinates for provider location updates", () => {
+    const result = updateResourceProviderInputSchema.safeParse({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      location: {
+        ...createProviderInput.location,
+        approximateLatitude: -16.510231,
+        approximateLongitude: -68.123881,
+      },
+    });
+
+    expect(result.success).toBe(false);
+    expect(JSON.stringify(result.error?.issues)).toContain("Unrecognized keys");
+  });
+
+  it("validates soft-delete provider inputs as DB-backed UUIDs", () => {
+    expect(
+      deleteResourceProviderInputSchema.safeParse({
+        providerId: "11111111-1111-4111-8111-111111111111",
+      }).success,
+    ).toBe(true);
+    expect(
+      deleteResourceProviderInputSchema.safeParse({
+        providerId: "clinic-san-roque",
+      }).success,
+    ).toBe(false);
   });
 
   it("snaps provider public coordinates to the same privacy grid as reports", () => {

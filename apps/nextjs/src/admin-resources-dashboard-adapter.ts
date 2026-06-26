@@ -1,11 +1,9 @@
-import type { AdminModerationViewer as ModelAdminModerationViewer } from "./admin-moderation";
 import type { AdminModerationViewer as ExistingAdminDashboardViewer } from "./admin-moderation-dashboard";
 import type {
   AdminResourceForbiddenViewModel,
-  AdminResourceManagementViewer,
   AdminResourceMetricsViewModel,
   AdminResourceProviderListViewModel,
-} from "./admin-resources";
+} from "./admin-resource-provider-admin-model";
 import type {
   AdminResourcesDashboardProps,
   AdminResourcesViewer,
@@ -15,15 +13,6 @@ const emptyMetrics: AdminResourceMetricsViewModel = {
   byCity: [],
   byDepartment: [],
 };
-
-export function toAdminResourceManagementViewer(
-  viewer: ModelAdminModerationViewer,
-): AdminResourceManagementViewer {
-  return {
-    memberId: viewer.memberId,
-    role: viewer.role,
-  };
-}
 
 export function toAdminResourcesDashboardProps(
   viewModel: AdminResourceProviderListViewModel,
@@ -55,7 +44,7 @@ export function buildForbiddenAdminResourcesDashboardProps(
     createActionLabel: "Registrar proveedor",
     metrics: emptyMetrics,
     providers: [],
-    title: "Gestion de proveedores de recursos",
+    title: "Gestión de proveedores de recursos",
     viewer: toAdminResourcesViewer(viewer),
   };
 }

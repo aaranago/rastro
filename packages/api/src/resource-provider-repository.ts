@@ -2,6 +2,7 @@ import type { Database } from "@acme/db/client";
 import type {
   AttachLocalSponsorPlacementInput,
   CreateResourceProviderInput,
+  DeleteResourceProviderInput,
   DetachLocalSponsorPlacementInput,
   LocalSponsorPlacementSurface,
   NearbyResourceProvidersInput,
@@ -10,6 +11,7 @@ import type {
   ResourceProviderCategory,
   ResourceProviderContactKind,
   ResourceProviderVerificationStatus,
+  UpdateResourceProviderInput,
   UpdateResourceProviderVerificationInput,
 } from "@acme/validators";
 import { and, asc, eq, inArray, isNull, sql } from "@acme/db";
@@ -75,6 +77,21 @@ export interface ResourceProviderLink {
   url: string;
 }
 
+export interface AdminResourceProviderSponsorPlacement {
+  disclosure: string;
+  endsOn: string;
+  isActive: boolean;
+  label: string;
+  placementId: string;
+  startsOn: string;
+  surface: LocalSponsorPlacementSurface;
+}
+
+export type AdminResourceProviderProfile = PublicResourceProviderProfile & {
+  sponsorPlacements: AdminResourceProviderSponsorPlacement[];
+  verificationNote?: string;
+};
+
 export interface ResourceProviderRepository {
   nearby(
     input: NearbyResourceProvidersInput,
@@ -82,11 +99,19 @@ export interface ResourceProviderRepository {
   findProfile(
     providerId: string,
   ): Promise<PublicResourceProviderProfile | null>;
-  listProviders(): Promise<PublicResourceProviderProfile[]>;
+  listProviders(): Promise<AdminResourceProviderProfile[]>;
   createProvider(input: {
     adminId: string;
     provider: CreateResourceProviderInput;
   }): Promise<PublicResourceProviderProfile>;
+  updateProvider(input: {
+    adminId: string;
+    provider: UpdateResourceProviderInput;
+  }): Promise<PublicResourceProviderProfile | null>;
+  deleteProvider(input: {
+    adminId: string;
+    provider: DeleteResourceProviderInput;
+  }): Promise<{ deletedAt: Date; providerId: string } | null>;
   updateVerification(input: {
     adminId: string;
     verification: UpdateResourceProviderVerificationInput;
@@ -204,6 +229,27 @@ export function toPublicResourceProviderProfile(
   };
 }
 
+export function toAdminResourceProviderProfile(
+  provider: PersistedResourceProvider,
+  options: { now?: Date } = {},
+): AdminResourceProviderProfile {
+  const now = options.now ?? new Date();
+
+  return {
+    ...toPublicResourceProviderProfile(provider, { now }),
+    sponsorPlacements: provider.sponsorPlacements.map((placement) => ({
+      disclosure: placement.disclosure,
+      endsOn: toDateOnly(placement.endsAt),
+      isActive: isSponsorPlacementActive(placement, now),
+      label: placement.label,
+      placementId: placement.id,
+      startsOn: toDateOnly(placement.startsAt),
+      surface: placement.surface,
+    })),
+    verificationNote: provider.verificationNote ?? undefined,
+  };
+}
+
 export interface DrizzleResourceProviderRepositoryOptions {
   now?: () => Date;
 }
@@ -301,7 +347,7 @@ export function createDrizzleResourceProviderRepository(
       );
 
       return providers.map((provider) =>
-        toPublicResourceProviderProfile(provider, { now: now() }),
+        toAdminResourceProviderProfile(provider, { now: now() }),
       );
     },
     createProvider: async ({ adminId, provider }) => {
@@ -330,29 +376,12 @@ export function createDrizzleResourceProviderRepository(
           throw new Error("Resource Provider could not be created.");
         }
 
-        const publicLocation = derivePublicResourceProviderLocation(
-          provider.location,
+        await tx.insert(ResourceProviderLocation).values(
+          buildResourceProviderLocationWriteValues({
+            location: provider.location,
+            providerId: created.id,
+          }),
         );
-
-        await tx.insert(ResourceProviderLocation).values({
-          addressLabel: provider.location.addressLabel ?? null,
-          approximateLocationLabel: provider.location.approximateLocationLabel,
-          exactLatitude: provider.location.exactLatitude,
-          exactLongitude: provider.location.exactLongitude,
-          exactPoint: {
-            x: provider.location.exactLongitude,
-            y: provider.location.exactLatitude,
-          },
-          locationCell: provider.location.locationCell,
-          providerId: created.id,
-          publicLatitude: publicLocation.publicLatitude,
-          publicLongitude: publicLocation.publicLongitude,
-          publicPoint: {
-            x: publicLocation.publicLongitude,
-            y: publicLocation.publicLatitude,
-          },
-          publicPrecision: "approximate",
-        });
 
         await tx.insert(ResourceProviderContactOption).values(
           provider.contactOptions.map((contact, index) => ({
@@ -373,6 +402,84 @@ export function createDrizzleResourceProviderRepository(
       }
 
       return createdProvider;
+    },
+    updateProvider: async ({ provider }) => {
+      const updatedProviderId = await db.transaction(async (tx) => {
+        const providerUpdate = buildResourceProviderUpdateValues({
+          provider,
+          updatedAt: now(),
+        });
+
+        const [updated] = await tx
+          .update(ResourceProvider)
+          .set(providerUpdate)
+          .where(
+            and(
+              eq(ResourceProvider.id, provider.providerId),
+              isNull(ResourceProvider.deletedAt),
+            ),
+          )
+          .returning({ id: ResourceProvider.id });
+
+        if (!updated) {
+          return null;
+        }
+
+        if (provider.location) {
+          await tx
+            .update(ResourceProviderLocation)
+            .set(
+              buildResourceProviderLocationWriteValues({
+                location: provider.location,
+                providerId: provider.providerId,
+              }),
+            )
+            .where(
+              eq(ResourceProviderLocation.providerId, provider.providerId),
+            );
+        }
+
+        if (provider.contactOptions) {
+          await tx
+            .delete(ResourceProviderContactOption)
+            .where(
+              eq(ResourceProviderContactOption.providerId, provider.providerId),
+            );
+          await tx.insert(ResourceProviderContactOption).values(
+            provider.contactOptions.map((contact, index) => ({
+              kind: contact.kind,
+              label: contact.label,
+              providerId: provider.providerId,
+              sortOrder: index,
+              value: contact.value,
+            })),
+          );
+        }
+
+        return updated.id;
+      });
+
+      return updatedProviderId
+        ? repository.findProfile(updatedProviderId)
+        : null;
+    },
+    deleteProvider: async ({ provider }) => {
+      const deletedAt = now();
+      const [deleted] = await db
+        .update(ResourceProvider)
+        .set({
+          deletedAt,
+          updatedAt: deletedAt,
+        })
+        .where(
+          and(
+            eq(ResourceProvider.id, provider.providerId),
+            isNull(ResourceProvider.deletedAt),
+          ),
+        )
+        .returning({ id: ResourceProvider.id });
+
+      return deleted ? { deletedAt, providerId: deleted.id } : null;
     },
     updateVerification: async ({ adminId, verification }) => {
       const [updated] = await db
@@ -467,6 +574,67 @@ export function derivePublicResourceProviderLocation(
   };
 }
 
+export function buildResourceProviderLocationWriteValues({
+  location,
+  providerId,
+}: {
+  location: CreateResourceProviderInput["location"];
+  providerId: string;
+}) {
+  const publicLocation = derivePublicResourceProviderLocation(location);
+
+  return {
+    addressLabel: location.addressLabel ?? null,
+    approximateLocationLabel: location.approximateLocationLabel,
+    exactLatitude: location.exactLatitude,
+    exactLongitude: location.exactLongitude,
+    exactPoint: {
+      x: location.exactLongitude,
+      y: location.exactLatitude,
+    },
+    locationCell: location.locationCell,
+    providerId,
+    publicLatitude: publicLocation.publicLatitude,
+    publicLongitude: publicLocation.publicLongitude,
+    publicPoint: {
+      x: publicLocation.publicLongitude,
+      y: publicLocation.publicLatitude,
+    },
+    publicPrecision: "approximate" as const,
+  };
+}
+
+function buildResourceProviderUpdateValues({
+  provider,
+  updatedAt,
+}: {
+  provider: UpdateResourceProviderInput;
+  updatedAt: Date;
+}): Partial<typeof ResourceProvider.$inferInsert> {
+  return omitUndefinedProperties({
+    category: provider.category,
+    description: provider.description,
+    emergencyAvailable: provider.emergencyAvailable,
+    externalLinks: provider.externalLinks,
+    hoursLabel: provider.hoursLabel,
+    isOpenNow: provider.isOpenNow,
+    logoUrl: provider.logoUrl,
+    name: provider.name,
+    photoUrl: provider.photoUrl,
+    serviceAreaLabel: provider.serviceAreaLabel,
+    shortDescription: provider.shortDescription,
+    socialLinks: provider.socialLinks,
+    updatedAt,
+    websiteUrl: provider.websiteUrl,
+  }) as Partial<typeof ResourceProvider.$inferInsert>;
+}
+
+function omitUndefinedProperties<T extends Record<string, unknown>>(input: T) {
+  return Object.fromEntries(
+    Object.entries(input).filter(([, value]) => value !== undefined),
+  );
+}
+
 function toPersistedResourceProvider(
   row: ResourceProviderRow,
   contactOptions: ContactOptionRow[],
@@ -533,4 +701,8 @@ function startOfDateOnlyUtc(date: string) {
 
 function endOfDateOnlyUtc(date: string) {
   return new Date(`${date}T23:59:59.999Z`);
+}
+
+function toDateOnly(date: Date) {
+  return date.toISOString().slice(0, 10);
 }

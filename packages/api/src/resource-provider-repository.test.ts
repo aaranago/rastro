@@ -4,7 +4,9 @@ import type { PersistedResourceProvider } from "./resource-provider-repository";
 import {
   buildLocalSponsorPlacementPolicy,
   buildNearbyResourceProvidersCondition,
+  buildResourceProviderLocationWriteValues,
   derivePublicResourceProviderLocation,
+  toAdminResourceProviderProfile,
   toPublicResourceProviderProfile,
   toPublicResourceProviderSummary,
 } from "./resource-provider-repository";
@@ -134,6 +136,36 @@ describe("resource provider repository", () => {
     expect(publicLocation.publicLongitude).not.toBe(-68.123881);
   });
 
+  it("builds location write values with exact private and approximate public coordinates", () => {
+    const writeValues = buildResourceProviderLocationWriteValues({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      location: {
+        exactLatitude: -16.510231,
+        exactLongitude: -68.123881,
+        approximateLocationLabel: "Sopocachi, La Paz",
+        locationCell: "bo-lpb-sopocachi",
+        addressLabel: "Plaza Abaroa, La Paz",
+      },
+    });
+
+    expect(writeValues).toMatchObject({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      exactLatitude: -16.510231,
+      exactLongitude: -68.123881,
+      exactPoint: {
+        x: -68.123881,
+        y: -16.510231,
+      },
+      publicLatitude: -16.51051,
+      publicLongitude: -68.124602,
+      publicPoint: {
+        x: -68.124602,
+        y: -16.51051,
+      },
+      publicPrecision: "approximate",
+    });
+  });
+
   it("keeps sponsor policy explicit without changing recovery priority or push eligibility", () => {
     const summary = toPublicResourceProviderSummary(persistedProvider(), {
       now: new Date("2026-07-15T12:00:00.000Z"),
@@ -181,6 +213,32 @@ describe("resource provider repository", () => {
           url: "https://instagram.example.com/sanroque",
         },
       ],
+    });
+    expect(JSON.stringify(profile)).not.toContain("exact");
+    expect(JSON.stringify(profile)).not.toContain(
+      "22222222-2222-4222-8222-222222222222",
+    );
+    expect(JSON.stringify(profile)).not.toContain(
+      "Identidad revisada por Rastro.",
+    );
+  });
+
+  it("maps admin-only notes and sponsor placement IDs without exact location details", () => {
+    const profile = toAdminResourceProviderProfile(persistedProvider(), {
+      now: new Date("2026-07-15T12:00:00.000Z"),
+    });
+
+    expect(profile).toMatchObject({
+      sponsorPlacements: [
+        {
+          endsOn: "2026-07-31",
+          isActive: true,
+          placementId: "22222222-2222-4222-8222-222222222222",
+          startsOn: "2026-07-01",
+          surface: "resources_directory",
+        },
+      ],
+      verificationNote: "Identidad revisada por Rastro.",
     });
     expect(JSON.stringify(profile)).not.toContain("exact");
   });

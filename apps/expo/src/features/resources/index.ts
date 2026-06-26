@@ -1,8 +1,4 @@
-export {
-  ResourceProviderCard,
-  SponsorBadge,
-  VerificationBadge,
-} from "./resource-provider-card";
+export { ResourceProviderCard } from "./resource-provider-card";
 export { ResourceProviderProfile } from "./resource-provider-profile";
 export {
   buildResourceProviderProfileHref,

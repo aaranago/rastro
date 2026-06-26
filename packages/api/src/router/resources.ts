@@ -3,9 +3,11 @@ import { TRPCError } from "@trpc/server";
 import {
   attachLocalSponsorPlacementInputSchema,
   createResourceProviderInputSchema,
+  deleteResourceProviderInputSchema,
   detachLocalSponsorPlacementInputSchema,
   nearbyResourceProvidersInputSchema,
   resourceProviderDetailInputSchema,
+  updateResourceProviderInputSchema,
   updateResourceProviderVerificationInputSchema,
 } from "@acme/validators";
 
@@ -93,6 +95,40 @@ export const resourcesRouter = createTRPCRouter({
           adminId: admin.id,
           provider: input,
         });
+      }),
+    updateProvider: protectedProcedure
+      .input(updateResourceProviderInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const admin = requireResourceProviderAdmin(ctx);
+        const provider = await ctx.resourceProviderRepository.updateProvider({
+          adminId: admin.id,
+          provider: input,
+        });
+
+        if (!provider) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        return provider;
+      }),
+    deleteProvider: protectedProcedure
+      .input(deleteResourceProviderInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const admin = requireResourceProviderAdmin(ctx);
+        const deleted = await ctx.resourceProviderRepository.deleteProvider({
+          adminId: admin.id,
+          provider: input,
+        });
+
+        if (!deleted) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        return {
+          deletedAt: deleted.deletedAt.toISOString(),
+          deleted: true as const,
+          providerId: deleted.providerId,
+        };
       }),
     updateVerification: protectedProcedure
       .input(updateResourceProviderVerificationInputSchema)

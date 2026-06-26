@@ -268,6 +268,42 @@ export const createResourceProviderInputSchema = z.object({
   isOpenNow: z.boolean().default(false),
 });
 
+export const updateResourceProviderInputSchema = z
+  .object({
+    providerId: z.uuid(),
+    name: z.string().min(2).max(120).optional(),
+    category: resourceProviderCategorySchema.optional(),
+    description: z.string().min(10).max(500).optional(),
+    shortDescription: z.string().min(10).max(1000).optional(),
+    logoUrl: z.url().nullable().optional(),
+    photoUrl: z.url().nullable().optional(),
+    location: resourceProviderLocationInputSchema.optional(),
+    serviceAreaLabel: z.string().min(2).max(160).optional(),
+    hoursLabel: z.string().min(2).max(160).optional(),
+    contactOptions: z
+      .array(publicResourceProviderContactOptionSchema)
+      .min(1)
+      .max(8)
+      .optional(),
+    websiteUrl: z.url().nullable().optional(),
+    socialLinks: z
+      .array(resourceProviderLinkSchema)
+      .max(6)
+      .nullable()
+      .optional(),
+    externalLinks: z
+      .array(resourceProviderLinkSchema)
+      .max(6)
+      .nullable()
+      .optional(),
+    emergencyAvailable: z.boolean().optional(),
+    isOpenNow: z.boolean().optional(),
+  })
+  .strict()
+  .refine(({ providerId: _providerId, ...patch }) => {
+    return Object.keys(patch).length > 0;
+  }, "At least one resource provider field must change.");
+
 export const resourceProviderDetailInputSchema = z.object({
   providerId: z.uuid(),
 });
@@ -318,6 +354,10 @@ export const attachLocalSponsorPlacementInputSchema = z
 export const detachLocalSponsorPlacementInputSchema = z.object({
   providerId: z.uuid(),
   placementId: z.uuid(),
+});
+
+export const deleteResourceProviderInputSchema = z.object({
+  providerId: z.uuid(),
 });
 
 export const localSponsorPlacementPolicySchema = z.object({
@@ -444,6 +484,9 @@ export type ResourceProviderVerificationStatus = z.infer<
 export type CreateResourceProviderInput = z.infer<
   typeof createResourceProviderInputSchema
 >;
+export type UpdateResourceProviderInput = z.infer<
+  typeof updateResourceProviderInputSchema
+>;
 export type ResourceProviderDetailInput = z.infer<
   typeof resourceProviderDetailInputSchema
 >;
@@ -458,6 +501,9 @@ export type AttachLocalSponsorPlacementInput = z.infer<
 >;
 export type DetachLocalSponsorPlacementInput = z.infer<
   typeof detachLocalSponsorPlacementInputSchema
+>;
+export type DeleteResourceProviderInput = z.infer<
+  typeof deleteResourceProviderInputSchema
 >;
 export type LocalSponsorPlacementPolicy = z.infer<
   typeof localSponsorPlacementPolicySchema
