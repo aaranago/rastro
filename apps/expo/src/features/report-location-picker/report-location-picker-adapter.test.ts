@@ -181,7 +181,7 @@ describe("Report location picker adapter", () => {
     ).resolves.toEqual({
       kind: "recoverable",
       message:
-        "No tenemos permiso para usar tu ubicacion. Puedes elegir una ciudad, un departamento o un punto manual.",
+        "No tenemos permiso para usar tu ubicacion. Elige un departamento como referencia y marca el punto en el mapa.",
       title: "Permiso de ubicacion denegado",
     });
 
@@ -205,7 +205,7 @@ describe("Report location picker adapter", () => {
     ).resolves.toEqual({
       kind: "recoverable",
       message:
-        "No pudimos ubicarte dentro de Bolivia. Puedes elegir una ciudad, un departamento o un punto manual.",
+        "No pudimos ubicarte dentro de Bolivia. Elige un departamento como referencia y marca el punto en el mapa.",
       title: "Elige una ubicacion manual",
     });
   });

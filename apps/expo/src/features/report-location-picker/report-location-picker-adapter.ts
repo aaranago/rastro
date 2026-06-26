@@ -57,7 +57,7 @@ function toRecoverableCurrentLocationResult(
     return {
       kind: "recoverable",
       message:
-        "No tenemos permiso para usar tu ubicacion. Puedes elegir una ciudad, un departamento o un punto manual.",
+        "No tenemos permiso para usar tu ubicacion. Elige un departamento como referencia y marca el punto en el mapa.",
       title: "Permiso de ubicacion denegado",
     };
   }
@@ -66,8 +66,8 @@ function toRecoverableCurrentLocationResult(
     kind: "recoverable",
     message:
       result.reason === "outside-bolivia"
-        ? "No pudimos ubicarte dentro de Bolivia. Puedes elegir una ciudad, un departamento o un punto manual."
-        : "No pudimos obtener tu ubicacion actual. Puedes elegir una ciudad, un departamento o un punto manual.",
+        ? "No pudimos ubicarte dentro de Bolivia. Elige un departamento como referencia y marca el punto en el mapa."
+        : "No pudimos obtener tu ubicacion actual. Elige un departamento como referencia y marca el punto en el mapa.",
     title: "Elige una ubicacion manual",
   };
 }

@@ -1,3 +1,5 @@
+import { buildApproximatePublicReportLocation } from "@acme/validators";
+
 export interface ReportLocationDraft {
   addressLabel: string;
   coordinates: {
@@ -19,6 +21,8 @@ export interface ReportLocationPublishInput {
 }
 
 export interface ReportCreateLocationInput {
+  approximateLatitude?: number;
+  approximateLongitude?: number;
   exactLatitude: number;
   exactLongitude: number;
   exposeExactLocation: boolean;
@@ -316,6 +320,12 @@ export function toReportCreateLocationInput({
   }
 
   return {
+    ...(exposeExactLocation
+      ? {}
+      : buildApproximatePublicReportLocation({
+          exactLatitude: location.latitude,
+          exactLongitude: location.longitude,
+        })),
     exactLatitude: location.latitude,
     exactLongitude: location.longitude,
     exposeExactLocation,

@@ -514,7 +514,7 @@ function buildLocationViewModel(draft: SightingReportDraft) {
     ? `${location.addressLabel} - ${location.municipality}, ${location.department}`
     : "Selecciona el punto donde fue vista.";
   const approximatePublicLabel = location
-    ? location.locationCellLabel
+    ? `${location.locationCellLabel} · zona de 300 m`
     : "Elige una ubicacion para calcular la zona.";
 
   return {
@@ -527,10 +527,10 @@ function buildLocationViewModel(draft: SightingReportDraft) {
       : "Bolivia - elige una ubicacion",
     publicPrecisionLabel: draft.showExactPinPublicly
       ? "Pin exacto publico"
-      : "Zona aproximada por defecto",
+      : "Zona aproximada de 300 m",
     showExactPinPublicly: draft.showExactPinPublicly,
     toggleBody:
-      "Por defecto mostramos solo la zona aproximada. Activa el punto exacto solo si no expone a la mascota ni a quien reporta.",
+      "Por defecto mostramos una zona de 300 m alrededor del pin. Activa el punto exacto solo si no expone a la mascota ni a quien reporta.",
     toggleLabel: "Mostrar pin exacto publicamente",
   };
 }

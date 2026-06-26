@@ -38,7 +38,7 @@ describe("Lost Pet Report creation view model", () => {
     expect(viewModel.petProfile.selectedLabel).toBe("Toby · Perro");
     expect(viewModel.photos.error).toContain("Agrega al menos una foto");
     expect(viewModel.location.publicPrecisionLabel).toBe(
-      "Zona aproximada por defecto",
+      "Zona aproximada de 300 m",
     );
     expect(viewModel.location.exactPinOptInLabel).toBe(
       "Mostrar pin exacto publicamente",

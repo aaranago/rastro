@@ -90,8 +90,6 @@ export function ReportLocationPickerScreen({
     ) ??
     manualLocationGroups[0] ??
     null;
-  const selectedDepartmentLocation =
-    selectedDepartmentGroup?.locations[0] ?? null;
   const mapPinLocation = mapPinLocationOptions[0] ?? null;
   const resolvedMapProviderState =
     mapProviderState ?? getNativeMapProviderState();
@@ -181,8 +179,9 @@ export function ReportLocationPickerScreen({
           Ubicacion del reporte
         </Text>
         <Text selectable style={styles.body}>
-          Elige una zona aproximada o marca un punto exacto. Por defecto
-          mostramos solo la zona al publico.
+          Usa tu ubicacion actual o elige una referencia para abrir el mapa.
+          Despues ajusta el pin. Por defecto publicamos una zona aproximada de
+          300 m, no el punto exacto.
         </Text>
         <Pressable
           accessibilityLabel="Usar mi ubicacion actual"
@@ -245,7 +244,6 @@ export function ReportLocationPickerScreen({
           setDepartmentMenuOpen((isOpen) => !isOpen)
         }
         selectedDepartmentGroup={selectedDepartmentGroup}
-        selectedDepartmentLocation={selectedDepartmentLocation}
       />
     </ReportCreationScreenFrame>
   );
@@ -259,7 +257,6 @@ function ManualLocationDecisionSection({
   onSelectLocation,
   onToggleDepartmentMenu,
   selectedDepartmentGroup,
-  selectedDepartmentLocation,
 }: {
   isDepartmentMenuOpen: boolean;
   manualLocationGroups: readonly ManualLocationDepartmentGroup[];
@@ -268,7 +265,6 @@ function ManualLocationDecisionSection({
   onSelectLocation: (location: NearbySearchLocation) => void;
   onToggleDepartmentMenu: () => void;
   selectedDepartmentGroup: ManualLocationDepartmentGroup | null;
-  selectedDepartmentLocation: NearbySearchLocation | null;
 }) {
   if (!selectedDepartmentGroup) {
     return null;
@@ -277,7 +273,7 @@ function ManualLocationDecisionSection({
   return (
     <View style={styles.section}>
       <Text selectable style={styles.sectionTitle}>
-        Ubicacion manual
+        Punto del reporte
       </Text>
       <View style={styles.selectPanel}>
         <DepartmentTrigger
@@ -293,24 +289,6 @@ function ManualLocationDecisionSection({
           />
         ) : null}
         <View style={styles.decisionList}>
-          {selectedDepartmentLocation ? (
-            <Pressable
-              accessibilityLabel={`Usar ${selectedDepartmentGroup.department} como zona aproximada`}
-              accessibilityRole="button"
-              onPress={() => onSelectLocation(selectedDepartmentLocation)}
-              style={styles.decisionCard}
-            >
-              <View style={styles.optionCopy}>
-                <Text selectable style={styles.decisionTitle}>
-                  Usar {selectedDepartmentGroup.department} como zona aproximada
-                </Text>
-                <Text selectable style={styles.decisionMeta}>
-                  Mas rapido. Se mostrara el departamento sin exponer un pin
-                  exacto.
-                </Text>
-              </View>
-            </Pressable>
-          ) : null}
           {mapPinLocation ? (
             <Pressable
               accessibilityLabel={`Marcar punto exacto en ${selectedDepartmentGroup.department}`}
@@ -323,8 +301,8 @@ function ManualLocationDecisionSection({
                   Marcar punto exacto en el mapa
                 </Text>
                 <Text selectable style={styles.decisionMeta}>
-                  Mas preciso. Tu decides el punto y luego eliges si puede verse
-                  publicamente.
+                  Ajusta el pin en el mapa. Rastro muestra una zona de 300 m
+                  salvo que actives el punto exacto publico.
                 </Text>
               </View>
             </Pressable>
@@ -357,7 +335,7 @@ function DepartmentTrigger({
           {selectedDepartment}
         </Text>
         <Text selectable style={styles.optionMeta}>
-          Departamento seleccionado
+          Referencia para abrir el mapa
         </Text>
       </View>
       <Text style={styles.departmentTriggerText}>

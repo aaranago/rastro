@@ -132,4 +132,26 @@ describe("Report location draft contract", () => {
       locationCell: "Sopocachi",
     });
   });
+
+  it("adds a 300 m approximate public location when exact visibility is off", () => {
+    expect(
+      toReportCreateLocationInput({
+        exposeExactLocation: false,
+        location: {
+          addressLabel: "Plaza Abaroa",
+          latitude: -16.510231,
+          locationCellLabel: "Sopocachi",
+          longitude: -68.123881,
+        },
+      }),
+    ).toEqual({
+      approximateLatitude: -16.51051,
+      approximateLongitude: -68.124602,
+      exactLatitude: -16.510231,
+      exactLongitude: -68.123881,
+      exposeExactLocation: false,
+      label: "Plaza Abaroa",
+      locationCell: "Sopocachi",
+    });
+  });
 });

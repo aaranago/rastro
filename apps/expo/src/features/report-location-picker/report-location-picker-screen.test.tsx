@@ -104,11 +104,11 @@ describe("ReportLocationPickerScreen", () => {
     expect(
       findText(
         screen,
-        "Elige una zona aproximada o marca un punto exacto. Por defecto mostramos solo la zona al publico.",
+        "Usa tu ubicacion actual o elige una referencia para abrir el mapa. Despues ajusta el pin. Por defecto publicamos una zona aproximada de 300 m, no el punto exacto.",
       ),
     ).toBe(true);
     expect(findText(screen, "Usar mi ubicacion actual")).toBe(true);
-    expect(findText(screen, "Departamento seleccionado")).toBe(true);
+    expect(findText(screen, "Referencia para abrir el mapa")).toBe(true);
     expect(findText(screen, "La Paz")).toBe(true);
     expect(
       findElement(
@@ -118,12 +118,12 @@ describe("ReportLocationPickerScreen", () => {
           element.props.accessibilityLabel ===
             "Usar La Paz como zona aproximada",
       ),
-    ).toBeTruthy();
+    ).toBeUndefined();
     expect(findText(screen, "Marcar punto exacto en el mapa")).toBe(true);
     expect(adapter.resolveForegroundLocation).not.toHaveBeenCalled();
   });
 
-  it("lets people change department before choosing a manual city", () => {
+  it("lets people change department only as a map reference", () => {
     const adapter = createNearbyLocationAdapterBoundary();
     const onConfirm = vi.fn();
     const screen = renderScreen(
@@ -174,13 +174,40 @@ describe("ReportLocationPickerScreen", () => {
           "Usar Santa Cruz como zona aproximada",
     );
 
-    void getPressableOnPress(departmentChoiceButton)();
+    expect(departmentChoiceButton).toBeUndefined();
+    expect(onConfirm).not.toHaveBeenCalled();
+
+    const mapOption = findElement(
+      santaCruzScreen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel ===
+          "Marcar punto exacto en Santa Cruz",
+    );
+
+    void getPressableOnPress(mapOption)();
+
+    const mapScreen = renderScreen(
+      <ReportLocationPickerScreen
+        adapter={adapter}
+        manualLocationOptions={manualLocationOptions}
+        onConfirm={onConfirm}
+      />,
+    );
+    const confirmPinButton = findElement(
+      mapScreen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel === "Confirmar punto elegido",
+    );
+
+    void getPressableOnPress(confirmPinButton)();
 
     expect(onConfirm).toHaveBeenCalledWith({
-      addressLabel: "Santa Cruz de la Sierra",
+      addressLabel: "Punto manual en Santa Cruz de la Sierra",
       coordinates: { latitude: -17.7833, longitude: -63.1821 },
       department: "Santa Cruz",
-      locationCellLabel: "Santa Cruz de la Sierra",
+      locationCellLabel: "Departamento de Santa Cruz",
       municipality: "Santa Cruz de la Sierra",
     });
   });
@@ -270,7 +297,7 @@ describe("ReportLocationPickerScreen", () => {
     expect(
       findText(
         deniedScreen,
-        "No tenemos permiso para usar tu ubicacion. Puedes elegir una ciudad, un departamento o un punto manual.",
+        "No tenemos permiso para usar tu ubicacion. Elige un departamento como referencia y marca el punto en el mapa.",
       ),
     ).toBe(true);
     expect(findText(deniedScreen, "La Paz")).toBe(true);
@@ -315,10 +342,10 @@ describe("ReportLocationPickerScreen", () => {
     void getPressableOnPress(confirmPinButton)();
 
     expect(onConfirm).toHaveBeenCalledWith({
-      addressLabel: "Pin manual -16.5022, -68.1213",
+      addressLabel: "Zona elegida en el mapa",
       coordinates: { latitude: -16.5022, longitude: -68.1213 },
       department: "Bolivia",
-      locationCellLabel: "Punto elegido",
+      locationCellLabel: "Zona elegida",
       municipality: "Punto manual",
     });
   });
