@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  parseArchiveProviderInput,
+  parseAttachSponsorInput,
   parseCreateProviderInput,
   parseUpdateProviderInput,
+  parseVerificationInput,
 } from "./admin-resource-provider-form-parser";
 
 describe("admin resource provider form parser", () => {
@@ -183,6 +186,79 @@ describe("admin resource provider form parser", () => {
           message: "Este campo es obligatorio.",
         },
       ],
+    });
+  });
+
+  it("parses verification changes with their own note", () => {
+    const result = parseVerificationInput(
+      formData({
+        providerId: "11111111-1111-4111-8111-111111111111",
+        verificationStatus: "verified",
+        verificationNote: " Identidad confirmada con licencia municipal. ",
+      }),
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      input: {
+        providerId: "11111111-1111-4111-8111-111111111111",
+        status: "verified",
+        note: "Identidad confirmada con licencia municipal.",
+      },
+    });
+  });
+
+  it("reports sponsor date errors at field level", () => {
+    const result = parseAttachSponsorInput(
+      formData({
+        providerId: "11111111-1111-4111-8111-111111111111",
+        sponsorSurface: "resources_directory",
+        startsOn: "2026-07-31",
+        endsOn: "2026-07-01",
+      }),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      fieldErrors: [
+        {
+          field: "endsOn",
+          message:
+            "La fecha final debe ser posterior o igual a la fecha inicial.",
+        },
+      ],
+    });
+  });
+
+  it("requires explicit archive confirmation", () => {
+    expect(
+      parseArchiveProviderInput(
+        formData({
+          providerId: "11111111-1111-4111-8111-111111111111",
+        }),
+      ),
+    ).toEqual({
+      ok: false,
+      fieldErrors: [
+        {
+          field: "archiveConfirmation",
+          message: "Confirma que quieres archivar este proveedor.",
+        },
+      ],
+    });
+
+    expect(
+      parseArchiveProviderInput(
+        formData({
+          providerId: "11111111-1111-4111-8111-111111111111",
+          archiveConfirmation: "confirmed",
+        }),
+      ),
+    ).toEqual({
+      ok: true,
+      input: {
+        providerId: "11111111-1111-4111-8111-111111111111",
+      },
     });
   });
 });

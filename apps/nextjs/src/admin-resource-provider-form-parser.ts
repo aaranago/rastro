@@ -1,10 +1,15 @@
 import type {
+  AdminResourceProviderAttachSponsorInput,
   AdminResourceProviderCategory,
   AdminResourceProviderContactKind,
   AdminResourceProviderCreateInput,
+  AdminResourceProviderDeleteInput,
+  AdminResourceProviderDetachSponsorInput,
   AdminResourceProviderUpdateInput,
+  AdminResourceProviderUpdateVerificationInput,
 } from "./admin-resource-provider-admin-model";
 import {
+  localSponsorPlacementSurfaceOptions,
   resourceProviderCategoryOptions,
   resourceProviderContactKindOptions,
 } from "./admin-resource-provider-admin-model";
@@ -53,11 +58,7 @@ export function parseCreateProviderInput(
       fieldErrors,
     ),
     city: getRequiredStringFormValue(formData, "city", fieldErrors),
-    department: getRequiredStringFormValue(
-      formData,
-      "department",
-      fieldErrors,
-    ),
+    department: getRequiredStringFormValue(formData, "department", fieldErrors),
     description: getRequiredStringFormValue(
       formData,
       "description",
@@ -73,11 +74,7 @@ export function parseCreateProviderInput(
       "exactLongitude",
       fieldErrors,
     ),
-    hoursLabel: getRequiredStringFormValue(
-      formData,
-      "hoursLabel",
-      fieldErrors,
-    ),
+    hoursLabel: getRequiredStringFormValue(formData, "hoursLabel", fieldErrors),
     locationCell: getRequiredStringFormValue(
       formData,
       "locationCell",
@@ -154,11 +151,7 @@ export function parseUpdateProviderInput(
       "description",
       fieldErrors,
     ),
-    hoursLabel: getRequiredStringFormValue(
-      formData,
-      "hoursLabel",
-      fieldErrors,
-    ),
+    hoursLabel: getRequiredStringFormValue(formData, "hoursLabel", fieldErrors),
     name: getRequiredStringFormValue(formData, "name", fieldErrors),
     serviceAreaLabel: getRequiredStringFormValue(
       formData,
@@ -199,6 +192,137 @@ export function parseUpdateProviderInput(
   };
 }
 
+export function parseVerificationInput(
+  formData: FormData,
+): AdminResourceProviderFormParseResult<AdminResourceProviderUpdateVerificationInput> {
+  const fieldErrors: AdminResourceProviderFormFieldError[] = [];
+  const providerId = getRequiredStringFormValue(
+    formData,
+    "providerId",
+    fieldErrors,
+  );
+  const status = getVerificationStatusFormValue(formData, fieldErrors);
+  const note = getOptionalStringFormValue(formData, "verificationNote");
+
+  if (fieldErrors.length > 0 || !status) {
+    return { fieldErrors, ok: false };
+  }
+
+  return {
+    input: {
+      ...(note ? { note } : {}),
+      providerId,
+      status,
+    },
+    ok: true,
+  };
+}
+
+export function parseAttachSponsorInput(
+  formData: FormData,
+): AdminResourceProviderFormParseResult<AdminResourceProviderAttachSponsorInput> {
+  const fieldErrors: AdminResourceProviderFormFieldError[] = [];
+  const providerId = getRequiredStringFormValue(
+    formData,
+    "providerId",
+    fieldErrors,
+  );
+  const surface = getSponsorSurfaceFormValue(formData, fieldErrors);
+  const startsOn = getRequiredDateOnlyFormValue(
+    formData,
+    "startsOn",
+    fieldErrors,
+  );
+  const endsOn = getRequiredDateOnlyFormValue(formData, "endsOn", fieldErrors);
+  const label = getOptionalStringFormValue(formData, "sponsorLabel");
+  const disclosure = getOptionalStringFormValue(formData, "sponsorDisclosure");
+
+  if (
+    startsOn &&
+    endsOn &&
+    Date.parse(`${endsOn}T00:00:00.000Z`) <
+      Date.parse(`${startsOn}T00:00:00.000Z`)
+  ) {
+    fieldErrors.push({
+      field: "endsOn",
+      message: "La fecha final debe ser posterior o igual a la fecha inicial.",
+    });
+  }
+
+  if (fieldErrors.length > 0 || !surface) {
+    return { fieldErrors, ok: false };
+  }
+
+  return {
+    input: {
+      disclosure,
+      endsOn,
+      label,
+      providerId,
+      startsOn,
+      surface,
+    },
+    ok: true,
+  };
+}
+
+export function parseDetachSponsorInput(
+  formData: FormData,
+): AdminResourceProviderFormParseResult<AdminResourceProviderDetachSponsorInput> {
+  const fieldErrors: AdminResourceProviderFormFieldError[] = [];
+  const providerId = getRequiredStringFormValue(
+    formData,
+    "providerId",
+    fieldErrors,
+  );
+  const placementId = getRequiredStringFormValue(
+    formData,
+    "placementId",
+    fieldErrors,
+  );
+
+  if (fieldErrors.length > 0) {
+    return { fieldErrors, ok: false };
+  }
+
+  return {
+    input: {
+      placementId,
+      providerId,
+    },
+    ok: true,
+  };
+}
+
+export function parseArchiveProviderInput(
+  formData: FormData,
+): AdminResourceProviderFormParseResult<AdminResourceProviderDeleteInput> {
+  const fieldErrors: AdminResourceProviderFormFieldError[] = [];
+  const providerId = getRequiredStringFormValue(
+    formData,
+    "providerId",
+    fieldErrors,
+  );
+
+  if (getStringFormValue(formData, "archiveConfirmation") !== "confirmed") {
+    fieldErrors.push({
+      field: "archiveConfirmation",
+      message: "Confirma que quieres archivar este proveedor.",
+    });
+  }
+
+  if (fieldErrors.length > 0) {
+    return { fieldErrors, ok: false };
+  }
+
+  return {
+    input: {
+      providerId,
+    },
+    ok: true,
+  };
+}
+
 function getLocationUpdateFormValue(
   formData: FormData,
   fieldErrors: AdminResourceProviderFormFieldError[],
@@ -221,11 +345,7 @@ function getLocationUpdateFormValue(
       fieldErrors,
     ),
     city: getRequiredStringFormValue(formData, "city", fieldErrors),
-    department: getRequiredStringFormValue(
-      formData,
-      "department",
-      fieldErrors,
-    ),
+    department: getRequiredStringFormValue(formData, "department", fieldErrors),
     ...(exactLatitude !== null && exactLongitude !== null
       ? { exactLatitude, exactLongitude }
       : {}),
@@ -399,6 +519,40 @@ function getBooleanFormValue(formData: FormData, key: string) {
   return formData.get(key) === "on";
 }
 
+function getRequiredDateOnlyFormValue(
+  formData: FormData,
+  key: string,
+  fieldErrors: AdminResourceProviderFormFieldError[],
+) {
+  const value = getRequiredStringFormValue(formData, key, fieldErrors);
+
+  if (!value) {
+    return "";
+  }
+
+  if (!isValidDateOnly(value)) {
+    fieldErrors.push({
+      field: key,
+      message: "Ingresa una fecha valida en formato AAAA-MM-DD.",
+    });
+    return "";
+  }
+
+  return value;
+}
+
+function isValidDateOnly(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+
+  return (
+    !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(value)
+  );
+}
+
 function getResourceCategoryFormValue(
   formData: FormData,
   fieldErrors: AdminResourceProviderFormFieldError[],
@@ -412,6 +566,42 @@ function getResourceCategoryFormValue(
   fieldErrors.push({
     field: "category",
     message: "Selecciona una categoria valida.",
+  });
+  return null;
+}
+
+function getSponsorSurfaceFormValue(
+  formData: FormData,
+  fieldErrors: AdminResourceProviderFormFieldError[],
+): AdminResourceProviderAttachSponsorInput["surface"] | null {
+  const value = getStringFormValue(formData, "sponsorSurface");
+
+  if (
+    localSponsorPlacementSurfaceOptions.some((option) => option.id === value)
+  ) {
+    return value as AdminResourceProviderAttachSponsorInput["surface"];
+  }
+
+  fieldErrors.push({
+    field: "sponsorSurface",
+    message: "Selecciona una superficie valida.",
+  });
+  return null;
+}
+
+function getVerificationStatusFormValue(
+  formData: FormData,
+  fieldErrors: AdminResourceProviderFormFieldError[],
+): AdminResourceProviderUpdateVerificationInput["status"] | null {
+  const value = getStringFormValue(formData, "verificationStatus");
+
+  if (value === "verified" || value === "unverified") {
+    return value;
+  }
+
+  fieldErrors.push({
+    field: "verificationStatus",
+    message: "Selecciona un estado de verificacion valido.",
   });
   return null;
 }

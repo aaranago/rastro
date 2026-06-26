@@ -1,7 +1,7 @@
 # ADMIN-004 Focused provider CRUD workflows with dialogs or drawers
 
-Status: needs-triage
-Labels: needs-triage
+Status: verified-runbook
+Labels: verified-runbook
 Severity: P1
 Issue ID: ADMIN-004
 Type: AFK
@@ -17,14 +17,14 @@ Move provider create, edit, verification, sponsor, and archive actions into focu
 
 ## Acceptance criteria
 
-- [ ] Create provider opens a focused workflow with grouped sections.
-- [ ] Edit provider opens a focused workflow and preserves untouched fields.
-- [ ] Verification badge changes have their own form, note, and success/error feedback.
-- [ ] Archive requires confirmation and cannot be triggered by a single accidental click.
-- [ ] Sponsor attach/detach no longer asks admins to paste a placement UUID when the placement is already listed.
-- [ ] Errors are field-level where possible and route/form-level where not.
-- [ ] Success state identifies the provider and action that changed.
-- [ ] Keyboard focus moves into opened workflows and returns to the triggering action when closed.
+- [x] Create provider opens a focused workflow with grouped sections.
+- [x] Edit provider opens a focused workflow and preserves untouched fields.
+- [x] Verification badge changes have their own form, note, and success/error feedback.
+- [x] Archive requires confirmation and cannot be triggered by a single accidental click.
+- [x] Sponsor attach/detach no longer asks admins to paste a placement UUID when the placement is already listed.
+- [x] Errors are field-level where possible and route/form-level where not.
+- [x] Success state identifies the provider and action that changed.
+- [x] Keyboard focus moves into opened workflows and returns to the triggering action when closed.
 
 ## Required automated tests
 
@@ -46,3 +46,11 @@ Move provider create, edit, verification, sponsor, and archive actions into focu
 ## Notes
 
 Use shared `@acme/ui` primitives or admin composites. Do not keep duplicating raw Tailwind form controls.
+
+## ADMIN-004 verification notes
+
+- Implemented focused provider create, edit, verification, sponsor, and archive workflows in `/admin/proveedores`.
+- Verified server actions and form parsing with `pnpm -F @acme/nextjs test -- admin-resource-provider-actions.test.ts admin-resource-provider-form-parser.test.ts admin-resources-dashboard.test.tsx admin-resources-page.test.tsx admin-moderation-page.test.tsx admin-moderation-dashboard.test.tsx`.
+- Verified Next lint/typecheck with `pnpm -F @acme/nextjs lint` and `pnpm -F @acme/nextjs typecheck`.
+- Verified repo health with `pnpm exec fallow audit --base HEAD --format json --quiet 2>/dev/null || true` and `git diff --check`.
+- Playwright artifacts: `/tmp/rastro-admin-004-read-state-fixed.png`, `/tmp/rastro-admin-004-create-workflow.png`, `/tmp/rastro-admin-004-edit-workflow.png`, `/tmp/rastro-admin-004-verification-workflow.png`, `/tmp/rastro-admin-004-sponsor-workflow.png`, `/tmp/rastro-admin-004-archive-confirmation.png`, `/tmp/rastro-admin-004-invalid-sponsor-date.png`, and `/tmp/rastro-admin-004-keyboard-focus-create.png`.

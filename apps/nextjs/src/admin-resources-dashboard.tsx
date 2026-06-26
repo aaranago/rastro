@@ -1,3 +1,50 @@
+import type * as React from "react";
+
+import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
+import { Button } from "@acme/ui/button";
+import { Checkbox } from "@acme/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@acme/ui/dialog";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@acme/ui/field";
+import { Input } from "@acme/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@acme/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@acme/ui/sheet";
+import { Textarea } from "@acme/ui/textarea";
+
+import type {
+  AdminResourceProviderMutationNotice,
+  AdminResourceProviderWorkflow,
+  AdminResourceProviderWorkflowFeedback,
+} from "./admin-resource-provider-actions";
 import type {
   AdminResourceMetricsViewModel,
   AdminResourceProviderVerificationStatus,
@@ -29,14 +76,11 @@ export interface AdminResourcesDashboardProps {
   createActionLabel: string;
   formAction?: React.ComponentProps<"form">["action"];
   metrics: AdminResourceMetricsViewModel;
-  notice?: {
-    body: string;
-    title: string;
-    tone: "error" | "success";
-  };
+  notice?: AdminResourceProviderMutationNotice;
   providers: readonly AdminResourceProviderViewModel[];
   title: string;
   viewer: AdminResourcesViewer;
+  workflowFeedback?: AdminResourceProviderWorkflowFeedback;
 }
 
 interface AdminResourcesSummaryStats {
@@ -72,16 +116,14 @@ export function AdminResourcesDashboard(props: AdminResourcesDashboardProps) {
         <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
           <section className="flex w-full max-w-full min-w-0 flex-col gap-6">
             <ProviderQueue
+              createActionLabel={props.createActionLabel}
               formAction={props.formAction}
               providers={props.providers}
+              workflowFeedback={props.workflowFeedback}
             />
           </section>
 
           <aside className="flex w-full max-w-full min-w-0 flex-col gap-6">
-            <CreateProviderForm
-              actionLabel={props.createActionLabel}
-              formAction={props.formAction}
-            />
             <ProviderMetrics metrics={props.metrics} />
           </aside>
         </div>
@@ -117,7 +159,7 @@ function AdminResourcesHeader(props: {
 }
 
 function AdminResourcesNotice(props: {
-  notice: NonNullable<AdminResourcesDashboardProps["notice"]>;
+  notice: AdminResourceProviderMutationNotice;
 }) {
   return (
     <section
@@ -154,13 +196,16 @@ function AdminResourcesSummary(props: { stats: AdminResourcesSummaryStats }) {
 }
 
 function ProviderQueue(props: {
+  createActionLabel: string;
   formAction?: React.ComponentProps<"form">["action"];
   providers: readonly AdminResourceProviderViewModel[];
+  workflowFeedback?: AdminResourceProviderWorkflowFeedback;
 }) {
   const providerCountLabel =
     props.providers.length === 1
       ? "1 proveedor en cola"
       : `${props.providers.length} proveedores en cola`;
+  const createFeedback = getWorkflowFeedback(props.workflowFeedback, "create");
 
   return (
     <section
@@ -181,9 +226,16 @@ function ProviderQueue(props: {
             operación y última actualización antes de abrir una acción.
           </p>
         </div>
-        <span className="bg-muted text-muted-foreground w-fit rounded-md px-3 py-2 text-sm font-semibold">
-          {providerCountLabel}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <CreateProviderWorkflow
+            actionLabel={props.createActionLabel}
+            feedback={createFeedback}
+            formAction={props.formAction}
+          />
+          <span className="bg-muted text-muted-foreground w-fit rounded-md px-3 py-2 text-sm font-semibold">
+            {providerCountLabel}
+          </span>
+        </div>
       </div>
       {props.providers.length === 0 ? (
         <ProviderQueueEmptyState />
@@ -194,6 +246,7 @@ function ProviderQueue(props: {
               formAction={props.formAction}
               key={provider.providerId}
               provider={provider}
+              workflowFeedback={props.workflowFeedback}
             />
           ))}
         </div>
@@ -226,6 +279,7 @@ function ProviderQueueEmptyState() {
 function ProviderQueueItem(props: {
   formAction?: React.ComponentProps<"form">["action"];
   provider: AdminResourceProviderViewModel;
+  workflowFeedback?: AdminResourceProviderWorkflowFeedback;
 }) {
   const provider = props.provider;
   const activeSponsorCount = provider.activeSponsorPlacement ? 1 : 0;
@@ -235,78 +289,85 @@ function ProviderQueueItem(props: {
       className="border-border bg-card text-card-foreground rounded-lg border p-4 shadow-xs"
       data-provider-queue-item={provider.providerId}
     >
-      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.95fr)_minmax(0,0.78fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_minmax(136px,136px)] lg:items-start">
-        <ProviderQueueField label="Proveedor">
-          <div className="flex min-w-0 flex-col gap-1">
-            <h3 className="truncate text-base font-semibold">
-              {provider.name}
-            </h3>
-            <span className="text-primary text-xs font-semibold">
-              {provider.categoryLabel}
-            </span>
-            <span className="text-muted-foreground truncate text-xs">
-              {provider.contactLabel}
-            </span>
-            <span className="text-muted-foreground truncate text-xs">
-              ID: {provider.providerId}
-            </span>
-          </div>
-        </ProviderQueueField>
+      <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1fr)_176px] 2xl:items-start">
+        <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[minmax(0,1.25fr)_minmax(130px,0.75fr)_minmax(140px,0.85fr)_minmax(160px,1fr)_minmax(124px,0.7fr)]">
+          <ProviderQueueField label="Proveedor">
+            <div className="flex min-w-0 flex-col gap-1">
+              <h3 className="truncate text-base font-semibold">
+                {provider.name}
+              </h3>
+              <span className="text-primary text-xs font-semibold">
+                {provider.categoryLabel}
+              </span>
+              <span className="text-muted-foreground truncate text-xs">
+                {provider.contactLabel}
+              </span>
+              <span className="text-muted-foreground truncate text-xs">
+                ID: {provider.providerId}
+              </span>
+            </div>
+          </ProviderQueueField>
 
-        <ProviderQueueField label="Ciudad">
-          <div className="flex min-w-0 flex-col gap-1">
-            <span className="font-medium">{provider.city}</span>
-            <span className="text-muted-foreground text-xs">
-              {provider.department}
+          <ProviderQueueField label="Ciudad">
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="font-medium">{provider.city}</span>
+              <span className="text-muted-foreground text-xs">
+                {provider.department}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {provider.approximateLocationLabel}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {provider.serviceAreaLabel}
+              </span>
+            </div>
+          </ProviderQueueField>
+
+          <ProviderQueueField label="Verificación">
+            <div className="flex flex-col gap-2">
+              <IdentityPill status={provider.verificationBadge.status} />
+              <span className="text-muted-foreground text-xs">
+                {provider.verificationBadge.note}
+              </span>
+            </div>
+          </ProviderQueueField>
+
+          <ProviderQueueField label="Operación">
+            <div className="flex flex-wrap gap-2">
+              <StatusChip
+                label={
+                  activeSponsorCount === 1
+                    ? "1 patrocinio activo"
+                    : `${activeSponsorCount} patrocinios activos`
+                }
+                tone={activeSponsorCount > 0 ? "primary" : "muted"}
+              />
+              <StatusChip
+                label={
+                  provider.isOpenNow ? "Abierto" : "Horario no confirmado"
+                }
+                tone={provider.isOpenNow ? "primary" : "muted"}
+              />
+              <StatusChip
+                label={
+                  provider.emergencyAvailable ? "Urgencias" : "Sin urgencias"
+                }
+                tone={provider.emergencyAvailable ? "primary" : "muted"}
+              />
+            </div>
+          </ProviderQueueField>
+
+          <ProviderQueueField label="Actualización">
+            <span className="text-sm font-medium">
+              {provider.lastUpdatedLabel}
             </span>
-            <span className="text-muted-foreground text-xs">
-              {provider.serviceAreaLabel}
-            </span>
-          </div>
-        </ProviderQueueField>
-
-        <ProviderQueueField label="Verificación">
-          <div className="flex flex-col gap-2">
-            <IdentityPill status={provider.verificationBadge.status} />
-            <span className="text-muted-foreground text-xs">
-              {provider.verificationBadge.note}
-            </span>
-          </div>
-        </ProviderQueueField>
-
-        <ProviderQueueField label="Operación">
-          <div className="flex flex-wrap gap-2">
-            <StatusChip
-              label={
-                activeSponsorCount === 1
-                  ? "1 patrocinio activo"
-                  : `${activeSponsorCount} patrocinios activos`
-              }
-              tone={activeSponsorCount > 0 ? "primary" : "muted"}
-            />
-            <StatusChip
-              label={provider.isOpenNow ? "Abierto" : "Horario no confirmado"}
-              tone={provider.isOpenNow ? "primary" : "muted"}
-            />
-            <StatusChip
-              label={
-                provider.emergencyAvailable ? "Urgencias" : "Sin urgencias"
-              }
-              tone={provider.emergencyAvailable ? "primary" : "muted"}
-            />
-          </div>
-        </ProviderQueueField>
-
-        <ProviderQueueField label="Actualización">
-          <span className="text-sm font-medium">
-            {provider.lastUpdatedLabel}
-          </span>
-        </ProviderQueueField>
-
+          </ProviderQueueField>
+        </div>
         <ProviderQueueField label="Acciones">
           <ProviderActionWorkflowList
             formAction={props.formAction}
             provider={provider}
+            workflowFeedback={props.workflowFeedback}
           />
         </ProviderQueueField>
       </div>
@@ -331,56 +392,52 @@ function ProviderQueueField(props: {
 function ProviderActionWorkflowList(props: {
   formAction?: React.ComponentProps<"form">["action"];
   provider: AdminResourceProviderViewModel;
+  workflowFeedback?: AdminResourceProviderWorkflowFeedback;
 }) {
-  return (
-    <div className="grid min-w-0 gap-1.5">
-      <AdminActionPanel title="Editar detalles">
-        <DetailsControls
-          formAction={props.formAction}
-          provider={props.provider}
-        />
-      </AdminActionPanel>
-      <AdminActionPanel title="Identidad">
-        <VerificationControls
-          formAction={props.formAction}
-          provider={props.provider}
-        />
-      </AdminActionPanel>
-      <AdminActionPanel title="Patrocinio">
-        <SponsorControls
-          formAction={props.formAction}
-          provider={props.provider}
-        />
-      </AdminActionPanel>
-      <AdminActionPanel title="Archivo">
-        <ArchiveControls
-          formAction={props.formAction}
-          provider={props.provider}
-        />
-      </AdminActionPanel>
-    </div>
+  const editFeedback = getWorkflowFeedback(
+    props.workflowFeedback,
+    "edit",
+    props.provider.providerId,
   );
-}
+  const verificationFeedback = getWorkflowFeedback(
+    props.workflowFeedback,
+    "verification",
+    props.provider.providerId,
+  );
+  const sponsorFeedback = getWorkflowFeedback(
+    props.workflowFeedback,
+    "sponsor",
+    props.provider.providerId,
+  );
+  const archiveFeedback = getWorkflowFeedback(
+    props.workflowFeedback,
+    "archive",
+    props.provider.providerId,
+  );
 
-function AdminActionPanel(props: { children: React.ReactNode; title: string }) {
   return (
-    <details
-      className="group relative min-w-0"
-      data-provider-action-workflow={props.title}
-    >
-      <summary className="border-border bg-background hover:bg-muted flex min-h-9 cursor-pointer list-none items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm font-semibold [&::-webkit-details-marker]:hidden">
-        <span className="truncate">{props.title}</span>
-        <span
-          aria-hidden="true"
-          className="text-muted-foreground text-base leading-none"
-        >
-          +
-        </span>
-      </summary>
-      <div className="border-border bg-card relative z-10 mt-2 rounded-md border p-3 shadow-sm lg:absolute lg:top-full lg:right-0 lg:z-20 lg:max-h-[min(76vh,720px)] lg:w-[min(720px,calc(100vw-4rem))] lg:overflow-auto">
-        {props.children}
-      </div>
-    </details>
+    <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-1">
+      <EditProviderWorkflow
+        feedback={editFeedback}
+        formAction={props.formAction}
+        provider={props.provider}
+      />
+      <VerificationProviderWorkflow
+        feedback={verificationFeedback}
+        formAction={props.formAction}
+        provider={props.provider}
+      />
+      <SponsorProviderWorkflow
+        feedback={sponsorFeedback}
+        formAction={props.formAction}
+        provider={props.provider}
+      />
+      <ArchiveProviderWorkflow
+        feedback={archiveFeedback}
+        formAction={props.formAction}
+        provider={props.provider}
+      />
+    </div>
   );
 }
 
@@ -399,245 +456,415 @@ function StatusChip(props: { label: string; tone: "muted" | "primary" }) {
   );
 }
 
-function DetailsControls(props: {
+function CreateProviderWorkflow(props: {
+  actionLabel: string;
+  feedback?: AdminResourceProviderWorkflowFeedback;
+  formAction?: React.ComponentProps<"form">["action"];
+}) {
+  return (
+    <Sheet defaultOpen={Boolean(props.feedback)}>
+      <SheetTrigger asChild>
+        <Button data-workflow-trigger="create" type="button">
+          {props.actionLabel}
+        </Button>
+      </SheetTrigger>
+      <SheetContent
+        aria-describedby="create-provider-description"
+        className="w-full overflow-y-auto sm:max-w-3xl"
+      >
+        <SheetHeader>
+          <SheetTitle>Registrar proveedor</SheetTitle>
+          <SheetDescription id="create-provider-description">
+            Completa el perfil que verá el directorio público de recursos.
+          </SheetDescription>
+        </SheetHeader>
+        <form
+          action={props.formAction}
+          className="flex flex-1 flex-col gap-6 px-4 pb-4"
+          method={props.formAction ? undefined : "post"}
+        >
+          <WorkflowErrorAlert feedback={props.feedback} />
+          <ProviderProfileFields
+            feedback={props.feedback}
+            idPrefix="create-provider"
+            mode="create"
+          />
+          <ProviderLocationFields
+            feedback={props.feedback}
+            idPrefix="create-provider"
+            mode="create"
+          />
+          <ProviderContactFields
+            feedback={props.feedback}
+            idPrefix="create-provider"
+            mode="create"
+          />
+          <ProviderMediaFields
+            feedback={props.feedback}
+            idPrefix="create-provider"
+          />
+          <ProviderBooleanFields idPrefix="create-provider" />
+          <SheetFooter className="px-0 pb-0">
+            <Button
+              data-submit-action="create_provider"
+              name="resourceAction"
+              type="submit"
+              value="create_provider"
+            >
+              {props.actionLabel}
+            </Button>
+          </SheetFooter>
+        </form>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function EditProviderWorkflow(props: {
+  feedback?: AdminResourceProviderWorkflowFeedback;
   formAction?: React.ComponentProps<"form">["action"];
   provider: AdminResourceProviderViewModel;
 }) {
   return (
-    <form
-      action={props.formAction}
-      aria-label={`Editar detalles de ${props.provider.name}`}
-      className="flex w-full max-w-full flex-col gap-2"
-      method={props.formAction ? undefined : "post"}
-    >
-      <input
-        name="providerId"
-        type="hidden"
-        value={props.provider.providerId}
-      />
-      <fieldset className="contents">
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Nombre
-          <input
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-            defaultValue={props.provider.name}
-            name="name"
-            required
-            type="text"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Categoría
-          <select
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-            defaultValue={props.provider.category}
-            name="category"
+    <Sheet defaultOpen={Boolean(props.feedback)}>
+      <SheetTrigger asChild>
+        <Button data-workflow-trigger="edit" type="button" variant="outline">
+          Editar detalles
+        </Button>
+      </SheetTrigger>
+      <SheetContent
+        aria-describedby={`edit-provider-description-${props.provider.providerId}`}
+        className="w-full overflow-y-auto sm:max-w-3xl"
+      >
+        <SheetHeader>
+          <SheetTitle>Editar {props.provider.name}</SheetTitle>
+          <SheetDescription
+            id={`edit-provider-description-${props.provider.providerId}`}
           >
-            {resourceProviderCategoryOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Descripción
-          <textarea
-            className="border-input bg-background min-h-20 rounded-md border px-3 py-2 text-sm font-normal"
-            defaultValue={props.provider.description}
-            name="description"
-            required
+            Actualiza solo lo necesario. Los campos que dejes con sus valores
+            actuales se conservan.
+          </SheetDescription>
+        </SheetHeader>
+        <form
+          action={props.formAction}
+          aria-label={`Editar detalles de ${props.provider.name}`}
+          className="flex flex-1 flex-col gap-6 px-4 pb-4"
+          method={props.formAction ? undefined : "post"}
+        >
+          <ProviderIdentityHiddenFields provider={props.provider} />
+          <WorkflowErrorAlert feedback={props.feedback} />
+          <ProviderProfileFields
+            feedback={props.feedback}
+            idPrefix={`edit-provider-${props.provider.providerId}`}
+            mode="edit"
+            provider={props.provider}
           />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Resumen corto
-          <textarea
-            className="border-input bg-background min-h-20 rounded-md border px-3 py-2 text-sm font-normal"
-            defaultValue={props.provider.shortDescription}
-            name="shortDescription"
-            required
+          <ProviderLocationFields
+            feedback={props.feedback}
+            idPrefix={`edit-provider-${props.provider.providerId}`}
+            mode="edit"
+            provider={props.provider}
           />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Cobertura
-          <input
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-            defaultValue={props.provider.serviceAreaLabel}
-            name="serviceAreaLabel"
+          <ProviderContactFields
+            feedback={props.feedback}
+            idPrefix={`edit-provider-${props.provider.providerId}`}
+            mode="edit"
+            provider={props.provider}
+          />
+          <ProviderMediaFields
+            feedback={props.feedback}
+            idPrefix={`edit-provider-${props.provider.providerId}`}
+            provider={props.provider}
+          />
+          <ProviderBooleanFields
+            idPrefix={`edit-provider-${props.provider.providerId}`}
+            provider={props.provider}
+          />
+          <SheetFooter className="px-0 pb-0">
+            <Button
+              data-submit-action="update_provider_details"
+              name="resourceAction"
+              type="submit"
+              value="update_provider_details"
+            >
+              Guardar detalles
+            </Button>
+          </SheetFooter>
+        </form>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function ProviderProfileFields(props: {
+  feedback?: AdminResourceProviderWorkflowFeedback;
+  idPrefix: string;
+  mode: "create" | "edit";
+  provider?: AdminResourceProviderViewModel;
+}) {
+  return (
+    <FieldSet className="gap-4">
+      <FieldLegend>Perfil público</FieldLegend>
+      <FieldGroup className="gap-4">
+        <TextField
+          autoFocus={props.mode === "create"}
+          error={getFieldError(props.feedback, "name")}
+          id={`${props.idPrefix}-name`}
+          label="Nombre"
+          name="name"
+          placeholder="Veterinaria Alto Norte"
+          required
+          type="text"
+          value={props.provider?.name}
+        />
+        <SelectField
+          defaultValue={props.provider?.category ?? "veterinary"}
+          error={getFieldError(props.feedback, "category")}
+          id={`${props.idPrefix}-category`}
+          label="Categoría"
+          name="category"
+          options={resourceProviderCategoryOptions}
+        />
+        <TextAreaField
+          error={getFieldError(props.feedback, "description")}
+          id={`${props.idPrefix}-description`}
+          label="Descripción"
+          name="description"
+          placeholder="Atencion veterinaria general, orientacion y apoyo para familias cuidadoras."
+          required
+          value={props.provider?.description}
+        />
+        <TextAreaField
+          error={getFieldError(props.feedback, "shortDescription")}
+          id={`${props.idPrefix}-short-description`}
+          label="Resumen corto"
+          name="shortDescription"
+          placeholder="Clinica local con atencion general y urgencias."
+          required
+          value={props.provider?.shortDescription}
+        />
+        <TextField
+          error={getFieldError(props.feedback, "serviceAreaLabel")}
+          id={`${props.idPrefix}-service-area`}
+          label="Cobertura"
+          name="serviceAreaLabel"
+          placeholder="El Alto y La Paz"
+          required
+          type="text"
+          value={props.provider?.serviceAreaLabel}
+        />
+        <TextField
+          error={getFieldError(props.feedback, "hoursLabel")}
+          id={`${props.idPrefix}-hours`}
+          label="Horarios"
+          name="hoursLabel"
+          placeholder="Lun - Sab: 08:00 a 18:00"
+          required
+          type="text"
+          value={props.provider?.hoursLabel}
+        />
+      </FieldGroup>
+    </FieldSet>
+  );
+}
+
+function ProviderLocationFields(props: {
+  feedback?: AdminResourceProviderWorkflowFeedback;
+  idPrefix: string;
+  mode: "create" | "edit";
+  provider?: AdminResourceProviderViewModel;
+}) {
+  return (
+    <FieldSet className="gap-4">
+      <FieldLegend>Ubicación y privacidad</FieldLegend>
+      <FieldDescription>
+        La latitud y longitud exactas se guardan para búsqueda interna. El
+        directorio público usa la zona aproximada y la celda de ubicación.
+      </FieldDescription>
+      <FieldGroup className="gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField
+            error={getFieldError(props.feedback, "department")}
+            id={`${props.idPrefix}-department`}
+            label="Departamento"
+            name="department"
+            placeholder="La Paz"
             required
             type="text"
+            value={props.provider?.department}
           />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Horarios
-          <input
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-            defaultValue={props.provider.hoursLabel}
-            name="hoursLabel"
+          <TextField
+            error={getFieldError(props.feedback, "city")}
+            id={`${props.idPrefix}-city`}
+            label="Ciudad"
+            name="city"
+            placeholder="El Alto"
             required
             type="text"
+            value={props.provider?.city}
           />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Sitio web
-          <input
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-            defaultValue={props.provider.websiteUrl ?? ""}
-            name="websiteUrl"
-            type="url"
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField
+            error={getFieldError(props.feedback, "exactLatitude")}
+            id={`${props.idPrefix}-exact-latitude`}
+            label="Latitud exacta"
+            name="exactLatitude"
+            placeholder="-16.500000"
+            required={props.mode === "create"}
+            step="0.000001"
+            type="number"
           />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Logo URL
-          <input
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-            defaultValue={props.provider.logoUrl ?? ""}
-            name="logoUrl"
-            type="url"
+          <TextField
+            error={getFieldError(props.feedback, "exactLongitude")}
+            id={`${props.idPrefix}-exact-longitude`}
+            label="Longitud exacta"
+            name="exactLongitude"
+            placeholder="-68.120000"
+            required={props.mode === "create"}
+            step="0.000001"
+            type="number"
           />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Foto URL
-          <input
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-            defaultValue={props.provider.photoUrl ?? ""}
-            name="photoUrl"
-            type="url"
-          />
-        </label>
+        </div>
+        <TextField
+          error={getFieldError(props.feedback, "approximateLocationLabel")}
+          id={`${props.idPrefix}-approximate-location`}
+          label="Ubicación aproximada visible"
+          name="approximateLocationLabel"
+          placeholder="Sopocachi, La Paz"
+          required
+          type="text"
+          value={props.provider?.approximateLocationLabel}
+        />
+        <TextField
+          error={getFieldError(props.feedback, "locationCell")}
+          id={`${props.idPrefix}-location-cell`}
+          label="Celda de ubicación"
+          name="locationCell"
+          placeholder="bo-lpb-sopocachi"
+          required
+          type="text"
+          value={props.provider?.locationCell}
+        />
+        <TextField
+          error={getFieldError(props.feedback, "addressLabel")}
+          id={`${props.idPrefix}-address`}
+          label="Dirección interna"
+          name="addressLabel"
+          placeholder="Zona Sopocachi, La Paz"
+          type="text"
+          value={props.provider?.addressLabel}
+        />
+      </FieldGroup>
+    </FieldSet>
+  );
+}
+
+function ProviderContactFields(props: {
+  feedback?: AdminResourceProviderWorkflowFeedback;
+  idPrefix: string;
+  mode: "create" | "edit";
+  provider?: AdminResourceProviderViewModel;
+}) {
+  return (
+    <FieldSet className="gap-4">
+      <FieldLegend>Contacto y enlaces</FieldLegend>
+      <FieldGroup className="gap-4">
         <ContactOptionsFields
-          contactOptions={props.provider.contactOptions}
-          firstRowRequired={true}
+          contactOptions={props.provider?.contactOptions}
+          feedback={props.feedback}
+          firstRowRequired
+          idPrefix={props.idPrefix}
         />
         <LinkFields
-          externalLinks={props.provider.externalLinks}
-          socialLinks={props.provider.socialLinks}
+          externalLinks={props.provider?.externalLinks}
+          feedback={props.feedback}
+          idPrefix={props.idPrefix}
+          socialLinks={props.provider?.socialLinks}
         />
-        <div className="grid gap-2 text-xs font-semibold">
-          <label className="flex items-center gap-2">
-            <input
-              defaultChecked={props.provider.emergencyAvailable}
-              name="emergencyAvailable"
-              type="checkbox"
-            />
-            Atiende urgencias
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              defaultChecked={props.provider.isOpenNow}
-              name="isOpenNow"
-              type="checkbox"
-            />
-            Marcado abierto ahora
-          </label>
-        </div>
-        <details className="border-border rounded-md border p-3">
-          <summary className="cursor-pointer text-xs font-semibold">
-            Ubicación avanzada y privacidad
-          </summary>
-          <p className="text-muted-foreground mt-2 text-xs font-normal">
-            La latitud y longitud exactas se guardan para búsqueda interna. El
-            directorio público usa la zona aproximada y la celda de ubicación,
-            no coordenadas exactas.
-          </p>
-          <div className="mt-3 grid gap-2">
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label className="flex flex-col gap-1 text-xs font-semibold">
-                Departamento
-                <input
-                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                  defaultValue={props.provider.department}
-                  name="department"
-                  required
-                  type="text"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-xs font-semibold">
-                Ciudad
-                <input
-                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                  defaultValue={props.provider.city}
-                  name="city"
-                  required
-                  type="text"
-                />
-              </label>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label className="flex flex-col gap-1 text-xs font-semibold">
-                Latitud exacta
-                <input
-                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                  name="exactLatitude"
-                  placeholder="-16.500000"
-                  step="0.000001"
-                  type="number"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-xs font-semibold">
-                Longitud exacta
-                <input
-                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                  name="exactLongitude"
-                  placeholder="-68.120000"
-                  step="0.000001"
-                  type="number"
-                />
-              </label>
-            </div>
-            <label className="flex flex-col gap-1 text-xs font-semibold">
-              Ubicación aproximada visible
-              <input
-                className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                defaultValue={props.provider.approximateLocationLabel}
-                name="approximateLocationLabel"
-                required
-                type="text"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-semibold">
-              Celda de ubicación
-              <input
-                className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                defaultValue={props.provider.locationCell}
-                name="locationCell"
-                required
-                type="text"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-semibold">
-              Dirección interna
-              <input
-                className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                defaultValue={props.provider.addressLabel ?? ""}
-                name="addressLabel"
-                type="text"
-              />
-            </label>
-          </div>
-        </details>
-      </fieldset>
-      <button
-        className="border-border text-muted-foreground rounded-md border px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-70"
-        name="resourceAction"
-        type="submit"
-        value="update_provider_details"
-      >
-        Guardar detalles
-      </button>
-    </form>
+      </FieldGroup>
+    </FieldSet>
+  );
+}
+
+function ProviderMediaFields(props: {
+  feedback?: AdminResourceProviderWorkflowFeedback;
+  idPrefix: string;
+  provider?: AdminResourceProviderViewModel;
+}) {
+  return (
+    <FieldSet className="gap-4">
+      <FieldLegend>Medios opcionales</FieldLegend>
+      <FieldGroup className="gap-4">
+        <TextField
+          error={getFieldError(props.feedback, "websiteUrl")}
+          id={`${props.idPrefix}-website`}
+          label="Sitio web"
+          name="websiteUrl"
+          placeholder="https://proveedor.example"
+          type="url"
+          value={props.provider?.websiteUrl}
+        />
+        <TextField
+          error={getFieldError(props.feedback, "logoUrl")}
+          id={`${props.idPrefix}-logo`}
+          label="Logo URL"
+          name="logoUrl"
+          placeholder="https://proveedor.example/logo.png"
+          type="url"
+          value={props.provider?.logoUrl}
+        />
+        <TextField
+          error={getFieldError(props.feedback, "photoUrl")}
+          id={`${props.idPrefix}-photo`}
+          label="Foto URL"
+          name="photoUrl"
+          placeholder="https://proveedor.example/foto.png"
+          type="url"
+          value={props.provider?.photoUrl}
+        />
+      </FieldGroup>
+    </FieldSet>
+  );
+}
+
+function ProviderBooleanFields(props: {
+  idPrefix: string;
+  provider?: AdminResourceProviderViewModel;
+}) {
+  return (
+    <FieldSet className="gap-4">
+      <FieldLegend>Operación</FieldLegend>
+      <FieldGroup className="gap-3">
+        <CheckboxField
+          defaultChecked={props.provider?.emergencyAvailable}
+          id={`${props.idPrefix}-emergency`}
+          label="Atiende urgencias"
+          name="emergencyAvailable"
+        />
+        <CheckboxField
+          defaultChecked={props.provider?.isOpenNow}
+          id={`${props.idPrefix}-open-now`}
+          label="Marcado abierto ahora"
+          name="isOpenNow"
+        />
+      </FieldGroup>
+    </FieldSet>
   );
 }
 
 function ContactOptionsFields(props: {
   contactOptions?: AdminResourceProviderViewModel["contactOptions"];
+  feedback?: AdminResourceProviderWorkflowFeedback;
   firstRowRequired: boolean;
+  idPrefix: string;
 }) {
   const contactOptions = props.contactOptions ?? [];
+  const groupError = getFieldError(props.feedback, "contactOptions");
 
   return (
-    <fieldset className="grid gap-2">
-      <legend className="text-xs font-semibold">Opciones de contacto</legend>
+    <FieldSet className="gap-3">
+      <FieldLegend variant="label">Opciones de contacto</FieldLegend>
       {Array.from({ length: adminResourceProviderMaxContactOptions }).map(
         (_, index) => {
           const contact = contactOptions[index];
@@ -645,67 +872,66 @@ function ContactOptionsFields(props: {
 
           return (
             <div
-              className="grid gap-2 rounded-md border border-dashed p-2 sm:grid-cols-[minmax(110px,0.8fr)_minmax(0,1fr)_minmax(0,1fr)]"
+              className="grid gap-3 rounded-md border border-dashed p-3 sm:grid-cols-[minmax(130px,0.8fr)_minmax(0,1fr)_minmax(0,1fr)]"
               key={index}
             >
-              <label className="flex flex-col gap-1 text-xs font-semibold">
-                Tipo
-                <select
-                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                  defaultValue={contact?.kind ?? "whatsapp"}
-                  name={`contactKind${index}`}
-                >
-                  {resourceProviderContactKindOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1 text-xs font-semibold">
-                Etiqueta
-                <input
-                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                  defaultValue={
-                    contact?.label ??
-                    (rowIsRequired ? "WhatsApp institucional" : "")
-                  }
-                  name={`contactLabel${index}`}
-                  required={rowIsRequired}
-                  type="text"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-xs font-semibold">
-                Valor
-                <input
-                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                  defaultValue={contact?.value ?? ""}
-                  name={`contactValue${index}`}
-                  required={rowIsRequired}
-                  type="text"
-                />
-              </label>
+              <SelectField
+                defaultValue={contact?.kind ?? "whatsapp"}
+                error={getFieldError(props.feedback, `contactKind${index}`)}
+                id={`${props.idPrefix}-contact-kind-${index}`}
+                label="Tipo"
+                name={`contactKind${index}`}
+                options={resourceProviderContactKindOptions}
+              />
+              <TextField
+                error={getFieldError(props.feedback, `contactLabel${index}`)}
+                id={`${props.idPrefix}-contact-label-${index}`}
+                label="Etiqueta"
+                name={`contactLabel${index}`}
+                required={rowIsRequired}
+                type="text"
+                value={
+                  contact?.label ??
+                  (rowIsRequired ? "WhatsApp institucional" : "")
+                }
+              />
+              <TextField
+                error={getFieldError(props.feedback, `contactValue${index}`)}
+                id={`${props.idPrefix}-contact-value-${index}`}
+                label="Valor"
+                name={`contactValue${index}`}
+                required={rowIsRequired}
+                type="text"
+                value={contact?.value}
+              />
             </div>
           );
         },
       )}
-    </fieldset>
+      <FieldError>{groupError}</FieldError>
+    </FieldSet>
   );
 }
 
 function LinkFields(props: {
   externalLinks?: AdminResourceProviderViewModel["externalLinks"];
+  feedback?: AdminResourceProviderWorkflowFeedback;
+  idPrefix: string;
   socialLinks?: AdminResourceProviderViewModel["socialLinks"];
 }) {
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-5">
       <LinkGroupFields
         fieldPrefix="socialLink"
+        feedback={props.feedback}
+        idPrefix={props.idPrefix}
         links={props.socialLinks ?? []}
         title="Redes sociales"
       />
       <LinkGroupFields
         fieldPrefix="externalLink"
+        feedback={props.feedback}
+        idPrefix={props.idPrefix}
         links={props.externalLinks ?? []}
         title="Enlaces externos"
       />
@@ -714,127 +940,180 @@ function LinkFields(props: {
 }
 
 function LinkGroupFields(props: {
+  feedback?: AdminResourceProviderWorkflowFeedback;
   fieldPrefix: "externalLink" | "socialLink";
+  idPrefix: string;
   links: AdminResourceProviderViewModel["externalLinks"];
   title: string;
 }) {
   return (
-    <fieldset className="grid gap-2">
-      <legend className="text-xs font-semibold">{props.title}</legend>
+    <FieldSet className="gap-3">
+      <FieldLegend variant="label">{props.title}</FieldLegend>
       {Array.from({ length: adminResourceProviderMaxLinks }).map((_, index) => {
         const link = props.links[index];
 
         return (
-          <div className="grid gap-2 sm:grid-cols-2" key={index}>
-            <label className="flex flex-col gap-1 text-xs font-semibold">
-              Etiqueta
-              <input
-                className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                defaultValue={link?.label ?? ""}
-                name={`${props.fieldPrefix}Label${index}`}
-                type="text"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-semibold">
-              URL
-              <input
-                className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                defaultValue={link?.url ?? ""}
-                name={`${props.fieldPrefix}Url${index}`}
-                type="url"
-              />
-            </label>
+          <div className="grid gap-3 sm:grid-cols-2" key={index}>
+            <TextField
+              error={getFieldError(
+                props.feedback,
+                `${props.fieldPrefix}Label${index}`,
+              )}
+              id={`${props.idPrefix}-${props.fieldPrefix}-label-${index}`}
+              label="Etiqueta"
+              name={`${props.fieldPrefix}Label${index}`}
+              type="text"
+              value={link?.label}
+            />
+            <TextField
+              error={getFieldError(
+                props.feedback,
+                `${props.fieldPrefix}Url${index}`,
+              )}
+              id={`${props.idPrefix}-${props.fieldPrefix}-url-${index}`}
+              label="URL"
+              name={`${props.fieldPrefix}Url${index}`}
+              type="url"
+              value={link?.url}
+            />
           </div>
         );
       })}
-    </fieldset>
+    </FieldSet>
   );
 }
 
-function VerificationControls(props: {
+function VerificationProviderWorkflow(props: {
+  feedback?: AdminResourceProviderWorkflowFeedback;
   formAction?: React.ComponentProps<"form">["action"];
   provider: AdminResourceProviderViewModel;
 }) {
   const provider = props.provider;
-  const noteId = `verification-note-${provider.providerId}`;
 
   return (
-    <form
-      action={props.formAction}
-      aria-label={`Gestionar identidad de ${provider.name}`}
-      className="flex w-full max-w-full flex-col gap-2"
-      method={props.formAction ? undefined : "post"}
-    >
-      <input name="providerId" type="hidden" value={provider.providerId} />
-      <div className="flex items-center gap-2">
-        <IdentityPill status={provider.verificationBadge.status} />
-        <span className="text-muted-foreground text-xs">
-          {provider.verificationBadge.label}
-        </span>
-      </div>
-      <label className="flex flex-col gap-1 text-xs font-semibold">
-        Estado
-        <select
-          className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-          defaultValue={provider.verificationBadge.status}
-          name="verificationStatus"
+    <Dialog defaultOpen={Boolean(props.feedback)}>
+      <DialogTrigger asChild>
+        <Button
+          data-workflow-trigger="verification"
+          type="button"
+          variant="outline"
         >
-          <option value="verified">Identidad verificada</option>
-          <option value="unverified">Pendiente de revisión</option>
-        </select>
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-semibold">
-        Nota interna
-        <textarea
-          className="border-input bg-background min-h-16 rounded-md border px-3 py-2 text-sm font-normal"
-          defaultValue={provider.verificationBadge.note}
-          id={noteId}
-          name="verificationNote"
-        />
-      </label>
-      <button
-        className="border-border text-foreground hover:bg-muted rounded-md border px-3 py-2 text-sm font-semibold"
-        name="resourceAction"
-        type="submit"
-        value="update_verification"
+          Verificación
+        </Button>
+      </DialogTrigger>
+      <DialogContent
+        aria-describedby={`verification-description-${provider.providerId}`}
       >
-        Guardar identidad
-      </button>
-    </form>
+        <DialogHeader>
+          <DialogTitle>Verificación de identidad</DialogTitle>
+          <DialogDescription
+            id={`verification-description-${provider.providerId}`}
+          >
+            Cambia la insignia de {provider.name} con una nota interna propia.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          action={props.formAction}
+          aria-label={`Gestionar identidad de ${provider.name}`}
+          className="grid gap-4"
+          method={props.formAction ? undefined : "post"}
+        >
+          <ProviderIdentityHiddenFields provider={provider} />
+          <WorkflowErrorAlert feedback={props.feedback} />
+          <div className="flex items-center gap-2">
+            <IdentityPill status={provider.verificationBadge.status} />
+            <span className="text-muted-foreground text-xs">
+              {provider.verificationBadge.label}
+            </span>
+          </div>
+          <SelectField
+            defaultValue={provider.verificationBadge.status}
+            error={getFieldError(props.feedback, "verificationStatus")}
+            id={`verification-status-${provider.providerId}`}
+            label="Estado"
+            name="verificationStatus"
+            options={[
+              { id: "verified", label: "Identidad verificada" },
+              { id: "unverified", label: "Pendiente de revisión" },
+            ]}
+          />
+          <TextAreaField
+            autoFocus
+            error={getFieldError(props.feedback, "verificationNote")}
+            id={`verification-note-${provider.providerId}`}
+            label="Nota interna"
+            name="verificationNote"
+            value={provider.verificationBadge.note}
+          />
+          <DialogFooter>
+            <Button
+              data-submit-action="update_verification"
+              name="resourceAction"
+              type="submit"
+              value="update_verification"
+            >
+              Guardar verificación
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function SponsorControls(props: {
+function SponsorProviderWorkflow(props: {
+  feedback?: AdminResourceProviderWorkflowFeedback;
   formAction?: React.ComponentProps<"form">["action"];
   provider: AdminResourceProviderViewModel;
 }) {
   return (
-    <div className="flex w-full max-w-full flex-col gap-3">
-      <SponsorPolicyNotice />
-      <SponsorPlacementList
-        formAction={props.formAction}
-        placements={props.provider.sponsorPlacements}
-        provider={props.provider}
-      />
-      <AttachSponsorForm
-        formAction={props.formAction}
-        provider={props.provider}
-      />
-      <DetachSponsorByIdForm
-        formAction={props.formAction}
-        provider={props.provider}
-      />
-    </div>
+    <Sheet defaultOpen={Boolean(props.feedback)}>
+      <SheetTrigger asChild>
+        <Button data-workflow-trigger="sponsor" type="button" variant="outline">
+          Patrocinio
+        </Button>
+      </SheetTrigger>
+      <SheetContent
+        aria-describedby={`sponsor-description-${props.provider.providerId}`}
+        className="w-full overflow-y-auto sm:max-w-2xl"
+      >
+        <SheetHeader>
+          <SheetTitle>Patrocinio de {props.provider.name}</SheetTitle>
+          <SheetDescription
+            id={`sponsor-description-${props.provider.providerId}`}
+          >
+            Adjunta o retira patrocinios locales. Nunca cambian prioridad de
+            recuperación ni alertas push.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="grid gap-5 px-4 pb-4">
+          <WorkflowErrorAlert feedback={props.feedback} />
+          <SponsorPolicyNotice />
+          <SponsorPlacementList
+            formAction={props.formAction}
+            placements={props.provider.sponsorPlacements}
+            provider={props.provider}
+          />
+          <AttachSponsorForm
+            feedback={props.feedback}
+            formAction={props.formAction}
+            provider={props.provider}
+          />
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
 function SponsorPolicyNotice() {
   return (
-    <div className="bg-muted text-muted-foreground rounded-md px-3 py-2 text-xs">
-      <p className="font-semibold">Política de seguridad</p>
-      <p>No cambia la prioridad de recuperación.</p>
-      <p>No activa notificaciones push.</p>
-    </div>
+    <Alert>
+      <AlertTitle>Política de seguridad</AlertTitle>
+      <AlertDescription>
+        <p>No cambia la prioridad de recuperación.</p>
+        <p>No activa notificaciones push.</p>
+      </AlertDescription>
+    </Alert>
   );
 }
 
@@ -845,67 +1124,80 @@ function SponsorPlacementList(props: {
 }) {
   if (props.placements.length === 0) {
     return (
-      <p className="text-muted-foreground text-xs">
-        Sin patrocinio local listado para retiro automatico.
+      <p className="text-muted-foreground text-sm">
+        Sin patrocinio local listado para retirar.
       </p>
     );
   }
 
   return (
-    <ul className="flex flex-col gap-2">
-      {props.placements.map((placement) => (
-        <li
-          className="border-border rounded-md border p-3"
-          key={placement.placementId}
-        >
-          <div className="flex flex-col gap-1">
-            <span className="text-primary text-xs font-semibold">
-              {placement.disclosureLabel}
-            </span>
-            <span className="font-medium">{placement.surfaceLabel}</span>
-            <span className="text-muted-foreground text-xs">
-              {placement.startsOn ?? "Inicio no expuesto"} a{" "}
-              {placement.endsOn ?? "fin no expuesto"}
-            </span>
-            <span className="text-muted-foreground text-xs">
-              {placement.safetyPolicy.recoveryPriority.note}
-            </span>
-            <span className="text-muted-foreground text-xs">
-              {placement.safetyPolicy.pushNotifications.note}
-            </span>
-          </div>
-          <form
-            action={props.formAction}
-            aria-label={`Retirar patrocinio local de ${props.provider.name}`}
-            className="mt-3"
-            method={props.formAction ? undefined : "post"}
+    <section aria-labelledby={`sponsor-list-${props.provider.providerId}`}>
+      <h3
+        className="mb-3 text-sm font-semibold"
+        id={`sponsor-list-${props.provider.providerId}`}
+      >
+        Patrocinios listados
+      </h3>
+      <ul className="flex flex-col gap-2">
+        {props.placements.map((placement) => (
+          <li
+            className="border-border rounded-md border p-3"
+            key={placement.placementId}
           >
-            <input
-              name="providerId"
-              type="hidden"
-              value={props.provider.providerId}
-            />
-            <input
-              name="placementId"
-              type="hidden"
-              value={placement.placementId ?? ""}
-            />
-            <button
-              className="border-border text-foreground hover:bg-muted rounded-md border px-3 py-2 text-sm font-semibold"
-              name="resourceAction"
-              type="submit"
-              value="detach_sponsor"
-            >
-              Retirar patrocinio local
-            </button>
-          </form>
-        </li>
-      ))}
-    </ul>
+            <div className="flex flex-col gap-1">
+              <span className="text-primary text-xs font-semibold">
+                {placement.disclosureLabel}
+              </span>
+              <span className="font-medium">{placement.surfaceLabel}</span>
+              <span className="text-muted-foreground text-xs">
+                {placement.startsOn ?? "Inicio no expuesto"} a{" "}
+                {placement.endsOn ?? "fin no expuesto"}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {placement.safetyPolicy.recoveryPriority.note}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {placement.safetyPolicy.pushNotifications.note}
+              </span>
+            </div>
+            {placement.placementId ? (
+              <form
+                action={props.formAction}
+                aria-label={`Retirar patrocinio local de ${props.provider.name}`}
+                className="mt-3"
+                method={props.formAction ? undefined : "post"}
+              >
+                <ProviderIdentityHiddenFields provider={props.provider} />
+                <input
+                  name="placementId"
+                  type="hidden"
+                  value={placement.placementId}
+                />
+                <Button
+                  data-submit-action="detach_sponsor"
+                  name="resourceAction"
+                  type="submit"
+                  value="detach_sponsor"
+                  variant="outline"
+                >
+                  Retirar este patrocinio
+                </Button>
+              </form>
+            ) : (
+              <p className="text-muted-foreground mt-3 text-xs">
+                Este patrocinio no expone un identificador para retiro desde el
+                panel.
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
 function AttachSponsorForm(props: {
+  feedback?: AdminResourceProviderWorkflowFeedback;
   formAction?: React.ComponentProps<"form">["action"];
   provider: AdminResourceProviderViewModel;
 }) {
@@ -913,16 +1205,12 @@ function AttachSponsorForm(props: {
     <form
       action={props.formAction}
       aria-label={`Adjuntar patrocinio local a ${props.provider.name}`}
-      className="grid gap-2"
+      className="grid gap-4"
       method={props.formAction ? undefined : "post"}
     >
-      <input
-        name="providerId"
-        type="hidden"
-        value={props.provider.providerId}
-      />
+      <ProviderIdentityHiddenFields provider={props.provider} />
       {props.provider.activeSponsorPlacement ? (
-        <div className="border-border rounded-md border p-3 text-xs">
+        <div className="border-border rounded-md border p-3 text-sm">
           <p className="text-primary font-semibold">
             {props.provider.activeSponsorPlacement.disclosureLabel}
           </p>
@@ -942,370 +1230,315 @@ function AttachSponsorForm(props: {
           </p>
         </div>
       ) : null}
-      <label className="flex flex-col gap-1 text-xs font-semibold">
-        ID de patrocinio
-        <input
-          className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-          name="placementId"
-          placeholder="UUID opcional al adjuntar"
-          type="text"
+      <FieldSet className="gap-4">
+        <FieldLegend>Adjuntar patrocinio local</FieldLegend>
+        <SelectField
+          defaultValue="resources_directory"
+          error={getFieldError(props.feedback, "sponsorSurface")}
+          id={`sponsor-surface-${props.provider.providerId}`}
+          label="Superficie"
+          name="sponsorSurface"
+          options={localSponsorPlacementSurfaceOptions}
         />
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-semibold">
-        Etiqueta
-        <input
-          className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+        <TextField
+          error={getFieldError(props.feedback, "sponsorLabel")}
+          id={`sponsor-label-${props.provider.providerId}`}
+          label="Etiqueta"
           name="sponsorLabel"
           placeholder="Patrocinado"
           type="text"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-semibold">
-        Divulgación pública
-        <textarea
-          className="border-input bg-background min-h-20 rounded-md border px-3 py-2 text-sm font-normal"
+        <TextAreaField
+          error={getFieldError(props.feedback, "sponsorDisclosure")}
+          id={`sponsor-disclosure-${props.provider.providerId}`}
+          label="Divulgación pública"
           name="sponsorDisclosure"
           placeholder="Patrocinado: apoyo local. No cambia la prioridad de reportes."
         />
-      </label>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Superficie
-          <select
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-            name="sponsorSurface"
-          >
-            {localSponsorPlacementSurfaceOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Inicio
-          <input
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField
+            error={getFieldError(props.feedback, "startsOn")}
+            id={`sponsor-starts-${props.provider.providerId}`}
+            label="Inicio"
             name="startsOn"
             required
             type="date"
           />
-        </label>
-      </div>
-      <label className="flex flex-col gap-1 text-xs font-semibold">
-        Fin
-        <input
-          className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-          name="endsOn"
-          required
-          type="date"
-        />
-      </label>
-      <button
-        className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-2 text-sm font-semibold"
-        name="resourceAction"
-        type="submit"
-        value="attach_sponsor"
-      >
-        Adjuntar patrocinio local
-      </button>
+          <TextField
+            error={getFieldError(props.feedback, "endsOn")}
+            id={`sponsor-ends-${props.provider.providerId}`}
+            label="Fin"
+            name="endsOn"
+            required
+            type="date"
+          />
+        </div>
+      </FieldSet>
+      <SheetFooter className="px-0 pb-0">
+        <Button
+          data-submit-action="attach_sponsor"
+          name="resourceAction"
+          type="submit"
+          value="attach_sponsor"
+        >
+          Adjuntar patrocinio local
+        </Button>
+      </SheetFooter>
     </form>
   );
 }
 
-function DetachSponsorByIdForm(props: {
+function ArchiveProviderWorkflow(props: {
+  feedback?: AdminResourceProviderWorkflowFeedback;
   formAction?: React.ComponentProps<"form">["action"];
   provider: AdminResourceProviderViewModel;
 }) {
-  return (
-    <form
-      action={props.formAction}
-      aria-label={`Retirar patrocinio local por ID de ${props.provider.name}`}
-      className="grid gap-2"
-      method={props.formAction ? undefined : "post"}
-    >
-      <input
-        name="providerId"
-        type="hidden"
-        value={props.provider.providerId}
-      />
-      <label className="flex flex-col gap-1 text-xs font-semibold">
-        ID para retirar
-        <input
-          className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-          name="placementId"
-          placeholder="UUID del patrocinio"
-          type="text"
-        />
-      </label>
-      <button
-        className="border-border text-foreground hover:bg-muted rounded-md border px-3 py-2 text-sm font-semibold"
-        name="resourceAction"
-        type="submit"
-        value="detach_sponsor"
-      >
-        Retirar por ID
-      </button>
-    </form>
+  const confirmationError = getFieldError(
+    props.feedback,
+    "archiveConfirmation",
   );
-}
 
-function CreateProviderForm(props: {
-  actionLabel: string;
-  formAction?: React.ComponentProps<"form">["action"];
-}) {
   return (
-    <section
-      aria-labelledby="create-provider-heading"
-      className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs"
-    >
-      <details className="group" data-create-provider-workflow>
-        <summary className="flex cursor-pointer list-none items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
-          <div className="min-w-0">
-            <h2 id="create-provider-heading" className="text-xl font-semibold">
-              Nuevo proveedor
-            </h2>
-            <span className="text-muted-foreground mt-1 block text-sm">
-              Registra el perfil completo que usa el directorio público de
-              recursos.
-            </span>
-          </div>
-          <span className="bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 rounded-md px-3 py-2 text-sm font-semibold">
-            {props.actionLabel}
-          </span>
-        </summary>
+    <Dialog defaultOpen={Boolean(props.feedback)}>
+      <DialogTrigger asChild>
+        <Button data-workflow-trigger="archive" type="button" variant="outline">
+          Archivar
+        </Button>
+      </DialogTrigger>
+      <DialogContent
+        aria-describedby={`archive-description-${props.provider.providerId}`}
+      >
+        <DialogHeader>
+          <DialogTitle>Archivar proveedor</DialogTitle>
+          <DialogDescription
+            id={`archive-description-${props.provider.providerId}`}
+          >
+            Esta acción retira {props.provider.name} del directorio activo. Debe
+            confirmarse explícitamente.
+          </DialogDescription>
+        </DialogHeader>
         <form
           action={props.formAction}
-          className="mt-4 flex flex-col gap-3"
+          aria-label={`Archivar proveedor ${props.provider.name}`}
+          className="grid gap-4"
           method={props.formAction ? undefined : "post"}
         >
-          <label className="flex flex-col gap-1 text-xs font-semibold">
-            Nombre
-            <input
-              className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-              name="name"
-              placeholder="Veterinaria Alto Norte"
-              required
-              type="text"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-semibold">
-            Categoría
-            <select
-              className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-              name="category"
-            >
-              {resourceProviderCategoryOptions.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-semibold">
-            Descripción
-            <textarea
-              className="border-input bg-background min-h-20 rounded-md border px-3 py-2 text-sm font-normal"
-              name="description"
-              placeholder="Atencion veterinaria general, orientacion y apoyo para familias cuidadoras."
-              required
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-semibold">
-            Resumen corto
-            <textarea
-              className="border-input bg-background min-h-20 rounded-md border px-3 py-2 text-sm font-normal"
-              name="shortDescription"
-              placeholder="Clinica local con atencion general y urgencias."
-              required
-            />
-          </label>
-          <details className="border-border rounded-md border p-3" open>
-            <summary className="cursor-pointer text-xs font-semibold">
-              Ubicación avanzada y privacidad
-            </summary>
-            <p className="text-muted-foreground mt-2 text-xs font-normal">
-              La latitud y longitud exactas se guardan para búsqueda interna. El
-              directorio público usa la zona aproximada y la celda de ubicación,
-              no coordenadas exactas.
-            </p>
-            <div className="mt-3 grid gap-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="flex flex-col gap-1 text-xs font-semibold">
-                  Departamento
-                  <input
-                    className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                    name="department"
-                    placeholder="La Paz"
-                    required
-                    type="text"
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-xs font-semibold">
-                  Ciudad
-                  <input
-                    className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                    name="city"
-                    placeholder="El Alto"
-                    required
-                    type="text"
-                  />
-                </label>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="flex flex-col gap-1 text-xs font-semibold">
-                  Latitud exacta
-                  <input
-                    className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                    name="exactLatitude"
-                    placeholder="-16.500000"
-                    required
-                    step="0.000001"
-                    type="number"
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-xs font-semibold">
-                  Longitud exacta
-                  <input
-                    className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                    name="exactLongitude"
-                    placeholder="-68.120000"
-                    required
-                    step="0.000001"
-                    type="number"
-                  />
-                </label>
-              </div>
-              <label className="flex flex-col gap-1 text-xs font-semibold">
-                Ubicación aproximada visible
-                <input
-                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                  name="approximateLocationLabel"
-                  placeholder="Sopocachi, La Paz"
-                  required
-                  type="text"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-xs font-semibold">
-                Celda de ubicación
-                <input
-                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                  name="locationCell"
-                  placeholder="bo-lpb-sopocachi"
-                  required
-                  type="text"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-xs font-semibold">
-                Dirección interna
-                <input
-                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                  name="addressLabel"
-                  placeholder="Zona Sopocachi, La Paz"
-                  type="text"
-                />
-              </label>
-            </div>
-          </details>
-          <label className="flex flex-col gap-1 text-xs font-semibold">
-            Cobertura
-            <input
-              className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-              name="serviceAreaLabel"
-              placeholder="El Alto y La Paz"
-              required
-              type="text"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-semibold">
-            Horarios
-            <input
-              className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-              name="hoursLabel"
-              placeholder="Lun - Sab: 08:00 a 18:00"
-              required
-              type="text"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-semibold">
-            Sitio web
-            <input
-              className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-              name="websiteUrl"
-              placeholder="https://proveedor.example"
-              type="url"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-semibold">
-            Logo URL
-            <input
-              className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-              name="logoUrl"
-              placeholder="https://proveedor.example/logo.png"
-              type="url"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-semibold">
-            Foto URL
-            <input
-              className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-              name="photoUrl"
-              placeholder="https://proveedor.example/foto.png"
-              type="url"
-            />
-          </label>
-          <ContactOptionsFields firstRowRequired={true} />
-          <LinkFields />
-          <div className="grid gap-2 text-xs font-semibold">
-            <label className="flex items-center gap-2">
-              <input name="emergencyAvailable" type="checkbox" />
-              Atiende urgencias
-            </label>
-            <label className="flex items-center gap-2">
-              <input name="isOpenNow" type="checkbox" />
-              Marcado abierto ahora
-            </label>
-          </div>
-          <button
-            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-semibold"
-            name="resourceAction"
-            type="submit"
-            value="create_provider"
+          <ProviderIdentityHiddenFields provider={props.provider} />
+          <WorkflowErrorAlert feedback={props.feedback} />
+          <Field
+            data-invalid={Boolean(confirmationError)}
+            orientation="horizontal"
           >
-            {props.actionLabel}
-          </button>
+            <Checkbox
+              aria-describedby={
+                confirmationError
+                  ? `archive-confirmation-error-${props.provider.providerId}`
+                  : undefined
+              }
+              aria-invalid={Boolean(confirmationError)}
+              id={`archive-confirmation-${props.provider.providerId}`}
+              name="archiveConfirmation"
+              required
+              value="confirmed"
+            />
+            <div className="grid gap-2">
+              <FieldLabel
+                htmlFor={`archive-confirmation-${props.provider.providerId}`}
+              >
+                Confirmo que quiero archivar este proveedor.
+              </FieldLabel>
+              <FieldError
+                id={`archive-confirmation-error-${props.provider.providerId}`}
+              >
+                {confirmationError}
+              </FieldError>
+            </div>
+          </Field>
+          <DialogFooter>
+            <Button
+              data-submit-action="archive_provider"
+              name="resourceAction"
+              type="submit"
+              value="archive_provider"
+              variant="destructive"
+            >
+              Archivar proveedor
+            </Button>
+          </DialogFooter>
         </form>
-      </details>
-    </section>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function ArchiveControls(props: {
-  formAction?: React.ComponentProps<"form">["action"];
+function TextField(props: {
+  autoFocus?: boolean;
+  error?: string;
+  id: string;
+  label: string;
+  name: string;
+  placeholder?: string;
+  required?: boolean;
+  step?: string;
+  type: React.HTMLInputTypeAttribute;
+  value?: string;
+}) {
+  const errorId = `${props.id}-error`;
+
+  return (
+    <Field data-invalid={Boolean(props.error)}>
+      <FieldLabel htmlFor={props.id}>{props.label}</FieldLabel>
+      <Input
+        aria-describedby={props.error ? errorId : undefined}
+        aria-invalid={Boolean(props.error)}
+        autoFocus={props.autoFocus}
+        defaultValue={props.value ?? ""}
+        id={props.id}
+        name={props.name}
+        placeholder={props.placeholder}
+        required={props.required}
+        step={props.step}
+        type={props.type}
+      />
+      <FieldError id={errorId}>{props.error}</FieldError>
+    </Field>
+  );
+}
+
+function TextAreaField(props: {
+  autoFocus?: boolean;
+  error?: string;
+  id: string;
+  label: string;
+  name: string;
+  placeholder?: string;
+  required?: boolean;
+  value?: string;
+}) {
+  const errorId = `${props.id}-error`;
+
+  return (
+    <Field data-invalid={Boolean(props.error)}>
+      <FieldLabel htmlFor={props.id}>{props.label}</FieldLabel>
+      <Textarea
+        aria-describedby={props.error ? errorId : undefined}
+        aria-invalid={Boolean(props.error)}
+        autoFocus={props.autoFocus}
+        defaultValue={props.value ?? ""}
+        id={props.id}
+        name={props.name}
+        placeholder={props.placeholder}
+        required={props.required}
+      />
+      <FieldError id={errorId}>{props.error}</FieldError>
+    </Field>
+  );
+}
+
+function SelectField<TOption extends { id: string; label: string }>(props: {
+  defaultValue: TOption["id"];
+  error?: string;
+  id: string;
+  label: string;
+  name: string;
+  options: readonly TOption[];
+}) {
+  const errorId = `${props.id}-error`;
+
+  return (
+    <Field data-invalid={Boolean(props.error)}>
+      <FieldLabel htmlFor={props.id}>{props.label}</FieldLabel>
+      <Select defaultValue={props.defaultValue} name={props.name}>
+        <SelectTrigger
+          aria-describedby={props.error ? errorId : undefined}
+          aria-invalid={Boolean(props.error)}
+          className="w-full"
+          id={props.id}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {props.options.map((option) => (
+            <SelectItem key={option.id} value={option.id}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <FieldError id={errorId}>{props.error}</FieldError>
+    </Field>
+  );
+}
+
+function CheckboxField(props: {
+  defaultChecked?: boolean;
+  id: string;
+  label: string;
+  name: string;
+}) {
+  return (
+    <Field orientation="horizontal">
+      <Checkbox
+        defaultChecked={props.defaultChecked}
+        id={props.id}
+        name={props.name}
+      />
+      <FieldLabel htmlFor={props.id}>{props.label}</FieldLabel>
+    </Field>
+  );
+}
+
+function WorkflowErrorAlert(props: {
+  feedback?: AdminResourceProviderWorkflowFeedback;
+}) {
+  if (!props.feedback?.formError) {
+    return null;
+  }
+
+  return (
+    <Alert variant="destructive">
+      <AlertTitle>No se guardó la acción</AlertTitle>
+      <AlertDescription>{props.feedback.formError}</AlertDescription>
+    </Alert>
+  );
+}
+
+function ProviderIdentityHiddenFields(props: {
   provider: AdminResourceProviderViewModel;
 }) {
   return (
-    <form
-      action={props.formAction}
-      aria-label={`Archivar proveedor ${props.provider.name}`}
-      className="flex w-full max-w-full flex-col gap-2"
-      method={props.formAction ? undefined : "post"}
-    >
+    <>
       <input
         name="providerId"
         type="hidden"
         value={props.provider.providerId}
       />
-      <button
-        className="border-border text-muted-foreground rounded-md border px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-70"
-        name="resourceAction"
-        type="submit"
-        value="archive_provider"
-      >
-        Archivar proveedor
-      </button>
-    </form>
+      <input name="providerName" type="hidden" value={props.provider.name} />
+    </>
   );
+}
+
+function getWorkflowFeedback(
+  feedback: AdminResourceProviderWorkflowFeedback | undefined,
+  workflow: AdminResourceProviderWorkflow,
+  providerId?: string,
+) {
+  if (!feedback || feedback.ok || feedback.workflow !== workflow) {
+    return undefined;
+  }
+
+  if (providerId && feedback.providerId !== providerId) {
+    return undefined;
+  }
+
+  return feedback;
+}
+
+function getFieldError(
+  feedback: AdminResourceProviderWorkflowFeedback | undefined,
+  field: string,
+) {
+  return feedback?.fieldErrors.find((error) => error.field === field)?.message;
 }
 
 function ProviderMetrics(props: { metrics: AdminResourceMetricsViewModel }) {
@@ -1455,7 +1688,9 @@ function getSummaryStats(
 ): AdminResourcesSummaryStats {
   const providerStats = providers.reduce(
     (stats, provider) => ({
-      activeSponsorPlacementCount: stats.activeSponsorPlacementCount,
+      activeSponsorPlacementCount:
+        stats.activeSponsorPlacementCount +
+        (provider.activeSponsorPlacement ? 1 : 0),
       providerCount: stats.providerCount + 1,
       verifiedProviderCount:
         stats.verifiedProviderCount +
@@ -1468,11 +1703,16 @@ function getSummaryStats(
     },
   );
 
+  const metricSponsorCount = metrics.byDepartment.reduce(
+    (total, metric) => total + metric.activeSponsorPlacementCount,
+    0,
+  );
+
   return {
     ...providerStats,
-    activeSponsorPlacementCount: metrics.byDepartment.reduce(
-      (total, metric) => total + metric.activeSponsorPlacementCount,
-      0,
+    activeSponsorPlacementCount: Math.max(
+      providerStats.activeSponsorPlacementCount,
+      metricSponsorCount,
     ),
   };
 }

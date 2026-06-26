@@ -1,0 +1,245 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import {
+  applyAdminResourceProviderAction,
+  buildAdminResourceProviderMutationNotice,
+  buildAdminResourceProviderRedirectUrl,
+  buildAdminResourceProviderWorkflowFeedback,
+} from "./admin-resource-provider-actions";
+
+const api = vi.hoisted(() => ({
+  attachAdminResourceProviderSponsor: vi.fn(),
+  createAdminResourceProvider: vi.fn(),
+  deleteAdminResourceProvider: vi.fn(),
+  detachAdminResourceProviderSponsor: vi.fn(),
+  updateAdminResourceProvider: vi.fn(),
+  updateAdminResourceProviderVerification: vi.fn(),
+}));
+
+vi.mock("./admin-resource-provider-api-adapter", () => api);
+
+describe("admin resource provider actions", () => {
+  beforeEach(() => {
+    api.attachAdminResourceProviderSponsor.mockReset();
+    api.createAdminResourceProvider.mockReset();
+    api.deleteAdminResourceProvider.mockReset();
+    api.detachAdminResourceProviderSponsor.mockReset();
+    api.updateAdminResourceProvider.mockReset();
+    api.updateAdminResourceProviderVerification.mockReset();
+  });
+
+  it("returns create field errors without calling the API", async () => {
+    const result = await applyAdminResourceProviderAction(
+      formData({
+        resourceAction: "create_provider",
+        name: "",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      action: "create_provider",
+      ok: false,
+      workflow: "create",
+    });
+    expect(result.fieldErrors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "name" }),
+        expect.objectContaining({ field: "contactOptions" }),
+      ]),
+    );
+    expect(api.createAdminResourceProvider).not.toHaveBeenCalled();
+  });
+
+  it("returns update route-level errors when the API rejects", async () => {
+    api.updateAdminResourceProvider.mockRejectedValueOnce(
+      new Error("database unavailable"),
+    );
+
+    const result = await applyAdminResourceProviderAction(
+      validUpdateFormData({
+        description:
+          "Veterinaria local con atencion general, urgencias y orientacion.",
+        providerName: "Clinica Veterinaria San Roque",
+        resourceAction: "update_provider_details",
+      }),
+    );
+
+    expect(result).toEqual({
+      action: "update_provider_details",
+      fieldErrors: [],
+      ok: false,
+      providerId: "11111111-1111-4111-8111-111111111111",
+      providerName: "Clinica Veterinaria San Roque",
+      workflow: "edit",
+    });
+    expect(api.updateAdminResourceProvider).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns verification field errors without calling the API", async () => {
+    const result = await applyAdminResourceProviderAction(
+      formData({
+        providerId: "11111111-1111-4111-8111-111111111111",
+        providerName: "Clinica Veterinaria San Roque",
+        resourceAction: "update_verification",
+        verificationStatus: "maybe",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      action: "update_verification",
+      ok: false,
+      providerId: "11111111-1111-4111-8111-111111111111",
+      providerName: "Clinica Veterinaria San Roque",
+      workflow: "verification",
+    });
+    expect(result.fieldErrors).toEqual([
+      {
+        field: "verificationStatus",
+        message: "Selecciona un estado de verificacion valido.",
+      },
+    ]);
+    expect(api.updateAdminResourceProviderVerification).not.toHaveBeenCalled();
+  });
+
+  it("returns sponsor attach field errors without calling the API", async () => {
+    const result = await applyAdminResourceProviderAction(
+      formData({
+        providerId: "11111111-1111-4111-8111-111111111111",
+        providerName: "Clinica Veterinaria San Roque",
+        resourceAction: "attach_sponsor",
+        sponsorSurface: "resources_directory",
+        startsOn: "2026-08-01",
+        endsOn: "2026-07-01",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      action: "attach_sponsor",
+      ok: false,
+      providerId: "11111111-1111-4111-8111-111111111111",
+      providerName: "Clinica Veterinaria San Roque",
+      workflow: "sponsor",
+    });
+    expect(result.fieldErrors).toEqual([
+      {
+        field: "endsOn",
+        message:
+          "La fecha final debe ser posterior o igual a la fecha inicial.",
+      },
+    ]);
+    expect(api.attachAdminResourceProviderSponsor).not.toHaveBeenCalled();
+  });
+
+  it("returns sponsor detach field errors without calling the API", async () => {
+    const result = await applyAdminResourceProviderAction(
+      formData({
+        providerId: "11111111-1111-4111-8111-111111111111",
+        providerName: "Clinica Veterinaria San Roque",
+        resourceAction: "detach_sponsor",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      action: "detach_sponsor",
+      ok: false,
+      providerId: "11111111-1111-4111-8111-111111111111",
+      providerName: "Clinica Veterinaria San Roque",
+      workflow: "sponsor",
+    });
+    expect(result.fieldErrors).toEqual([
+      {
+        field: "placementId",
+        message: "Este campo es obligatorio.",
+      },
+    ]);
+    expect(api.detachAdminResourceProviderSponsor).not.toHaveBeenCalled();
+  });
+
+  it("returns archive confirmation errors without calling the API", async () => {
+    const result = await applyAdminResourceProviderAction(
+      formData({
+        providerId: "11111111-1111-4111-8111-111111111111",
+        providerName: "Clinica Veterinaria San Roque",
+        resourceAction: "archive_provider",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      action: "archive_provider",
+      ok: false,
+      providerId: "11111111-1111-4111-8111-111111111111",
+      providerName: "Clinica Veterinaria San Roque",
+      workflow: "archive",
+    });
+    expect(result.fieldErrors).toEqual([
+      {
+        field: "archiveConfirmation",
+        message: "Confirma que quieres archivar este proveedor.",
+      },
+    ]);
+    expect(api.deleteAdminResourceProvider).not.toHaveBeenCalled();
+  });
+
+  it("builds provider-specific success notices from redirect feedback", async () => {
+    api.updateAdminResourceProviderVerification.mockResolvedValueOnce({});
+
+    const result = await applyAdminResourceProviderAction(
+      formData({
+        providerId: "11111111-1111-4111-8111-111111111111",
+        providerName: "Clinica Veterinaria San Roque",
+        resourceAction: "update_verification",
+        verificationStatus: "verified",
+        verificationNote: "Identidad revisada por Rastro.",
+      }),
+    );
+    const url = buildAdminResourceProviderRedirectUrl(result);
+    const feedback = buildAdminResourceProviderWorkflowFeedback(
+      Object.fromEntries(new URL(`https://rastro.test${url}`).searchParams),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(feedback).toMatchObject({
+      action: "update_verification",
+      ok: true,
+      providerName: "Clinica Veterinaria San Roque",
+      workflow: "verification",
+    });
+    expect(buildAdminResourceProviderMutationNotice(feedback)).toEqual({
+      body: "Clinica Veterinaria San Roque: la verificación de identidad fue actualizada con su nota.",
+      title: "Verificación actualizada",
+      tone: "success",
+    });
+  });
+});
+
+function validUpdateFormData(overrides: Record<string, string>) {
+  return formData({
+    providerId: "11111111-1111-4111-8111-111111111111",
+    providerName: "Clinica Veterinaria San Roque",
+    name: "Clinica Veterinaria San Roque",
+    category: "veterinary",
+    description: "Veterinaria local con atencion general y urgencias.",
+    shortDescription:
+      "Atencion veterinaria general y orientacion para familias cuidadoras.",
+    department: "La Paz",
+    city: "La Paz",
+    approximateLocationLabel: "Sopocachi, La Paz",
+    locationCell: "bo-lpb-sopocachi",
+    serviceAreaLabel: "Atiende La Paz y El Alto",
+    hoursLabel: "Lun - Dom: 24 horas",
+    contactKind0: "phone",
+    contactLabel0: "Llamar",
+    contactValue0: "+591 2 222 1111",
+    ...overrides,
+  });
+}
+
+function formData(values: Record<string, string>) {
+  const data = new FormData();
+
+  for (const [key, value] of Object.entries(values)) {
+    data.set(key, value);
+  }
+
+  return data;
+}

@@ -1,3 +1,4 @@
+import type * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -55,34 +56,82 @@ describe("AdminResourcesDashboard", () => {
     expect(html).toContain("Actualizado");
     expect(html).toContain("Registrar proveedor");
     expect(html).toContain("Editar detalles");
-    expect(html).toContain("Identidad");
+    expect(html).toContain("Verificación");
     expect(html).toContain("Patrocinio");
-    expect(html).toContain("Archivo");
-    expect(html).toContain("Latitud exacta");
-    expect(html).toContain("Ubicación avanzada y privacidad");
-    expect(html).toContain("Opciones de contacto");
-    expect(html).toContain("Logo URL");
-    expect(html).toContain("Redes sociales");
-    expect(html).toContain("Enlaces externos");
-    expect(html).toContain("Plaza Abaroa, La Paz");
-    expect(html).toContain("Guardar detalles");
+    expect(html).toContain("Archivar");
+    expect(html).not.toContain("Latitud exacta");
+    expect(html).not.toContain("Ubicación y privacidad");
+    expect(html).not.toContain("Opciones de contacto");
+    expect(html).not.toContain("Logo URL");
+    expect(html).not.toContain("Redes sociales");
+    expect(html).not.toContain("Enlaces externos");
+    expect(html).not.toContain("Plaza Abaroa, La Paz");
+    expect(html).not.toContain("Guardar detalles");
     expect(html).not.toContain("Falta contrato API para actualizar detalles");
-    expect(html).toContain("Guardar identidad");
-    expect(html).toContain("Adjuntar patrocinio local");
-    expect(html).toContain("Retirar por ID");
-    expect(html).toContain("22222222-2222-4222-8222-222222222222");
+    expect(html).not.toContain("Guardar verificación");
+    expect(html).not.toContain("Adjuntar patrocinio local");
+    expect(html).not.toContain("Retirar por ID");
+    expect(html).not.toContain("22222222-2222-4222-8222-222222222222");
     expect(html).toContain("Identidad revisada por Rastro.");
-    expect(html).toContain("Archivar proveedor");
+    expect(html).not.toContain("Archivar proveedor");
     expect(html).not.toContain("Falta contrato API para archivar o eliminar");
     expect(html).toContain("Métricas por departamento");
     expect(html).toContain("Métricas por ciudad");
-    expect(html).toContain("No cambia la prioridad de recuperación");
-    expect(html).toContain("No activa notificaciones push");
+    expect(html).not.toContain("No cambia la prioridad de recuperación");
+    expect(html).not.toContain("No activa notificaciones push");
     expect(getProviderQueueItemCount(html)).toBe(1);
     expect(html).not.toMatch(createWorkflowOpenPattern);
     expect(html).not.toMatch(providerWorkflowOpenPattern);
     expect(html).not.toMatch(forbiddenTerms);
     expect(html).not.toMatch(marketplaceTerms);
+  });
+
+  it("reopens the sponsor workflow with field-level date errors", () => {
+    const html = renderDashboard([providerProfile()], {
+      action: "attach_sponsor",
+      fieldErrors: [
+        {
+          field: "endsOn",
+          message:
+            "La fecha final debe ser posterior o igual a la fecha inicial.",
+        },
+      ],
+      ok: false,
+      providerId: "11111111-1111-4111-8111-111111111111",
+      providerName: "Clinica Veterinaria San Roque",
+      workflow: "sponsor",
+    });
+
+    expect(html).toMatch(
+      /data-workflow-trigger="sponsor"[^>]+aria-expanded="true"/,
+    );
+    expect(html).not.toContain("Adjuntar patrocinio local");
+    expect(html).not.toContain(
+      "La fecha final debe ser posterior o igual a la fecha inicial.",
+    );
+    expect(html).not.toContain("Retirar por ID");
+  });
+
+  it("reopens archive confirmation with destructive confirmation error", () => {
+    const html = renderDashboard([providerProfile()], {
+      action: "archive_provider",
+      fieldErrors: [
+        {
+          field: "archiveConfirmation",
+          message: "Confirma que quieres archivar este proveedor.",
+        },
+      ],
+      ok: false,
+      providerId: "11111111-1111-4111-8111-111111111111",
+      providerName: "Clinica Veterinaria San Roque",
+      workflow: "archive",
+    });
+
+    expect(html).toMatch(
+      /data-workflow-trigger="archive"[^>]+aria-expanded="true"/,
+    );
+    expect(html).not.toContain("Confirmo que quiero archivar este proveedor.");
+    expect(html).not.toContain("Confirma que quieres archivar este proveedor.");
   });
 
   it("renders many providers as separate read-first queue items", () => {
@@ -153,15 +202,20 @@ describe("AdminResourcesDashboard", () => {
 });
 
 const createWorkflowOpenPattern =
-  /<details(?=[^>]*data-create-provider-workflow)(?=[^>]*open)[^>]*>/;
-const providerWorkflowOpenPattern =
-  /<details(?=[^>]*data-provider-action-workflow)(?=[^>]*open)[^>]*>/;
+  /data-workflow-trigger="create"[^>]+aria-expanded="true"/;
+const providerWorkflowOpenPattern = /aria-expanded="true"/;
 
-function renderDashboard(profiles: readonly AdminResourceProviderProfile[]) {
+function renderDashboard(
+  profiles: readonly AdminResourceProviderProfile[],
+  workflowFeedback?: React.ComponentProps<
+    typeof AdminResourcesDashboard
+  >["workflowFeedback"],
+) {
   const viewModel = buildAdminResourceProviderListViewModel(profiles);
 
   return renderToStaticMarkup(
     <AdminResourcesDashboard
+      workflowFeedback={workflowFeedback}
       {...toAdminResourcesDashboardProps(viewModel, viewModel.metrics, {
         displayName: "Admin Rastro",
         role: "admin",
