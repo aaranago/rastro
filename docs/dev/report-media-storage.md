@@ -30,13 +30,12 @@ For Android emulator runs, `RASTRO_STORAGE_PRESIGN_ENDPOINT` must be reachable
 from the emulator. `10.0.2.2` points back to the host machine.
 
 `RASTRO_STORAGE_DELIVERY_BASE_URL` is what public report detail and nearby
-cards render after an upload is verified. If it is blank, new media rows stay
-private and `report.detail`/`report.nearby` return no displayable photo URL,
-even though lost, found, and adoption reports require at least one photo.
-Existing ready media rows with a null canonical URL recover on read after this
-base URL is configured. Point it at a controlled read layer or CDN that the
-Android emulator can reach; do not make production buckets public to paper over
-this.
+cards render after an upload is verified. Point it at a controlled read layer
+or CDN that the Android emulator can reach. If it is blank, the API falls back
+to the app origin from the request headers and serves private objects through
+`/api/report-media/<object-key>`. Existing ready media rows with a null
+canonical URL recover on read through either the configured base URL or this
+fallback. Do not make production buckets public to paper over this.
 
 To run real storage integration tests:
 

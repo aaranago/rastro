@@ -19,6 +19,8 @@
     "packages/db/src/auth-schema.ts"
   ],
   "ignoreDependencies": [
+    "@aws-sdk/client-s3",
+    "@aws-sdk/s3-request-presigner",
     "@better-auth/cli",
     "@turbo/gen",
     "dotenv-cli",

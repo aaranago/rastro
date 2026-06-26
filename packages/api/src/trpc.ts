@@ -20,6 +20,7 @@ import {
   createS3MediaStorage,
   createUnavailableMediaStorage,
   parseOptionalMediaStorageConfig,
+  resolveMediaDeliveryBaseUrl,
 } from "./media-storage";
 import { createDrizzleReportMediaRepository } from "./report-media-repository";
 import { createDrizzleReportRepository } from "./report-repository";
@@ -55,6 +56,12 @@ export const createTRPCContext = async (opts: {
   });
   const { db } = await import("@acme/db/client");
   const mediaStorageConfig = parseOptionalMediaStorageConfig(process.env);
+  const mediaDeliveryBaseUrl = mediaStorageConfig
+    ? resolveMediaDeliveryBaseUrl({
+        configuredDeliveryBaseUrl: mediaStorageConfig.deliveryBaseUrl,
+        headers: opts.headers,
+      })
+    : null;
 
   return {
     authApi,
@@ -68,7 +75,7 @@ export const createTRPCContext = async (opts: {
       ? createS3MediaStorage(mediaStorageConfig)
       : createUnavailableMediaStorage(),
     reportRepository: createDrizzleReportRepository(db, {
-      deliveryBaseUrl: mediaStorageConfig?.deliveryBaseUrl,
+      deliveryBaseUrl: mediaDeliveryBaseUrl,
     }),
     session,
   };

@@ -18,6 +18,7 @@ vi.mock("react", async () => {
         : initialValue,
       vi.fn(),
     ],
+    useRef: <TValue,>(initialValue: TValue) => ({ current: initialValue }),
   };
 });
 
@@ -43,10 +44,40 @@ vi.mock("react-native", () => ({
   StyleSheet: {
     create: <TStyles extends Record<string, unknown>>(styles: TStyles) =>
       styles,
+    flatten: (style: unknown) => {
+      if (!Array.isArray(style)) {
+        return style;
+      }
+
+      return style.reduce<Record<string, unknown>>((flattened, item) => {
+        if (typeof item === "object" && item !== null) {
+          Object.assign(flattened, item);
+        }
+
+        return flattened;
+      }, {});
+    },
   },
   Text: "Text",
+  useWindowDimensions: () => ({ height: 844, scale: 1, width: 390 }),
   View: "View",
 }));
+
+vi.mock("@nandorojo/galeria", async () => {
+  const actualReact = await vi.importActual<typeof React>("react");
+
+  const GaleriaImage = (props: ElementProps) =>
+    actualReact.createElement("Galeria.Image", props, props.children);
+  const GaleriaRoot = Object.assign(
+    (props: ElementProps) =>
+      actualReact.createElement("Galeria", props, props.children),
+    { Image: GaleriaImage },
+  );
+
+  return {
+    Galeria: GaleriaRoot,
+  };
+});
 
 vi.mock("expo-image", () => ({
   Image: "Image",
@@ -139,38 +170,56 @@ describe("PublicReportDetailContent", () => {
     });
   });
 
-  it("renders a multiple-image gallery with a non-cropping hero image", () => {
+  it("renders multiple report images as a paged Galeria-backed carousel", () => {
+    const photoUrls = Array.from(
+      { length: 5 },
+      (_, index) => `https://cdn.rastro.bo/asdf-${index + 1}.jpg`,
+    );
     const screen = renderFunctionElement(
       <PublicReportDetailContent
         viewModel={createViewModel({
-          photoUrls: [
-            "https://cdn.rastro.bo/luna-1.jpg",
-            "https://cdn.rastro.bo/luna-2.jpg",
-            "https://cdn.rastro.bo/luna-3.jpg",
-          ],
+          photoUrls,
         })}
       />,
     );
     const images = findElements(screen, (element) => element.type === "Image");
+    const galeriaRoots = findElements(
+      screen,
+      (element) => element.type === "Galeria",
+    );
+    const galeriaImages = findElements(
+      screen,
+      (element) => element.type === "Galeria.Image",
+    );
 
-    expect(findText(screen, "1 de 3")).toBe(true);
+    expect(findText(screen, "1 de 5")).toBe(true);
+    expect(
+      findElementByAccessibilityLabel(screen, "Fotos del reporte, 5 en total"),
+    ).toBeTruthy();
     expect(
       findElementByAccessibilityLabel(screen, "Galeria de fotos"),
     ).toBeTruthy();
+    expect(galeriaRoots).toHaveLength(2);
+    expect(galeriaRoots[0]?.props.urls).toEqual(photoUrls);
+    expect(galeriaImages.map((image) => image.props.index)).toEqual([
+      0, 1, 2, 3, 4, 0, 1, 2, 3, 4,
+    ]);
     expect(images[0]?.props).toMatchObject({
       contentFit: "contain",
+      priority: "high",
       source: {
-        uri: "https://cdn.rastro.bo/luna-1.jpg",
+        uri: photoUrls[0],
       },
     });
     expect(
       images.map((image) => (image.props.source as { uri: string }).uri),
-    ).toEqual([
-      "https://cdn.rastro.bo/luna-1.jpg",
-      "https://cdn.rastro.bo/luna-1.jpg",
-      "https://cdn.rastro.bo/luna-2.jpg",
-      "https://cdn.rastro.bo/luna-3.jpg",
-    ]);
+    ).toEqual([...photoUrls, ...photoUrls]);
+    expect(
+      images.slice(0, 5).every((image) => image.props.contentFit === "contain"),
+    ).toBe(true);
+    expect(
+      images.slice(5).every((image) => image.props.contentFit === "cover"),
+    ).toBe(true);
   });
 
   it("shows the owner guidance only for the current member", () => {

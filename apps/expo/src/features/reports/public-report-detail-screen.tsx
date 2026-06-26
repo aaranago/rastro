@@ -1,16 +1,18 @@
 import type { Href } from "expo-router";
+import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import * as React from "react";
 import {
   ActivityIndicator,
   Linking,
-  Modal,
   Pressable,
   ScrollView,
   Share,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
+import { Galeria } from "@nandorojo/galeria";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 
@@ -349,18 +351,42 @@ function ReportMediaGallery({
 }: {
   viewModel: PublicReportDetailViewModel;
 }) {
-  const photoUrls = viewModel.photoUrls.slice(0, 5);
+  const photoUrls = viewModel.photoUrls;
   const primaryPhotoUrl = photoUrls[0];
-  const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
-  const selectedPhotoUrl =
-    selectedIndex === null ? undefined : photoUrls[selectedIndex];
-  const selectedPhotoPosition = selectedIndex === null ? 0 : selectedIndex + 1;
-  const closeLightbox = React.useCallback(() => {
-    setSelectedIndex(null);
-  }, []);
-  const openPhoto = React.useCallback((index: number) => {
-    setSelectedIndex(index);
-  }, []);
+  const [activeIndex, setActiveIndex] = React.useState(0);
+  const carouselRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
+  const { width } = useWindowDimensions();
+  const heroWidth = Math.max(1, Math.round(width - 36));
+  const heroImageCountLabel = `${activeIndex + 1} de ${photoUrls.length}`;
+  const handleHeroScrollEnd = React.useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const nextIndex = Math.round(
+        event.nativeEvent.contentOffset.x / heroWidth,
+      );
+      const clampedIndex = Math.max(
+        0,
+        Math.min(nextIndex, photoUrls.length - 1),
+      );
+
+      setActiveIndex(clampedIndex);
+    },
+    [heroWidth, photoUrls.length],
+  );
+  const syncActiveGalleryIndex = React.useCallback(
+    (event: { nativeEvent: { currentIndex: number } }) => {
+      const nextIndex = Math.max(
+        0,
+        Math.min(event.nativeEvent.currentIndex, photoUrls.length - 1),
+      );
+
+      setActiveIndex(nextIndex);
+      carouselRef.current?.scrollTo({
+        animated: false,
+        x: nextIndex * heroWidth,
+      });
+    },
+    [heroWidth, photoUrls.length],
+  );
 
   return (
     <View style={styles.gallery}>
@@ -368,25 +394,49 @@ function ReportMediaGallery({
         style={[styles.hero, primaryPhotoUrl ? null : styles.heroFallbackFrame]}
       >
         {primaryPhotoUrl ? (
-          <Pressable
-            accessibilityLabel={`Ampliar foto principal 1 de ${photoUrls.length}`}
-            accessibilityRole="imagebutton"
-            onPress={() => {
-              openPhoto(0);
-            }}
-            style={styles.heroImagePressable}
+          <Galeria
+            hidePageIndicators={false}
+            theme="dark"
+            urls={photoUrls}
           >
-            <Image
-              accessibilityRole="image"
-              cachePolicy="memory-disk"
-              contentFit="contain"
-              priority="high"
-              recyclingKey={primaryPhotoUrl}
-              source={{ uri: primaryPhotoUrl }}
-              style={styles.heroImage}
-              transition={160}
-            />
-          </Pressable>
+            <ScrollView
+              accessibilityLabel={`Fotos del reporte, ${photoUrls.length} en total`}
+              contentContainerStyle={styles.heroCarouselContent}
+              decelerationRate="fast"
+              disableIntervalMomentum
+              horizontal
+              onMomentumScrollEnd={handleHeroScrollEnd}
+              pagingEnabled
+              ref={carouselRef}
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={heroWidth}
+              style={styles.heroCarousel}
+            >
+              {photoUrls.map((photoUrl, index) => (
+                <Galeria.Image
+                  index={index}
+                  key={`hero:${photoUrl}:${index}`}
+                  onIndexChange={syncActiveGalleryIndex}
+                  style={StyleSheet.flatten([
+                    styles.heroImageFrame,
+                    { width: heroWidth },
+                  ])}
+                >
+                  <Image
+                    accessibilityLabel={`Foto ${index + 1} de ${photoUrls.length} del reporte`}
+                    accessibilityRole="image"
+                    cachePolicy="memory-disk"
+                    contentFit="contain"
+                    priority={index === 0 ? "high" : "normal"}
+                    recyclingKey={photoUrl}
+                    source={{ uri: photoUrl }}
+                    style={styles.heroImage}
+                    transition={160}
+                  />
+                </Galeria.Image>
+              ))}
+            </ScrollView>
+          </Galeria>
         ) : (
           <View
             style={[
@@ -449,110 +499,59 @@ function ReportMediaGallery({
         </View>
         {photoUrls.length > 1 ? (
           <View style={styles.galleryCountBadge}>
-            <Text style={styles.galleryCountText}>1 de {photoUrls.length}</Text>
+            <ShellIcon color={shellColors.white} name="camera.fill" size={14} />
+            <Text style={styles.galleryCountText}>{heroImageCountLabel}</Text>
           </View>
         ) : null}
       </View>
 
       {photoUrls.length > 1 ? (
-        <ScrollView
-          accessibilityLabel="Galeria de fotos"
-          contentContainerStyle={styles.thumbnailContent}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-        >
-          {photoUrls.map((photoUrl, index) => (
-            <Pressable
-              accessibilityLabel={`Abrir foto ${index + 1} de ${photoUrls.length}`}
-              accessibilityRole="imagebutton"
-              key={photoUrl}
-              onPress={() => {
-                openPhoto(index);
-              }}
-              style={styles.thumbnailButton}
-            >
-              <Image
-                accessibilityRole="image"
-                cachePolicy="memory-disk"
-                contentFit="cover"
-                recyclingKey={photoUrl}
-                source={{ uri: photoUrl }}
-                style={styles.thumbnailImage}
-                transition={120}
-              />
-            </Pressable>
-          ))}
-        </ScrollView>
+        <Galeria hidePageIndicators={false} theme="dark" urls={photoUrls}>
+          <ScrollView
+            accessibilityLabel="Galeria de fotos"
+            contentContainerStyle={styles.thumbnailContent}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+          >
+            {photoUrls.map((photoUrl, index) => (
+              <Galeria.Image
+                index={index}
+                key={`thumb:${photoUrl}:${index}`}
+                onIndexChange={syncActiveGalleryIndex}
+                style={StyleSheet.flatten([
+                  styles.thumbnailButton,
+                  activeIndex === index ? styles.thumbnailButtonActive : null,
+                ])}
+              >
+                <Image
+                  accessibilityLabel={`Foto ${index + 1} de ${photoUrls.length} del reporte`}
+                  accessibilityRole="image"
+                  cachePolicy="memory-disk"
+                  contentFit="cover"
+                  recyclingKey={`thumb:${photoUrl}`}
+                  source={{ uri: photoUrl }}
+                  style={styles.thumbnailImage}
+                  transition={120}
+                />
+              </Galeria.Image>
+            ))}
+          </ScrollView>
+        </Galeria>
       ) : null}
 
-      <Modal
-        animationType="fade"
-        onRequestClose={closeLightbox}
-        transparent
-        visible={!!selectedPhotoUrl}
-      >
-        <View style={styles.lightbox}>
-          <View style={styles.lightboxTopRow}>
-            <Text style={styles.lightboxCounter}>
-              {selectedPhotoPosition} de {photoUrls.length}
-            </Text>
-            <Pressable
-              accessibilityLabel="Cerrar galeria"
-              accessibilityRole="button"
-              onPress={closeLightbox}
-              style={styles.lightboxCloseButton}
-            >
-              <ShellIcon color={shellColors.white} name="xmark" size={22} />
-            </Pressable>
-          </View>
-
-          {selectedPhotoUrl ? (
-            <Image
-              accessibilityRole="image"
-              cachePolicy="memory-disk"
-              contentFit="contain"
-              recyclingKey={`lightbox:${selectedPhotoUrl}`}
-              source={{ uri: selectedPhotoUrl }}
-              style={styles.lightboxImage}
-              transition={120}
+      {photoUrls.length > 1 ? (
+        <View accessibilityElementsHidden style={styles.galleryDots}>
+          {photoUrls.map((photoUrl, index) => (
+            <View
+              key={`dot:${photoUrl}:${index}`}
+              style={[
+                styles.galleryDot,
+                activeIndex === index ? styles.galleryDotActive : null,
+              ]}
             />
-          ) : null}
-
-          {photoUrls.length > 1 ? (
-            <ScrollView
-              contentContainerStyle={styles.lightboxThumbnailContent}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-            >
-              {photoUrls.map((photoUrl, index) => (
-                <Pressable
-                  accessibilityLabel={`Ver foto ${index + 1} de ${photoUrls.length}`}
-                  accessibilityRole="imagebutton"
-                  key={`lightbox:${photoUrl}`}
-                  onPress={() => {
-                    openPhoto(index);
-                  }}
-                  style={[
-                    styles.lightboxThumbnailButton,
-                    selectedIndex === index
-                      ? styles.lightboxThumbnailButtonActive
-                      : null,
-                  ]}
-                >
-                  <Image
-                    accessibilityRole="image"
-                    cachePolicy="memory-disk"
-                    contentFit="cover"
-                    recyclingKey={`lightbox-thumb:${photoUrl}`}
-                    source={{ uri: photoUrl }}
-                    style={styles.lightboxThumbnailImage}
-                  />
-                </Pressable>
-              ))}
-            </ScrollView>
-          ) : null}
+          ))}
         </View>
-      </Modal>
+      ) : null}
     </View>
   );
 }
@@ -642,10 +641,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   galleryCountBadge: {
+    alignItems: "center",
     backgroundColor: "rgba(17, 24, 39, 0.72)",
     borderCurve: "continuous",
     borderRadius: 999,
     bottom: 12,
+    flexDirection: "row",
+    gap: 5,
     paddingHorizontal: 10,
     paddingVertical: 6,
     position: "absolute",
@@ -655,6 +657,23 @@ const styles = StyleSheet.create({
     color: shellColors.white,
     fontSize: 12,
     fontWeight: "900",
+  },
+  galleryDot: {
+    backgroundColor: shellColors.border,
+    borderCurve: "continuous",
+    borderRadius: 999,
+    height: 6,
+    width: 6,
+  },
+  galleryDotActive: {
+    backgroundColor: shellColors.primary,
+    width: 18,
+  },
+  galleryDots: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 5,
+    justifyContent: "center",
   },
   hero: {
     aspectRatio: 4 / 3,
@@ -679,12 +698,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "900",
   },
+  heroCarousel: {
+    flex: 1,
+  },
+  heroCarouselContent: {
+    alignItems: "stretch",
+  },
   heroImage: {
     height: "100%",
     width: "100%",
   },
-  heroImagePressable: {
-    flex: 1,
+  heroImageFrame: {
+    height: "100%",
   },
   heroTopRow: {
     alignItems: "flex-start",
@@ -696,59 +721,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 12,
     top: 12,
-  },
-  lightbox: {
-    backgroundColor: "rgba(0, 0, 0, 0.94)",
-    flex: 1,
-    gap: 14,
-    justifyContent: "center",
-    padding: 18,
-    paddingBottom: 30,
-    paddingTop: 54,
-  },
-  lightboxCloseButton: {
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.14)",
-    borderCurve: "continuous",
-    borderRadius: 999,
-    height: 44,
-    justifyContent: "center",
-    width: 44,
-  },
-  lightboxCounter: {
-    color: shellColors.white,
-    fontSize: 14,
-    fontWeight: "900",
-  },
-  lightboxImage: {
-    flex: 1,
-    width: "100%",
-  },
-  lightboxThumbnailButton: {
-    borderColor: "rgba(255, 255, 255, 0.18)",
-    borderCurve: "continuous",
-    borderRadius: 14,
-    borderWidth: 1,
-    height: 62,
-    overflow: "hidden",
-    width: 62,
-  },
-  lightboxThumbnailButtonActive: {
-    borderColor: shellColors.white,
-    borderWidth: 2,
-  },
-  lightboxThumbnailContent: {
-    gap: 10,
-    paddingHorizontal: 2,
-  },
-  lightboxThumbnailImage: {
-    height: "100%",
-    width: "100%",
-  },
-  lightboxTopRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
   },
   loadingBody: {
     color: shellColors.muted,
@@ -921,6 +893,10 @@ const styles = StyleSheet.create({
     height: 76,
     overflow: "hidden",
     width: 76,
+  },
+  thumbnailButtonActive: {
+    borderColor: shellColors.primary,
+    borderWidth: 2,
   },
   thumbnailContent: {
     gap: 10,

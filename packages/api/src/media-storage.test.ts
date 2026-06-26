@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildRequestMediaDeliveryBaseUrl,
   buildMediaDeliveryUrl,
   createS3MediaStorage,
   parseMediaStorageConfig,
   redactMediaStorageConfig,
+  resolveMediaDeliveryBaseUrl,
 } from "./media-storage";
 
 describe("media storage config", () => {
@@ -23,6 +25,32 @@ describe("media storage config", () => {
     expect(
       buildMediaDeliveryUrl(null, "report-media/member/media/original.webp"),
     ).toBeNull();
+  });
+
+  it("derives a private-storage read base from request headers when no delivery base is configured", () => {
+    expect(
+      buildRequestMediaDeliveryBaseUrl(
+        new Headers({
+          host: "10.0.2.2:3000",
+        }),
+      ),
+    ).toBe("http://10.0.2.2:3000/api/report-media");
+    expect(
+      buildRequestMediaDeliveryBaseUrl(
+        new Headers({
+          "x-forwarded-host": "app.rastro.bo",
+          "x-forwarded-proto": "https",
+        }),
+      ),
+    ).toBe("https://app.rastro.bo/api/report-media");
+    expect(
+      resolveMediaDeliveryBaseUrl({
+        configuredDeliveryBaseUrl: "https://media.rastro.bo",
+        headers: new Headers({
+          host: "10.0.2.2:3000",
+        }),
+      }),
+    ).toBe("https://media.rastro.bo");
   });
 
   it("parses S3/MinIO upload configuration and redacts credentials", () => {
@@ -126,5 +154,47 @@ describe("media storage config", () => {
     );
     expect(JSON.stringify(instructions)).not.toContain("super-secret");
     expect(JSON.stringify(instructions)).not.toContain("minio-rastro");
+  });
+
+  it("reads private objects through the storage adapter without exposing credentials", async () => {
+    const config = parseMediaStorageConfig({
+      RASTRO_STORAGE_ACCESS_KEY_ID: "minio-rastro",
+      RASTRO_STORAGE_BUCKET: "rastro-media",
+      RASTRO_STORAGE_FORCE_PATH_STYLE: "true",
+      RASTRO_STORAGE_INTERNAL_ENDPOINT: "http://minio:9000",
+      RASTRO_STORAGE_PRESIGN_ENDPOINT: "https://uploads.example.invalid",
+      RASTRO_STORAGE_REGION: "us-east-1",
+      RASTRO_STORAGE_SECRET_ACCESS_KEY: "super-secret",
+    });
+    const storage = createS3MediaStorage(config, {
+      getObject: (input) => {
+        expect(input).toEqual({
+          bucket: "rastro-media",
+          key: "report-media/member/media/original.webp",
+        });
+
+        return Promise.resolve({
+          body: new Uint8Array([0x52, 0x41, 0x53, 0x54, 0x52, 0x4f]),
+          cacheControl: "public, max-age=60",
+          contentLength: 6,
+          contentType: "image/webp",
+          eTag: '"rastro"',
+          metadata: {},
+        });
+      },
+    });
+
+    const object = await storage.getObject({
+      objectKey: "report-media/member/media/original.webp",
+    });
+
+    expect(object).toMatchObject({
+      cacheControl: "public, max-age=60",
+      contentLength: 6,
+      contentType: "image/webp",
+      eTag: '"rastro"',
+    });
+    expect(JSON.stringify(object)).not.toContain("super-secret");
+    expect(JSON.stringify(object)).not.toContain("minio-rastro");
   });
 });

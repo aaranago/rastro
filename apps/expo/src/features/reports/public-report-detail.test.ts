@@ -118,6 +118,28 @@ describe("public report detail view model", () => {
     expect(viewModel.statusTone).toBe("closed");
   });
 
+  it("preserves five ready media URLs in display order", () => {
+    const viewModel = buildPublicReportDetailViewModel(
+      createReport({
+        media: [4, 2, 5, 1, 3].map((position) =>
+          createMedia({
+            canonicalUrl: `https://cdn.rastro.bo/asdf-${position}.jpg`,
+            id: `media-${position}`,
+            position,
+          }),
+        ),
+      }),
+    );
+
+    expect(viewModel.photoUrls).toEqual([
+      "https://cdn.rastro.bo/asdf-1.jpg",
+      "https://cdn.rastro.bo/asdf-2.jpg",
+      "https://cdn.rastro.bo/asdf-3.jpg",
+      "https://cdn.rastro.bo/asdf-4.jpg",
+      "https://cdn.rastro.bo/asdf-5.jpg",
+    ]);
+  });
+
   it("replaces raw manual-pin location labels with safe approximate wording", () => {
     const viewModel = buildPublicReportDetailViewModel(
       createReport({

@@ -1,5 +1,6 @@
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -57,6 +58,59 @@ export function buildMediaDeliveryUrl(
   }
 
   return `${baseUrl.replace(/\/+$/, "")}/${objectKey.replace(/^\/+/, "")}`;
+}
+
+export function buildRequestMediaDeliveryBaseUrl(
+  headers: Headers,
+  path = "/api/report-media",
+) {
+  const host =
+    firstForwardedHeaderValue(headers.get("x-forwarded-host")) ??
+    firstForwardedHeaderValue(headers.get("host"));
+
+  if (!host) {
+    return null;
+  }
+
+  const protocol =
+    firstForwardedHeaderValue(headers.get("x-forwarded-proto")) ??
+    (isLocalHost(host) ? "http" : "https");
+
+  return `${protocol}://${host}${path}`;
+}
+
+export function resolveMediaDeliveryBaseUrl({
+  configuredDeliveryBaseUrl,
+  headers,
+}: {
+  configuredDeliveryBaseUrl: string | null;
+  headers: Headers;
+}) {
+  const configured = configuredDeliveryBaseUrl?.trim();
+
+  if (configured !== undefined && configured.length > 0) {
+    return configured;
+  }
+
+  return buildRequestMediaDeliveryBaseUrl(headers);
+}
+
+function firstForwardedHeaderValue(value: string | null) {
+  return value
+    ?.split(",")
+    .map((item) => item.trim())
+    .find(Boolean);
+}
+
+function isLocalHost(host: string) {
+  const normalizedHost = host.toLowerCase().split(":")[0] ?? "";
+
+  return (
+    normalizedHost === "localhost" ||
+    normalizedHost === "127.0.0.1" ||
+    normalizedHost === "10.0.2.2" ||
+    normalizedHost === "::1"
+  );
 }
 
 function booleanEnv(
@@ -198,11 +252,21 @@ export interface StoredObjectHead {
   metadata: Record<string, string>;
 }
 
+export interface StoredObject {
+  body: Uint8Array;
+  cacheControl: string | null;
+  contentLength: number;
+  contentType: string | null;
+  eTag: string | null;
+  metadata: Record<string, string>;
+}
+
 export interface MediaStorage {
   createPresignedPut(
     input: PresignedPutInput,
   ): Promise<PresignedPutInstructions>;
   headObject(input: { objectKey: string }): Promise<StoredObjectHead>;
+  getObject(input: { objectKey: string }): Promise<StoredObject>;
   deleteObject(input: { objectKey: string }): Promise<void>;
 }
 
@@ -223,6 +287,7 @@ export interface S3HeadObjectInput {
 
 export interface S3MediaStorageOverrides {
   deleteObject?: (input: S3HeadObjectInput) => Promise<void>;
+  getObject?: (input: S3HeadObjectInput) => Promise<StoredObject>;
   headObject?: (input: S3HeadObjectInput) => Promise<StoredObjectHead>;
   presignPutObject?: (input: S3PresignPutObjectInput) => Promise<string>;
 }
@@ -260,6 +325,61 @@ function normalizeMetadata(metadata: Record<string, string> | undefined) {
       key.toLowerCase(),
       value,
     ]),
+  );
+}
+
+async function bodyToUint8Array(body: unknown) {
+  if (body instanceof Uint8Array) {
+    return body;
+  }
+
+  if (hasTransformToByteArray(body)) {
+    return body.transformToByteArray();
+  }
+
+  if (isAsyncIterable(body)) {
+    const chunks: Uint8Array[] = [];
+
+    for await (const chunk of body) {
+      chunks.push(
+        chunk instanceof Uint8Array
+          ? chunk
+          : new Uint8Array(Buffer.from(String(chunk))),
+      );
+    }
+
+    const byteLength = chunks.reduce((total, chunk) => total + chunk.length, 0);
+    const output = new Uint8Array(byteLength);
+    let offset = 0;
+
+    for (const chunk of chunks) {
+      output.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    return output;
+  }
+
+  throw new Error("Unsupported S3 object body.");
+}
+
+function hasTransformToByteArray(
+  body: unknown,
+): body is { transformToByteArray: () => Promise<Uint8Array> } {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    "transformToByteArray" in body &&
+    typeof body.transformToByteArray === "function"
+  );
+}
+
+function isAsyncIterable(body: unknown): body is AsyncIterable<unknown> {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    Symbol.asyncIterator in body &&
+    typeof body[Symbol.asyncIterator] === "function"
   );
 }
 
@@ -349,6 +469,30 @@ export function createS3MediaStorage(
         metadata: normalizeMetadata(result.Metadata),
       };
     },
+    getObject: async ({ objectKey }) => {
+      if (overrides.getObject) {
+        return overrides.getObject({
+          bucket: config.bucket,
+          key: objectKey,
+        });
+      }
+
+      const result = await internalClient.send(
+        new GetObjectCommand({
+          Bucket: config.bucket,
+          Key: objectKey,
+        }),
+      );
+
+      return {
+        body: await bodyToUint8Array(result.Body),
+        cacheControl: result.CacheControl ?? null,
+        contentLength: result.ContentLength ?? 0,
+        contentType: result.ContentType ?? null,
+        eTag: result.ETag ?? null,
+        metadata: normalizeMetadata(result.Metadata),
+      };
+    },
   };
 }
 
@@ -358,6 +502,9 @@ export function createUnavailableMediaStorage(): MediaStorage {
       throw new Error("Media storage is not configured.");
     },
     headObject: () => {
+      throw new Error("Media storage is not configured.");
+    },
+    getObject: () => {
       throw new Error("Media storage is not configured.");
     },
     deleteObject: () => {
