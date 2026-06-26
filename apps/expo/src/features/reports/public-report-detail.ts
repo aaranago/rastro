@@ -4,6 +4,7 @@ import {
 } from "@acme/validators";
 
 import type { RouterOutputs } from "../../utils/api";
+import type { PublicReportContactOption } from "./report-repository-utils";
 
 export type PublicReportDetailApiReport = RouterOutputs["report"]["detail"];
 
@@ -24,6 +25,7 @@ export type PublicReportDetailType = PublicReportDetailApiReport["type"];
 export interface PublicReportDetailViewModel {
   accentColor: string;
   accentSoftColor: string;
+  contactActions: PublicReportContactOption[];
   contactLabel: string;
   description: string;
   descriptionTitle: string;
@@ -32,6 +34,7 @@ export interface PublicReportDetailViewModel {
   facts: PublicReportDetailFact[];
   heroIconName: string;
   isCurrentMember: boolean;
+  locationAction: PublicReportDetailLocationAction;
   locationLabel: string;
   locationPrivacyLabel: string;
   photoUrls: string[];
@@ -53,7 +56,14 @@ export interface PublicReportDetailFact {
   value: string;
 }
 
+export interface PublicReportDetailLocationAction {
+  label: string;
+  url: string;
+}
+
 const publicWebBaseUrl = "https://rastro.bo";
+const inAppChatActionLabel = "Enviar mensaje en Rastro";
+const whatsappActionLabel = "Escribir por WhatsApp";
 
 const speciesLabels = {
   bird: "Ave",
@@ -82,28 +92,28 @@ const typeConfigs = {
   adoption: {
     accentColor: "#9D4F66",
     accentSoftColor: "#F7E8EE",
-    descriptionTitle: "Perfil de adopcion",
+    descriptionTitle: "Perfil de adopción",
     eventLabel: "Publicado",
     heroIconName: "heart.fill",
-    publicPageLabel: "Abrir adopcion publica",
-    typeLabel: "Mascota en adopcion",
+    publicPageLabel: "Abrir adopción pública",
+    typeLabel: "Mascota en adopción",
   },
   found_pet: {
     accentColor: "#1D7A52",
     accentSoftColor: "#E5F2EC",
-    descriptionTitle: "Donde fue encontrada",
+    descriptionTitle: "Dónde fue encontrada",
     eventLabel: "Encontrada",
     heroIconName: "cross.case.fill",
-    publicPageLabel: "Abrir pagina publica",
+    publicPageLabel: "Abrir página pública",
     typeLabel: "Mascota encontrada",
   },
   lost_pet: {
     accentColor: "#D6453D",
     accentSoftColor: "#FBE8E6",
-    descriptionTitle: "Que paso",
-    eventLabel: "Perdida",
+    descriptionTitle: "Qué pasó",
+    eventLabel: "Pérdida",
     heroIconName: "megaphone.fill",
-    publicPageLabel: "Abrir pagina publica",
+    publicPageLabel: "Abrir página pública",
     typeLabel: "Mascota perdida",
   },
   sighting: {
@@ -112,7 +122,7 @@ const typeConfigs = {
     descriptionTitle: "Detalle del avistamiento",
     eventLabel: "Vista",
     heroIconName: "eye.fill",
-    publicPageLabel: "Abrir avistamiento publico",
+    publicPageLabel: "Abrir avistamiento público",
     typeLabel: "Avistamiento",
   },
 } satisfies Record<
@@ -151,12 +161,15 @@ export function buildPublicReportDetailViewModel(
   const shareTarget = buildShareTarget(report);
   const eventDate =
     report.type === "adoption" ? report.createdAt : report.eventOccurredAt;
-  const locationLabel = report.location.label.trim();
-  const contactLabel = formatContactLabel(report.contact);
+  const locationLabel = formatReportLocationLabel(report.location);
+  const contactActions = getContactActions(report, shareTarget);
+  const contactLabel = formatContactLabel(report.contact, contactActions);
   const statusTone = report.status === "closed" ? "closed" : "active";
   const statusLabel =
     report.status === "closed"
-      ? (report.outcome ? outcomeLabels[report.outcome] : "Cerrado")
+      ? report.outcome
+        ? outcomeLabels[report.outcome]
+        : "Cerrado"
       : "Activo";
   const details = uniqueTrimmedValues([
     report.pet.size?.trim(),
@@ -167,6 +180,7 @@ export function buildPublicReportDetailViewModel(
   return {
     accentColor: config.accentColor,
     accentSoftColor: config.accentSoftColor,
+    contactActions,
     contactLabel,
     description: report.description.trim(),
     descriptionTitle: config.descriptionTitle,
@@ -175,7 +189,7 @@ export function buildPublicReportDetailViewModel(
     facts: [
       {
         iconName: "location.fill",
-        label: "Ubicacion",
+        label: "Ubicación",
         value: locationLabel,
       },
       {
@@ -183,16 +197,11 @@ export function buildPublicReportDetailViewModel(
         label: config.eventLabel,
         value: formatDate(eventDate),
       },
-      {
-        iconName: "message.fill",
-        label: "Contacto",
-        value: contactLabel,
-      },
       ...(details.length > 0
         ? [
             {
               iconName: "pawprint.fill",
-              label: "Senales",
+              label: "Señales",
               value: details.join(" · "),
             },
           ]
@@ -200,6 +209,7 @@ export function buildPublicReportDetailViewModel(
     ],
     heroIconName: config.heroIconName,
     isCurrentMember: report.owner.isCurrentMember,
+    locationAction: buildLocationAction(report.location),
     locationLabel,
     locationPrivacyLabel:
       report.location.precision === "exact"
@@ -298,9 +308,157 @@ function buildReportShareTarget({
   };
 }
 
+function getContactActions(
+  report: PublicReportDetailApiReport,
+  shareTarget: ReturnType<typeof buildShareTarget>,
+): PublicReportContactOption[] {
+  if (report.owner.isCurrentMember) {
+    return [];
+  }
+
+  const apiActions = readApiContactActions(report.contact);
+
+  if (apiActions.length > 0) {
+    return apiActions;
+  }
+
+  if (
+    report.contact.preference === "in_app_chat" ||
+    report.contact.preference === "both"
+  ) {
+    return [
+      {
+        href: shareTarget.appDeepLink,
+        kind: "in-app-chat",
+        label: inAppChatActionLabel,
+      },
+    ];
+  }
+
+  return [];
+}
+
+function readApiContactActions(
+  contact: PublicReportDetailApiReport["contact"],
+): PublicReportContactOption[] {
+  const contactWithActions =
+    contact as PublicReportDetailApiReport["contact"] & {
+      actions?: unknown;
+    };
+
+  if (!Array.isArray(contactWithActions.actions)) {
+    return [];
+  }
+
+  const actions: PublicReportContactOption[] = [];
+  const seen = new Set<string>();
+
+  for (const action of contactWithActions.actions) {
+    const normalizedAction = normalizeApiContactAction(action);
+
+    if (!normalizedAction) {
+      continue;
+    }
+
+    const key = `${normalizedAction.kind}:${normalizedAction.href}`;
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    actions.push(normalizedAction);
+  }
+
+  return actions;
+}
+
+function normalizeApiContactAction(
+  action: unknown,
+): PublicReportContactOption | null {
+  if (!isRecord(action)) {
+    return null;
+  }
+
+  const href = readNonEmptyString(action.href);
+
+  if (!href) {
+    return null;
+  }
+
+  if (action.kind === "in-app-chat" || action.kind === "in_app_chat") {
+    return {
+      href,
+      kind: "in-app-chat",
+      label: inAppChatActionLabel,
+    };
+  }
+
+  if (action.kind === "whatsapp" && isWhatsappContactHref(href)) {
+    return {
+      href,
+      kind: "whatsapp",
+      label: whatsappActionLabel,
+      phoneNumber: "",
+    };
+  }
+
+  return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function readNonEmptyString(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+}
+
+function isWhatsappContactHref(href: string) {
+  return /^https:\/\/wa\.me\/\d+(?:[?#].*)?$/.test(href);
+}
+
+function buildLocationAction(
+  location: PublicReportDetailApiReport["location"],
+): PublicReportDetailLocationAction {
+  return {
+    label:
+      location.precision === "exact" ? "Abrir ubicación" : "Ver zona en mapa",
+    url: buildMapSearchUrl(location.latitude, location.longitude),
+  };
+}
+
+function buildMapSearchUrl(latitude: number, longitude: number) {
+  const coordinates = `${latitude},${longitude}`;
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    coordinates,
+  )}`;
+}
+
 function formatContactLabel(
   contact: PublicReportDetailApiReport["contact"],
+  actions: readonly PublicReportContactOption[] = [],
 ) {
+  const hasChatAction = actions.some((action) => action.kind === "in-app-chat");
+  const hasWhatsappAction = actions.some(
+    (action) => action.kind === "whatsapp",
+  );
+
+  if (hasChatAction && hasWhatsappAction) {
+    return "Chat en Rastro y WhatsApp";
+  }
+
+  if (hasWhatsappAction) {
+    return "WhatsApp";
+  }
+
+  if (hasChatAction) {
+    return "Chat en Rastro";
+  }
+
   if (contact.preference === "both") {
     return contact.hasWhatsapp ? "Chat en Rastro y WhatsApp" : "Chat en Rastro";
   }
@@ -317,6 +475,38 @@ function getPhotoUrls(report: PublicReportDetailApiReport) {
     .sort((left, right) => left.position - right.position)
     .map((media) => media.canonicalUrl)
     .filter((url): url is string => Boolean(url));
+}
+
+function formatReportLocationLabel(
+  location: PublicReportDetailApiReport["location"],
+) {
+  const locationLabel = formatSafeLocationLabel(location.label);
+
+  if (location.precision === "exact" || locationLabel !== "Zona elegida") {
+    return locationLabel;
+  }
+
+  const locationCell = formatSafeLocationLabel(location.locationCell);
+
+  if (locationCell === "Zona elegida") {
+    return "Zona aproximada";
+  }
+
+  return `${locationCell} · zona aproximada`;
+}
+
+function formatSafeLocationLabel(label: string) {
+  const trimmed = label.trim();
+
+  if (
+    trimmed.length === 0 ||
+    /\bpin manual\b/i.test(trimmed) ||
+    /-?\d{1,2}\.\d{3,}\s*,\s*-?\d{1,3}\.\d{3,}/.test(trimmed)
+  ) {
+    return "Zona elegida";
+  }
+
+  return trimmed;
 }
 
 function uniqueTrimmedValues(values: (string | undefined)[]) {

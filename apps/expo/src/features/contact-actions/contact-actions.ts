@@ -25,6 +25,13 @@ export async function runPublicContactAction(
 ): Promise<PublicContactActionResult> {
   try {
     if (option.kind === "whatsapp") {
+      if (!isWhatsappContactHref(option.href)) {
+        return {
+          kind: "error",
+          label: "No se pudo abrir WhatsApp.",
+        };
+      }
+
       await dependencies.openURL(option.href);
 
       return {
@@ -57,4 +64,8 @@ export async function runPublicContactAction(
           : "No se pudo abrir el chat en Rastro.",
     };
   }
+}
+
+function isWhatsappContactHref(href: string) {
+  return /^https:\/\/wa\.me\/\d+(?:[?#].*)?$/.test(href);
 }

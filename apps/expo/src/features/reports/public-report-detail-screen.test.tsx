@@ -12,14 +12,29 @@ vi.mock("react", async () => {
   return {
     ...actual,
     useCallback: <TCallback,>(callback: TCallback) => callback,
+    useState: <TValue,>(initialValue: TValue | (() => TValue)) => [
+      typeof initialValue === "function"
+        ? (initialValue as () => TValue)()
+        : initialValue,
+      vi.fn(),
+    ],
   };
 });
+
+const router = vi.hoisted(() => ({
+  push: vi.fn(),
+}));
+
+vi.mock("expo-router", () => ({
+  useRouter: () => router,
+}));
 
 vi.mock("react-native", () => ({
   ActivityIndicator: "ActivityIndicator",
   Linking: {
     openURL: vi.fn(),
   },
+  Modal: "Modal",
   Pressable: "Pressable",
   ScrollView: "ScrollView",
   Share: {
@@ -43,10 +58,12 @@ vi.mock("../shell/shell-overlays", () => ({
 
 describe("PublicReportDetailContent", () => {
   it("renders the report detail without exposing raw ids and wires primary actions", () => {
+    const onOpenLocation = vi.fn();
     const onShare = vi.fn();
     const onOpenPublicPage = vi.fn();
     const screen = renderFunctionElement(
       <PublicReportDetailContent
+        onOpenLocation={onOpenLocation}
         onOpenPublicPage={onOpenPublicPage}
         onShare={onShare}
         viewModel={createViewModel()}
@@ -56,14 +73,104 @@ describe("PublicReportDetailContent", () => {
     expect(findText(screen, "Se busca a Luna")).toBe(true);
     expect(findText(screen, "Mascota perdida")).toBe(true);
     expect(findText(screen, "Activo")).toBe(true);
-    expect(findText(screen, "Que paso")).toBe(true);
+    expect(findText(screen, "Qué pasó")).toBe(true);
     expect(findText(screen, "report-lost-1")).toBe(false);
 
+    pressByText(screen, "Ver zona en mapa");
     pressByText(screen, "Compartir");
-    pressByText(screen, "Abrir pagina publica");
+    pressByText(screen, "Abrir página pública");
 
+    expect(onOpenLocation).toHaveBeenCalledOnce();
     expect(onShare).toHaveBeenCalledOnce();
     expect(onOpenPublicPage).toHaveBeenCalledOnce();
+  });
+
+  it("places contact actions before map and share actions", () => {
+    const onOpenContactAction = vi.fn();
+    const onOpenLocation = vi.fn();
+    const screen = renderFunctionElement(
+      <PublicReportDetailContent
+        onOpenContactAction={onOpenContactAction}
+        onOpenLocation={onOpenLocation}
+        viewModel={createViewModel({
+          contactActions: [
+            {
+              href: "https://wa.me/59170123456?text=Hola",
+              kind: "whatsapp",
+              label: "Escribir por WhatsApp",
+              phoneNumber: "",
+            },
+            {
+              href: "rastro://chats/conversation-1",
+              kind: "in-app-chat",
+              label: "Enviar mensaje en Rastro",
+            },
+          ],
+          isCurrentMember: false,
+        })}
+      />,
+    );
+
+    expect(getPressableTextLabels(screen)).toEqual([
+      "Escribir por WhatsApp",
+      "Enviar mensaje en Rastro",
+      "Ver zona en mapa",
+      "Compartir",
+      "Abrir página pública",
+    ]);
+    expect(findText(screen, "+591")).toBe(false);
+    expect(findText(screen, "Reportar avistamiento")).toBe(false);
+
+    pressByText(screen, "Escribir por WhatsApp");
+    pressByText(screen, "Enviar mensaje en Rastro");
+    pressByText(screen, "Ver zona en mapa");
+
+    expect(onOpenContactAction).toHaveBeenCalledTimes(2);
+    expect(onOpenContactAction).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        href: "https://wa.me/59170123456?text=Hola",
+        kind: "whatsapp",
+      }),
+    );
+    expect(onOpenLocation).toHaveBeenCalledWith({
+      label: "Ver zona en mapa",
+      url: "https://www.google.com/maps/search/?api=1&query=-16.5%2C-68.12",
+    });
+  });
+
+  it("renders a multiple-image gallery with a non-cropping hero image", () => {
+    const screen = renderFunctionElement(
+      <PublicReportDetailContent
+        viewModel={createViewModel({
+          photoUrls: [
+            "https://cdn.rastro.bo/luna-1.jpg",
+            "https://cdn.rastro.bo/luna-2.jpg",
+            "https://cdn.rastro.bo/luna-3.jpg",
+          ],
+        })}
+      />,
+    );
+    const images = findElements(screen, (element) => element.type === "Image");
+
+    expect(findText(screen, "1 de 3")).toBe(true);
+    expect(
+      findElementByAccessibilityLabel(screen, "Galeria de fotos"),
+    ).toBeTruthy();
+    expect(images[0]?.props).toMatchObject({
+      contentFit: "contain",
+      source: {
+        uri: "https://cdn.rastro.bo/luna-1.jpg",
+      },
+    });
+    expect(
+      images.map((image) => (image.props.source as { uri: string }).uri),
+    ).toEqual([
+      "https://cdn.rastro.bo/luna-1.jpg",
+      "https://cdn.rastro.bo/luna-1.jpg",
+      "https://cdn.rastro.bo/luna-2.jpg",
+      "https://cdn.rastro.bo/luna-3.jpg",
+    ]);
   });
 
   it("shows the owner guidance only for the current member", () => {
@@ -87,25 +194,30 @@ function createViewModel(
   return {
     accentColor: "#D6453D",
     accentSoftColor: "#FBE8E6",
+    contactActions: [],
     contactLabel: "Chat en Rastro",
     description:
       "Se perdio cerca de la zona y puede estar asustada. Responde a su nombre.",
-    descriptionTitle: "Que paso",
+    descriptionTitle: "Qué pasó",
     eventLabel: "Perdida",
     eventValue: "24 jun 2026, 08:30",
     facts: [
       {
         iconName: "location.fill",
-        label: "Ubicacion",
+        label: "Ubicación",
         value: "La Paz",
       },
     ],
     heroIconName: "megaphone.fill",
     isCurrentMember: true,
+    locationAction: {
+      label: "Ver zona en mapa",
+      url: "https://www.google.com/maps/search/?api=1&query=-16.5%2C-68.12",
+    },
     locationLabel: "La Paz",
     locationPrivacyLabel: "Mostramos una zona aproximada por seguridad.",
     photoUrls: ["https://cdn.rastro.bo/luna.jpg"],
-    publicPageLabel: "Abrir pagina publica",
+    publicPageLabel: "Abrir página pública",
     shareMessage:
       "Ayuda a encontrar a Luna en Rastro: https://rastro.bo/reportes/perdidos/report-lost-1",
     shareTitle: "Mascota perdida: Luna",
@@ -127,6 +239,16 @@ type ElementProps = Record<string, unknown> & {
 function renderFunctionElement(node: React.ReactNode): React.ReactNode {
   if (!React.isValidElement<ElementProps>(node)) {
     return node;
+  }
+
+  if (node.type === "Modal" && node.props.visible !== true) {
+    return {
+      ...node,
+      props: {
+        ...node.props,
+        children: null,
+      },
+    };
   }
 
   if (typeof node.type !== "function") {
@@ -170,6 +292,14 @@ function pressByText(node: React.ReactNode, text: string) {
   handlePress();
 }
 
+function getPressableTextLabels(node: React.ReactNode): string[] {
+  return findElements(
+    node,
+    (element) =>
+      element.type === "Pressable" && getDirectText(element).length > 0,
+  ).map(getDirectText);
+}
+
 function findElement(
   node: React.ReactNode,
   predicate: (element: React.ReactElement<ElementProps>) => boolean,
@@ -187,13 +317,57 @@ function findElement(
     .find(Boolean);
 }
 
+function findElementByAccessibilityLabel(
+  node: React.ReactNode,
+  accessibilityLabel: string,
+) {
+  return findElement(
+    node,
+    (element) => element.props.accessibilityLabel === accessibilityLabel,
+  );
+}
+
+function findElements(
+  node: React.ReactNode,
+  predicate: (element: React.ReactElement<ElementProps>) => boolean,
+): React.ReactElement<ElementProps>[] {
+  if (!React.isValidElement<ElementProps>(node)) {
+    return [];
+  }
+
+  const matches = predicate(node) ? [node] : [];
+  const childMatches = React.Children.toArray(node.props.children).flatMap(
+    (child) => findElements(child, predicate),
+  );
+
+  return [...matches, ...childMatches];
+}
+
+function getDirectText(node: React.ReactNode): string {
+  if (typeof node === "number" || typeof node === "string") {
+    return String(node);
+  }
+
+  if (!React.isValidElement<ElementProps>(node)) {
+    return "";
+  }
+
+  return React.Children.toArray(node.props.children)
+    .map(getDirectText)
+    .join("");
+}
+
 function findText(node: React.ReactNode, text: string): boolean {
-  if (typeof node === "string") {
-    return node.includes(text);
+  if (typeof node === "number" || typeof node === "string") {
+    return String(node).includes(text);
   }
 
   if (!React.isValidElement<ElementProps>(node)) {
     return false;
+  }
+
+  if (getDirectText(node).includes(text)) {
+    return true;
   }
 
   return React.Children.toArray(node.props.children).some((child) =>

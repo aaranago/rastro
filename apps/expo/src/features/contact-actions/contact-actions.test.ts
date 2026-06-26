@@ -54,4 +54,28 @@ describe("public contact actions", () => {
       label: "Chat abierto en Rastro.",
     });
   });
+
+  it("rejects malformed WhatsApp actions instead of opening arbitrary URLs", async () => {
+    const openedUrls: string[] = [];
+
+    const result = await runPublicContactAction(
+      {
+        href: "https://example.com/59170123456",
+        kind: "whatsapp",
+        label: "Escribir por WhatsApp",
+        phoneNumber: "+591 70123456",
+      },
+      {
+        openURL: (url) => {
+          openedUrls.push(url);
+        },
+      },
+    );
+
+    expect(openedUrls).toEqual([]);
+    expect(result).toMatchObject({
+      kind: "error",
+      label: "No se pudo abrir WhatsApp.",
+    });
+  });
 });

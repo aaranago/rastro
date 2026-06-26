@@ -19,9 +19,18 @@ describe("public report detail view model", () => {
           locationCell: "La Paz",
         },
         media: [
-          createMedia({ canonicalUrl: "https://cdn.rastro.bo/luna-2.jpg", position: 2 }),
-          createMedia({ canonicalUrl: "https://cdn.rastro.bo/luna-1.jpg", position: 1 }),
+          createMedia({
+            canonicalUrl: "https://cdn.rastro.bo/luna-2.jpg",
+            position: 2,
+          }),
+          createMedia({
+            canonicalUrl: "https://cdn.rastro.bo/luna-1.jpg",
+            position: 1,
+          }),
         ],
+        owner: {
+          isCurrentMember: false,
+        },
         pet: {
           breed: "Siames",
           color: "Collar rojo",
@@ -36,8 +45,19 @@ describe("public report detail view model", () => {
     );
 
     expect(viewModel).toMatchObject({
+      contactActions: [
+        {
+          href: "rastro://reportes/perdidos/report-lost-raw-id",
+          kind: "in-app-chat",
+          label: "Enviar mensaje en Rastro",
+        },
+      ],
       contactLabel: "Chat en Rastro",
-      descriptionTitle: "Que paso",
+      descriptionTitle: "Qué pasó",
+      locationAction: {
+        label: "Ver zona en mapa",
+        url: "https://www.google.com/maps/search/?api=1&query=-16.5%2C-68.12",
+      },
       locationPrivacyLabel: "Mostramos una zona aproximada por seguridad.",
       photoUrls: [
         "https://cdn.rastro.bo/luna-1.jpg",
@@ -48,10 +68,18 @@ describe("public report detail view model", () => {
       title: "Se busca a Luna",
       typeLabel: "Mascota perdida",
     });
+    expect(JSON.stringify(viewModel)).not.toContain("/report-create/sighting");
+    expect(viewModel.facts).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: "Contacto",
+        }),
+      ]),
+    );
     expect(viewModel.facts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          label: "Senales",
+          label: "Señales",
           value: "Collar rojo · Mancha blanca en el pecho",
         }),
       ]),
@@ -66,6 +94,7 @@ describe("public report detail view model", () => {
     const viewModel = buildPublicReportDetailViewModel(
       createReport({
         contact: {
+          actions: [],
           hasWhatsapp: true,
           preference: "both",
         },
@@ -89,6 +118,84 @@ describe("public report detail view model", () => {
     expect(viewModel.statusTone).toBe("closed");
   });
 
+  it("replaces raw manual-pin location labels with safe approximate wording", () => {
+    const viewModel = buildPublicReportDetailViewModel(
+      createReport({
+        location: {
+          latitude: -16.4882,
+          longitude: -68.1287,
+          precision: "approximate",
+          label: "Pin manual -16.4882, -68.1287",
+          locationCell: "La Paz",
+        },
+      }),
+    );
+
+    expect(viewModel.locationLabel).toBe("La Paz · zona aproximada");
+    expect(viewModel.facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: "Ubicación",
+          value: "La Paz · zona aproximada",
+        }),
+      ]),
+    );
+  });
+
+  it("uses API-provided contact actions without displaying raw phone data", () => {
+    const viewModel = buildPublicReportDetailViewModel(
+      createReport({
+        contact: createContactWithActions({
+          actions: [
+            {
+              href: "https://wa.me/59170123456?text=Hola",
+              kind: "whatsapp",
+              label: "+591 70123456",
+              phoneNumber: "+591 70123456",
+            },
+            {
+              href: "rastro://chats/conversation-1",
+              kind: "in_app_chat",
+              label: "Chat con Camila",
+            },
+            {
+              href: "https://example.com/not-whatsapp",
+              kind: "whatsapp",
+              label: "Invalida",
+            },
+          ],
+          hasWhatsapp: true,
+          preference: "both",
+        }),
+        owner: {
+          isCurrentMember: false,
+        },
+      }),
+    );
+
+    expect(viewModel.contactActions).toEqual([
+      {
+        href: "https://wa.me/59170123456?text=Hola",
+        kind: "whatsapp",
+        label: "Escribir por WhatsApp",
+        phoneNumber: "",
+      },
+      {
+        href: "rastro://chats/conversation-1",
+        kind: "in-app-chat",
+        label: "Enviar mensaje en Rastro",
+      },
+    ]);
+    expect(viewModel.contactLabel).toBe("Chat en Rastro y WhatsApp");
+    expect(JSON.stringify(viewModel)).not.toContain("+591 70123456");
+  });
+
+  it("keeps visitor contact actions off the owner's own detail page", () => {
+    const viewModel = buildPublicReportDetailViewModel(createReport());
+
+    expect(viewModel.contactActions).toEqual([]);
+  });
+
   it("does not repeat identical pet detail text from API color and traits fields", () => {
     const viewModel = buildPublicReportDetailViewModel(
       createReport({
@@ -106,7 +213,7 @@ describe("public report detail view model", () => {
     expect(viewModel.facts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          label: "Senales",
+          label: "Señales",
           value: "Collar rojo y mancha blanca visible",
         }),
       ]),
@@ -124,7 +231,9 @@ describe("public report detail view model", () => {
     };
     const adapter = createApiPublicReportDetailAdapter({ client });
 
-    await expect(adapter.getReportDetail("report-lost-1")).resolves.toBe(report);
+    await expect(adapter.getReportDetail("report-lost-1")).resolves.toBe(
+      report,
+    );
     expect(client.report.detail.query).toHaveBeenCalledWith({
       id: "report-lost-1",
     });
@@ -136,6 +245,7 @@ function createReport(
 ): PublicReportDetailApiReport {
   return {
     contact: {
+      actions: [],
       hasWhatsapp: false,
       preference: "in_app_chat",
     },
@@ -170,6 +280,20 @@ function createReport(
     updatedAt: new Date("2026-06-24T13:00:00.000Z"),
     ...overrides,
   };
+}
+
+function createContactWithActions({
+  actions,
+  hasWhatsapp,
+  preference,
+}: PublicReportDetailApiReport["contact"] & {
+  actions: unknown[];
+}): PublicReportDetailApiReport["contact"] {
+  return {
+    actions,
+    hasWhatsapp,
+    preference,
+  } as PublicReportDetailApiReport["contact"];
 }
 
 function createMedia(
