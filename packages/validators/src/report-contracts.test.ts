@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import type { CreateReportInput } from "./index";
-import { createReportInputSchema, nearbyReportsInputSchema } from "./index";
+import {
+  buildApproximatePublicReportLocation,
+  createReportInputSchema,
+  nearbyReportsInputSchema,
+  reportApproximatePublicLocationRadiusMeters,
+} from "./index";
 
 const baseSightingInput = {
   idempotencyKey: "sighting-contract-test-1",
@@ -75,6 +80,21 @@ describe("report validation contracts", () => {
 
     expect(result.success).toBe(false);
     expect(JSON.stringify(result.error?.issues)).toContain("whatsappPhone");
+  });
+
+  it("snaps approximate public report locations to a 300 m privacy grid", () => {
+    const approximate = buildApproximatePublicReportLocation({
+      exactLatitude: -16.510231,
+      exactLongitude: -68.123881,
+    });
+
+    expect(reportApproximatePublicLocationRadiusMeters).toBe(300);
+    expect(approximate).toEqual({
+      approximateLatitude: -16.51051,
+      approximateLongitude: -68.124602,
+    });
+    expect(approximate.approximateLatitude).not.toBe(-16.510231);
+    expect(approximate.approximateLongitude).not.toBe(-68.123881);
   });
 
   it("accepts a bounded Bolivia radius query", () => {

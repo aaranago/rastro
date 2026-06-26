@@ -8,13 +8,21 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type * as DbClientModule from "@acme/db/client";
 import type * as DbSchemaModule from "@acme/db/schema";
 
-import type { ReportMediaRepository } from "./report-media-repository";
-import type { ReportRepository } from "./report-repository";
+import type {
+  createDrizzleReportMediaRepository,
+  ReportMediaRepository,
+} from "./report-media-repository";
+import type {
+  createDrizzleReportRepository,
+  ReportRepository,
+} from "./report-repository";
+import { buildMediaDeliveryUrl } from "./media-storage";
 
 const execFileAsync = promisify(execFile);
 const runIntegration =
   process.env.RASTRO_DB_INTEGRATION === "1" && process.env.POSTGRES_URL;
 const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
+const deliveryBaseUrl = "https://cdn.example.invalid/media/";
 
 function databaseUrlFor(databaseName: string) {
   const url = new URL(
@@ -45,6 +53,8 @@ const describeIntegration = runIntegration ? describe : describe.skip;
 describeIntegration("report repository integration", () => {
   let db: DbClientModule.Database;
   let pool: { end: () => Promise<void> } | null = null;
+  let createReportMediaRepository: typeof createDrizzleReportMediaRepository;
+  let createReportRepository: typeof createDrizzleReportRepository;
   let mediaRepository: ReportMediaRepository;
   let repository: ReportRepository;
   let user: typeof DbSchemaModule.user;
@@ -86,9 +96,12 @@ describeIntegration("report repository integration", () => {
     db = dbClientModule.db;
     pool = dbClientModule.pool;
     user = dbSchemaModule.user;
-    mediaRepository =
-      reportMediaRepositoryModule.createDrizzleReportMediaRepository(db);
-    repository = reportRepositoryModule.createDrizzleReportRepository(db);
+    createReportMediaRepository =
+      reportMediaRepositoryModule.createDrizzleReportMediaRepository;
+    createReportRepository =
+      reportRepositoryModule.createDrizzleReportRepository;
+    mediaRepository = createReportMediaRepository(db, { deliveryBaseUrl });
+    repository = createReportRepository(db);
 
     await db.insert(user).values({
       email: "camila-report-test@example.invalid",
@@ -188,6 +201,9 @@ describeIntegration("report repository integration", () => {
 
     const detail = await repository.findById(created.id);
     expect(detail?.media).toHaveLength(1);
+    expect(detail?.media[0]?.canonicalUrl).toBe(
+      buildMediaDeliveryUrl(deliveryBaseUrl, firstMedia.objectKey),
+    );
 
     const nearby = await repository.nearby({
       latitude: -16.51,
@@ -296,6 +312,124 @@ describeIntegration("report repository integration", () => {
       report: input,
     });
     expect(duplicate.id).toBe(created.id);
+  });
+
+  it("leaves ready report media canonicalUrl null without a configured delivery base", async () => {
+    const mediaRepositoryWithoutDeliveryBase = createReportMediaRepository(db);
+    const pendingMedia =
+      await mediaRepositoryWithoutDeliveryBase.createUploadSession({
+        metadata: {
+          draftId: "sighting-no-delivery-base-2026-06-22",
+          height: 900,
+          mimeType: "image/webp",
+          reportType: "sighting",
+          sizeBytes: 300_000,
+          width: 1200,
+        },
+        ownerId: "member-report-integration",
+      });
+    const readyMedia =
+      await mediaRepositoryWithoutDeliveryBase.markUploadSessionReady({
+        mediaId: pendingMedia.id,
+        verifiedAt: new Date("2026-06-22T21:15:00.000Z"),
+      });
+
+    const created = await repository.create({
+      caretakerId: "member-report-integration",
+      report: {
+        contact: {
+          preference: "in_app_chat",
+        },
+        description:
+          "Perro mediano caminando solo cerca de la plaza. No pude asegurarlo.",
+        eventOccurredAt: "2026-06-22T21:14:00.000Z",
+        idempotencyKey: "sighting-no-delivery-base-2026-06-22",
+        location: {
+          exactLatitude: -16.510231,
+          exactLongitude: -68.123881,
+          exposeExactLocation: false,
+          label: "Sopocachi, La Paz",
+          locationCell: "bo-lpb-sopocachi",
+        },
+        media: [
+          {
+            mediaId: readyMedia.id,
+          },
+        ],
+        pet: {
+          color: "marron",
+          size: "mediano",
+          species: "dog",
+        },
+        title: "Perro visto cerca de Sopocachi",
+        type: "sighting",
+      },
+    });
+
+    expect(created.media[0]?.canonicalUrl).toBeNull();
+  });
+
+  it("builds display URLs for legacy ready media when a delivery base is configured", async () => {
+    const mediaRepositoryWithoutDeliveryBase = createReportMediaRepository(db);
+    const pendingMedia =
+      await mediaRepositoryWithoutDeliveryBase.createUploadSession({
+        metadata: {
+          draftId: "legacy-media-delivery-base-2026-06-22",
+          height: 900,
+          mimeType: "image/webp",
+          reportType: "sighting",
+          sizeBytes: 300_000,
+          width: 1200,
+        },
+        ownerId: "member-report-integration",
+      });
+    const readyMedia =
+      await mediaRepositoryWithoutDeliveryBase.markUploadSessionReady({
+        mediaId: pendingMedia.id,
+        verifiedAt: new Date("2026-06-22T21:15:00.000Z"),
+      });
+
+    const created = await repository.create({
+      caretakerId: "member-report-integration",
+      report: {
+        contact: {
+          preference: "in_app_chat",
+        },
+        description:
+          "Perro mediano caminando solo cerca de la plaza. No pude asegurarlo.",
+        eventOccurredAt: "2026-06-22T21:14:00.000Z",
+        idempotencyKey: "legacy-media-delivery-base-2026-06-22",
+        location: {
+          exactLatitude: -16.510231,
+          exactLongitude: -68.123881,
+          exposeExactLocation: false,
+          label: "Sopocachi, La Paz",
+          locationCell: "bo-lpb-sopocachi",
+        },
+        media: [
+          {
+            mediaId: readyMedia.id,
+          },
+        ],
+        pet: {
+          color: "marron",
+          size: "mediano",
+          species: "dog",
+        },
+        title: "Perro visto cerca de Sopocachi",
+        type: "sighting",
+      },
+    });
+    expect(created.media[0]?.canonicalUrl).toBeNull();
+
+    const repositoryWithDeliveryBase = createReportRepository(db, {
+      deliveryBaseUrl,
+    });
+    const detail = await repositoryWithDeliveryBase.findById(created.id);
+
+    expect(detail?.media[0]?.canonicalUrl).toBe(
+      buildMediaDeliveryUrl(deliveryBaseUrl, readyMedia.objectKey),
+    );
   });
 
   it("returns failed upload sessions for cleanup after rejected metadata", async () => {

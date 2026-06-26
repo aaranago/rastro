@@ -60,13 +60,16 @@ export const createTRPCContext = async (opts: {
     authApi,
     db,
     mediaRepository: createDrizzleReportMediaRepository(db, {
+      deliveryBaseUrl: mediaStorageConfig?.deliveryBaseUrl,
       uploadSessionExpiresInSeconds: mediaStorageConfig?.presignExpiresSeconds,
     }),
     mediaStorageConfig,
     mediaStorage: mediaStorageConfig
       ? createS3MediaStorage(mediaStorageConfig)
       : createUnavailableMediaStorage(),
-    reportRepository: createDrizzleReportRepository(db),
+    reportRepository: createDrizzleReportRepository(db, {
+      deliveryBaseUrl: mediaStorageConfig?.deliveryBaseUrl,
+    }),
     session,
   };
 };

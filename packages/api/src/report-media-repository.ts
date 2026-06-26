@@ -5,6 +5,8 @@ import type { CreateUploadSessionInput, ReportType } from "@acme/validators";
 import { and, asc, eq, inArray, isNull, lt, or } from "@acme/db";
 import { ReportMedia } from "@acme/db/schema";
 
+import { buildMediaDeliveryUrl } from "./media-storage";
+
 export type ReportMediaUploadStatus =
   | "failed"
   | "pending"
@@ -68,6 +70,7 @@ export interface ReportMediaRepository {
 }
 
 export interface ReportMediaRepositoryOptions {
+  deliveryBaseUrl?: string | null;
   now?: () => Date;
   uploadSessionExpiresInSeconds?: number;
 }
@@ -139,6 +142,7 @@ export function createDrizzleReportMediaRepository(
   db: Database,
   options: ReportMediaRepositoryOptions = {},
 ): ReportMediaRepository {
+  const deliveryBaseUrl = options.deliveryBaseUrl ?? null;
   const now = options.now ?? (() => new Date());
   const uploadSessionExpiresInSeconds =
     options.uploadSessionExpiresInSeconds ?? 10 * 60;
@@ -268,9 +272,21 @@ export function createDrizzleReportMediaRepository(
       return toPersistedReportMediaUpload(row);
     },
     markUploadSessionReady: async ({ mediaId, verifiedAt }) => {
+      const uploadSession = await db.query.ReportMedia.findFirst({
+        where: eq(ReportMedia.id, mediaId),
+      });
+
+      if (!uploadSession) {
+        throw new ReportMediaReferenceError("Upload session was not found.");
+      }
+
       const [row] = await db
         .update(ReportMedia)
         .set({
+          canonicalUrl: buildMediaDeliveryUrl(
+            deliveryBaseUrl,
+            uploadSession.objectKey,
+          ),
           status: "ready",
           verifiedAt,
         })

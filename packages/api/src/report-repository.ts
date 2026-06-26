@@ -18,6 +18,9 @@ import {
   ReportLocation,
   ReportMedia,
 } from "@acme/db/schema";
+import { buildApproximatePublicReportLocation } from "@acme/validators";
+
+import { buildMediaDeliveryUrl } from "./media-storage";
 
 export type PublicLocationPrecision = "exact" | "approximate";
 
@@ -158,20 +161,29 @@ function publicLocationFromInput(
     };
   }
 
+  const approximateLocation =
+    location.approximateLatitude !== undefined &&
+    location.approximateLongitude !== undefined
+      ? {
+          approximateLatitude: location.approximateLatitude,
+          approximateLongitude: location.approximateLongitude,
+        }
+      : buildApproximatePublicReportLocation({
+          exactLatitude: location.exactLatitude,
+          exactLongitude: location.exactLongitude,
+        });
+
   return {
     precision: "approximate",
-    publicLatitude:
-      location.approximateLatitude ??
-      Math.round(location.exactLatitude * 100) / 100,
-    publicLongitude:
-      location.approximateLongitude ??
-      Math.round(location.exactLongitude * 100) / 100,
+    publicLatitude: approximateLocation.approximateLatitude,
+    publicLongitude: approximateLocation.approximateLongitude,
   };
 }
 
 function toPersistedReport(
   row: ReportRow,
   mediaRows: ReportMediaRow[],
+  options: { deliveryBaseUrl: string | null },
 ): PersistedReport {
   if (!row.location) {
     throw new Error(`Report ${row.id} is missing its location row.`);
@@ -211,7 +223,9 @@ function toPersistedReport(
     media: mediaRows.map((media) => ({
       id: media.id,
       objectKey: media.objectKey,
-      canonicalUrl: media.canonicalUrl,
+      canonicalUrl:
+        media.canonicalUrl ??
+        buildMediaDeliveryUrl(options.deliveryBaseUrl, media.objectKey),
       thumbnailObjectKey: media.thumbnailObjectKey,
       mimeType: media.mimeType,
       width: media.width,
@@ -268,7 +282,16 @@ function reportPatchFromInput(input: UpdateReportInput) {
   return patch;
 }
 
-export function createDrizzleReportRepository(db: Database): ReportRepository {
+export interface DrizzleReportRepositoryOptions {
+  deliveryBaseUrl?: string | null;
+}
+
+export function createDrizzleReportRepository(
+  db: Database,
+  options: DrizzleReportRepositoryOptions = {},
+): ReportRepository {
+  const deliveryBaseUrl = options.deliveryBaseUrl ?? null;
+
   const findReadyMediaForReport = async (
     reportId: string,
   ): Promise<ReportMediaRow[]> => {
@@ -287,7 +310,7 @@ export function createDrizzleReportRepository(db: Database): ReportRepository {
   const toPersistedReportWithMedia = async (row: ReportRow) => {
     const media = await findReadyMediaForReport(row.id);
 
-    return toPersistedReport(row, media);
+    return toPersistedReport(row, media, { deliveryBaseUrl });
   };
 
   const findById: ReportRepository["findById"] = async (id) => {
@@ -337,6 +360,7 @@ export function createDrizzleReportRepository(db: Database): ReportRepository {
 
           const transactionRepository = createDrizzleReportRepository(
             tx as unknown as Database,
+            { deliveryBaseUrl },
           );
           const lockedExisting =
             await transactionRepository.findByCaretakerAndIdempotencyKey({
@@ -650,6 +674,7 @@ export interface PublicReport {
   };
   eventOccurredAt: Date;
   contact: {
+    actions: PublicReportContactAction[];
     preference: ContactPreference;
     hasWhatsapp: boolean;
   };
@@ -680,6 +705,63 @@ export interface PublicReport {
   resolvedAt: Date | null;
 }
 
+export type PublicReportContactAction =
+  | {
+      href: string;
+      kind: "in_app_chat";
+    }
+  | {
+      href: string;
+      kind: "whatsapp";
+    };
+
+const publicReportPathPrefixes = {
+  adoption: "/adopciones",
+  found_pet: "/reportes/encontrados",
+  lost_pet: "/reportes/perdidos",
+  sighting: "/reportes/avistamientos",
+} satisfies Record<ReportType, string>;
+
+function publicReportAppDeepLink(report: PersistedReport) {
+  const path = `${publicReportPathPrefixes[report.type]}/${encodeURIComponent(
+    report.id,
+  )}`;
+
+  return `rastro://${path.replace(/^\//, "")}`;
+}
+
+function buildPublicReportContactActions(
+  report: PersistedReport,
+): PublicReportContactAction[] {
+  const actions: PublicReportContactAction[] = [];
+
+  if (
+    report.contactPreference === "in_app_chat" ||
+    report.contactPreference === "both"
+  ) {
+    actions.push({
+      href: publicReportAppDeepLink(report),
+      kind: "in_app_chat",
+    });
+  }
+
+  if (
+    report.contactPreference === "whatsapp" ||
+    report.contactPreference === "both"
+  ) {
+    const whatsappDigits = report.whatsappPhone?.replace(/\D/g, "") ?? "";
+
+    if (whatsappDigits.length > 0) {
+      actions.push({
+        href: `https://wa.me/${whatsappDigits}`,
+        kind: "whatsapp",
+      });
+    }
+  }
+
+  return actions;
+}
+
 export function toPublicReport(
   report: PersistedReport,
   currentMemberId: string | null,
@@ -701,6 +783,7 @@ export function toPublicReport(
     },
     eventOccurredAt: report.eventOccurredAt,
     contact: {
+      actions: buildPublicReportContactActions(report),
       preference: report.contactPreference,
       hasWhatsapp: report.whatsappPhone !== null,
     },

@@ -22,11 +22,21 @@ RASTRO_STORAGE_SECRET_ACCESS_KEY="<local-minio-secret-key>"
 RASTRO_STORAGE_PRESIGN_EXPIRES_SECONDS="300"
 RASTRO_STORAGE_MAX_IMAGE_BYTES="10485760"
 RASTRO_STORAGE_ALLOWED_MIME_TYPES="image/jpeg,image/png,image/webp,image/heic,image/heif"
+RASTRO_STORAGE_DELIVERY_BASE_URL="<device-reachable-read-base-url>"
 RASTRO_JOB_SECRET="<local-job-secret>"
 ```
 
 For Android emulator runs, `RASTRO_STORAGE_PRESIGN_ENDPOINT` must be reachable
 from the emulator. `10.0.2.2` points back to the host machine.
+
+`RASTRO_STORAGE_DELIVERY_BASE_URL` is what public report detail and nearby
+cards render after an upload is verified. If it is blank, new media rows stay
+private and `report.detail`/`report.nearby` return no displayable photo URL,
+even though lost, found, and adoption reports require at least one photo.
+Existing ready media rows with a null canonical URL recover on read after this
+base URL is configured. Point it at a controlled read layer or CDN that the
+Android emulator can reach; do not make production buckets public to paper over
+this.
 
 To run real storage integration tests:
 

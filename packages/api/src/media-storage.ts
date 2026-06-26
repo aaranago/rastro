@@ -47,6 +47,18 @@ function optionalEnv(env: Record<string, string | undefined>, key: string) {
   return value;
 }
 
+export function buildMediaDeliveryUrl(
+  deliveryBaseUrl: string | null,
+  objectKey: string,
+) {
+  const baseUrl = deliveryBaseUrl?.trim();
+  if (!baseUrl) {
+    return null;
+  }
+
+  return `${baseUrl.replace(/\/+$/, "")}/${objectKey.replace(/^\/+/, "")}`;
+}
+
 function booleanEnv(
   env: Record<string, string | undefined>,
   key: string,

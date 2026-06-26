@@ -1,12 +1,30 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildMediaDeliveryUrl,
   createS3MediaStorage,
   parseMediaStorageConfig,
   redactMediaStorageConfig,
 } from "./media-storage";
 
 describe("media storage config", () => {
+  it("builds public delivery URLs only when a delivery base is configured", () => {
+    expect(
+      buildMediaDeliveryUrl(
+        "https://cdn.example.invalid/media/",
+        "report-media/member/media/original.webp",
+      ),
+    ).toBe(
+      "https://cdn.example.invalid/media/report-media/member/media/original.webp",
+    );
+    expect(
+      buildMediaDeliveryUrl("", "report-media/member/media/original.webp"),
+    ).toBeNull();
+    expect(
+      buildMediaDeliveryUrl(null, "report-media/member/media/original.webp"),
+    ).toBeNull();
+  });
+
   it("parses S3/MinIO upload configuration and redacts credentials", () => {
     const config = parseMediaStorageConfig({
       RASTRO_STORAGE_ACCESS_KEY_ID: "minio-rastro",

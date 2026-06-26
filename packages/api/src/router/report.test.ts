@@ -823,6 +823,12 @@ describe("report router", () => {
         precision: "approximate",
       },
       contact: {
+        actions: [
+          {
+            href: "rastro://reportes/avistamientos/report-sighting-sopocachi",
+            kind: "in_app_chat",
+          },
+        ],
         preference: "in_app_chat",
         hasWhatsapp: false,
       },
@@ -830,6 +836,79 @@ describe("report router", () => {
     expect(JSON.stringify(report)).not.toContain("-16.510231");
     expect(JSON.stringify(report)).not.toContain("-68.123881");
     expect(JSON.stringify(report)).not.toContain("member-camila");
+  });
+
+  it("returns WhatsApp and in-app chat actions without exposing the raw phone", async () => {
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      session: null,
+      reportRepository: {
+        findById: () =>
+          Promise.resolve(
+            persistedSightingReport({
+              contactPreference: "both",
+              whatsappPhone: " +591 701-23456 ",
+            }),
+          ),
+      },
+    });
+
+    const report = await caller.report.detail({
+      id: "report-sighting-sopocachi",
+    });
+
+    expect(report.contact).toEqual({
+      actions: [
+        {
+          href: "rastro://reportes/avistamientos/report-sighting-sopocachi",
+          kind: "in_app_chat",
+        },
+        {
+          href: "https://wa.me/59170123456",
+          kind: "whatsapp",
+        },
+      ],
+      preference: "both",
+      hasWhatsapp: true,
+    });
+    expect(JSON.stringify(report.contact)).not.toContain("+591 701-23456");
+    expect(JSON.stringify(report.contact)).not.toContain("whatsappPhone");
+    expect(JSON.stringify(report.contact)).not.toContain("phoneNumber");
+  });
+
+  it("does not return a WhatsApp action when the preference is chat-only", async () => {
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      session: null,
+      reportRepository: {
+        findById: () =>
+          Promise.resolve(
+            persistedSightingReport({
+              contactPreference: "in_app_chat",
+              whatsappPhone: "+591 70123456",
+            }),
+          ),
+      },
+    });
+
+    const report = await caller.report.detail({
+      id: "report-sighting-sopocachi",
+    });
+
+    expect(report.contact).toEqual({
+      actions: [
+        {
+          href: "rastro://reportes/avistamientos/report-sighting-sopocachi",
+          kind: "in_app_chat",
+        },
+      ],
+      preference: "in_app_chat",
+      hasWhatsapp: true,
+    });
+    expect(JSON.stringify(report.contact)).not.toContain("wa.me");
+    expect(JSON.stringify(report.contact)).not.toContain("+591 70123456");
   });
 
   it("returns nearby public report summaries using the requested radius", async () => {
@@ -893,6 +972,14 @@ describe("report router", () => {
       results: [
         {
           id: "report-sighting-sopocachi",
+          contact: {
+            actions: [
+              {
+                href: "rastro://reportes/avistamientos/report-sighting-sopocachi",
+                kind: "in_app_chat",
+              },
+            ],
+          },
           location: {
             latitude: -16.51,
             longitude: -68.12,

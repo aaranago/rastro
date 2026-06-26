@@ -75,6 +75,48 @@ export const reportLocationInputSchema = z.object({
   exposeExactLocation: z.boolean().default(false),
 });
 
+export const reportApproximatePublicLocationRadiusMeters = 300;
+
+export function buildApproximatePublicReportLocation({
+  exactLatitude,
+  exactLongitude,
+}: {
+  exactLatitude: number;
+  exactLongitude: number;
+}) {
+  const latitudeStepDegrees =
+    reportApproximatePublicLocationRadiusMeters / metersPerLatitudeDegree;
+  const longitudeStepDegrees =
+    reportApproximatePublicLocationRadiusMeters /
+    getMetersPerLongitudeDegree(exactLatitude);
+
+  return {
+    approximateLatitude: roundCoordinateToPrecisionGridCenter(
+      exactLatitude,
+      latitudeStepDegrees,
+    ),
+    approximateLongitude: roundCoordinateToPrecisionGridCenter(
+      exactLongitude,
+      longitudeStepDegrees,
+    ),
+  };
+}
+
+const metersPerLatitudeDegree = 111_320;
+
+function getMetersPerLongitudeDegree(latitude: number) {
+  const latitudeRadians = (latitude * Math.PI) / 180;
+
+  return Math.max(
+    1,
+    Math.abs(Math.cos(latitudeRadians)) * metersPerLatitudeDegree,
+  );
+}
+
+function roundCoordinateToPrecisionGridCenter(value: number, step: number) {
+  return Number(((Math.floor(value / step) + 0.5) * step).toFixed(6));
+}
+
 export const createReportInputSchema = z
   .object({
     idempotencyKey: z.string().min(12).max(128),
