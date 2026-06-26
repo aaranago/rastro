@@ -18,6 +18,7 @@ export default {
     "session",
     "account",
     "verification",
+    "admin_audit_event",
     "report",
     "report_location",
     "report_media",

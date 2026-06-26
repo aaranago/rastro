@@ -151,6 +151,38 @@ export const AdminSettings = pgTable("admin_settings", (t) => ({
     .notNull(),
 }));
 
+export type AdminAuditEventMetadataJson = Record<string, unknown>;
+
+export const AdminAuditEvent = pgTable(
+  "admin_audit_event",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    actorId: t.text().references(() => user.id, { onDelete: "set null" }),
+    actorEmail: t.varchar({ length: 320 }),
+    action: t.varchar({ length: 120 }).notNull(),
+    targetType: t.varchar({ length: 120 }).notNull(),
+    targetId: t.varchar({ length: 160 }).notNull(),
+    targetLabel: t.varchar({ length: 240 }).notNull(),
+    summary: t.text().notNull(),
+    metadata: t.jsonb().$type<AdminAuditEventMetadataJson>(),
+    source: t.varchar({ length: 120 }),
+    createdAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  }),
+  (table) => [
+    index("admin_audit_event_created_idx").on(table.createdAt),
+    index("admin_audit_event_actor_idx").on(table.actorId, table.createdAt),
+    index("admin_audit_event_action_idx").on(table.action, table.createdAt),
+    index("admin_audit_event_target_idx").on(
+      table.targetType,
+      table.targetId,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const MemberSuspension = pgTable(
   "member_suspension",
   (t) => ({
@@ -288,6 +320,11 @@ export const ReportLocation = pgTable(
     publicLongitude: t.doublePrecision().notNull(),
     publicPrecision: publicLocationPrecision().default("approximate").notNull(),
     label: t.varchar({ length: 160 }).notNull(),
+    city: t.varchar({ length: 120 }).default("No especificado").notNull(),
+    department: t
+      .varchar({ length: 80 })
+      .default("No especificado")
+      .notNull(),
     locationCell: t.varchar({ length: 96 }).notNull(),
     createdAt: t
       .timestamp({ mode: "date", withTimezone: true })
@@ -308,6 +345,8 @@ export const ReportLocation = pgTable(
       "gist",
       table.publicPoint,
     ),
+    index("report_location_city_idx").on(table.city),
+    index("report_location_department_idx").on(table.department),
     index("report_location_cell_idx").on(table.locationCell),
   ],
 );
@@ -832,5 +871,15 @@ export const adminSettingsRelations = relations(AdminSettings, ({ one }) => ({
     references: [user.id],
   }),
 }));
+
+export const adminAuditEventRelations = relations(
+  AdminAuditEvent,
+  ({ one }) => ({
+    actor: one(user, {
+      fields: [AdminAuditEvent.actorId],
+      references: [user.id],
+    }),
+  }),
+);
 
 export * from "./auth-schema";

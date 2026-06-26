@@ -35,10 +35,12 @@ describe("admin shell foundation", () => {
     expect(html).toContain("Métricas");
     expect(html).toContain("Auditoría");
     expect(html).toContain("Disponible");
-    expect(html).toContain("Planificado");
     expect(html).toContain('href="/admin/proveedores"');
     expect(html).toContain('href="/admin/miembros"');
+    expect(html).toContain('href="/admin/metricas"');
+    expect(html).toContain('href="/admin/auditoria"');
     expect(html).toContain('aria-current="page"');
-    expect(html).toContain('aria-disabled="true"');
+    expect(html).not.toContain("Planificado");
+    expect(html).not.toContain('aria-disabled="true"');
   });
 });

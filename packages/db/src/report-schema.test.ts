@@ -38,6 +38,8 @@ describe("report schema", () => {
       "geometry(point,4326)",
     );
     expect(ReportLocation.publicPrecision).toBeDefined();
+    expect(ReportLocation.city).toBeDefined();
+    expect(ReportLocation.department).toBeDefined();
 
     expect(ReportMedia.objectKey).toBeDefined();
     expect(ReportMedia.ownerId).toBeDefined();
@@ -90,6 +92,19 @@ describe("report schema", () => {
       expect.arrayContaining([
         "report_moderation_action_admin_idx",
         "report_moderation_action_report_idx",
+      ]),
+    );
+  });
+
+  it("indexes structured report location fields for admin metrics", () => {
+    const locationIndexes = getTableConfig(ReportLocation).indexes.map(
+      (index) => index.config.name,
+    );
+
+    expect(locationIndexes).toEqual(
+      expect.arrayContaining([
+        "report_location_city_idx",
+        "report_location_department_idx",
       ]),
     );
   });

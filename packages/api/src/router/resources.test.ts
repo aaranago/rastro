@@ -6,10 +6,23 @@ import type {
   UpdateResourceProviderInput,
 } from "@acme/validators";
 
+import type { RecordAdminAuditEventInput } from "../admin-audit-repository";
 import { appRouter } from "../root";
 
 function createCaller(context: unknown) {
   return appRouter.createCaller(context as never);
+}
+
+type CapturedAuditEvent = RecordAdminAuditEventInput;
+
+function createAuditRecorder(events: CapturedAuditEvent[] = []) {
+  return {
+    record: (input: CapturedAuditEvent) => {
+      events.push(input);
+
+      return Promise.resolve(input);
+    },
+  };
 }
 
 function providerProfile(
@@ -374,8 +387,10 @@ describe("resources router", () => {
           provider: CreateResourceProviderInput;
         }
       | undefined;
+    const auditEvents: CapturedAuditEvent[] = [];
     const caller = createCaller({
       adminEmailList: "ops@rastro.bo\nADMIN@rastro.bo",
+      adminAuditRepository: createAuditRecorder(auditEvents),
       resourceProviderRepository: {
         createProvider: (input: NonNullable<typeof createInput>) => {
           createInput = input;
@@ -411,6 +426,19 @@ describe("resources router", () => {
     });
     expect(created.name).toBe("Clinica Veterinaria San Roque");
     expect(JSON.stringify(created)).not.toContain("-16.510231");
+    expect(auditEvents).toHaveLength(1);
+    expect(auditEvents[0]).toMatchObject({
+      action: "resource_provider.create",
+      target: {
+        id: "11111111-1111-4111-8111-111111111111",
+        label: "Clinica Veterinaria San Roque",
+        type: "resource_provider",
+      },
+    });
+    expect(auditEvents[0]?.metadata).toMatchObject({
+      city: "La Paz",
+      department: "La Paz",
+    });
   });
 
   it("lets allowlisted admins create providers with multiple contacts and manageable link fields", async () => {
@@ -422,6 +450,7 @@ describe("resources router", () => {
       | undefined;
     const caller = createCaller({
       adminEmailList: "admin@rastro.bo",
+      adminAuditRepository: createAuditRecorder(),
       resourceProviderRepository: {
         createProvider: (input: NonNullable<typeof createInput>) => {
           createInput = input;
@@ -525,8 +554,10 @@ describe("resources router", () => {
           provider: UpdateResourceProviderInput;
         }
       | undefined;
+    const auditEvents: CapturedAuditEvent[] = [];
     const caller = createCaller({
       adminEmailList: "admin@rastro.bo",
+      adminAuditRepository: createAuditRecorder(auditEvents),
       resourceProviderRepository: {
         updateProvider: (input: NonNullable<typeof updateInput>) => {
           updateInput = input;
@@ -587,6 +618,19 @@ describe("resources router", () => {
       ],
     });
     expect(JSON.stringify(updated)).not.toContain("-16.510231");
+    expect(auditEvents).toEqual([
+      expect.objectContaining({
+        action: "resource_provider.update",
+        metadata: {
+          changedFields: ["name", "logoUrl", "location", "contactOptions"],
+        },
+        target: {
+          id: "11111111-1111-4111-8111-111111111111",
+          label: "Clinica Veterinaria San Roque Norte",
+          type: "resource_provider",
+        },
+      }),
+    ]);
   });
 
   it("lets allowlisted admins update multiple contacts without dropping link fields", async () => {
@@ -598,6 +642,7 @@ describe("resources router", () => {
       | undefined;
     const caller = createCaller({
       adminEmailList: "admin@rastro.bo",
+      adminAuditRepository: createAuditRecorder(),
       resourceProviderRepository: {
         updateProvider: (input: NonNullable<typeof updateInput>) => {
           updateInput = input;
@@ -705,8 +750,10 @@ describe("resources router", () => {
           provider: { providerId: string };
         }
       | undefined;
+    const auditEvents: CapturedAuditEvent[] = [];
     const caller = createCaller({
       adminEmailList: "admin@rastro.bo",
+      adminAuditRepository: createAuditRecorder(auditEvents),
       resourceProviderRepository: {
         deleteProvider: (input: NonNullable<typeof deleteInput>) => {
           deleteInput = input;
@@ -715,6 +762,7 @@ describe("resources router", () => {
             providerId: input.provider.providerId,
           });
         },
+        findProfile: () => Promise.resolve(providerProfile()),
       },
       session: {
         user: {
@@ -739,12 +787,24 @@ describe("resources router", () => {
       deletedAt: "2026-07-15T12:00:00.000Z",
       providerId: "11111111-1111-4111-8111-111111111111",
     });
+    expect(auditEvents).toEqual([
+      expect.objectContaining({
+        action: "resource_provider.archive",
+        target: {
+          id: "11111111-1111-4111-8111-111111111111",
+          label: "Clinica Veterinaria San Roque",
+          type: "resource_provider",
+        },
+      }),
+    ]);
   });
 
   it("runs verification and sponsor admin mutations behind the same allowlist", async () => {
     const operations: string[] = [];
+    const auditEvents: CapturedAuditEvent[] = [];
     const caller = createCaller({
       adminEmailList: "admin@rastro.bo",
+      adminAuditRepository: createAuditRecorder(auditEvents),
       resourceProviderRepository: {
         updateVerification: (input: {
           adminId: string;
@@ -831,6 +891,34 @@ describe("resources router", () => {
       "attach:member-admin-la-paz:provider_details",
       "detach:22222222-2222-4222-8222-222222222222",
     ]);
+    expect(auditEvents).toHaveLength(3);
+    expect(auditEvents[0]).toMatchObject({
+      action: "resource_provider.verification_update",
+      target: {
+        type: "resource_provider",
+      },
+    });
+    expect(auditEvents[0]?.metadata).toMatchObject({
+      status: "verified",
+    });
+    expect(auditEvents[1]).toMatchObject({
+      action: "local_sponsor_placement.create",
+      target: {
+        type: "local_sponsor_placement",
+      },
+    });
+    expect(auditEvents[1]?.metadata).toMatchObject({
+      surface: "provider_details",
+    });
+    expect(auditEvents[2]).toMatchObject({
+      action: "local_sponsor_placement.detach",
+      target: {
+        id: "22222222-2222-4222-8222-222222222222",
+        label:
+          "Clinica Veterinaria San Roque - 22222222-2222-4222-8222-222222222222",
+        type: "local_sponsor_placement",
+      },
+    });
   });
 
   it("lists Local Sponsor Placements across providers for allowlisted admins", async () => {
@@ -888,8 +976,10 @@ describe("resources router", () => {
 
   it("creates, updates, and detaches standalone sponsor placements behind the admin allowlist", async () => {
     const operations: string[] = [];
+    const auditEvents: CapturedAuditEvent[] = [];
     const caller = createCaller({
       adminEmailList: "admin@rastro.bo",
+      adminAuditRepository: createAuditRecorder(auditEvents),
       resourceProviderRepository: {
         createSponsorPlacement: (input: {
           adminId: string;
@@ -968,6 +1058,31 @@ describe("resources router", () => {
       "update:member-admin-la-paz:22222222-2222-4222-8222-222222222222:provider_details",
       "detach:22222222-2222-4222-8222-222222222222",
     ]);
+    expect(auditEvents).toHaveLength(3);
+    expect(auditEvents[0]).toMatchObject({
+      action: "local_sponsor_placement.create",
+      target: {
+        id: "22222222-2222-4222-8222-222222222222",
+        type: "local_sponsor_placement",
+      },
+    });
+    expect(auditEvents[1]).toMatchObject({
+      action: "local_sponsor_placement.update",
+      target: {
+        id: "22222222-2222-4222-8222-222222222222",
+        type: "local_sponsor_placement",
+      },
+    });
+    expect(auditEvents[1]?.metadata).toMatchObject({
+      surface: "provider_details",
+    });
+    expect(auditEvents[2]).toMatchObject({
+      action: "local_sponsor_placement.detach",
+      target: {
+        id: "22222222-2222-4222-8222-222222222222",
+        type: "local_sponsor_placement",
+      },
+    });
   });
 
   it("returns not found when an admin mutation cannot find its provider or placement", async () => {
@@ -977,6 +1092,7 @@ describe("resources router", () => {
         updateVerification: () => Promise.resolve(null),
         updateProvider: () => Promise.resolve(null),
         deleteProvider: () => Promise.resolve(null),
+        findProfile: () => Promise.resolve(null),
       },
       session: {
         user: {

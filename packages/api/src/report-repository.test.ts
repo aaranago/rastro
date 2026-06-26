@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildNearbyReportsCondition,
   buildPublicReportVisibilityCondition,
+  deriveStructuredReportLocationFromCell,
 } from "./report-repository";
 
 const postgresQueryConfig = {
@@ -41,5 +42,33 @@ describe("report repository", () => {
 
     expect(query.sql).toContain('"report"."deletedAt" is null');
     expect(query.sql).toContain('"report"."hiddenAt" is null');
+  });
+
+  it("derives structured report metrics fields from location cells instead of display labels", () => {
+    expect(
+      deriveStructuredReportLocationFromCell({
+        exactLatitude: -16.510231,
+        exactLongitude: -68.123881,
+        exposeExactLocation: false,
+        label: "Display label that should not be parsed, Pando",
+        locationCell: "bo-lpb-sopocachi",
+      }),
+    ).toEqual({
+      city: "La Paz",
+      department: "La Paz",
+    });
+
+    expect(
+      deriveStructuredReportLocationFromCell({
+        exactLatitude: -17.783333,
+        exactLongitude: -63.182222,
+        exposeExactLocation: false,
+        label: "Zona sin estructura visible, Texto Libre",
+        locationCell: "bo-scz-unknown-neighborhood",
+      }),
+    ).toEqual({
+      city: "No especificado",
+      department: "Santa Cruz",
+    });
   });
 });

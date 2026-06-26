@@ -3,9 +3,9 @@ import Link from "next/link";
 import { cn } from "@acme/ui";
 import { Badge } from "@acme/ui/badge";
 
-type AdminRouteStatus = "available" | "planned";
+export type AdminRouteStatus = "available" | "planned";
 
-interface AdminNavigationItem {
+export interface AdminNavigationItem {
   description: string;
   href: string;
   issueId?: string;
@@ -14,7 +14,7 @@ interface AdminNavigationItem {
   statusLabel: "Disponible" | "Planificado";
 }
 
-export const adminNavigationItems = [
+export const adminNavigationItems: readonly AdminNavigationItem[] = [
   {
     description: "Resumen operativo y accesos rápidos del área admin.",
     href: "/admin",
@@ -73,18 +73,18 @@ export const adminNavigationItems = [
     href: "/admin/metricas",
     issueId: "ADMIN-010",
     label: "Métricas",
-    status: "planned",
-    statusLabel: "Planificado",
+    status: "available",
+    statusLabel: "Disponible",
   },
   {
     description: "Historial inmutable de acciones administrativas.",
     href: "/admin/auditoria",
     issueId: "ADMIN-010",
     label: "Auditoría",
-    status: "planned",
-    statusLabel: "Planificado",
+    status: "available",
+    statusLabel: "Disponible",
   },
-] as const satisfies readonly AdminNavigationItem[];
+];
 
 function isAdminNavigationItemActive(
   pathname: string,

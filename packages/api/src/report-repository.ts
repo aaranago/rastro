@@ -31,6 +31,8 @@ export interface PersistedReportLocation {
   publicLongitude: number;
   precision: PublicLocationPrecision;
   label: string;
+  city: string;
+  department: string;
   locationCell: string;
 }
 
@@ -189,6 +191,106 @@ function publicLocationFromInput(
   };
 }
 
+const unknownStructuredLocation = "No especificado";
+
+const reportLocationCellMap: Record<
+  string,
+  { city: string; department: string }
+> = {
+  "bo-lpb-achumani": {
+    city: "La Paz",
+    department: "La Paz",
+  },
+  "bo-lpb-calacoto": {
+    city: "La Paz",
+    department: "La Paz",
+  },
+  "bo-lpb-el-alto-ciudad-satelite": {
+    city: "El Alto",
+    department: "La Paz",
+  },
+  "bo-lpb-sopocachi": {
+    city: "La Paz",
+    department: "La Paz",
+  },
+  "bo-scz-santa-cruz-de-la-sierra": {
+    city: "Santa Cruz de la Sierra",
+    department: "Santa Cruz",
+  },
+} satisfies Record<string, { city: string; department: string }>;
+
+const reportDepartmentByLocationCellPrefix = {
+  "bo-bni": "Beni",
+  "bo-cbb": "Cochabamba",
+  "bo-chq": "Chuquisaca",
+  "bo-lpb": "La Paz",
+  "bo-oru": "Oruro",
+  "bo-pnd": "Pando",
+  "bo-pts": "Potosi",
+  "bo-scz": "Santa Cruz",
+  "bo-tja": "Tarija",
+} satisfies Record<string, string>;
+
+export function deriveStructuredReportLocationFromCell(
+  location: CreateReportInput["location"] & {
+    city?: string;
+    department?: string;
+    municipality?: string;
+  },
+): Pick<PersistedReportLocation, "city" | "department"> {
+  const explicitCity = normalizeStructuredLocationValue(
+    location.city ?? location.municipality,
+  );
+  const explicitDepartment = normalizeStructuredLocationValue(
+    location.department,
+  );
+
+  if (explicitCity && explicitDepartment) {
+    return {
+      city: explicitCity,
+      department: explicitDepartment,
+    };
+  }
+
+  const normalizedCell = location.locationCell.trim().toLowerCase();
+  const mappedCell = reportLocationCellMap[normalizedCell];
+
+  if (mappedCell) {
+    return {
+      city: explicitCity ?? mappedCell.city,
+      department: explicitDepartment ?? mappedCell.department,
+    };
+  }
+
+  const departmentFromPrefix = Object.entries(
+    reportDepartmentByLocationCellPrefix,
+  ).find(([prefix]) => normalizedCell.startsWith(`${prefix}-`))?.[1];
+
+  return {
+    city: explicitCity ?? deriveCityFallbackFromUnprefixedCell(normalizedCell),
+    department:
+      explicitDepartment ?? departmentFromPrefix ?? unknownStructuredLocation,
+  };
+}
+
+function normalizeStructuredLocationValue(value: string | undefined) {
+  const trimmed = value?.trim();
+
+  return trimmed && trimmed.length > 0 ? trimmed : null;
+}
+
+function deriveCityFallbackFromUnprefixedCell(locationCell: string) {
+  if (!locationCell || locationCell.startsWith("bo-")) {
+    return unknownStructuredLocation;
+  }
+
+  return locationCell
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function toPersistedReport(
   row: ReportRow,
   mediaRows: ReportMediaRow[],
@@ -231,6 +333,8 @@ function toPersistedReport(
       publicLongitude: row.location.publicLongitude,
       precision: row.location.publicPrecision,
       label: row.location.label,
+      city: row.location.city,
+      department: row.location.department,
       locationCell: row.location.locationCell,
     },
     media: mediaRows.map((media) => ({
@@ -412,8 +516,13 @@ export function createDrizzleReportRepository(
 
           const persisted = createdReport;
           const publicLocation = publicLocationFromInput(report.location);
+          const structuredLocation = deriveStructuredReportLocationFromCell(
+            report.location,
+          );
 
           await tx.insert(ReportLocation).values({
+            city: structuredLocation.city,
+            department: structuredLocation.department,
             exactLatitude: report.location.exactLatitude,
             exactLongitude: report.location.exactLongitude,
             exactPoint: {
@@ -520,9 +629,14 @@ export function createDrizzleReportRepository(
 
         if (patch.location) {
           const publicLocation = publicLocationFromInput(patch.location);
+          const structuredLocation = deriveStructuredReportLocationFromCell(
+            patch.location,
+          );
           await tx
             .update(ReportLocation)
             .set({
+              city: structuredLocation.city,
+              department: structuredLocation.department,
               exactLatitude: patch.location.exactLatitude,
               exactLongitude: patch.location.exactLongitude,
               exactPoint: {

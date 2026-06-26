@@ -73,7 +73,7 @@ export interface ReportModerationTransitionInput {
   reportId: string;
 }
 
-type ReportQueueRow = typeof Report.$inferSelect & {
+export type ReportQueueRow = typeof Report.$inferSelect & {
   caretaker: {
     email: string;
     id: string;
@@ -198,7 +198,7 @@ export function createDrizzleReportModerationRepository(
   };
 }
 
-function toReportModerationQueueItem(
+export function toReportModerationQueueItem(
   report: ReportQueueRow,
   latestAction: typeof ReportModerationAction.$inferSelect | undefined,
   activeSuspension: ReportModerationMemberSuspension | null,
@@ -206,8 +206,6 @@ function toReportModerationQueueItem(
   if (!report.location) {
     return null;
   }
-
-  const targetLocation = parseLocationLabel(report.location.label);
 
   return {
     createdAt: report.createdAt,
@@ -229,8 +227,8 @@ function toReportModerationQueueItem(
         memberId: report.caretaker.id,
         suspension: activeSuspension,
       },
-      city: targetLocation.city,
-      department: targetLocation.department,
+      city: report.location.city,
+      department: report.location.department,
       hiddenAt: report.hiddenAt,
       hiddenByAdminId: report.hiddenByAdminId,
       hiddenNote: report.hiddenNote,
@@ -259,16 +257,4 @@ function toReportModerationTargetType(
     case "sighting":
       return "sighting_report";
   }
-}
-
-function parseLocationLabel(label: string) {
-  const [city, department] = label
-    .split(",")
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
-
-  return {
-    city: city ?? label,
-    department: department ?? city ?? "Bolivia",
-  };
 }

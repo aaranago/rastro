@@ -6,7 +6,219 @@ function createCaller(context: unknown) {
   return appRouter.createCaller(context as never);
 }
 
+function createAuditRecorder(events: unknown[] = []) {
+  return {
+    list: () =>
+      Promise.resolve({
+        availableFilters: {
+          actions: [],
+          actors: [],
+          targetTypes: [],
+        },
+        events: [],
+        total: 0,
+      }),
+    record: (input: unknown) => {
+      events.push(input);
+
+      return Promise.resolve(input);
+    },
+  };
+}
+
 describe("admin settings router", () => {
+  it("lists, records, and exposes admin-owned audit events for allowlisted admins", async () => {
+    const auditEvents: unknown[] = [];
+    const caller = createCaller({
+      adminAuditRepository: {
+        ...createAuditRecorder(auditEvents),
+        list: (input: unknown) =>
+          Promise.resolve({
+            availableFilters: {
+              actions: ["settings.update"],
+              actors: [
+                {
+                  email: "admin@rastro.bo",
+                  id: "member-admin",
+                  label: "admin@rastro.bo",
+                },
+              ],
+              targetTypes: ["admin_settings"],
+            },
+            events: [
+              {
+                action: "settings.update",
+                actor: {
+                  email: "admin@rastro.bo",
+                  id: "member-admin",
+                  label: "admin@rastro.bo",
+                },
+                createdAt: new Date("2026-06-26T16:00:00.000Z"),
+                id: "admin-audit-event-1",
+                metadata: null,
+                source: "admin.settings.update",
+                summary: "Actualizo ajustes globales de publicacion.",
+                target: {
+                  id: "global",
+                  label: "Ajustes globales",
+                  type: "admin_settings",
+                },
+              },
+            ],
+            total: 1,
+            input,
+          }),
+      },
+      adminEmailList: "admin@rastro.bo",
+      authApi: {},
+      db: {},
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin",
+        },
+      },
+    });
+
+    await expect(
+      caller.admin.audit.list({
+        actor: "admin@rastro.bo",
+        targetType: "admin_settings",
+      }),
+    ).resolves.toMatchObject({
+      filters: {
+        actions: ["settings.update"],
+        targetTypes: ["admin_settings"],
+        actors: [
+          {
+            label: "admin@rastro.bo",
+            value: "member-admin",
+          },
+        ],
+      },
+      events: [
+        {
+          action: "settings.update",
+          occurredAt: new Date("2026-06-26T16:00:00.000Z"),
+          target: {
+            id: "global",
+          },
+        },
+      ],
+      total: 1,
+    });
+
+    await caller.admin.audit.record({
+      action: "settings.update",
+      summary: "Evento manual desde administracion.",
+      target: {
+        id: "global",
+        label: "Ajustes globales",
+        type: "admin_settings",
+      },
+    });
+
+    expect(auditEvents).toEqual([
+      expect.objectContaining({
+        action: "settings.update",
+        actor: {
+          email: "admin@rastro.bo",
+          id: "member-admin",
+        },
+        source: "admin.audit.record",
+      }),
+    ]);
+  });
+
+  it("returns operational metrics overview for allowlisted admins", async () => {
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      adminMetricsRepository: {
+        overview: () =>
+          Promise.resolve({
+            auditEventCount: 7,
+            cityRows: [
+              {
+                adoptionListingCount: 1,
+                city: "La Paz",
+                contentReportCount: 3,
+                department: "La Paz",
+                hiddenReportCount: 1,
+                pendingProviderReportCount: 2,
+                pendingReviewReportCount: 1,
+                resourceProviderCount: 4,
+                sponsorPlacementCount: 1,
+                verifiedResourceProviderCount: 3,
+              },
+            ],
+            departmentRows: [
+              {
+                adoptionListingCount: 1,
+                city: null,
+                contentReportCount: 3,
+                department: "La Paz",
+                hiddenReportCount: 1,
+                pendingProviderReportCount: 2,
+                pendingReviewReportCount: 1,
+                resourceProviderCount: 4,
+                sponsorPlacementCount: 1,
+                verifiedResourceProviderCount: 3,
+              },
+            ],
+            generatedAt: new Date("2026-06-26T16:00:00.000Z"),
+            summaryCards: [
+              {
+                id: "content-reports",
+                label: "Reportes",
+                value: 3,
+              },
+            ],
+            suspendedMemberCount: 2,
+          }),
+      },
+      authApi: {},
+      db: {},
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin",
+        },
+      },
+    });
+
+    await expect(caller.admin.metrics.overview()).resolves.toMatchObject({
+      byCity: [
+        {
+          abuseReportCount: 2,
+          activeSponsorPlacementCount: 1,
+          city: "La Paz",
+          department: "La Paz",
+          hiddenContentCount: 1,
+          pendingModerationCount: 3,
+          resourceProviderCount: 4,
+        },
+      ],
+      byDepartment: [
+        {
+          city: null,
+          department: "La Paz",
+          hiddenContentCount: 1,
+          pendingModerationCount: 3,
+        },
+      ],
+      summary: {
+        abuseReportCount: 2,
+        activeSponsorPlacementCount: 1,
+        auditEventCount: 7,
+        hiddenContentCount: 1,
+        pendingModerationCount: 3,
+        resourceProviderCount: 4,
+        suspendedMemberCount: 2,
+        verifiedResourceProviderCount: 3,
+      },
+    });
+  });
+
   it("searches members only for allowlisted admins", async () => {
     const searches: unknown[] = [];
     const caller = createCaller({
@@ -194,8 +406,10 @@ describe("admin settings router", () => {
 
   it("persists member suspend and unsuspend actions with required reasons", async () => {
     const actions: unknown[] = [];
+    const auditEvents: unknown[] = [];
     const caller = createCaller({
       adminEmailList: "admin@rastro.bo",
+      adminAuditRepository: createAuditRecorder(auditEvents),
       authApi: {},
       db: {},
       memberSuspensionRepository: {
@@ -279,6 +493,25 @@ describe("admin settings router", () => {
         },
       ],
     ]);
+    expect(auditEvents).toHaveLength(2);
+    expect(auditEvents[0]).toMatchObject({
+      action: "member.suspend",
+      actor: {
+        email: "admin@rastro.bo",
+        id: "member-admin",
+      },
+      target: {
+        id: "member-diego",
+        type: "member",
+      },
+    });
+    expect(auditEvents[1]).toMatchObject({
+      action: "member.unsuspend",
+      target: {
+        id: "member-diego",
+        type: "member",
+      },
+    });
   });
 
   it("rejects suspend mutations with blank reasons before persistence", async () => {
@@ -332,8 +565,10 @@ describe("admin settings router", () => {
 
   it("allows only allowlisted admins to update persisted settings", async () => {
     const updates: unknown[] = [];
+    const auditEvents: unknown[] = [];
     const caller = createCaller({
       adminEmailList: "admin@rastro.bo",
+      adminAuditRepository: createAuditRecorder(auditEvents),
       adminSettingsRepository: {
         update: (input: unknown) => {
           updates.push(input);
@@ -372,6 +607,20 @@ describe("admin settings router", () => {
         adminId: "member-admin",
         verifiedEmailRequiredToPublish: true,
       },
+    ]);
+    expect(auditEvents).toEqual([
+      expect.objectContaining({
+        action: "settings.update",
+        metadata: {
+          adoptionReviewModeEnabled: true,
+          verifiedEmailRequiredToPublish: true,
+        },
+        target: {
+          id: "global",
+          label: "Ajustes globales",
+          type: "admin_settings",
+        },
+      }),
     ]);
   });
 
@@ -495,9 +744,11 @@ describe("admin settings router", () => {
 
   it("persists report hide and restore actions with the admin actor", async () => {
     const actions: unknown[] = [];
+    const auditEvents: unknown[] = [];
     const hiddenAt = new Date("2026-06-26T17:10:00.000Z");
     const caller = createCaller({
       adminEmailList: "admin@rastro.bo",
+      adminAuditRepository: createAuditRecorder(auditEvents),
       authApi: {},
       db: {},
       reportModerationRepository: {
@@ -637,6 +888,30 @@ describe("admin settings router", () => {
         },
       ],
     ]);
+    expect(auditEvents).toHaveLength(2);
+    expect(auditEvents[0]).toMatchObject({
+      action: "report.hide",
+      metadata: {
+        reason: "spam",
+        reportType: "lost_pet",
+      },
+      target: {
+        id: "11111111-1111-4111-8111-111111111111",
+        label: "Luna perdida cerca de Sopocachi",
+        type: "lost_pet_report",
+      },
+    });
+    expect(auditEvents[1]).toMatchObject({
+      action: "report.restore",
+      metadata: {
+        reason: "approved_after_review",
+      },
+      target: {
+        id: "11111111-1111-4111-8111-111111111111",
+        label: "Luna perdida cerca de Sopocachi",
+        type: "lost_pet_report",
+      },
+    });
   });
 
   it("rejects report moderation mutations for non-admin members", async () => {

@@ -84,6 +84,8 @@ function persistedSightingReport(
       publicLongitude: -68.12,
       precision: "approximate",
       label: validReportCreateInput.location.label,
+      city: "La Paz",
+      department: "La Paz",
       locationCell: validReportCreateInput.location.locationCell,
       ...overrides.location,
     },

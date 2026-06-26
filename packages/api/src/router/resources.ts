@@ -13,6 +13,7 @@ import {
   updateResourceProviderVerificationInputSchema,
 } from "@acme/validators";
 
+import type { RecordAdminAuditEventInput } from "../admin-audit-repository";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 
 export function parseRastroAdminEmails(value: string | undefined) {
@@ -43,6 +44,23 @@ function requireResourceProviderAdmin(ctx: {
     email,
     id: ctx.session.user.id,
   };
+}
+
+async function recordResourceAdminAuditEvent(
+  ctx: {
+    adminAuditRepository: {
+      record: (
+        input: RecordAdminAuditEventInput,
+      ) => Promise<unknown>;
+    };
+  },
+  admin: { email: string; id: string },
+  event: Omit<RecordAdminAuditEventInput, "actor">,
+) {
+  await ctx.adminAuditRepository.record({
+    ...event,
+    actor: admin,
+  });
 }
 
 async function assertMemberCanReportResourceProvider(ctx: {
@@ -141,10 +159,28 @@ export const resourcesRouter = createTRPCRouter({
       .mutation(async ({ ctx, input }) => {
         const admin = requireResourceProviderAdmin(ctx);
 
-        return ctx.resourceProviderRepository.createProvider({
+        const provider = await ctx.resourceProviderRepository.createProvider({
           adminId: admin.id,
           provider: input,
         });
+
+        await recordResourceAdminAuditEvent(ctx, admin, {
+          action: "resource_provider.create",
+          metadata: {
+            category: input.category,
+            city: input.location.city,
+            department: input.location.department,
+          },
+          source: "resources.admin.createProvider",
+          summary: `Creo Resource Provider ${provider.name}.`,
+          target: {
+            id: provider.id,
+            label: provider.name,
+            type: "resource_provider",
+          },
+        });
+
+        return provider;
       }),
     updateProvider: protectedProcedure
       .input(updateResourceProviderInputSchema)
@@ -159,12 +195,35 @@ export const resourcesRouter = createTRPCRouter({
           throw new TRPCError({ code: "NOT_FOUND" });
         }
 
+        await recordResourceAdminAuditEvent(ctx, admin, {
+          action: "resource_provider.update",
+          metadata: {
+            changedFields: Object.keys(input).filter(
+              (key) => key !== "providerId",
+            ),
+          },
+          source: "resources.admin.updateProvider",
+          summary: `Actualizo Resource Provider ${provider.name}.`,
+          target: {
+            id: provider.id,
+            label: provider.name,
+            type: "resource_provider",
+          },
+        });
+
         return provider;
       }),
     deleteProvider: protectedProcedure
       .input(deleteResourceProviderInputSchema)
       .mutation(async ({ ctx, input }) => {
         const admin = requireResourceProviderAdmin(ctx);
+        const existingProvider =
+          await ctx.resourceProviderRepository.findProfile(input.providerId);
+
+        if (!existingProvider) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
         const deleted = await ctx.resourceProviderRepository.deleteProvider({
           adminId: admin.id,
           provider: input,
@@ -173,6 +232,17 @@ export const resourcesRouter = createTRPCRouter({
         if (!deleted) {
           throw new TRPCError({ code: "NOT_FOUND" });
         }
+
+        await recordResourceAdminAuditEvent(ctx, admin, {
+          action: "resource_provider.archive",
+          source: "resources.admin.deleteProvider",
+          summary: `Archivo Resource Provider ${existingProvider.name}.`,
+          target: {
+            id: deleted.providerId,
+            label: existingProvider.name,
+            type: "resource_provider",
+          },
+        });
 
         return {
           deletedAt: deleted.deletedAt.toISOString(),
@@ -194,6 +264,21 @@ export const resourcesRouter = createTRPCRouter({
           throw new TRPCError({ code: "NOT_FOUND" });
         }
 
+        await recordResourceAdminAuditEvent(ctx, admin, {
+          action: "resource_provider.verification_update",
+          metadata: {
+            note: input.note ?? null,
+            status: input.status,
+          },
+          source: "resources.admin.updateVerification",
+          summary: `Actualizo verificacion de ${provider.name}.`,
+          target: {
+            id: provider.id,
+            label: provider.name,
+            type: "resource_provider",
+          },
+        });
+
         return provider;
       }),
     attachSponsor: protectedProcedure
@@ -208,6 +293,22 @@ export const resourcesRouter = createTRPCRouter({
         if (!provider) {
           throw new TRPCError({ code: "NOT_FOUND" });
         }
+
+        await recordResourceAdminAuditEvent(ctx, admin, {
+          action: "local_sponsor_placement.create",
+          metadata: {
+            endsOn: input.endsOn,
+            startsOn: input.startsOn,
+            surface: input.surface,
+          },
+          source: "resources.admin.attachSponsor",
+          summary: `Creo Local Sponsor Placement para ${provider.name}.`,
+          target: {
+            id: input.placementId ?? input.providerId,
+            label: provider.name,
+            type: "local_sponsor_placement",
+          },
+        });
 
         return provider;
       }),
@@ -225,6 +326,22 @@ export const resourcesRouter = createTRPCRouter({
           throw new TRPCError({ code: "NOT_FOUND" });
         }
 
+        await recordResourceAdminAuditEvent(ctx, admin, {
+          action: "local_sponsor_placement.create",
+          metadata: {
+            endsOn: input.endsOn,
+            startsOn: input.startsOn,
+            surface: input.surface,
+          },
+          source: "resources.admin.createSponsor",
+          summary: `Creo Local Sponsor Placement ${placement.label} para ${placement.providerName}.`,
+          target: {
+            id: placement.placementId,
+            label: `${placement.providerName} - ${placement.surface}`,
+            type: "local_sponsor_placement",
+          },
+        });
+
         return placement;
       }),
     updateSponsor: protectedProcedure
@@ -241,18 +358,45 @@ export const resourcesRouter = createTRPCRouter({
           throw new TRPCError({ code: "NOT_FOUND" });
         }
 
+        await recordResourceAdminAuditEvent(ctx, admin, {
+          action: "local_sponsor_placement.update",
+          metadata: {
+            endsOn: input.endsOn,
+            startsOn: input.startsOn,
+            surface: input.surface,
+          },
+          source: "resources.admin.updateSponsor",
+          summary: `Actualizo Local Sponsor Placement ${placement.label} para ${placement.providerName}.`,
+          target: {
+            id: placement.placementId,
+            label: `${placement.providerName} - ${placement.surface}`,
+            type: "local_sponsor_placement",
+          },
+        });
+
         return placement;
       }),
     detachSponsorPlacement: protectedProcedure
       .input(detachLocalSponsorPlacementInputSchema)
       .mutation(async ({ ctx, input }) => {
-        requireResourceProviderAdmin(ctx);
+        const admin = requireResourceProviderAdmin(ctx);
         const provider =
           await ctx.resourceProviderRepository.detachSponsor(input);
 
         if (!provider) {
           throw new TRPCError({ code: "NOT_FOUND" });
         }
+
+        await recordResourceAdminAuditEvent(ctx, admin, {
+          action: "local_sponsor_placement.detach",
+          source: "resources.admin.detachSponsorPlacement",
+          summary: `Desvinculo Local Sponsor Placement de ${provider.name}.`,
+          target: {
+            id: input.placementId,
+            label: `${provider.name} - ${input.placementId}`,
+            type: "local_sponsor_placement",
+          },
+        });
 
         return {
           detached: true as const,
@@ -263,13 +407,24 @@ export const resourcesRouter = createTRPCRouter({
     detachSponsor: protectedProcedure
       .input(detachLocalSponsorPlacementInputSchema)
       .mutation(async ({ ctx, input }) => {
-        requireResourceProviderAdmin(ctx);
+        const admin = requireResourceProviderAdmin(ctx);
         const provider =
           await ctx.resourceProviderRepository.detachSponsor(input);
 
         if (!provider) {
           throw new TRPCError({ code: "NOT_FOUND" });
         }
+
+        await recordResourceAdminAuditEvent(ctx, admin, {
+          action: "local_sponsor_placement.detach",
+          source: "resources.admin.detachSponsor",
+          summary: `Desvinculo Local Sponsor Placement de ${provider.name}.`,
+          target: {
+            id: input.placementId,
+            label: `${provider.name} - ${input.placementId}`,
+            type: "local_sponsor_placement",
+          },
+        });
 
         return provider;
       }),

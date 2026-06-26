@@ -13,6 +13,8 @@ import { z, ZodError } from "zod/v4";
 import type { Auth } from "@acme/auth";
 import type { Database } from "@acme/db/client";
 
+import type { AdminAuditRepository } from "./admin-audit-repository";
+import type { AdminMetricsRepository } from "./admin-metrics-repository";
 import type { AdminSettingsRepository } from "./admin-settings-repository";
 import type { MediaStorage, MediaStorageConfig } from "./media-storage";
 import type { MemberSuspensionRepository } from "./member-suspension-repository";
@@ -21,6 +23,8 @@ import type { ReportModerationRepository } from "./report-moderation-repository"
 import type { ReportRepository } from "./report-repository";
 import type { ResourceProviderModerationRepository } from "./resource-provider-moderation-repository";
 import type { ResourceProviderRepository } from "./resource-provider-repository";
+import { createDrizzleAdminAuditRepository } from "./admin-audit-repository";
+import { createDrizzleAdminMetricsRepository } from "./admin-metrics-repository";
 import { createDrizzleAdminSettingsRepository } from "./admin-settings-repository";
 import {
   createS3MediaStorage,
@@ -54,6 +58,8 @@ export const createTRPCContext = async (opts: {
   auth: Auth;
 }): Promise<{
   adminEmailList: string | undefined;
+  adminAuditRepository: AdminAuditRepository;
+  adminMetricsRepository: AdminMetricsRepository;
   authApi: Auth["api"];
   adminSettingsRepository: AdminSettingsRepository;
   db: Database;
@@ -82,6 +88,8 @@ export const createTRPCContext = async (opts: {
 
   return {
     adminEmailList: opts.adminEmailList,
+    adminAuditRepository: createDrizzleAdminAuditRepository(db),
+    adminMetricsRepository: createDrizzleAdminMetricsRepository(db),
     adminSettingsRepository: createDrizzleAdminSettingsRepository(db),
     authApi,
     db,
