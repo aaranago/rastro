@@ -95,6 +95,7 @@ export type AdminResourceProviderProfile = PublicResourceProviderProfile & {
   city: string;
   department: string;
   sponsorPlacements: AdminResourceProviderSponsorPlacement[];
+  updatedAt: Date;
   verificationNote?: string;
 };
 
@@ -255,6 +256,7 @@ export function toAdminResourceProviderProfile(
       startsOn: toDateOnly(placement.startsAt),
       surface: placement.surface,
     })),
+    updatedAt: provider.updatedAt,
     verificationNote: provider.verificationNote ?? undefined,
   };
 }
@@ -446,14 +448,12 @@ export function createDrizzleResourceProviderRepository(
             .where(
               eq(ResourceProviderContactOption.providerId, provider.providerId),
             );
-          await tx
-            .insert(ResourceProviderContactOption)
-            .values(
-              buildResourceProviderContactOptionWriteValues({
-                contactOptions: provider.contactOptions,
-                providerId: provider.providerId,
-              }),
-            );
+          await tx.insert(ResourceProviderContactOption).values(
+            buildResourceProviderContactOptionWriteValues({
+              contactOptions: provider.contactOptions,
+              providerId: provider.providerId,
+            }),
+          );
         }
 
         return updated.id;
@@ -617,7 +617,8 @@ export function buildResourceProviderLocationUpdateValues(
   }
 
   const exactLocation =
-    location.exactLatitude !== undefined && location.exactLongitude !== undefined
+    location.exactLatitude !== undefined &&
+    location.exactLongitude !== undefined
       ? buildExactResourceProviderLocationUpdateValues({
           exactLatitude: location.exactLatitude,
           exactLongitude: location.exactLongitude,

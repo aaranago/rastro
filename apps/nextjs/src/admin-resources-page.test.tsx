@@ -79,8 +79,11 @@ describe("admin resources page", () => {
       title: "Proveedores de recursos | Rastro",
     });
     expect(html).toContain("Gestión de proveedores de recursos");
+    expect(html).toContain("Cola de proveedores");
+    expect(html).toContain("2 proveedores en cola");
     expect(html).toContain("Clinica Veterinaria San Roque");
     expect(html).toContain("Patitas La Paz");
+    expect(html).toContain("Actualizado");
     expect(html).toContain("Registrar proveedor");
     expect(html).toContain("Latitud exacta");
     expect(html).toContain("Ubicación avanzada y privacidad");
@@ -187,6 +190,7 @@ function providerProfile(
     },
     emergencyAvailable: true,
     isOpenNow: true,
+    updatedAt: new Date("2026-07-01T12:00:00.000Z"),
     contactOptions: [
       {
         kind: "phone",

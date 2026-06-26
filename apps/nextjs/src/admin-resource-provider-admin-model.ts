@@ -2,8 +2,11 @@ import type { RouterInputs, RouterOutputs } from "@acme/api";
 
 import { buildAdminResourceMetricGroup } from "./admin-resource-metrics";
 
-export type AdminResourceProviderProfile =
+export type AdminResourceProviderProfileBase =
   RouterOutputs["resources"]["admin"]["listProviders"][number];
+export type AdminResourceProviderProfile = AdminResourceProviderProfileBase & {
+  updatedAt?: Date;
+};
 export type AdminResourceProviderCreateInput =
   RouterInputs["resources"]["admin"]["createProvider"];
 export type AdminResourceProviderUpdateInput =
@@ -54,6 +57,7 @@ export interface AdminResourceProviderViewModel {
   externalLinks: NonNullable<AdminResourceProviderProfile["externalLinks"]>;
   hoursLabel: string;
   isOpenNow: boolean;
+  lastUpdatedLabel: string;
   locationCell: string;
   logoUrl?: string;
   name: string;
@@ -276,6 +280,7 @@ function toAdminResourceProviderViewModel(
     externalLinks: profile.externalLinks ?? [],
     hoursLabel: profile.hoursLabel,
     isOpenNow: profile.isOpenNow ?? false,
+    lastUpdatedLabel: formatAdminResourceProviderUpdatedAt(profile.updatedAt),
     locationCell: approximateLocation.locationCell,
     logoUrl: profile.logoUrl,
     name: profile.name,
@@ -300,6 +305,26 @@ function toAdminResourceProviderViewModel(
     },
     websiteUrl: profile.websiteUrl,
   };
+}
+
+const adminResourceProviderUpdatedAtFormatter = new Intl.DateTimeFormat(
+  "es-BO",
+  {
+    day: "2-digit",
+    month: "short",
+    timeZone: "America/La_Paz",
+    year: "numeric",
+  },
+);
+
+function formatAdminResourceProviderUpdatedAt(updatedAt?: Date): string {
+  if (!updatedAt) {
+    return "Actualización no expuesta";
+  }
+
+  return `Actualizado ${adminResourceProviderUpdatedAtFormatter
+    .format(updatedAt)
+    .replace(".", "")}`;
 }
 
 function toLocalSponsorPlacementViewModel(

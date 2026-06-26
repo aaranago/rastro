@@ -19,27 +19,45 @@ const forbiddenTerms = new RegExp(
 const marketplaceTerms = /marketplace|seller|comprar|vender/i;
 
 describe("AdminResourcesDashboard", () => {
-  it("renders dense provider management controls with Spanish Bolivia copy", () => {
-    const viewModel = buildAdminResourceProviderListViewModel([
-      providerProfile(),
-    ]);
+  it("renders an empty provider queue with the create workflow closed", () => {
+    const html = renderDashboard([]);
 
-    const html = renderToStaticMarkup(
-      <AdminResourcesDashboard
-        {...toAdminResourcesDashboardProps(viewModel, viewModel.metrics, {
-          displayName: "Admin Rastro",
-          role: "admin",
-        })}
-      />,
+    expect(html).toContain("Cola de proveedores");
+    expect(html).toContain("0 proveedores en cola");
+    expect(html).toContain("Todavía no hay proveedores registrados.");
+    expect(html).toContain("Cola vacía");
+    expect(html).toContain("Registrar proveedor");
+    expect(html).toContain(
+      "Sin métricas disponibles hasta registrar proveedores.",
     );
+    expect(getProviderQueueItemCount(html)).toBe(0);
+    expect(html).not.toMatch(createWorkflowOpenPattern);
+    expect(html).not.toMatch(forbiddenTerms);
+    expect(html).not.toMatch(marketplaceTerms);
+  });
+
+  it("renders a read-first one-provider queue with closed admin workflows", () => {
+    const html = renderDashboard([providerProfile()]);
 
     expect(html).toContain("Gestión de proveedores de recursos");
     expect(html).toContain("Administración de recursos");
+    expect(html).toContain("Cola de proveedores");
+    expect(html).toContain("1 proveedor en cola");
     expect(html).not.toContain("modelo administrativo temporal");
     expect(html).not.toContain("no confirma publicacion");
     expect(html).toContain("Clinica Veterinaria San Roque");
+    expect(html).toContain("Clinica veterinaria");
     expect(html).toContain("Sopocachi");
+    expect(html).toContain("La Paz");
+    expect(html).toContain("1 patrocinio activo");
+    expect(html).toContain("Abierto");
+    expect(html).toContain("Urgencias");
+    expect(html).toContain("Actualizado");
     expect(html).toContain("Registrar proveedor");
+    expect(html).toContain("Editar detalles");
+    expect(html).toContain("Identidad");
+    expect(html).toContain("Patrocinio");
+    expect(html).toContain("Archivo");
     expect(html).toContain("Latitud exacta");
     expect(html).toContain("Ubicación avanzada y privacidad");
     expect(html).toContain("Opciones de contacto");
@@ -60,6 +78,48 @@ describe("AdminResourcesDashboard", () => {
     expect(html).toContain("Métricas por ciudad");
     expect(html).toContain("No cambia la prioridad de recuperación");
     expect(html).toContain("No activa notificaciones push");
+    expect(getProviderQueueItemCount(html)).toBe(1);
+    expect(html).not.toMatch(createWorkflowOpenPattern);
+    expect(html).not.toMatch(providerWorkflowOpenPattern);
+    expect(html).not.toMatch(forbiddenTerms);
+    expect(html).not.toMatch(marketplaceTerms);
+  });
+
+  it("renders many providers as separate read-first queue items", () => {
+    const html = renderDashboard([
+      providerProfile(),
+      providerProfile({
+        id: "22222222-2222-4222-8222-222222222222",
+        city: "Cochabamba",
+        department: "Cochabamba",
+        name: "Patitas Cochabamba",
+        sponsorPlacement: undefined,
+        sponsorPlacements: [],
+        updatedAt: new Date("2026-07-02T12:00:00.000Z"),
+      }),
+      providerProfile({
+        id: "33333333-3333-4333-8333-333333333333",
+        city: "Santa Cruz de la Sierra",
+        department: "Santa Cruz",
+        isOpenNow: false,
+        isVerified: false,
+        name: "Apoyo Animal Santa Cruz",
+        sponsorPlacement: undefined,
+        sponsorPlacements: [],
+        updatedAt: new Date("2026-07-03T12:00:00.000Z"),
+      }),
+    ]);
+
+    expect(html).toContain("3 proveedores en cola");
+    expect(html).toContain("Clinica Veterinaria San Roque");
+    expect(html).toContain("Patitas Cochabamba");
+    expect(html).toContain("Apoyo Animal Santa Cruz");
+    expect(html).toContain("Santa Cruz de la Sierra");
+    expect(html).toContain("Sin insignia");
+    expect(html).toContain("0 patrocinios activos");
+    expect(html).toContain("Horario no confirmado");
+    expect(getProviderQueueItemCount(html)).toBe(3);
+    expect(html).not.toMatch(providerWorkflowOpenPattern);
     expect(html).not.toMatch(forbiddenTerms);
     expect(html).not.toMatch(marketplaceTerms);
   });
@@ -90,27 +150,33 @@ describe("AdminResourcesDashboard", () => {
     expect(html).not.toMatch(forbiddenTerms);
     expect(html).not.toMatch(marketplaceTerms);
   });
-
-  it("renders empty states for providers and metrics", () => {
-    const viewModel = buildAdminResourceProviderListViewModel([]);
-
-    const html = renderToStaticMarkup(
-      <AdminResourcesDashboard
-        {...toAdminResourcesDashboardProps(viewModel, viewModel.metrics, {
-          displayName: "Admin Rastro",
-          role: "admin",
-        })}
-      />,
-    );
-
-    expect(html).toContain("Todavía no hay proveedores registrados.");
-    expect(html).toContain(
-      "Sin métricas disponibles hasta registrar proveedores.",
-    );
-  });
 });
 
-function providerProfile(): AdminResourceProviderProfile {
+const createWorkflowOpenPattern =
+  /<details(?=[^>]*data-create-provider-workflow)(?=[^>]*open)[^>]*>/;
+const providerWorkflowOpenPattern =
+  /<details(?=[^>]*data-provider-action-workflow)(?=[^>]*open)[^>]*>/;
+
+function renderDashboard(profiles: readonly AdminResourceProviderProfile[]) {
+  const viewModel = buildAdminResourceProviderListViewModel(profiles);
+
+  return renderToStaticMarkup(
+    <AdminResourcesDashboard
+      {...toAdminResourcesDashboardProps(viewModel, viewModel.metrics, {
+        displayName: "Admin Rastro",
+        role: "admin",
+      })}
+    />,
+  );
+}
+
+function getProviderQueueItemCount(html: string) {
+  return html.match(/data-provider-queue-item=/g)?.length ?? 0;
+}
+
+function providerProfile(
+  overrides: Partial<AdminResourceProviderProfile> = {},
+): AdminResourceProviderProfile {
   return {
     id: "11111111-1111-4111-8111-111111111111",
     name: "Clinica Veterinaria San Roque",
@@ -150,6 +216,7 @@ function providerProfile(): AdminResourceProviderProfile {
     },
     emergencyAvailable: true,
     isOpenNow: true,
+    updatedAt: new Date("2026-07-01T12:00:00.000Z"),
     contactOptions: [
       {
         kind: "phone",
@@ -170,5 +237,6 @@ function providerProfile(): AdminResourceProviderProfile {
       },
     ],
     verificationNote: "Identidad revisada por Rastro.",
+    ...overrides,
   };
 }

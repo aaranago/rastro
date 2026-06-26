@@ -18,6 +18,7 @@ describe("admin resource provider model", () => {
       city: "El Alto",
       department: "La Paz",
     });
+    expect(viewModel.providers[0]?.lastUpdatedLabel).toContain("Actualizado");
     expect(viewModel.metrics).toMatchObject({
       byCity: [
         {
@@ -63,6 +64,7 @@ function providerProfile(
     isVerified: true,
     emergencyAvailable: true,
     isOpenNow: true,
+    updatedAt: new Date("2026-07-01T12:00:00.000Z"),
     contactOptions: [
       {
         kind: "phone",

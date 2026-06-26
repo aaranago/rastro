@@ -5,8 +5,8 @@ import {
   buildLocalSponsorPlacementPolicy,
   buildNearbyResourceProvidersCondition,
   buildResourceProviderContactOptionWriteValues,
-  buildResourceProviderLocationWriteValues,
   buildResourceProviderLocationUpdateValues,
+  buildResourceProviderLocationWriteValues,
   buildResourceProviderUpdateValues,
   derivePublicResourceProviderLocation,
   toAdminResourceProviderProfile,
@@ -366,6 +366,7 @@ describe("resource provider repository", () => {
           surface: "resources_directory",
         },
       ],
+      updatedAt: new Date("2026-07-01T12:00:00.000Z"),
       verificationNote: "Identidad revisada por Rastro.",
     });
     expect(JSON.stringify(profile)).not.toContain("exact");
