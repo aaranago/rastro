@@ -582,7 +582,7 @@ describe("ShellFabHost", () => {
         segments: ["(tabs)", "(nearby)"],
         sessionKind: "visitor",
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("routes a pending member report creation intent exactly once and clears it", () => {

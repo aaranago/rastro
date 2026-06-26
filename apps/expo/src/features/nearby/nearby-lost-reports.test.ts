@@ -145,6 +145,13 @@ function buildTestShareTarget(reportId: string, title: string) {
 
 type ApiNearbyReport = RouterOutputs["report"]["nearby"]["results"][number];
 
+const reportPathByApiType = {
+  adoption: "adopciones",
+  found_pet: "reportes/encontrados",
+  lost_pet: "reportes/perdidos",
+  sighting: "reportes/avistamientos",
+} satisfies Record<ApiNearbyReport["type"], string>;
+
 function buildApiReport({
   createdAt = new Date("2026-06-19T19:40:00.000Z"),
   description,
@@ -169,6 +176,12 @@ function buildApiReport({
 }): ApiNearbyReport {
   return {
     contact: {
+      actions: [
+        {
+          href: `rastro://${reportPathByApiType[type]}/${id}`,
+          kind: "in_app_chat",
+        },
+      ],
       hasWhatsapp: false,
       preference: "in_app_chat",
     },
@@ -550,7 +563,7 @@ describe("nearby Lost Pet Report discovery", () => {
         client: {
           report: {
             nearby: {
-              query: () => Promise.reject(new Error("Sin conexion.")),
+              query: () => Promise.reject(new Error("Sin conexión.")),
             },
           },
         },
@@ -572,7 +585,7 @@ describe("nearby Lost Pet Report discovery", () => {
     assertNearbyViewModelKind(viewModel, "ready");
     expect(staleResult.isOffline).toBe(true);
     expect(staleResult.isStale).toBe(true);
-    expect(viewModel.offlineLabel).toBe("Sin conexion · resultados guardados");
+    expect(viewModel.offlineLabel).toBe("Sin conexión · resultados guardados");
     expect(viewModel.cards.map((card) => card.id)).toEqual(["api-lost-bruno"]);
   });
 
@@ -684,6 +697,41 @@ describe("nearby Lost Pet Report discovery", () => {
     expect(viewModel.urgentAlert?.title).toBe("Alerta activa");
     expect(viewModel.urgentAlert?.message).toContain("Bruno");
     expect(viewModel.locationLabel).toBe("Zona Sur, La Paz");
+  });
+
+  it("does not expose raw manual-pin coordinates in public location labels", async () => {
+    const firstReport = reports[0];
+
+    if (!firstReport) {
+      throw new Error("Expected nearby lost report fixture.");
+    }
+
+    const adapter = createStaticNearbyLostReportsAdapter({
+      reports: [
+        {
+          ...firstReport,
+          id: "lost-raw-manual-pin",
+          locationCellLabel: "Pin manual -16.4882, -68.1287",
+        },
+      ],
+    });
+    const result = await adapter.searchLostPetReports({
+      location: manualLocation,
+      radiusKm: 5,
+    });
+    const viewModel = buildNearbyLostReportsViewModel({
+      locationState: { kind: "ready", location: manualLocation },
+      mode: "map",
+      radiusKm: 5,
+      result: { kind: "success", value: result },
+    });
+
+    assertNearbyViewModelKind(viewModel, "ready");
+    expect(viewModel.cards[0]?.publicLocationLabel).toBe("Zona aproximada");
+    expect(viewModel.publicSummaries[0]?.publicLocationLabel).toBe(
+      "Zona aproximada",
+    );
+    expect(viewModel.mapPins[0]?.label).toBe("Zona aproximada");
   });
 
   it("keeps Closed Reports understandable with reduced urgency and does not promote them as nearby alerts", async () => {
@@ -951,14 +999,14 @@ describe("nearby Lost Pet Report discovery", () => {
 
     assertNearbyViewModelKind(viewModel, "ready");
     expect(viewModel.locationLabel).toBe("Zona Sur, La Paz");
-    expect(viewModel.locationSourceLabel).toBe("Ubicacion manual en Bolivia");
+    expect(viewModel.locationSourceLabel).toBe("Zona elegida");
     expect(viewModel.mode).toBe("map");
   });
 
   it("labels current, last detected, manual place, and manual map-pin searches in Bolivia", async () => {
     const searchLocations = [
       {
-        expectedSourceLabel: "Ubicacion actual",
+        expectedSourceLabel: "Ubicación actual",
         location: {
           coordinates: { latitude: -16.5405, longitude: -68.0889 },
           countryCode: "BO",
@@ -968,7 +1016,7 @@ describe("nearby Lost Pet Report discovery", () => {
         },
       },
       {
-        expectedSourceLabel: "Ultima ubicacion detectada",
+        expectedSourceLabel: "Última ubicación detectada",
         location: {
           coordinates: { latitude: -16.5, longitude: -68.1193 },
           countryCode: "BO",
@@ -978,7 +1026,7 @@ describe("nearby Lost Pet Report discovery", () => {
         },
       },
       {
-        expectedSourceLabel: "Ubicacion manual en Bolivia",
+        expectedSourceLabel: "Zona elegida",
         location: {
           countryCode: "BO",
           label: "Queru Queru, Cochabamba",
@@ -988,7 +1036,7 @@ describe("nearby Lost Pet Report discovery", () => {
         },
       },
       {
-        expectedSourceLabel: "Pin manual en Bolivia",
+        expectedSourceLabel: "Punto elegido",
         location: {
           coordinates: { latitude: -17.7833, longitude: -63.1821 },
           countryCode: "BO",
@@ -1067,7 +1115,7 @@ describe("nearby Lost Pet Report discovery", () => {
     });
 
     assertNearbyViewModelKind(viewModel, "ready");
-    expect(viewModel.offlineLabel).toBe("Sin conexion · resultados guardados");
+    expect(viewModel.offlineLabel).toBe("Sin conexión · resultados guardados");
     expect(viewModel.radiusOptionsKm).toEqual([5, 10, 20]);
     expect(viewModel.cards.map((card) => card.title)).toEqual([
       "Bruno",
@@ -1126,7 +1174,7 @@ describe("nearby Lost Pet Report discovery", () => {
     });
 
     assertNearbyViewModelKind(viewModel, "empty");
-    expect(viewModel.offlineLabel).toBe("Sin conexion · resultados guardados");
+    expect(viewModel.offlineLabel).toBe("Sin conexión · resultados guardados");
     expect(viewModel.searchBoundaryLabel).toBe("Radio de 5 km · Zona Sur");
     expect(JSON.stringify(viewModel)).not.toContain("Rastro/PostGIS");
   });
@@ -1154,7 +1202,7 @@ describe("nearby Lost Pet Report discovery", () => {
       cacheKey: "nearby:manual-zona-sur:20",
       source: {
         searchLostPetReports: () =>
-          Promise.reject(new Error("Sin conexion de prueba.")),
+          Promise.reject(new Error("Sin conexión de prueba.")),
       },
     });
 
@@ -1170,7 +1218,7 @@ describe("nearby Lost Pet Report discovery", () => {
     });
 
     assertNearbyViewModelKind(viewModel, "ready");
-    expect(viewModel.offlineLabel).toBe("Sin conexion · resultados guardados");
+    expect(viewModel.offlineLabel).toBe("Sin conexión · resultados guardados");
     expect(viewModel.cards.map((card) => card.title)).toEqual([
       "Bruno",
       "Luna",
@@ -1186,11 +1234,9 @@ describe("nearby Lost Pet Report discovery", () => {
     });
 
     assertNearbyViewModelKind(viewModel, "location-denied");
-    expect(viewModel.title).toBe("Ubicacion no disponible");
-    expect(viewModel.manualLocationActionLabel).toBe(
-      "Elegir una zona en Bolivia",
-    );
-    expect(viewModel.useCurrentLocationActionLabel).toBe("Usar mi ubicacion");
+    expect(viewModel.title).toBe("Ubicación no disponible");
+    expect(viewModel.manualLocationActionLabel).toBe("Elegir una zona");
+    expect(viewModel.useCurrentLocationActionLabel).toBe("Usar mi ubicación");
     expect(viewModel.message).toContain("Bolivia");
   });
 });

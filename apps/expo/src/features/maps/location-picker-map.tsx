@@ -18,7 +18,7 @@ export interface ManualLocationPickerMapProps {
 }
 
 export function ManualLocationPickerMap({
-  cancelAccessibilityLabel = "Cancelar seleccion de punto",
+  cancelAccessibilityLabel = "Cancelar selección de zona",
   cancelLabel = "Cancelar",
   onCancel,
   onConfirm,
@@ -75,16 +75,16 @@ export function ManualLocationPickerMap({
             onDragEnd={(event) =>
               onSelectedCoordinateChange(event.nativeEvent.coordinate)
             }
-            title="Punto elegido"
+            title="Zona elegida"
           />
         </MapView>
       </View>
       <View style={styles.summary}>
         <Text selectable style={styles.title}>
-          Punto elegido
+          Zona elegida en el mapa
         </Text>
         <Text selectable style={styles.coordinateText}>
-          {selectedLocation.label}
+          Usaremos una zona aproximada cerca del punto que marcaste.
         </Text>
       </View>
       <View style={styles.actions}>
@@ -104,7 +104,7 @@ export function ManualLocationPickerMap({
           onPress={() => onConfirm(selectedLocation)}
           style={styles.primaryButton}
         >
-          <Text style={styles.primaryButtonText}>Confirmar punto</Text>
+          <Text style={styles.primaryButtonText}>Confirmar zona</Text>
         </Pressable>
       </View>
     </View>
@@ -117,15 +117,11 @@ function toManualMapPinSearchLocation(
   return {
     coordinates: coordinate,
     countryCode: "BO",
-    label: `Pin manual ${formatCoordinate(coordinate.latitude)}, ${formatCoordinate(coordinate.longitude)}`,
-    locationCellLabel: "Punto elegido",
+    label: "Zona elegida en el mapa",
+    locationCellLabel: "Zona elegida",
     manualLocationKind: "map-pin",
     source: "manual",
   };
-}
-
-function formatCoordinate(value: number) {
-  return value.toFixed(4);
 }
 
 const colors = {

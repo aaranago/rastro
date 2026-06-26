@@ -282,7 +282,7 @@ function useNearbyScreenController({
   const handleReportPress = useCallback(
     (reportId: string) => {
       onReport?.(reportId);
-      setReportFeedback("Reporte enviado para revision.");
+      setReportFeedback("Reporte enviado para revisión.");
     },
     [onReport],
   );
@@ -499,41 +499,49 @@ function Header({
 }: HeaderProps) {
   return (
     <View style={styles.header}>
-      <HeaderTitleRow onEnableAlerts={onEnableAlerts} title={viewModel.title} />
+      <HeaderContextRow
+        onEnableAlerts={onEnableAlerts}
+        radiusKm={radiusKm}
+        viewModel={viewModel}
+      />
       <HeaderStatusMessages
         reportFeedback={reportFeedback}
         viewModel={viewModel}
       />
-      <HeaderLocationBlock viewModel={viewModel} />
-
       <View style={styles.controls}>
         <ModeSwitch mode={mode} onModeChange={onModeChange} />
-        <RadiusControl
+        <FilterStrip
+          onCategoryToggle={onCategoryToggle}
           onRadiusChange={onRadiusChange}
           radiusKm={radiusKm}
           radiusOptionsKm={viewModel.radiusOptionsKm}
+          selectedCategories={selectedCategories}
         />
       </View>
-      <CategoryFilterControl
-        onCategoryToggle={onCategoryToggle}
-        selectedCategories={selectedCategories}
-      />
     </View>
   );
 }
 
-function HeaderTitleRow({
+function HeaderContextRow({
   onEnableAlerts,
-  title,
+  radiusKm,
+  viewModel,
 }: {
   onEnableAlerts?: () => void;
-  title: string;
+  radiusKm: NearbyRadiusKm;
+  viewModel: NearbyHeaderViewModel;
 }) {
+  const locationLabel =
+    "locationLabel" in viewModel ? viewModel.locationLabel : viewModel.title;
+
   return (
-    <View style={styles.titleRow}>
-      <View style={styles.titleBlock}>
-        <Text selectable style={styles.screenTitle}>
-          {title}
+    <View style={styles.contextRow}>
+      <View style={styles.contextCopy}>
+        <Text selectable numberOfLines={1} style={styles.contextTitle}>
+          {locationLabel}
+        </Text>
+        <Text selectable numberOfLines={1} style={styles.contextMeta}>
+          Radio de {radiusKm} km
         </Text>
       </View>
       {onEnableAlerts ? (
@@ -575,37 +583,6 @@ function HeaderStatusMessages({
         </Text>
       ) : null}
     </>
-  );
-}
-
-function HeaderLocationBlock({
-  viewModel,
-}: {
-  viewModel: NearbyHeaderViewModel;
-}) {
-  if (!("locationLabel" in viewModel)) {
-    return null;
-  }
-
-  const searchBoundaryLabel =
-    "searchBoundaryLabel" in viewModel
-      ? viewModel.searchBoundaryLabel
-      : undefined;
-
-  return (
-    <View style={styles.locationBlock}>
-      <Text selectable style={styles.locationSource}>
-        {viewModel.locationSourceLabel}
-      </Text>
-      <Text selectable style={styles.locationLabel}>
-        {viewModel.locationLabel}
-      </Text>
-      {searchBoundaryLabel ? (
-        <Text selectable style={styles.searchBoundaryLabel}>
-          {searchBoundaryLabel}
-        </Text>
-      ) : null}
-    </View>
   );
 }
 
@@ -660,39 +637,54 @@ function SegmentButton({
   );
 }
 
-function RadiusControl({
+function FilterStrip({
+  onCategoryToggle,
   onRadiusChange,
   radiusKm,
   radiusOptionsKm,
+  selectedCategories,
 }: {
+  onCategoryToggle: (category: NearbyPublicReportKind) => void;
   onRadiusChange: (radiusKm: NearbyRadiusKm) => void;
   radiusKm: NearbyRadiusKm;
   radiusOptionsKm: readonly NearbyRadiusKm[];
+  selectedCategories: readonly NearbyPublicReportKind[];
 }) {
   return (
-    <View style={styles.radiusControl}>
-      {radiusOptionsKm.map((option) => (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ selected: option === radiusKm }}
-          key={option}
-          onPress={() => onRadiusChange(option)}
-          style={[
-            styles.radiusButton,
-            option === radiusKm ? styles.radiusButtonActive : null,
-          ]}
-        >
-          <Text
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.filterStripContent}
+    >
+      <View style={styles.radiusControl}>
+        {radiusOptionsKm.map((option) => (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: option === radiusKm }}
+            key={option}
+            onPress={() => onRadiusChange(option)}
             style={[
-              styles.radiusText,
-              option === radiusKm ? styles.radiusTextActive : null,
+              styles.radiusButton,
+              option === radiusKm ? styles.radiusButtonActive : null,
             ]}
           >
-            {option} km
-          </Text>
-        </Pressable>
-      ))}
-    </View>
+            <Text
+              style={[
+                styles.radiusText,
+                option === radiusKm ? styles.radiusTextActive : null,
+              ]}
+            >
+              {option} km
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      <View style={styles.filterDivider} />
+      <CategoryFilterControl
+        onCategoryToggle={onCategoryToggle}
+        selectedCategories={selectedCategories}
+      />
+    </ScrollView>
   );
 }
 
@@ -737,7 +729,7 @@ function CategoryFilterControl({
 function formatCategoryFilterLabel(category: NearbyPublicReportKind) {
   switch (category) {
     case "adoption-listing":
-      return "Adopcion";
+      return "Adopción";
     case "found-pet-report":
       return "Encontradas";
     case "lost-pet-report":
@@ -866,7 +858,12 @@ function ReportCardPhotoFrame({
   photoUrl?: string;
 }) {
   return (
-    <View style={styles.cardPhotoFrame}>
+    <View
+      style={[
+        styles.cardPhotoFrame,
+        photoUrl ? null : styles.cardPhotoFrameCompact,
+      ]}
+    >
       {photoUrl ? (
         <Image
           contentFit="cover"
@@ -877,10 +874,21 @@ function ReportCardPhotoFrame({
         />
       ) : (
         <View style={styles.photoFallback}>
-          <Text style={styles.photoFallbackText}>Sin foto</Text>
+          <View style={styles.photoFallbackMark}>
+            <Text style={styles.photoFallbackMarkText}>?</Text>
+          </View>
+          <View style={styles.photoFallbackCopy}>
+            <Text style={styles.photoFallbackText}>Sin foto por ahora</Text>
+            <Text style={styles.photoFallbackSubtext}>
+              Revisa la descripción y la zona aproximada.
+            </Text>
+            {distanceLabel ? (
+              <Text style={styles.photoFallbackDistance}>{distanceLabel}</Text>
+            ) : null}
+          </View>
         </View>
       )}
-      {distanceLabel ? (
+      {photoUrl && distanceLabel ? (
         <View style={styles.distancePill}>
           <Text selectable style={styles.distanceText}>
             {distanceLabel}
@@ -921,7 +929,9 @@ function PriorityPill({
 }) {
   return (
     <View style={getPriorityPillStyle(urgency)}>
-      <Text style={getPriorityTextStyle(urgency)}>{label}</Text>
+      <Text style={getPriorityTextStyle(urgency)}>
+        {formatVisiblePriorityLabel(label)}
+      </Text>
     </View>
   );
 }
@@ -1088,26 +1098,36 @@ function toReportMapPreview(
   return {
     id: card.id,
     locationLabel: card.publicLocationLabel,
-    metaLabel: card.distanceLabel ?? card.priorityLabel,
+    metaLabel:
+      card.distanceLabel ?? formatVisiblePriorityLabel(card.priorityLabel),
+    photoUrl: card.photoUrl,
     summary: card.summary,
     title: card.title,
   };
 }
 
+function formatVisiblePriorityLabel(label: string) {
+  if (label === "Adopcion") {
+    return "Adopción";
+  }
+
+  return label;
+}
+
 function formatMapSearchOriginLabel(location: NearbySearchLocation) {
   if (location.source === "current") {
-    return "Tu ubicacion";
+    return "Tu ubicación";
   }
 
   if (location.source === "last") {
-    return "Ultima ubicacion detectada";
+    return "Última ubicación detectada";
   }
 
   if (location.manualLocationKind === "map-pin") {
-    return "Punto manual de busqueda";
+    return "Punto elegido para la búsqueda";
   }
 
-  return `Centro de busqueda: ${location.locationCellLabel}`;
+  return `Centro de búsqueda: ${location.locationCellLabel}`;
 }
 
 function LocationFallbackState({
@@ -1159,7 +1179,7 @@ function LocationFallbackState({
       >
         <Text style={styles.primaryButtonText}>
           {isResolvingLocation
-            ? "Buscando ubicacion"
+            ? "Buscando ubicación"
             : viewModel.useCurrentLocationActionLabel}
         </Text>
       </Pressable>
@@ -1386,17 +1406,16 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   cardFooter: {
-    alignItems: "center",
-    flexDirection: "row",
+    alignItems: "flex-start",
     flexWrap: "wrap",
     gap: 10,
-    justifyContent: "space-between",
   },
   cardFooterActions: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    justifyContent: "flex-end",
+    justifyContent: "flex-start",
+    width: "100%",
   },
   cardFooterButton: {
     alignItems: "center",
@@ -1416,6 +1435,10 @@ const styles = StyleSheet.create({
     aspectRatio: 1.75,
     backgroundColor: colors.chip,
     overflow: "hidden",
+  },
+  cardPhotoFrameCompact: {
+    aspectRatio: 4.2,
+    minHeight: 84,
   },
   cardSubtitle: {
     color: colors.inkMuted,
@@ -1439,7 +1462,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   controls: {
-    gap: 12,
+    gap: 8,
   },
   categoryButton: {
     alignItems: "center",
@@ -1457,7 +1480,6 @@ const styles = StyleSheet.create({
   },
   categoryFilters: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 8,
   },
   categoryText: {
@@ -1516,6 +1538,39 @@ const styles = StyleSheet.create({
     transform: [{ rotate: "16deg" }],
     width: 62,
   },
+  contextCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  contextMeta: {
+    color: colors.inkMuted,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
+  contextRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  contextTitle: {
+    color: colors.ink,
+    fontSize: 22,
+    fontWeight: "900",
+    lineHeight: 27,
+  },
+  filterDivider: {
+    alignSelf: "center",
+    backgroundColor: colors.line,
+    height: 28,
+    width: 1,
+  },
+  filterStripContent: {
+    alignItems: "center",
+    gap: 10,
+    paddingRight: 16,
+  },
   distancePill: {
     backgroundColor: colors.card,
     borderRadius: 999,
@@ -1533,10 +1588,10 @@ const styles = StyleSheet.create({
   },
   fallbackContent: {
     alignItems: "center",
-    gap: 18,
-    padding: 24,
+    gap: 12,
+    padding: 18,
     paddingBottom: 140,
-    paddingTop: 54,
+    paddingTop: 16,
   },
   fallbackIllustration: {
     alignItems: "center",
@@ -1545,10 +1600,10 @@ const styles = StyleSheet.create({
     borderCurve: "continuous",
     borderRadius: 28,
     justifyContent: "center",
-    maxWidth: 320,
+    maxWidth: 190,
     overflow: "hidden",
     position: "relative",
-    width: "78%",
+    width: "54%",
   },
   fallbackMapGrid: {
     ...StyleSheet.absoluteFillObject,
@@ -1600,16 +1655,16 @@ const styles = StyleSheet.create({
   },
   fallbackMessage: {
     color: colors.inkMuted,
-    fontSize: 17,
-    lineHeight: 27,
+    fontSize: 15,
+    lineHeight: 22,
     maxWidth: 320,
     textAlign: "center",
   },
   fallbackTitle: {
     color: colors.ink,
-    fontSize: 30,
+    fontSize: 26,
     fontWeight: "900",
-    lineHeight: 36,
+    lineHeight: 31,
     maxWidth: 320,
     textAlign: "center",
   },
@@ -1624,18 +1679,15 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   header: {
-    gap: 16,
+    gap: 10,
   },
   listContent: {
-    gap: 18,
+    gap: 12,
     padding: 16,
     paddingBottom: 140,
   },
   listSeparator: {
     height: 18,
-  },
-  locationBlock: {
-    gap: 4,
   },
   locationCopy: {
     color: colors.inkStrong,
@@ -1649,25 +1701,14 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 19,
   },
-  locationLabel: {
-    color: colors.ink,
-    fontSize: 20,
-    fontWeight: "800",
-    lineHeight: 25,
-  },
-  locationSource: {
-    color: colors.inkMuted,
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0,
-    textTransform: "uppercase",
-  },
   manualOptionButton: {
     backgroundColor: colors.chip,
     borderCurve: "continuous",
     borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    minHeight: 42,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   manualOptionText: {
     color: colors.inkStrong,
@@ -1675,9 +1716,10 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   manualOptions: {
+    alignSelf: "stretch",
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 8,
     justifyContent: "center",
   },
   manualOptionsTitle: {
@@ -1688,18 +1730,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   mapContent: {
-    gap: 18,
+    gap: 12,
     padding: 16,
     paddingBottom: 140,
   },
   mapPanel: {
-    gap: 14,
+    gap: 10,
   },
   mapTitle: {
     color: colors.ink,
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "900",
-    lineHeight: 28,
+    lineHeight: 25,
   },
   offlineLabel: {
     alignSelf: "flex-start",
@@ -1713,19 +1755,56 @@ const styles = StyleSheet.create({
   },
   photoFallback: {
     alignItems: "center",
+    flexDirection: "row",
     flex: 1,
+    gap: 12,
     justifyContent: "center",
+    paddingHorizontal: 18,
+  },
+  photoFallbackCopy: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  photoFallbackDistance: {
+    color: colors.inkStrong,
+    fontSize: 12,
+    fontVariant: ["tabular-nums"],
+    fontWeight: "900",
+    lineHeight: 16,
+  },
+  photoFallbackMark: {
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderColor: colors.line,
+    borderRadius: 18,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  photoFallbackMarkText: {
+    color: colors.inkStrong,
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  photoFallbackSubtext: {
+    color: colors.inkMuted,
+    flexShrink: 1,
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 17,
   },
   photoFallbackText: {
-    color: colors.inkMuted,
+    color: colors.ink,
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "900",
   },
   primaryButton: {
     alignItems: "center",
     backgroundColor: colors.inkStrong,
     borderRadius: 999,
-    minHeight: 52,
+    minHeight: 48,
     justifyContent: "center",
     paddingHorizontal: 24,
     paddingVertical: 14,
@@ -1783,18 +1862,6 @@ const styles = StyleSheet.create({
   screen: {
     backgroundColor: colors.bg,
     flex: 1,
-  },
-  screenTitle: {
-    color: colors.ink,
-    fontSize: 28,
-    fontWeight: "900",
-    lineHeight: 34,
-  },
-  searchBoundaryLabel: {
-    color: colors.inkMuted,
-    fontSize: 13,
-    fontWeight: "700",
-    lineHeight: 19,
   },
   segmentButton: {
     alignItems: "center",
@@ -1892,16 +1959,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 13,
     fontWeight: "700",
-  },
-  titleRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 14,
-    justifyContent: "space-between",
-  },
-  titleBlock: {
-    flex: 1,
-    minWidth: 0,
   },
   urgentAlert: {
     alignItems: "center",

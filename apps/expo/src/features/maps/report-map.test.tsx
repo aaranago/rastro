@@ -19,6 +19,10 @@ vi.mock("react-native", () => ({
   View: "View",
 }));
 
+vi.mock("expo-image", () => ({
+  Image: "Image",
+}));
+
 vi.mock("react-native-maps", () => ({
   default: "MapView",
   Marker: "Marker",
@@ -27,6 +31,7 @@ vi.mock("react-native-maps", () => ({
 
 describe("ReportMap", () => {
   it("renders native map markers and keeps marker and list selection synchronized", () => {
+    const onOpenReport = vi.fn();
     const onSelectReport = vi.fn();
     const pins: ReportMapPin[] = [
       {
@@ -47,6 +52,7 @@ describe("ReportMap", () => {
         id: "lost-bruno",
         locationLabel: "Achumani · zona aproximada",
         metaLabel: "a 300 m",
+        photoUrl: "https://cdn.rastro.bo/bruno.jpg",
         summary: "Collar azul con plaquita.",
         title: "Bruno",
       },
@@ -54,7 +60,7 @@ describe("ReportMap", () => {
         id: "lost-luna",
         locationLabel: "Sopocachi · zona aproximada",
         metaLabel: "a 2 km",
-        summary: "Se escapo durante la lluvia.",
+        summary: "Se escapó durante la lluvia.",
         title: "Luna",
       },
     ];
@@ -65,6 +71,7 @@ describe("ReportMap", () => {
           coordinate: { latitude: -16.5, longitude: -68.1193 },
           label: "Zona Sur",
         }}
+        onOpenReport={onOpenReport}
         onSelectReport={onSelectReport}
         pins={pins}
         previews={previews}
@@ -87,10 +94,38 @@ describe("ReportMap", () => {
         element.type === "Pressable" &&
         element.props.accessibilityLabel === "Seleccionar Luna",
     );
+    const selectedPreview = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel === "Ver detalles de Bruno",
+    );
+    const boundedMapFrame = findElement(
+      screen,
+      (element) =>
+        element.type === "View" &&
+        typeof element.props.style === "object" &&
+        element.props.style !== null &&
+        !Array.isArray(element.props.style) &&
+        "height" in element.props.style &&
+        element.props.style.height === 220,
+    );
+    const previewImage = findElement(
+      screen,
+      (element) =>
+        element.type === "Image" &&
+        element.props.recyclingKey === "map-preview:lost-bruno",
+    );
 
     expect(
       findElement(screen, (element) => element.type === "MapView"),
     ).toBeDefined();
+    expect(findText(screen, "Reportes en este mapa")).toBe(true);
+    expect(findText(screen, "Lista accesible")).toBe(false);
+    expect(boundedMapFrame).toBeDefined();
+    expect(previewImage?.props.source).toEqual({
+      uri: "https://cdn.rastro.bo/bruno.jpg",
+    });
     expect(markers).toHaveLength(3);
     expect(markers[0]?.props.coordinate).toEqual({
       latitude: -16.5405,
@@ -99,6 +134,7 @@ describe("ReportMap", () => {
     expect(selectedListItem?.props.accessibilityState).toEqual({
       selected: true,
     });
+    expect(findText(screen, "Destacado")).toBe(true);
 
     const markerPress = markers[1]?.props.onPress;
 
@@ -117,6 +153,15 @@ describe("ReportMap", () => {
 
     (listPress as () => void)();
     expect(onSelectReport).toHaveBeenCalledWith("lost-luna");
+
+    const previewPress = selectedPreview?.props.onPress;
+
+    if (typeof previewPress !== "function") {
+      throw new Error("Expected selected preview to open the report.");
+    }
+
+    (previewPress as () => void)();
+    expect(onOpenReport).toHaveBeenCalledWith("lost-bruno");
   });
 
   it("shows provider errors without removing the accessible report list", () => {
@@ -158,6 +203,8 @@ describe("ReportMap", () => {
       findElement(screen, (element) => element.type === "MapView"),
     ).toBeUndefined();
     expect(findText(screen, "No pudimos cargar el mapa")).toBe(true);
+    expect(findText(screen, "Reportes en este mapa")).toBe(true);
+    expect(findText(screen, "Lista accesible")).toBe(false);
     expect(listItem?.props.accessibilityState).toEqual({ selected: true });
   });
 

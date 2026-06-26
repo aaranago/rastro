@@ -7,6 +7,7 @@ import {
   View,
 } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import { Image } from "expo-image";
 
 export interface ReportMapCoordinate {
   latitude: number;
@@ -25,6 +26,7 @@ export interface ReportMapPreview {
   id: string;
   locationLabel: string;
   metaLabel?: string;
+  photoUrl?: string;
   summary: string;
   title: string;
 }
@@ -161,7 +163,7 @@ export function ReportMap({
         ) : null}
         {onRecenter && currentLocation ? (
           <Pressable
-            accessibilityLabel="Centrar en el area de busqueda"
+            accessibilityLabel="Centrar en el área de búsqueda"
             accessibilityRole="button"
             onPress={onRecenter}
             style={styles.recenterButton}
@@ -216,8 +218,9 @@ function ReportMapPreviewPanel({
   onOpenReport?: (reportId: string) => void;
   preview: ReportMapPreview;
 }) {
-  return (
-    <View style={styles.previewPanel}>
+  const content = (
+    <>
+      <ReportMapPreviewThumb preview={preview} />
       <View style={styles.previewCopy}>
         <Text selectable style={styles.previewTitle}>
           {preview.title}
@@ -227,20 +230,52 @@ function ReportMapPreviewPanel({
             .filter(Boolean)
             .join(" · ")}
         </Text>
-        <Text selectable numberOfLines={2} style={styles.previewSummary}>
+        <Text selectable numberOfLines={1} style={styles.previewSummary}>
           {preview.summary}
         </Text>
       </View>
       {onOpenReport ? (
-        <Pressable
-          accessibilityLabel={`Abrir ${preview.title}`}
-          accessibilityRole="button"
-          onPress={() => onOpenReport(preview.id)}
-          style={styles.openButton}
-        >
-          <Text style={styles.openButtonText}>Ver</Text>
-        </Pressable>
+        <View style={styles.previewAction}>
+          <Text style={styles.previewActionText}>Ver</Text>
+          <Text style={styles.previewActionArrow}>{">"}</Text>
+        </View>
       ) : null}
+    </>
+  );
+
+  if (!onOpenReport) {
+    return <View style={styles.previewPanel}>{content}</View>;
+  }
+
+  return (
+    <Pressable
+      accessibilityLabel={`Ver detalles de ${preview.title}`}
+      accessibilityRole="button"
+      onPress={() => onOpenReport(preview.id)}
+      style={styles.previewPanel}
+    >
+      {content}
+    </Pressable>
+  );
+}
+
+function ReportMapPreviewThumb({ preview }: { preview: ReportMapPreview }) {
+  if (preview.photoUrl) {
+    return (
+      <Image
+        cachePolicy="memory-disk"
+        contentFit="cover"
+        recyclingKey={`map-preview:${preview.id}`}
+        source={{ uri: preview.photoUrl }}
+        style={styles.previewThumb}
+        transition={120}
+      />
+    );
+  }
+
+  return (
+    <View style={styles.previewThumbFallback}>
+      <Text style={styles.previewThumbFallbackText}>?</Text>
     </View>
   );
 }
@@ -256,7 +291,7 @@ function ReportMapListAlternative({
 }) {
   return (
     <View style={styles.listAlternative}>
-      <Text style={styles.listTitle}>Lista accesible</Text>
+      <Text style={styles.listTitle}>Reportes en este mapa</Text>
       <ScrollView
         horizontal
         contentContainerStyle={styles.listContent}
@@ -277,6 +312,9 @@ function ReportMapListAlternative({
                 isSelected ? styles.listItemSelected : null,
               ]}
             >
+              {isSelected ? (
+                <Text style={styles.listItemState}>Destacado</Text>
+              ) : null}
               <Text style={styles.listItemTitle}>{preview.title}</Text>
               <Text numberOfLines={1} style={styles.listItemMeta}>
                 {preview.locationLabel}
@@ -396,6 +434,7 @@ const styles = StyleSheet.create({
   listItem: {
     backgroundColor: colors.card,
     borderColor: colors.line,
+    borderCurve: "continuous",
     borderRadius: 10,
     borderWidth: 1,
     maxWidth: 190,
@@ -411,8 +450,17 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   listItemSelected: {
+    backgroundColor: "#E8F3EE",
     borderColor: colors.inkStrong,
     borderWidth: 2,
+  },
+  listItemState: {
+    color: colors.inkStrong,
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0,
+    lineHeight: 14,
+    textTransform: "uppercase",
   },
   listItemTitle: {
     color: colors.ink,
@@ -443,11 +491,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mapFrame: {
-    aspectRatio: 0.9,
     backgroundColor: colors.bg,
     borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
+    height: 220,
     overflow: "hidden",
   },
   markerBubble: {
@@ -466,17 +514,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "900",
   },
-  openButton: {
+  previewAction: {
     alignItems: "center",
-    backgroundColor: colors.inkStrong,
-    borderRadius: 999,
-    minHeight: 40,
+    alignSelf: "flex-start",
+    borderColor: colors.line,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 4,
     justifyContent: "center",
-    paddingHorizontal: 18,
+    minHeight: 42,
+    minWidth: 54,
+    paddingHorizontal: 10,
   },
-  openButtonText: {
-    color: colors.white,
-    fontSize: 14,
+  previewActionArrow: {
+    color: colors.inkStrong,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  previewActionText: {
+    color: colors.inkStrong,
+    fontSize: 13,
     fontWeight: "900",
   },
   previewCopy: {
@@ -494,11 +552,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.card,
     borderColor: colors.line,
+    borderCurve: "continuous",
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: "row",
-    gap: 12,
-    padding: 14,
+    gap: 10,
+    padding: 10,
   },
   previewSummary: {
     color: colors.inkMuted,
@@ -510,6 +569,27 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "900",
     lineHeight: 23,
+  },
+  previewThumb: {
+    backgroundColor: colors.bg,
+    borderRadius: 8,
+    height: 58,
+    width: 58,
+  },
+  previewThumbFallback: {
+    alignItems: "center",
+    backgroundColor: colors.bg,
+    borderColor: colors.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 58,
+    justifyContent: "center",
+    width: 58,
+  },
+  previewThumbFallbackText: {
+    color: colors.inkStrong,
+    fontSize: 18,
+    fontWeight: "900",
   },
   recenterButton: {
     alignItems: "center",

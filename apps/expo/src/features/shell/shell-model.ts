@@ -466,5 +466,14 @@ export function shouldShowGlobalFabForSegments(
     return false;
   }
 
-  return segments.slice(tabIndex + 1).every((segment) => segment === "index");
+  const tabSegments = segments.slice(tabIndex + 1);
+
+  if (
+    segments[tabIndex] === "(nearby)" &&
+    tabSegments.every((segment) => segment === "index")
+  ) {
+    return false;
+  }
+
+  return tabSegments.every((segment) => segment === "index");
 }

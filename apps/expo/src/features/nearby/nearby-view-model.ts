@@ -163,11 +163,11 @@ export function buildNearbyLostReportsViewModel(
     return {
       ...base,
       kind: "location-needed",
-      manualLocationActionLabel: "Elegir una zona en Bolivia",
+      manualLocationActionLabel: "Elegir una zona",
       message:
-        "Usa tu ubicacion solo cuando lo pidas o elige una ciudad, zona o pin manual.",
+        "Usa tu ubicación solo cuando lo pidas o elige una ciudad, zona o punto en el mapa.",
       title: "Busca reportes cerca",
-      useCurrentLocationActionLabel: "Usar mi ubicacion",
+      useCurrentLocationActionLabel: "Usar mi ubicación",
     };
   }
 
@@ -175,11 +175,11 @@ export function buildNearbyLostReportsViewModel(
     return {
       ...base,
       kind: "location-denied",
-      manualLocationActionLabel: "Elegir una zona en Bolivia",
+      manualLocationActionLabel: "Elegir una zona",
       message:
-        "Usa una ciudad, zona o pin manual en Bolivia para ver reportes cercanos.",
-      title: "Ubicacion no disponible",
-      useCurrentLocationActionLabel: "Usar mi ubicacion",
+        "Usa una ciudad, zona o punto en el mapa en Bolivia para ver reportes cercanos.",
+      title: "Ubicación no disponible",
+      useCurrentLocationActionLabel: "Usar mi ubicación",
     };
   }
 
@@ -189,7 +189,7 @@ export function buildNearbyLostReportsViewModel(
       kind: "loading",
       locationLabel: location.label,
       locationSourceLabel: formatLocationSource(location),
-      title: "Buscando mascotas perdidas cerca de ti",
+      title: "Buscando reportes cerca",
     };
   }
 
@@ -216,7 +216,7 @@ export function buildNearbyLostReportsViewModel(
       locationLabel: location.label,
       locationSourceLabel: formatLocationSource(location),
       message:
-        "No hay reportes de mascotas perdidas en este radio. Prueba ampliando la busqueda.",
+        "No hay reportes de mascotas perdidas en este radio. Prueba ampliando la búsqueda.",
       offlineLabel: buildOfflineLabel(input.result.value),
       radiusActionLabel: "Cambiar radio",
       searchBoundaryLabel,
@@ -234,7 +234,7 @@ export function buildNearbyLostReportsViewModel(
     offlineLabel: buildOfflineLabel(input.result.value),
     publicSummaries,
     searchBoundaryLabel,
-    title: "Mascotas perdidas cerca de ti",
+    title: "Reportes cerca de ti",
     urgentAlert: buildUrgentAlert(input.result.value.reports),
   };
 }
@@ -255,18 +255,18 @@ function resolveLocation(
 
 function formatLocationSource(location: NearbySearchLocation) {
   if (location.source === "current") {
-    return "Ubicacion actual";
+    return "Ubicación actual";
   }
 
   if (location.source === "last") {
-    return "Ultima ubicacion detectada";
+    return "Última ubicación detectada";
   }
 
   if (location.manualLocationKind === "map-pin") {
-    return "Pin manual en Bolivia";
+    return "Punto elegido";
   }
 
-  return "Ubicacion manual en Bolivia";
+  return "Zona elegida";
 }
 
 function toPublicSummary(
@@ -419,10 +419,32 @@ function toLostReportCard(
 
 function formatPublicLocation(report: NearbyPublicReportSummary) {
   if (report.publicLocation.kind === "exact") {
-    return report.publicLocation.label;
+    return formatPublicLocationCellLabel(report.publicLocation.label);
   }
 
-  return `${report.locationCellLabel} · zona aproximada`;
+  const locationCellLabel = formatPublicLocationCellLabel(
+    report.locationCellLabel,
+  );
+
+  if (locationCellLabel === "Zona elegida") {
+    return "Zona aproximada";
+  }
+
+  return `${locationCellLabel} · zona aproximada`;
+}
+
+function formatPublicLocationCellLabel(label: string) {
+  const trimmed = label.trim();
+
+  if (
+    trimmed.length === 0 ||
+    /\bpin manual\b/i.test(trimmed) ||
+    /-?\d{1,2}\.\d{3,}\s*,\s*-?\d{1,3}\.\d{3,}/.test(trimmed)
+  ) {
+    return "Zona elegida";
+  }
+
+  return trimmed;
 }
 
 function formatSearchBoundary(boundary: NearbySearchBoundary) {
@@ -500,11 +522,11 @@ function isLostPetReportSummary(
 
 function buildOfflineLabel(result: NearbyLostReportsResult) {
   if (result.isOffline && result.isStale) {
-    return "Sin conexion · resultados guardados";
+    return "Sin conexión · resultados guardados";
   }
 
   if (result.isOffline) {
-    return "Sin conexion";
+    return "Sin conexión";
   }
 
   if (result.isStale) {

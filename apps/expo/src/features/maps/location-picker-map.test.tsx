@@ -49,7 +49,12 @@ describe("ManualLocationPickerMap", () => {
       longitude: -68.1213,
     });
     expect(marker?.props.draggable).toBe(true);
+    expect(marker?.props.title).toBe("Zona elegida");
     expect(map?.props.provider).toBe("google");
+    expect(findText(screen, "Zona elegida en el mapa")).toBe(true);
+    expect(findText(screen, "Confirmar zona")).toBe(true);
+    expect(findTextContaining(screen, "Pin manual")).toBe(false);
+    expect(findTextContaining(screen, "-16.5022")).toBe(false);
 
     const mapPress = map?.props.onPress;
 
@@ -83,8 +88,8 @@ describe("ManualLocationPickerMap", () => {
     expect(onConfirm).toHaveBeenCalledWith({
       coordinates: { latitude: -16.5022, longitude: -68.1213 },
       countryCode: "BO",
-      label: "Pin manual -16.5022, -68.1213",
-      locationCellLabel: "Punto elegido",
+      label: "Zona elegida en el mapa",
+      locationCellLabel: "Zona elegida",
       manualLocationKind: "map-pin",
       source: "manual",
     });
@@ -100,7 +105,7 @@ describe("ManualLocationPickerMap", () => {
         onSelectedCoordinateChange={() => undefined}
         providerState={{
           kind: "error",
-          message: "El mapa no esta disponible en este dispositivo.",
+          message: "El mapa no está disponible en este dispositivo.",
         }}
         selectedCoordinate={{ latitude: -16.5022, longitude: -68.1213 }}
       />,
@@ -185,5 +190,21 @@ function findText(node: React.ReactNode, text: string): boolean {
 
   return React.Children.toArray(rendered.props.children).some((child) =>
     findText(child, text),
+  );
+}
+
+function findTextContaining(node: React.ReactNode, text: string): boolean {
+  const rendered = renderFunctionElement(node);
+
+  if (typeof rendered === "string") {
+    return rendered.includes(text);
+  }
+
+  if (!React.isValidElement<ElementProps>(rendered)) {
+    return false;
+  }
+
+  return React.Children.toArray(rendered.props.children).some((child) =>
+    findTextContaining(child, text),
   );
 }
