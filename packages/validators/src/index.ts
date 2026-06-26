@@ -236,11 +236,44 @@ const resourceProviderLocationInputSchema = z
   .object({
     exactLatitude: boliviaLatitudeSchema,
     exactLongitude: boliviaLongitudeSchema,
+    city: z.string().min(2).max(120),
+    department: z.string().min(2).max(80),
     approximateLocationLabel: z.string().min(2).max(160),
     locationCell: z.string().min(3).max(96),
     addressLabel: z.string().min(2).max(240).optional(),
   })
   .strict();
+
+const resourceProviderLocationUpdateInputSchema = z
+  .object({
+    exactLatitude: boliviaLatitudeSchema.optional(),
+    exactLongitude: boliviaLongitudeSchema.optional(),
+    city: z.string().min(2).max(120).optional(),
+    department: z.string().min(2).max(80).optional(),
+    approximateLocationLabel: z.string().min(2).max(160).optional(),
+    locationCell: z.string().min(3).max(96).optional(),
+    addressLabel: z.string().min(2).max(240).nullable().optional(),
+  })
+  .strict()
+  .superRefine((input, ctx) => {
+    const hasExactLatitude = input.exactLatitude !== undefined;
+    const hasExactLongitude = input.exactLongitude !== undefined;
+
+    if (hasExactLatitude !== hasExactLongitude) {
+      ctx.addIssue({
+        code: "custom",
+        path: hasExactLatitude ? ["exactLongitude"] : ["exactLatitude"],
+        message: "Exact provider location updates require both coordinates.",
+      });
+    }
+
+    if (Object.keys(input).length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "At least one provider location field must change.",
+      });
+    }
+  });
 
 const resourceProviderLinkSchema = z.object({
   label: z.string().min(1).max(80),
@@ -277,7 +310,7 @@ export const updateResourceProviderInputSchema = z
     shortDescription: z.string().min(10).max(1000).optional(),
     logoUrl: z.url().nullable().optional(),
     photoUrl: z.url().nullable().optional(),
-    location: resourceProviderLocationInputSchema.optional(),
+    location: resourceProviderLocationUpdateInputSchema.optional(),
     serviceAreaLabel: z.string().min(2).max(160).optional(),
     hoursLabel: z.string().min(2).max(160).optional(),
     contactOptions: z

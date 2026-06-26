@@ -4,7 +4,10 @@ import type { PersistedResourceProvider } from "./resource-provider-repository";
 import {
   buildLocalSponsorPlacementPolicy,
   buildNearbyResourceProvidersCondition,
+  buildResourceProviderContactOptionWriteValues,
   buildResourceProviderLocationWriteValues,
+  buildResourceProviderLocationUpdateValues,
+  buildResourceProviderUpdateValues,
   derivePublicResourceProviderLocation,
   toAdminResourceProviderProfile,
   toPublicResourceProviderProfile,
@@ -51,9 +54,12 @@ function persistedProvider(
     updatedAt: new Date("2026-07-01T12:00:00.000Z"),
     deletedAt: null,
     location: {
+      addressLabel: "Plaza Abaroa, La Paz",
       publicLatitude: -16.51051,
       publicLongitude: -68.124602,
       precision: "approximate",
+      city: "La Paz",
+      department: "La Paz",
       approximateLocationLabel: "Sopocachi, La Paz",
       locationCell: "bo-lpb-sopocachi",
     },
@@ -124,8 +130,6 @@ describe("resource provider repository", () => {
     const publicLocation = derivePublicResourceProviderLocation({
       exactLatitude: -16.510231,
       exactLongitude: -68.123881,
-      approximateLocationLabel: "Sopocachi, La Paz",
-      locationCell: "bo-lpb-sopocachi",
     });
 
     expect(publicLocation).toEqual({
@@ -142,6 +146,8 @@ describe("resource provider repository", () => {
       location: {
         exactLatitude: -16.510231,
         exactLongitude: -68.123881,
+        city: "La Paz",
+        department: "La Paz",
         approximateLocationLabel: "Sopocachi, La Paz",
         locationCell: "bo-lpb-sopocachi",
         addressLabel: "Plaza Abaroa, La Paz",
@@ -156,6 +162,8 @@ describe("resource provider repository", () => {
         x: -68.123881,
         y: -16.510231,
       },
+      city: "La Paz",
+      department: "La Paz",
       publicLatitude: -16.51051,
       publicLongitude: -68.124602,
       publicPoint: {
@@ -163,6 +171,122 @@ describe("resource provider repository", () => {
         y: -16.51051,
       },
       publicPrecision: "approximate",
+    });
+  });
+
+  it("builds structured location updates without touching exact coordinates unless supplied", () => {
+    expect(
+      buildResourceProviderLocationUpdateValues({
+        city: "El Alto",
+        department: "La Paz",
+        approximateLocationLabel: "Ciudad Satelite, El Alto",
+        locationCell: "bo-lpb-el-alto-ciudad-satelite",
+      }),
+    ).toEqual({
+      approximateLocationLabel: "Ciudad Satelite, El Alto",
+      city: "El Alto",
+      department: "La Paz",
+      locationCell: "bo-lpb-el-alto-ciudad-satelite",
+    });
+
+    expect(
+      buildResourceProviderLocationUpdateValues({
+        exactLatitude: -17.783333,
+        exactLongitude: -63.182222,
+      }),
+    ).toMatchObject({
+      exactLatitude: -17.783333,
+      exactLongitude: -63.182222,
+      publicPrecision: "approximate",
+    });
+  });
+
+  it("builds repository write values that preserve multiple contacts and link fields", () => {
+    const providerId = "11111111-1111-4111-8111-111111111111";
+
+    expect(
+      buildResourceProviderContactOptionWriteValues({
+        providerId,
+        contactOptions: [
+          {
+            kind: "phone",
+            label: "Llamar",
+            value: "+591 2 222 1111",
+          },
+          {
+            kind: "whatsapp",
+            label: "WhatsApp",
+            value: "+591 70000001",
+          },
+          {
+            kind: "email",
+            label: "Correo",
+            value: "contacto@sanroque.example",
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        kind: "phone",
+        label: "Llamar",
+        providerId,
+        sortOrder: 0,
+        value: "+591 2 222 1111",
+      },
+      {
+        kind: "whatsapp",
+        label: "WhatsApp",
+        providerId,
+        sortOrder: 1,
+        value: "+591 70000001",
+      },
+      {
+        kind: "email",
+        label: "Correo",
+        providerId,
+        sortOrder: 2,
+        value: "contacto@sanroque.example",
+      },
+    ]);
+
+    expect(
+      buildResourceProviderUpdateValues({
+        provider: {
+          providerId,
+          logoUrl: "https://example.com/logo.png",
+          photoUrl: "https://example.com/photo.png",
+          websiteUrl: "https://sanroque.example.com",
+          socialLinks: [
+            {
+              label: "Instagram",
+              url: "https://instagram.example.com/sanroque",
+            },
+          ],
+          externalLinks: [
+            {
+              label: "Ficha municipal",
+              url: "https://municipio.example.com/sanroque",
+            },
+          ],
+        },
+        updatedAt: new Date("2026-07-15T12:00:00.000Z"),
+      }),
+    ).toMatchObject({
+      externalLinks: [
+        {
+          label: "Ficha municipal",
+          url: "https://municipio.example.com/sanroque",
+        },
+      ],
+      logoUrl: "https://example.com/logo.png",
+      photoUrl: "https://example.com/photo.png",
+      socialLinks: [
+        {
+          label: "Instagram",
+          url: "https://instagram.example.com/sanroque",
+        },
+      ],
+      websiteUrl: "https://sanroque.example.com",
     });
   });
 
@@ -215,6 +339,7 @@ describe("resource provider repository", () => {
       ],
     });
     expect(JSON.stringify(profile)).not.toContain("exact");
+    expect(JSON.stringify(profile)).not.toContain("Plaza Abaroa");
     expect(JSON.stringify(profile)).not.toContain(
       "22222222-2222-4222-8222-222222222222",
     );
@@ -229,6 +354,9 @@ describe("resource provider repository", () => {
     });
 
     expect(profile).toMatchObject({
+      addressLabel: "Plaza Abaroa, La Paz",
+      city: "La Paz",
+      department: "La Paz",
       sponsorPlacements: [
         {
           endsOn: "2026-07-31",

@@ -41,7 +41,12 @@ describe("AdminResourcesDashboard", () => {
     expect(html).toContain("Sopocachi");
     expect(html).toContain("Registrar proveedor");
     expect(html).toContain("Latitud exacta");
-    expect(html).toContain("Valor de contacto");
+    expect(html).toContain("Ubicación avanzada y privacidad");
+    expect(html).toContain("Opciones de contacto");
+    expect(html).toContain("Logo URL");
+    expect(html).toContain("Redes sociales");
+    expect(html).toContain("Enlaces externos");
+    expect(html).toContain("Plaza Abaroa, La Paz");
     expect(html).toContain("Guardar detalles");
     expect(html).not.toContain("Falta contrato API para actualizar detalles");
     expect(html).toContain("Guardar identidad");
@@ -109,8 +114,11 @@ function providerProfile(): AdminResourceProviderProfile {
   return {
     id: "11111111-1111-4111-8111-111111111111",
     name: "Clinica Veterinaria San Roque",
+    addressLabel: "Plaza Abaroa, La Paz",
     categoryId: "veterinary",
+    city: "La Paz",
     description: "Veterinaria local con atencion general y urgencias.",
+    department: "La Paz",
     approximateLocationLabel: "Sopocachi, La Paz",
     approximateLocation: {
       latitude: -16.51051,

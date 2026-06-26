@@ -61,6 +61,8 @@ describe("admin resources page", () => {
         providerProfile({
           id: "22222222-2222-4222-8222-222222222222",
           approximateLocationLabel: "Miraflores, La Paz",
+          city: "La Paz",
+          department: "La Paz",
           name: "Patitas La Paz",
           isVerified: false,
           sponsorPlacement: undefined,
@@ -81,6 +83,8 @@ describe("admin resources page", () => {
     expect(html).toContain("Patitas La Paz");
     expect(html).toContain("Registrar proveedor");
     expect(html).toContain("Latitud exacta");
+    expect(html).toContain("Ubicación avanzada y privacidad");
+    expect(html).toContain("Opciones de contacto");
     expect(html).toContain("Guardar detalles");
     expect(html).toContain("Guardar identidad");
     expect(html).toContain("Adjuntar patrocinio local");
@@ -149,7 +153,9 @@ function providerProfile(
     id: "11111111-1111-4111-8111-111111111111",
     name: "Clinica Veterinaria San Roque",
     categoryId: "veterinary",
+    city: "La Paz",
     description: "Veterinaria local con atencion general y urgencias.",
+    department: "La Paz",
     approximateLocationLabel: "Sopocachi, La Paz",
     approximateLocation: {
       latitude: -16.51051,

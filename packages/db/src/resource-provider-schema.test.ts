@@ -51,6 +51,8 @@ describe("resource provider schema", () => {
     expect(ResourceProviderLocation.exactLongitude).toBeDefined();
     expect(ResourceProviderLocation.publicLatitude).toBeDefined();
     expect(ResourceProviderLocation.publicLongitude).toBeDefined();
+    expect(ResourceProviderLocation.city).toBeDefined();
+    expect(ResourceProviderLocation.department).toBeDefined();
     expect(ResourceProviderLocation.approximateLocationLabel).toBeDefined();
     expect(ResourceProviderLocation.locationCell).toBeDefined();
   });
@@ -70,6 +72,8 @@ describe("resource provider schema", () => {
       expect.arrayContaining([
         "resource_provider_location_exact_point_gist_idx",
         "resource_provider_location_public_point_gist_idx",
+        "resource_provider_location_city_idx",
+        "resource_provider_location_department_idx",
         "resource_provider_location_cell_idx",
       ]),
     );

@@ -9,6 +9,10 @@ import {
   resourceProviderCategoryOptions,
   resourceProviderContactKindOptions,
 } from "./admin-resource-provider-admin-model";
+import {
+  adminResourceProviderMaxContactOptions,
+  adminResourceProviderMaxLinks,
+} from "./admin-resource-provider-form-parser";
 
 export type AdminResourcesViewerRole = "admin" | "member" | "visitor";
 
@@ -371,8 +375,6 @@ function DetailsControls(props: {
   formAction?: React.ComponentProps<"form">["action"];
   provider: AdminResourceProviderViewModel;
 }) {
-  const primaryContact = props.provider.contactOptions[0];
-
   return (
     <form
       action={props.formAction}
@@ -449,40 +451,6 @@ function DetailsControls(props: {
           />
         </label>
         <label className="flex flex-col gap-1 text-xs font-semibold">
-          Tipo de contacto
-          <select
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-            defaultValue={primaryContact?.kind ?? "whatsapp"}
-            name="contactKind"
-          >
-            {resourceProviderContactKindOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Etiqueta de contacto
-          <input
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-            defaultValue={primaryContact?.label ?? "WhatsApp institucional"}
-            name="contactLabel"
-            required
-            type="text"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Valor de contacto
-          <input
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-            defaultValue={primaryContact?.value ?? ""}
-            name="contactValue"
-            required
-            type="text"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
           Sitio web
           <input
             className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
@@ -491,6 +459,32 @@ function DetailsControls(props: {
             type="url"
           />
         </label>
+        <label className="flex flex-col gap-1 text-xs font-semibold">
+          Logo URL
+          <input
+            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+            defaultValue={props.provider.logoUrl ?? ""}
+            name="logoUrl"
+            type="url"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-semibold">
+          Foto URL
+          <input
+            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+            defaultValue={props.provider.photoUrl ?? ""}
+            name="photoUrl"
+            type="url"
+          />
+        </label>
+        <ContactOptionsFields
+          contactOptions={props.provider.contactOptions}
+          firstRowRequired={true}
+        />
+        <LinkFields
+          externalLinks={props.provider.externalLinks}
+          socialLinks={props.provider.socialLinks}
+        />
         <div className="grid gap-2 text-xs font-semibold">
           <label className="flex items-center gap-2">
             <input
@@ -511,9 +505,36 @@ function DetailsControls(props: {
         </div>
         <details className="border-border rounded-md border p-3">
           <summary className="cursor-pointer text-xs font-semibold">
-            Reemplazar ubicación
+            Ubicación avanzada y privacidad
           </summary>
+          <p className="text-muted-foreground mt-2 text-xs font-normal">
+            La latitud y longitud exactas se guardan para búsqueda interna. El
+            directorio público usa la zona aproximada y la celda de ubicación,
+            no coordenadas exactas.
+          </p>
           <div className="mt-3 grid gap-2">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-xs font-semibold">
+                Departamento
+                <input
+                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+                  defaultValue={props.provider.department}
+                  name="department"
+                  required
+                  type="text"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-semibold">
+                Ciudad
+                <input
+                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+                  defaultValue={props.provider.city}
+                  name="city"
+                  required
+                  type="text"
+                />
+              </label>
+            </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <label className="flex flex-col gap-1 text-xs font-semibold">
                 Latitud exacta
@@ -540,8 +561,9 @@ function DetailsControls(props: {
               Ubicación aproximada visible
               <input
                 className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-                defaultValue={`${props.provider.city}, ${props.provider.department}`}
+                defaultValue={props.provider.approximateLocationLabel}
                 name="approximateLocationLabel"
+                required
                 type="text"
               />
             </label>
@@ -551,6 +573,7 @@ function DetailsControls(props: {
                 className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
                 defaultValue={props.provider.locationCell}
                 name="locationCell"
+                required
                 type="text"
               />
             </label>
@@ -558,6 +581,7 @@ function DetailsControls(props: {
               Dirección interna
               <input
                 className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+                defaultValue={props.provider.addressLabel ?? ""}
                 name="addressLabel"
                 type="text"
               />
@@ -574,6 +598,128 @@ function DetailsControls(props: {
         Guardar detalles
       </button>
     </form>
+  );
+}
+
+function ContactOptionsFields(props: {
+  contactOptions?: AdminResourceProviderViewModel["contactOptions"];
+  firstRowRequired: boolean;
+}) {
+  const contactOptions = props.contactOptions ?? [];
+
+  return (
+    <fieldset className="grid gap-2">
+      <legend className="text-xs font-semibold">Opciones de contacto</legend>
+      {Array.from({ length: adminResourceProviderMaxContactOptions }).map(
+        (_, index) => {
+          const contact = contactOptions[index];
+          const rowIsRequired = props.firstRowRequired && index === 0;
+
+          return (
+            <div
+              className="grid gap-2 rounded-md border border-dashed p-2 sm:grid-cols-[minmax(110px,0.8fr)_minmax(0,1fr)_minmax(0,1fr)]"
+              key={index}
+            >
+              <label className="flex flex-col gap-1 text-xs font-semibold">
+                Tipo
+                <select
+                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+                  defaultValue={contact?.kind ?? "whatsapp"}
+                  name={`contactKind${index}`}
+                >
+                  {resourceProviderContactKindOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-semibold">
+                Etiqueta
+                <input
+                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+                  defaultValue={
+                    contact?.label ??
+                    (rowIsRequired ? "WhatsApp institucional" : "")
+                  }
+                  name={`contactLabel${index}`}
+                  required={rowIsRequired}
+                  type="text"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-semibold">
+                Valor
+                <input
+                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+                  defaultValue={contact?.value ?? ""}
+                  name={`contactValue${index}`}
+                  required={rowIsRequired}
+                  type="text"
+                />
+              </label>
+            </div>
+          );
+        },
+      )}
+    </fieldset>
+  );
+}
+
+function LinkFields(props: {
+  externalLinks?: AdminResourceProviderViewModel["externalLinks"];
+  socialLinks?: AdminResourceProviderViewModel["socialLinks"];
+}) {
+  return (
+    <div className="grid gap-3">
+      <LinkGroupFields
+        fieldPrefix="socialLink"
+        links={props.socialLinks ?? []}
+        title="Redes sociales"
+      />
+      <LinkGroupFields
+        fieldPrefix="externalLink"
+        links={props.externalLinks ?? []}
+        title="Enlaces externos"
+      />
+    </div>
+  );
+}
+
+function LinkGroupFields(props: {
+  fieldPrefix: "externalLink" | "socialLink";
+  links: AdminResourceProviderViewModel["externalLinks"];
+  title: string;
+}) {
+  return (
+    <fieldset className="grid gap-2">
+      <legend className="text-xs font-semibold">{props.title}</legend>
+      {Array.from({ length: adminResourceProviderMaxLinks }).map((_, index) => {
+        const link = props.links[index];
+
+        return (
+          <div className="grid gap-2 sm:grid-cols-2" key={index}>
+            <label className="flex flex-col gap-1 text-xs font-semibold">
+              Etiqueta
+              <input
+                className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+                defaultValue={link?.label ?? ""}
+                name={`${props.fieldPrefix}Label${index}`}
+                type="text"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-semibold">
+              URL
+              <input
+                className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+                defaultValue={link?.url ?? ""}
+                name={`${props.fieldPrefix}Url${index}`}
+                type="url"
+              />
+            </label>
+          </div>
+        );
+      })}
+    </fieldset>
   );
 }
 
@@ -937,81 +1083,93 @@ function CreateProviderForm(props: {
             required
           />
         </label>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="flex flex-col gap-1 text-xs font-semibold">
-            Departamento
-            <input
-              className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-              name="department"
-              placeholder="La Paz"
-              required
-              type="text"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-semibold">
-            Ciudad
-            <input
-              className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-              name="city"
-              placeholder="El Alto"
-              required
-              type="text"
-            />
-          </label>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="flex flex-col gap-1 text-xs font-semibold">
-            Latitud exacta
-            <input
-              className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-              name="exactLatitude"
-              placeholder="-16.500000"
-              required
-              step="0.000001"
-              type="number"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-semibold">
-            Longitud exacta
-            <input
-              className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-              name="exactLongitude"
-              placeholder="-68.120000"
-              required
-              step="0.000001"
-              type="number"
-            />
-          </label>
-        </div>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Ubicación aproximada visible
-          <input
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-            name="approximateLocationLabel"
-            placeholder="Sopocachi, La Paz"
-            required
-            type="text"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Celda de ubicación
-          <input
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-            name="locationCell"
-            placeholder="bo-lpb-sopocachi"
-            required
-            type="text"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Dirección interna
-          <input
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-            name="addressLabel"
-            placeholder="Zona Sopocachi, La Paz"
-            type="text"
-          />
-        </label>
+        <details className="border-border rounded-md border p-3" open>
+          <summary className="cursor-pointer text-xs font-semibold">
+            Ubicación avanzada y privacidad
+          </summary>
+          <p className="text-muted-foreground mt-2 text-xs font-normal">
+            La latitud y longitud exactas se guardan para búsqueda interna. El
+            directorio público usa la zona aproximada y la celda de ubicación,
+            no coordenadas exactas.
+          </p>
+          <div className="mt-3 grid gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-xs font-semibold">
+                Departamento
+                <input
+                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+                  name="department"
+                  placeholder="La Paz"
+                  required
+                  type="text"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-semibold">
+                Ciudad
+                <input
+                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+                  name="city"
+                  placeholder="El Alto"
+                  required
+                  type="text"
+                />
+              </label>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-xs font-semibold">
+                Latitud exacta
+                <input
+                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+                  name="exactLatitude"
+                  placeholder="-16.500000"
+                  required
+                  step="0.000001"
+                  type="number"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-semibold">
+                Longitud exacta
+                <input
+                  className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+                  name="exactLongitude"
+                  placeholder="-68.120000"
+                  required
+                  step="0.000001"
+                  type="number"
+                />
+              </label>
+            </div>
+            <label className="flex flex-col gap-1 text-xs font-semibold">
+              Ubicación aproximada visible
+              <input
+                className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+                name="approximateLocationLabel"
+                placeholder="Sopocachi, La Paz"
+                required
+                type="text"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-semibold">
+              Celda de ubicación
+              <input
+                className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+                name="locationCell"
+                placeholder="bo-lpb-sopocachi"
+                required
+                type="text"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-semibold">
+              Dirección interna
+              <input
+                className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+                name="addressLabel"
+                placeholder="Zona Sopocachi, La Paz"
+                type="text"
+              />
+            </label>
+          </div>
+        </details>
         <label className="flex flex-col gap-1 text-xs font-semibold">
           Cobertura
           <input
@@ -1033,39 +1191,6 @@ function CreateProviderForm(props: {
           />
         </label>
         <label className="flex flex-col gap-1 text-xs font-semibold">
-          Tipo de contacto
-          <select
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-            name="contactKind"
-          >
-            {resourceProviderContactKindOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Etiqueta de contacto
-          <input
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-            name="contactLabel"
-            placeholder="WhatsApp institucional"
-            required
-            type="text"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          Valor de contacto
-          <input
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
-            name="contactValue"
-            placeholder="+591 70000001"
-            required
-            type="text"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
           Sitio web
           <input
             className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
@@ -1074,6 +1199,26 @@ function CreateProviderForm(props: {
             type="url"
           />
         </label>
+        <label className="flex flex-col gap-1 text-xs font-semibold">
+          Logo URL
+          <input
+            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+            name="logoUrl"
+            placeholder="https://proveedor.example/logo.png"
+            type="url"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-semibold">
+          Foto URL
+          <input
+            className="border-input bg-background rounded-md border px-3 py-2 text-sm font-normal"
+            name="photoUrl"
+            placeholder="https://proveedor.example/foto.png"
+            type="url"
+          />
+        </label>
+        <ContactOptionsFields firstRowRequired={true} />
+        <LinkFields />
         <div className="grid gap-2 text-xs font-semibold">
           <label className="flex items-center gap-2">
             <input name="emergencyAvailable" type="checkbox" />

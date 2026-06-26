@@ -30,9 +30,12 @@ export interface PersistedResourceProviderContactOption {
 }
 
 export interface PersistedResourceProviderLocation {
+  addressLabel: string | null;
   publicLatitude: number;
   publicLongitude: number;
   precision: "approximate";
+  city: string;
+  department: string;
   approximateLocationLabel: string;
   locationCell: string;
 }
@@ -88,6 +91,9 @@ export interface AdminResourceProviderSponsorPlacement {
 }
 
 export type AdminResourceProviderProfile = PublicResourceProviderProfile & {
+  addressLabel?: string;
+  city: string;
+  department: string;
   sponsorPlacements: AdminResourceProviderSponsorPlacement[];
   verificationNote?: string;
 };
@@ -237,6 +243,9 @@ export function toAdminResourceProviderProfile(
 
   return {
     ...toPublicResourceProviderProfile(provider, { now }),
+    addressLabel: provider.location.addressLabel ?? undefined,
+    city: provider.location.city,
+    department: provider.location.department,
     sponsorPlacements: provider.sponsorPlacements.map((placement) => ({
       disclosure: placement.disclosure,
       endsOn: toDateOnly(placement.endsAt),
@@ -384,13 +393,10 @@ export function createDrizzleResourceProviderRepository(
         );
 
         await tx.insert(ResourceProviderContactOption).values(
-          provider.contactOptions.map((contact, index) => ({
-            kind: contact.kind,
-            label: contact.label,
+          buildResourceProviderContactOptionWriteValues({
+            contactOptions: provider.contactOptions,
             providerId: created.id,
-            sortOrder: index,
-            value: contact.value,
-          })),
+          }),
         );
 
         return created.id;
@@ -428,12 +434,7 @@ export function createDrizzleResourceProviderRepository(
         if (provider.location) {
           await tx
             .update(ResourceProviderLocation)
-            .set(
-              buildResourceProviderLocationWriteValues({
-                location: provider.location,
-                providerId: provider.providerId,
-              }),
-            )
+            .set(buildResourceProviderLocationUpdateValues(provider.location))
             .where(
               eq(ResourceProviderLocation.providerId, provider.providerId),
             );
@@ -445,15 +446,14 @@ export function createDrizzleResourceProviderRepository(
             .where(
               eq(ResourceProviderContactOption.providerId, provider.providerId),
             );
-          await tx.insert(ResourceProviderContactOption).values(
-            provider.contactOptions.map((contact, index) => ({
-              kind: contact.kind,
-              label: contact.label,
-              providerId: provider.providerId,
-              sortOrder: index,
-              value: contact.value,
-            })),
-          );
+          await tx
+            .insert(ResourceProviderContactOption)
+            .values(
+              buildResourceProviderContactOptionWriteValues({
+                contactOptions: provider.contactOptions,
+                providerId: provider.providerId,
+              }),
+            );
         }
 
         return updated.id;
@@ -561,7 +561,10 @@ async function loadSponsorPlacements(db: Database, providerId: string) {
 }
 
 export function derivePublicResourceProviderLocation(
-  location: CreateResourceProviderInput["location"],
+  location: Pick<
+    CreateResourceProviderInput["location"],
+    "exactLatitude" | "exactLongitude"
+  >,
 ) {
   const approximateLocation = buildApproximatePublicResourceProviderLocation({
     exactLatitude: location.exactLatitude,
@@ -586,6 +589,8 @@ export function buildResourceProviderLocationWriteValues({
   return {
     addressLabel: location.addressLabel ?? null,
     approximateLocationLabel: location.approximateLocationLabel,
+    city: location.city,
+    department: location.department,
     exactLatitude: location.exactLatitude,
     exactLongitude: location.exactLongitude,
     exactPoint: {
@@ -604,7 +609,77 @@ export function buildResourceProviderLocationWriteValues({
   };
 }
 
-function buildResourceProviderUpdateValues({
+export function buildResourceProviderLocationUpdateValues(
+  location: UpdateResourceProviderInput["location"],
+) {
+  if (!location) {
+    return {};
+  }
+
+  const exactLocation =
+    location.exactLatitude !== undefined && location.exactLongitude !== undefined
+      ? buildExactResourceProviderLocationUpdateValues({
+          exactLatitude: location.exactLatitude,
+          exactLongitude: location.exactLongitude,
+        })
+      : {};
+
+  return omitUndefinedProperties({
+    ...exactLocation,
+    addressLabel: location.addressLabel,
+    approximateLocationLabel: location.approximateLocationLabel,
+    city: location.city,
+    department: location.department,
+    locationCell: location.locationCell,
+  }) as Partial<typeof ResourceProviderLocation.$inferInsert>;
+}
+
+function buildExactResourceProviderLocationUpdateValues({
+  exactLatitude,
+  exactLongitude,
+}: {
+  exactLatitude: number;
+  exactLongitude: number;
+}) {
+  const publicLocation = derivePublicResourceProviderLocation({
+    exactLatitude,
+    exactLongitude,
+  });
+
+  return {
+    exactLatitude,
+    exactLongitude,
+    exactPoint: {
+      x: exactLongitude,
+      y: exactLatitude,
+    },
+    publicLatitude: publicLocation.publicLatitude,
+    publicLongitude: publicLocation.publicLongitude,
+    publicPoint: {
+      x: publicLocation.publicLongitude,
+      y: publicLocation.publicLatitude,
+    },
+    publicPrecision: "approximate" as const,
+  };
+}
+
+export function buildResourceProviderContactOptionWriteValues({
+  contactOptions,
+  providerId,
+}: {
+  contactOptions: CreateResourceProviderInput["contactOptions"];
+  providerId: string;
+}) {
+  return contactOptions.map((contact, index) => ({
+    kind: contact.kind,
+    label: contact.label,
+    providerId,
+    sortOrder: index,
+    value: contact.value,
+  }));
+}
+
+export function buildResourceProviderUpdateValues({
   provider,
   updatedAt,
 }: {
@@ -666,9 +741,12 @@ function toPersistedResourceProvider(
     updatedAt: row.updatedAt,
     deletedAt: row.deletedAt,
     location: {
+      addressLabel: row.location.addressLabel,
       publicLatitude: row.location.publicLatitude,
       publicLongitude: row.location.publicLongitude,
       precision: "approximate",
+      city: row.location.city,
+      department: row.location.department,
       approximateLocationLabel: row.location.approximateLocationLabel,
       locationCell: row.location.locationCell,
     },

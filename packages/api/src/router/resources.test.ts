@@ -55,6 +55,8 @@ const createProviderInput = {
   location: {
     exactLatitude: -16.510231,
     exactLongitude: -68.123881,
+    city: "La Paz",
+    department: "La Paz",
     approximateLocationLabel: "Sopocachi, La Paz",
     locationCell: "bo-lpb-sopocachi",
   },
@@ -239,11 +241,118 @@ describe("resources router", () => {
         location: {
           exactLatitude: -16.510231,
           exactLongitude: -68.123881,
+          city: "La Paz",
+          department: "La Paz",
         },
       },
     });
     expect(created.name).toBe("Clinica Veterinaria San Roque");
     expect(JSON.stringify(created)).not.toContain("-16.510231");
+  });
+
+  it("lets allowlisted admins create providers with multiple contacts and manageable link fields", async () => {
+    let createInput:
+      | {
+          adminId: string;
+          provider: CreateResourceProviderInput;
+        }
+      | undefined;
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      resourceProviderRepository: {
+        createProvider: (input: NonNullable<typeof createInput>) => {
+          createInput = input;
+          return Promise.resolve(
+            providerProfile({
+              contactOptions: input.provider.contactOptions,
+              logoUrl: input.provider.logoUrl,
+              photoUrl: input.provider.photoUrl,
+              websiteUrl: input.provider.websiteUrl,
+              socialLinks: input.provider.socialLinks,
+              externalLinks: input.provider.externalLinks,
+            }),
+          );
+        },
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin-la-paz",
+        },
+      },
+    });
+
+    const created = await caller.resources.admin.createProvider({
+      ...createProviderInput,
+      logoUrl: "https://example.com/logo.png",
+      photoUrl: "https://example.com/photo.png",
+      websiteUrl: "https://sanroque.example.com",
+      contactOptions: [
+        {
+          kind: "phone",
+          label: "Llamar",
+          value: "+591 2 222 1111",
+        },
+        {
+          kind: "whatsapp",
+          label: "WhatsApp",
+          value: "+591 70000001",
+        },
+        {
+          kind: "email",
+          label: "Correo",
+          value: "contacto@sanroque.example",
+        },
+      ],
+      socialLinks: [
+        {
+          label: "Instagram",
+          url: "https://instagram.example.com/sanroque",
+        },
+      ],
+      externalLinks: [
+        {
+          label: "Ficha municipal",
+          url: "https://municipio.example.com/sanroque",
+        },
+      ],
+    });
+
+    expect(createInput?.provider.location).toMatchObject({
+      city: "La Paz",
+      department: "La Paz",
+    });
+    expect(created).toMatchObject({
+      contactOptions: [
+        {
+          kind: "phone",
+          label: "Llamar",
+        },
+        {
+          kind: "whatsapp",
+          label: "WhatsApp",
+        },
+        {
+          kind: "email",
+          label: "Correo",
+        },
+      ],
+      logoUrl: "https://example.com/logo.png",
+      photoUrl: "https://example.com/photo.png",
+      websiteUrl: "https://sanroque.example.com",
+      socialLinks: [
+        {
+          label: "Instagram",
+          url: "https://instagram.example.com/sanroque",
+        },
+      ],
+      externalLinks: [
+        {
+          label: "Ficha municipal",
+          url: "https://municipio.example.com/sanroque",
+        },
+      ],
+    });
   });
 
   it("lets allowlisted admins update provider details, contact, and location", async () => {
@@ -315,6 +424,115 @@ describe("resources router", () => {
       ],
     });
     expect(JSON.stringify(updated)).not.toContain("-16.510231");
+  });
+
+  it("lets allowlisted admins update multiple contacts without dropping link fields", async () => {
+    let updateInput:
+      | {
+          adminId: string;
+          provider: UpdateResourceProviderInput;
+        }
+      | undefined;
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      resourceProviderRepository: {
+        updateProvider: (input: NonNullable<typeof updateInput>) => {
+          updateInput = input;
+          return Promise.resolve(
+            providerProfile({
+              contactOptions: input.provider.contactOptions,
+              logoUrl: input.provider.logoUrl ?? undefined,
+              photoUrl: input.provider.photoUrl ?? undefined,
+              websiteUrl: input.provider.websiteUrl ?? undefined,
+              socialLinks: input.provider.socialLinks ?? undefined,
+              externalLinks: input.provider.externalLinks ?? undefined,
+            }),
+          );
+        },
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin-la-paz",
+        },
+      },
+    });
+
+    const updated = await caller.resources.admin.updateProvider({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      description: "Veterinaria local con atencion general y urgencias.",
+      logoUrl: "https://example.com/logo.png",
+      photoUrl: "https://example.com/photo.png",
+      websiteUrl: "https://sanroque.example.com",
+      contactOptions: [
+        {
+          kind: "phone",
+          label: "Llamar",
+          value: "+591 2 222 1111",
+        },
+        {
+          kind: "whatsapp",
+          label: "WhatsApp",
+          value: "+591 70000001",
+        },
+        {
+          kind: "email",
+          label: "Correo",
+          value: "contacto@sanroque.example",
+        },
+      ],
+      socialLinks: [
+        {
+          label: "Instagram",
+          url: "https://instagram.example.com/sanroque",
+        },
+      ],
+      externalLinks: [
+        {
+          label: "Ficha municipal",
+          url: "https://municipio.example.com/sanroque",
+        },
+      ],
+    });
+
+    expect(updateInput).toMatchObject({
+      adminId: "member-admin-la-paz",
+      provider: {
+        contactOptions: [
+          {
+            kind: "phone",
+            label: "Llamar",
+          },
+          {
+            kind: "whatsapp",
+            label: "WhatsApp",
+          },
+          {
+            kind: "email",
+            label: "Correo",
+          },
+        ],
+      },
+    });
+    expect(updated).toMatchObject({
+      contactOptions: [
+        {
+          kind: "phone",
+          label: "Llamar",
+        },
+        {
+          kind: "whatsapp",
+          label: "WhatsApp",
+        },
+        {
+          kind: "email",
+          label: "Correo",
+        },
+      ],
+      logoUrl: "https://example.com/logo.png",
+      photoUrl: "https://example.com/photo.png",
+      websiteUrl: "https://sanroque.example.com",
+    });
   });
 
   it("lets allowlisted admins soft-delete providers through the repository", async () => {

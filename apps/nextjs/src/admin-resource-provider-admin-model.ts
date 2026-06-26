@@ -41,6 +41,8 @@ export interface AdminResourceProviderListViewModel {
 
 export interface AdminResourceProviderViewModel {
   activeSponsorPlacement?: AdminResourceProviderActiveSponsorPlacementViewModel;
+  addressLabel?: string;
+  approximateLocationLabel: string;
   category: AdminResourceProviderCategory;
   categoryLabel: string;
   city: string;
@@ -49,13 +51,17 @@ export interface AdminResourceProviderViewModel {
   department: string;
   description: string;
   emergencyAvailable: boolean;
+  externalLinks: NonNullable<AdminResourceProviderProfile["externalLinks"]>;
   hoursLabel: string;
   isOpenNow: boolean;
   locationCell: string;
+  logoUrl?: string;
   name: string;
+  photoUrl?: string;
   providerId: string;
   serviceAreaLabel: string;
   shortDescription: string;
+  socialLinks: NonNullable<AdminResourceProviderProfile["socialLinks"]>;
   sponsorPlacements: LocalSponsorPlacementViewModel[];
   verificationBadge: VerificationBadgeViewModel;
   websiteUrl?: string;
@@ -251,38 +257,33 @@ function toAdminResourceProviderViewModel(
     longitude: 0,
     precision: "approximate" as const,
   };
-  const locationParts = profile.approximateLocationLabel
-    .split(",")
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
-  const city = locationParts[0] ?? profile.approximateLocationLabel;
-  const department =
-    locationParts.length > 1
-      ? (locationParts[locationParts.length - 1] ??
-        profile.approximateLocationLabel)
-      : approximateLocation.locationCell;
-
   return {
     activeSponsorPlacement: profile.sponsorPlacement
       ? toActiveSponsorPlacementViewModel(profile.sponsorPlacement)
       : undefined,
+    addressLabel: profile.addressLabel,
+    approximateLocationLabel: profile.approximateLocationLabel,
     category: profile.categoryId,
     categoryLabel: categoryLabels[profile.categoryId],
-    city,
+    city: profile.city,
     contactLabel: profile.contactOptions
       .map((contact) => contact.label)
       .join(", "),
     contactOptions: profile.contactOptions,
-    department,
+    department: profile.department,
     description: profile.description,
     emergencyAvailable: profile.emergencyAvailable ?? false,
+    externalLinks: profile.externalLinks ?? [],
     hoursLabel: profile.hoursLabel,
     isOpenNow: profile.isOpenNow ?? false,
     locationCell: approximateLocation.locationCell,
+    logoUrl: profile.logoUrl,
     name: profile.name,
+    photoUrl: profile.photoUrl,
     providerId: profile.id,
     serviceAreaLabel: profile.serviceAreaLabel,
     shortDescription: profile.shortDescription,
+    socialLinks: profile.socialLinks ?? [],
     sponsorPlacements: profile.sponsorPlacements.map(
       toLocalSponsorPlacementViewModel,
     ),

@@ -353,6 +353,8 @@ export const ResourceProviderLocation = pgTable(
     publicLatitude: t.doublePrecision().notNull(),
     publicLongitude: t.doublePrecision().notNull(),
     publicPrecision: publicLocationPrecision().default("approximate").notNull(),
+    city: t.varchar({ length: 120 }).notNull(),
+    department: t.varchar({ length: 80 }).notNull(),
     approximateLocationLabel: t.varchar({ length: 160 }).notNull(),
     locationCell: t.varchar({ length: 96 }).notNull(),
     addressLabel: t.varchar({ length: 240 }),
@@ -376,6 +378,8 @@ export const ResourceProviderLocation = pgTable(
       "gist",
       table.publicPoint,
     ),
+    index("resource_provider_location_city_idx").on(table.city),
+    index("resource_provider_location_department_idx").on(table.department),
     index("resource_provider_location_cell_idx").on(table.locationCell),
   ],
 );

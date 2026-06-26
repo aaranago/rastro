@@ -1,0 +1,76 @@
+import { describe, expect, it } from "vitest";
+
+import type { AdminResourceProviderProfile } from "./admin-resource-provider-admin-model";
+import { buildAdminResourceProviderListViewModel } from "./admin-resource-provider-admin-model";
+
+describe("admin resource provider model", () => {
+  it("uses structured city and department fields for provider metrics", () => {
+    const viewModel = buildAdminResourceProviderListViewModel([
+      providerProfile({
+        approximateLocationLabel: "Zona norte visible",
+        city: "El Alto",
+        department: "La Paz",
+      }),
+    ]);
+
+    expect(viewModel.providers[0]).toMatchObject({
+      approximateLocationLabel: "Zona norte visible",
+      city: "El Alto",
+      department: "La Paz",
+    });
+    expect(viewModel.metrics).toMatchObject({
+      byCity: [
+        {
+          label: "El Alto",
+          providerCount: 1,
+        },
+      ],
+      byDepartment: [
+        {
+          label: "La Paz",
+          providerCount: 1,
+        },
+      ],
+    });
+    expect(JSON.stringify(viewModel.metrics)).not.toContain(
+      "Zona norte visible",
+    );
+  });
+});
+
+function providerProfile(
+  overrides: Partial<AdminResourceProviderProfile> = {},
+): AdminResourceProviderProfile {
+  return {
+    id: "11111111-1111-4111-8111-111111111111",
+    name: "Clinica Veterinaria San Roque",
+    categoryId: "veterinary",
+    city: "La Paz",
+    department: "La Paz",
+    description: "Veterinaria local con atencion general y urgencias.",
+    approximateLocationLabel: "Sopocachi, La Paz",
+    approximateLocation: {
+      latitude: -16.51051,
+      longitude: -68.124602,
+      precision: "approximate",
+      label: "Sopocachi, La Paz",
+      locationCell: "bo-lpb-sopocachi",
+    },
+    serviceAreaLabel: "Atiende La Paz y El Alto",
+    hoursLabel: "Lun - Dom: 24 horas",
+    shortDescription:
+      "Atencion veterinaria general y orientacion para familias cuidadoras.",
+    isVerified: true,
+    emergencyAvailable: true,
+    isOpenNow: true,
+    contactOptions: [
+      {
+        kind: "phone",
+        label: "Llamar",
+        value: "+591 2 222 1111",
+      },
+    ],
+    sponsorPlacements: [],
+    ...overrides,
+  };
+}

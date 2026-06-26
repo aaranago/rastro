@@ -25,6 +25,8 @@ const createProviderInput = {
   location: {
     exactLatitude: -16.510231,
     exactLongitude: -68.123881,
+    city: "La Paz",
+    department: "La Paz",
     approximateLocationLabel: "Sopocachi, La Paz",
     locationCell: "bo-lpb-sopocachi",
     addressLabel: "Plaza Abaroa, La Paz",
@@ -91,6 +93,8 @@ describe("resource provider validation contracts", () => {
     expect(result.data?.location).toMatchObject({
       exactLatitude: -16.510231,
       exactLongitude: -68.123881,
+      city: "La Paz",
+      department: "La Paz",
       approximateLocationLabel: "Sopocachi, La Paz",
     });
   });
@@ -114,6 +118,10 @@ describe("resource provider validation contracts", () => {
       providerId: "11111111-1111-4111-8111-111111111111",
       name: "Clinica Veterinaria San Roque Norte",
       logoUrl: null,
+      location: {
+        city: "El Alto",
+        department: "La Paz",
+      },
       contactOptions: [
         {
           kind: "whatsapp",
@@ -129,6 +137,36 @@ describe("resource provider validation contracts", () => {
         providerId: "11111111-1111-4111-8111-111111111111",
       }).success,
     ).toBe(false);
+  });
+
+  it("accepts structured city and department location updates without requiring exact coordinates", () => {
+    const result = updateResourceProviderInputSchema.safeParse({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      location: {
+        city: "El Alto",
+        department: "La Paz",
+        approximateLocationLabel: "Ciudad Satelite, El Alto",
+        locationCell: "bo-lpb-el-alto-ciudad-satelite",
+      },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.location).toMatchObject({
+      city: "El Alto",
+      department: "La Paz",
+    });
+  });
+
+  it("requires both exact coordinates when an admin changes provider coordinates", () => {
+    const result = updateResourceProviderInputSchema.safeParse({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      location: {
+        exactLatitude: -16.510231,
+      },
+    });
+
+    expect(result.success).toBe(false);
+    expect(JSON.stringify(result.error?.issues)).toContain("exactLongitude");
   });
 
   it("rejects caller-supplied public coordinates for provider location updates", () => {
