@@ -2,41 +2,30 @@ import type { Metadata } from "next";
 
 import { buildPublicAdoptionListingShareTarget } from "@acme/validators";
 
-export interface PublicAdoptionListingPhoto {
-  alt: string;
-  src: string;
-}
+import type {
+  PublicReportDetail,
+  PublicReportDetailLoader,
+} from "./public-report-detail-api-adapter";
+import { getPublicReportDetail } from "./public-report-detail-api-adapter";
+import type {
+  PublicReportPageContactOption,
+  PublicReportPageLocation,
+  PublicReportPagePet,
+  PublicReportPagePhoto,
+} from "./public-report-detail-mapping";
+import {
+  appDownloadHref,
+  buildPublicReportArticleMetadata,
+  buildPublicReportContactOptions,
+  buildPublicReportLocation,
+  buildPublicReportPetViewModel,
+  buildPublicReportPhotos,
+  formatReportDate,
+  publicWebBaseUrl,
+} from "./public-report-detail-mapping";
 
-export interface PublicAdoptionListingPet {
-  breed: string;
-  name: string;
-  type: string;
-}
-
-type PublicAdoptionListingContactFixture =
-  | {
-      kind: "app-chat";
-    }
-  | {
-      kind: "whatsapp";
-      phoneE164: string;
-    };
-
-interface PublicAdoptionListingFixture {
-  approximateLocation: string;
-  contactOptions: PublicAdoptionListingContactFixture[];
-  creator: {
-    displayName: string;
-    verificationBadge: {
-      label: string;
-      note: string;
-    } | null;
-  };
-  description: string;
-  id: string;
-  pet: PublicAdoptionListingPet;
-  photos: [PublicAdoptionListingPhoto, ...PublicAdoptionListingPhoto[]];
-}
+export type PublicAdoptionListingPhoto = PublicReportPagePhoto;
+export type PublicAdoptionListingPet = PublicReportPagePet;
 
 export interface PublicAdoptionListingViewModel {
   appPrompts: {
@@ -45,169 +34,51 @@ export interface PublicAdoptionListingViewModel {
     openHref: string;
     openLabel: string;
   };
-  contactOptions: (
-    | {
-        href: string;
-        kind: "app-chat";
-        label: string;
-      }
-    | {
-        href: string;
-        kind: "whatsapp";
-        label: string;
-      }
-  )[];
-  creator: {
-    displayName: string;
-    verificationBadge: {
-      label: string;
-      note: string;
-    } | null;
-  };
+  contactOptions: PublicReportPageContactOption[];
   description: string;
   pet: PublicAdoptionListingPet;
-  photos: [PublicAdoptionListingPhoto, ...PublicAdoptionListingPhoto[]];
-  publicLocation: {
+  photos: PublicAdoptionListingPhoto[];
+  publicLocation: PublicReportPageLocation;
+  publishedAt: {
     label: string;
-    privacyNote: string;
-    type: "approximate";
+    value: string;
   };
   sharePath: string;
   statusLabel: string;
   title: string;
 }
 
-const publicWebBaseUrl = "https://rastro.bo";
-const appDownloadHref = `${publicWebBaseUrl}/descargar`;
+const outcomeLabels = {
+  adopted: "Adoptada",
+  inactive: "Inactiva",
+  reunited: "Reunida",
+  still_missing: "Sigue activa",
+  transferred_to_shelter: "Trasladada a refugio",
+  unable_to_locate: "No se pudo ubicar",
+} satisfies Record<NonNullable<PublicReportDetail["outcome"]>, string>;
 
-const publicAdoptionListingFixtures = new Map<
-  string,
-  PublicAdoptionListingFixture
->([
-  [
-    "adopt-nala-sopocachi",
-    {
-      approximateLocation: "Sopocachi, La Paz",
-      contactOptions: [
-        {
-          kind: "app-chat",
-        },
-        {
-          kind: "whatsapp",
-          phoneE164: "59171234567",
-        },
-      ],
-      creator: {
-        displayName: "Huellitas La Paz",
-        verificationBadge: {
-          label: "Organizacion verificada",
-          note: "Identidad verificada por Rastro.",
-        },
-      },
-      description:
-        "Es carinosa, convive bien con personas y necesita un hogar tranquilo.",
-      id: "adopt-nala-sopocachi",
-      pet: {
-        breed: "Mestiza joven",
-        name: "Nala",
-        type: "Gato",
-      },
-      photos: [
-        {
-          alt: "Nala, gata mestiza en adopcion",
-          src: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba",
-        },
-      ],
-    },
-  ],
-  [
-    "adopt-toby-calacoto",
-    {
-      approximateLocation: "Calacoto, La Paz",
-      contactOptions: [
-        {
-          kind: "app-chat",
-        },
-      ],
-      creator: {
-        displayName: "Andrea R.",
-        verificationBadge: null,
-      },
-      description:
-        "Es jugueton, esta acostumbrado a paseos cortos y busca una familia paciente.",
-      id: "adopt-toby-calacoto",
-      pet: {
-        breed: "Mestizo pequeno",
-        name: "Toby",
-        type: "Perro",
-      },
-      photos: [
-        {
-          alt: "Toby, perro mestizo pequeno en adopcion",
-          src: "https://images.unsplash.com/photo-1587300003388-59208cc962cb",
-        },
-      ],
-    },
-  ],
-]);
-
-export function getPublicAdoptionListingViewModel(
+export async function getPublicAdoptionListingViewModel(
   listingId: string,
-): PublicAdoptionListingViewModel | null {
-  const listing = publicAdoptionListingFixtures.get(listingId);
+  loadReportDetail: PublicReportDetailLoader = getPublicReportDetail,
+): Promise<PublicAdoptionListingViewModel | null> {
+  const report = await loadReportDetail(listingId);
 
-  if (!listing) {
+  if (report?.type !== "adoption") {
     return null;
   }
 
-  const shareTarget = buildPublicAdoptionListingShareTarget({
-    listingId: listing.id,
-    publicWebBaseUrl,
-    title: listing.pet.name,
-  });
-
-  return {
-    appPrompts: {
-      downloadHref: appDownloadHref,
-      downloadLabel: "Descargar Rastro",
-      openHref: shareTarget.appDeepLink,
-      openLabel: "Abrir en la app",
-    },
-    contactOptions: listing.contactOptions.map((contactOption) => {
-      if (contactOption.kind === "whatsapp") {
-        return {
-          href: `https://wa.me/${contactOption.phoneE164}`,
-          kind: "whatsapp",
-          label: "Escribir por WhatsApp",
-        };
-      }
-
-      return {
-        href: shareTarget.appDeepLink,
-        kind: "app-chat",
-        label: "Enviar mensaje en Rastro",
-      };
-    }),
-    creator: listing.creator,
-    description: listing.description,
-    pet: listing.pet,
-    photos: listing.photos,
-    publicLocation: {
-      label: listing.approximateLocation,
-      privacyNote: "Zona aproximada compartida por seguridad.",
-      type: "approximate",
-    },
-    sharePath: shareTarget.path,
-    statusLabel: "En adopcion",
-    title: `${listing.pet.name} busca nuevo hogar`,
-  };
+  return buildPublicAdoptionListingViewModel(report);
 }
 
-export function buildPublicAdoptionListingMetadata(
+export async function buildPublicAdoptionListingMetadata(
   listingId: string,
-  publicWebBaseUrl = "https://rastro.bo",
-): Metadata | null {
-  const listing = getPublicAdoptionListingViewModel(listingId);
+  webBaseUrl = "https://rastro.bo",
+  loadReportDetail: PublicReportDetailLoader = getPublicReportDetail,
+): Promise<Metadata | null> {
+  const listing = await getPublicAdoptionListingViewModel(
+    listingId,
+    loadReportDetail,
+  );
 
   if (!listing) {
     return null;
@@ -217,36 +88,57 @@ export function buildPublicAdoptionListingMetadata(
   const description = `Conoce a ${listing.pet.name}, ${listing.pet.type} ${listing.pet.breed}, en adopcion. Ubicacion: ${listing.publicLocation.label}.`;
   const shareTarget = buildPublicAdoptionListingShareTarget({
     listingId,
-    publicWebBaseUrl,
+    publicWebBaseUrl: webBaseUrl,
     title: listing.pet.name,
   });
-  const primaryPhoto = listing.photos[0];
+
+  return buildPublicReportArticleMetadata({
+    description,
+    primaryPhoto: listing.photos[0],
+    title,
+    webUrl: shareTarget.webUrl,
+  });
+}
+
+function buildPublicAdoptionListingViewModel(
+  report: PublicReportDetail,
+): PublicAdoptionListingViewModel {
+  const pet = buildPublicReportPetViewModel(report);
+  const shareTarget = buildPublicAdoptionListingShareTarget({
+    listingId: report.id,
+    publicWebBaseUrl,
+    title: pet.name,
+  });
 
   return {
-    alternates: {
-      canonical: shareTarget.webUrl,
+    appPrompts: {
+      downloadHref: appDownloadHref,
+      downloadLabel: "Descargar Rastro",
+      openHref: shareTarget.appDeepLink,
+      openLabel: "Abrir en la app",
     },
-    description,
-    openGraph: {
-      description,
-      images: [
-        {
-          alt: primaryPhoto.alt,
-          url: primaryPhoto.src,
-        },
-      ],
-      locale: "es_BO",
-      siteName: "Rastro",
-      title,
-      type: "article",
-      url: shareTarget.webUrl,
+    contactOptions: buildPublicReportContactOptions(
+      report,
+      shareTarget.appDeepLink,
+    ),
+    description: report.description.trim(),
+    pet,
+    photos: buildPublicReportPhotos(report, pet.name),
+    publicLocation: buildPublicReportLocation(report.location),
+    publishedAt: {
+      label: "Publicado",
+      value: formatReportDate(report.createdAt),
     },
-    title,
-    twitter: {
-      card: "summary_large_image",
-      description,
-      images: [primaryPhoto.src],
-      title,
-    },
+    sharePath: shareTarget.path,
+    statusLabel: buildStatusLabel(report),
+    title: report.title.trim(),
   };
+}
+
+function buildStatusLabel(report: PublicReportDetail) {
+  if (report.status === "closed") {
+    return report.outcome ? outcomeLabels[report.outcome] : "Adopcion cerrada";
+  }
+
+  return "En adopcion";
 }

@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import {
   buildPublicLostReportMetadata,
   getPublicLostReportViewModel,
 } from "~/public-lost-reports";
+import { PublicPhotoGrid } from "~/public-photo-grid";
 
 interface PublicLostReportPageProps {
   params: Promise<{
@@ -17,7 +17,7 @@ export async function generateMetadata(
   props: PublicLostReportPageProps,
 ): Promise<Metadata> {
   const { reportId } = await props.params;
-  const metadata = buildPublicLostReportMetadata(reportId);
+  const metadata = await buildPublicLostReportMetadata(reportId);
 
   if (!metadata) {
     return {
@@ -32,7 +32,7 @@ export default async function PublicLostReportPage(
   props: PublicLostReportPageProps,
 ) {
   const { reportId } = await props.params;
-  const report = getPublicLostReportViewModel(reportId);
+  const report = await getPublicLostReportViewModel(reportId);
 
   if (!report) {
     notFound();
@@ -54,29 +54,7 @@ export default async function PublicLostReportPage(
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            {report.photos.map((photo, index) => (
-              <div
-                className={
-                  index === 0
-                    ? "bg-muted relative aspect-[4/3] w-full overflow-hidden rounded-lg sm:col-span-2"
-                    : "bg-muted relative aspect-[4/3] w-full overflow-hidden rounded-lg"
-                }
-                key={photo.src}
-              >
-                <Image
-                  alt={photo.alt}
-                  className="object-cover"
-                  fill
-                  sizes={
-                    index === 0 ? "(min-width: 640px) 60vw, 100vw" : "50vw"
-                  }
-                  src={photo.src}
-                  unoptimized
-                />
-              </div>
-            ))}
-          </div>
+          <PublicPhotoGrid photos={report.photos} />
         </section>
 
         <section className="flex flex-col gap-5">
@@ -97,13 +75,6 @@ export default async function PublicLostReportPage(
                 <dd className="text-muted-foreground mt-1 text-sm">
                   {report.publicLocation.privacyNote}
                 </dd>
-                {report.publicLocation.type === "exact" ? (
-                  <dd className="text-muted-foreground mt-1 text-sm">
-                    Coordenadas publicas:{" "}
-                    {report.publicLocation.coordinates.latitude},{" "}
-                    {report.publicLocation.coordinates.longitude}
-                  </dd>
-                ) : null}
               </div>
               <div>
                 <dt className="text-muted-foreground text-sm">Descripcion</dt>

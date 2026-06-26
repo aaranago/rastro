@@ -6,10 +6,14 @@ export interface PublicPhotoGridPhoto {
 }
 
 export interface PublicPhotoGridProps {
-  photos: [PublicPhotoGridPhoto, ...PublicPhotoGridPhoto[]];
+  photos: PublicPhotoGridPhoto[];
 }
 
 export function PublicPhotoGrid({ photos }: PublicPhotoGridProps) {
+  if (photos.length === 0) {
+    return null;
+  }
+
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {photos.map((photo, index) => (
@@ -21,6 +25,14 @@ export function PublicPhotoGrid({ photos }: PublicPhotoGridProps) {
           }
           key={photo.src}
         >
+          <div
+            aria-hidden="true"
+            className="text-muted-foreground absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center text-sm"
+          >
+            <span className="bg-background/80 rounded-md px-3 py-2 font-medium">
+              Imagen no disponible
+            </span>
+          </div>
           <Image
             alt={photo.alt}
             className="object-cover"

@@ -17,7 +17,7 @@ export async function generateMetadata(
   props: PublicAdoptionListingPageProps,
 ): Promise<Metadata> {
   const { listingId } = await props.params;
-  const metadata = buildPublicAdoptionListingMetadata(listingId);
+  const metadata = await buildPublicAdoptionListingMetadata(listingId);
 
   if (!metadata) {
     return {
@@ -32,7 +32,7 @@ export default async function PublicAdoptionListingPage(
   props: PublicAdoptionListingPageProps,
 ) {
   const { listingId } = await props.params;
-  const listing = getPublicAdoptionListingViewModel(listingId);
+  const listing = await getPublicAdoptionListingViewModel(listingId);
 
   if (!listing) {
     notFound();
@@ -62,20 +62,12 @@ export default async function PublicAdoptionListingPage(
             <h2 className="text-xl font-semibold">Datos de adopcion</h2>
             <dl className="mt-4 grid gap-4">
               <div>
-                <dt className="text-muted-foreground text-sm">Responsable</dt>
+                <dt className="text-muted-foreground text-sm">
+                  {listing.publishedAt.label}
+                </dt>
                 <dd className="mt-1 font-medium">
-                  {listing.creator.displayName}
+                  {listing.publishedAt.value}
                 </dd>
-                {listing.creator.verificationBadge ? (
-                  <dd className="mt-2">
-                    <span className="border-primary text-primary inline-flex rounded-md border px-2.5 py-1 text-sm font-semibold">
-                      {listing.creator.verificationBadge.label}
-                    </span>
-                    <span className="text-muted-foreground mt-1 block text-sm">
-                      {listing.creator.verificationBadge.note}
-                    </span>
-                  </dd>
-                ) : null}
               </div>
               <div>
                 <dt className="text-muted-foreground text-sm">Ubicacion</dt>
