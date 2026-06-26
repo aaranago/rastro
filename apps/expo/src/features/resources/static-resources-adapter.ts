@@ -66,9 +66,9 @@ export interface ResourceProviderProfileResult {
 }
 
 export interface ResourceProviderReportInput {
+  detail: string;
   providerId: string;
   reason: ResourceReportReason;
-  detail?: string;
 }
 
 export interface ResourceModerationItem {
@@ -82,7 +82,7 @@ export interface ResourceModerationItem {
 }
 
 export interface ResourceProviderReportReceipt {
-  status: "created";
+  status: "already_reported" | "created";
   moderationItem: ResourceModerationItem;
 }
 

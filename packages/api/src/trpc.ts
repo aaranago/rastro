@@ -17,6 +17,7 @@ import type { AdminSettingsRepository } from "./admin-settings-repository";
 import type { MediaStorage, MediaStorageConfig } from "./media-storage";
 import type { ReportMediaRepository } from "./report-media-repository";
 import type { ReportRepository } from "./report-repository";
+import type { ResourceProviderModerationRepository } from "./resource-provider-moderation-repository";
 import type { ResourceProviderRepository } from "./resource-provider-repository";
 import { createDrizzleAdminSettingsRepository } from "./admin-settings-repository";
 import {
@@ -27,6 +28,7 @@ import {
 } from "./media-storage";
 import { createDrizzleReportMediaRepository } from "./report-media-repository";
 import { createDrizzleReportRepository } from "./report-repository";
+import { createDrizzleResourceProviderModerationRepository } from "./resource-provider-moderation-repository";
 import { createDrizzleResourceProviderRepository } from "./resource-provider-repository";
 
 /**
@@ -55,6 +57,7 @@ export const createTRPCContext = async (opts: {
   mediaStorageConfig: MediaStorageConfig | null;
   mediaStorage: MediaStorage;
   reportRepository: ReportRepository;
+  resourceProviderModerationRepository: ResourceProviderModerationRepository;
   resourceProviderRepository: ResourceProviderRepository;
   session: Awaited<ReturnType<Auth["api"]["getSession"]>>;
 }> => {
@@ -87,6 +90,8 @@ export const createTRPCContext = async (opts: {
     reportRepository: createDrizzleReportRepository(db, {
       deliveryBaseUrl: mediaDeliveryBaseUrl,
     }),
+    resourceProviderModerationRepository:
+      createDrizzleResourceProviderModerationRepository(db),
     resourceProviderRepository: createDrizzleResourceProviderRepository(db),
     session,
   };

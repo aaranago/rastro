@@ -69,11 +69,11 @@ interface AdminModerationSummaryStats {
 
 type ContentModerationAction =
   | {
-      label: "Ocultar publicacion" | "Ocultar reporte";
+      label: "Ocultar publicación" | "Ocultar reporte";
       value: "hide_target";
     }
   | {
-      label: "Restaurar publicacion" | "Restaurar reporte";
+      label: "Restaurar publicación" | "Restaurar reporte";
       value: "restore_target";
     };
 
@@ -88,17 +88,17 @@ type MemberModerationAction =
     };
 
 const targetTypeLabels: Record<AdminModerationTargetType, string> = {
-  adoption_listing: "Publicacion de adopcion",
+  adoption_listing: "Publicación de adopción",
   found_pet_report: "Reporte de mascota encontrada",
   in_app_chat: "Chat en Rastro",
   lost_pet_report: "Reporte de mascota perdida",
-  resource_provider_profile: "Perfil de Resource Provider",
+  resource_provider_profile: "Perfil de proveedor de recursos",
   sighting_report: "Reporte de avistamiento",
 };
 
 const settingsCopy = {
   reviewMode:
-    "Las nuevas publicaciones de adopcion quedan retenidas para revision antes de mostrarse publicamente.",
+    "Las nuevas publicaciones de adopción quedan retenidas para revisión antes de mostrarse públicamente.",
   verifiedEmail:
     "Los miembros deben verificar su correo antes de crear reportes o publicaciones visibles.",
 } as const;
@@ -155,13 +155,13 @@ function AdminDashboardHeader(props: { viewer: AdminModerationViewer }) {
   return (
     <header className="border-border bg-card text-card-foreground flex flex-col gap-4 rounded-lg border p-5 shadow-xs md:flex-row md:items-end md:justify-between">
       <div>
-        <p className="text-primary text-sm font-semibold">Moderacion Rastro</p>
+        <p className="text-primary text-sm font-semibold">Moderación Rastro</p>
         <h1 className="mt-1 text-3xl font-bold tracking-normal">
           Contenido reportado
         </h1>
         <p className="text-muted-foreground mt-2 max-w-2xl text-sm">
-          Cola operativa para revisar reportes, publicaciones de adopcion, chats
-          y perfiles de Resource Provider en Bolivia.
+          Cola operativa para revisar reportes, publicaciones de adopción, chats
+          y perfiles de proveedores de recursos en Bolivia.
         </p>
       </div>
       <p className="bg-muted text-muted-foreground rounded-md px-3 py-2 text-sm font-medium">
@@ -174,7 +174,7 @@ function AdminDashboardHeader(props: { viewer: AdminModerationViewer }) {
 function ModerationSummary(props: { stats: AdminModerationSummaryStats }) {
   return (
     <section
-      aria-label="Resumen de moderacion"
+      aria-label="Resumen de moderación"
       className="grid gap-3 sm:grid-cols-3"
     >
       <SummaryStat label="Pendientes" value={props.stats.flaggedCount} />
@@ -198,17 +198,17 @@ function FlaggedContentQueue(props: {
     >
       <div className="border-border flex flex-col gap-1 border-b p-5">
         <h2 id="flagged-content-heading" className="text-xl font-semibold">
-          Cola de revision
+          Cola de revisión
         </h2>
         <p className="text-muted-foreground text-sm">
-          Prioriza reportes con mas avisos o riesgo de fraude, ubicacion falsa o
-          dano a la comunidad.
+          Prioriza reportes con más avisos o riesgo de fraude, ubicación falsa o
+          daño a la comunidad.
         </p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[860px] text-left text-sm">
           <caption className="sr-only">
-            Contenido reportado para moderacion
+            Contenido reportado para moderación
           </caption>
           <thead className="bg-muted text-muted-foreground text-xs font-semibold uppercase">
             <tr>
@@ -253,7 +253,7 @@ function AdminAccessDenied(props: { viewer: AdminModerationViewer }) {
       >
         <div className="border-border bg-card text-card-foreground w-full max-w-xl rounded-lg border p-6 shadow-xs">
           <p className="text-primary text-sm font-semibold">
-            Moderacion Rastro
+            Moderación Rastro
           </p>
           <h1
             className="mt-2 text-3xl font-bold tracking-normal"
@@ -263,7 +263,7 @@ function AdminAccessDenied(props: { viewer: AdminModerationViewer }) {
           </h1>
           <p className="text-muted-foreground mt-3 text-sm">
             Solo administradores de Rastro pueden revisar colas de abuso,
-            cambiar Review Mode o modificar reglas de publicacion.
+            cambiar Review Mode o modificar reglas de publicación.
           </p>
           <p className="bg-muted text-muted-foreground mt-5 rounded-md px-3 py-2 text-sm font-medium">
             Sesion actual: {props.viewer.displayName}
@@ -483,7 +483,7 @@ function AbuseMetrics(props: { metrics: readonly AdminModerationMetric[] }) {
       className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs"
     >
       <h2 id="abuse-metrics-heading" className="text-xl font-semibold">
-        Metricas de abuso por ciudad
+        Métricas de abuso por ciudad
       </h2>
       <div className="mt-4 overflow-x-auto">
         <table className="w-full text-left text-sm">
@@ -567,18 +567,18 @@ function getContentAction(
   }
 
   const noun =
-    item.target.type === "adoption_listing" ? "publicacion" : "reporte";
+    item.target.type === "adoption_listing" ? "publicación" : "reporte";
 
   if (item.target.status === "hidden") {
     return {
       label:
-        noun === "publicacion" ? "Restaurar publicacion" : "Restaurar reporte",
+        noun === "publicación" ? "Restaurar publicación" : "Restaurar reporte",
       value: "restore_target",
     };
   }
 
   return {
-    label: noun === "publicacion" ? "Ocultar publicacion" : "Ocultar reporte",
+    label: noun === "publicación" ? "Ocultar publicación" : "Ocultar reporte",
     value: "hide_target",
   };
 }

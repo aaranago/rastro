@@ -1,3 +1,5 @@
+import type { RouterOutputs } from "@acme/api";
+
 import type {
   AdminModerationDashboardViewModel,
   AdminModerationQueueItemViewModel,
@@ -11,6 +13,9 @@ import type {
   AdminModerationTargetType as DashboardAdminModerationTargetType,
 } from "./admin-moderation-dashboard";
 
+export type AdminResourceProviderModerationQueue =
+  RouterOutputs["admin"]["moderation"]["resourceProviderQueue"];
+
 export function toAdminModerationDashboardProps(
   viewModel: AdminModerationDashboardViewModel,
   viewer: AdminModerationViewer,
@@ -22,8 +27,11 @@ export function toAdminModerationDashboardProps(
     verifiedEmailRequiredToPublish:
       viewModel.settings.verifiedEmailRequiredToPublish.enabled,
   },
+  options: {
+    resourceProviderQueue?: AdminResourceProviderModerationQueue;
+  } = {},
 ): AdminModerationDashboardProps {
-  const flaggedItems = flattenModerationItems(viewModel);
+  const flaggedItems = flattenModerationItems(viewModel, options);
 
   return {
     flaggedItems,
@@ -49,13 +57,21 @@ export function buildForbiddenAdminModerationDashboardProps(
 
 function flattenModerationItems(
   viewModel: AdminModerationDashboardViewModel,
+  options: {
+    resourceProviderQueue?: AdminResourceProviderModerationQueue;
+  },
 ): AdminModerationFlaggedItem[] {
-  return [
+  const fixtureItems = [
     ...viewModel.queues.flaggedReports.items,
     ...viewModel.queues.flaggedAdoptionListings.items,
     ...viewModel.queues.flaggedChats.items,
-    ...viewModel.queues.flaggedResourceProviders.items,
   ].map(toFlaggedItem);
+  const resourceProviderItems =
+    options.resourceProviderQueue !== undefined
+      ? options.resourceProviderQueue.map(toResourceProviderFlaggedItem)
+      : viewModel.queues.flaggedResourceProviders.items.map(toFlaggedItem);
+
+  return [...fixtureItems, ...resourceProviderItems];
 }
 
 function toFlaggedItem(
@@ -70,7 +86,7 @@ function toFlaggedItem(
     department: item.department,
     detail: buildModerationDetail(item),
     id: `review-${item.targetId}`,
-    newestReportLabel: "Pendiente de revision",
+    newestReportLabel: "Pendiente de revisión",
     reasonLabel: "Reportado por la comunidad",
     reportCount: item.reportCount,
     reporterLabel:
@@ -156,4 +172,56 @@ function buildDashboardMetrics(
       left.department.localeCompare(right.department) ||
       left.city.localeCompare(right.city),
   );
+}
+
+const moderationReasonLabels = {
+  animal_cruelty: "Crueldad animal",
+  impersonation: "Suplantación de identidad",
+  incorrect_location: "Ubicación incorrecta",
+  offensive_content: "Contenido ofensivo",
+  other: "Otro motivo",
+  scam: "Estafa",
+  spam: "Spam",
+  stolen_pet_concern: "Sospecha de mascota robada",
+} satisfies Record<
+  AdminResourceProviderModerationQueue[number]["reason"],
+  string
+>;
+
+function toResourceProviderFlaggedItem(
+  item: AdminResourceProviderModerationQueue[number],
+): AdminModerationFlaggedItem {
+  return {
+    accusedMember: {
+      displayName: item.provider.name,
+      id: item.provider.id,
+      status: "active",
+    },
+    department: item.provider.department,
+    detail: [
+      `Perfil de proveedor de recursos en ${item.provider.locationLabel}, ${item.provider.department}.`,
+      `Detalle más reciente: ${item.newestReport.detail}`,
+    ].join(" "),
+    id: item.id,
+    newestReportLabel: formatNewestReportLabel(item.newestReport.createdAt),
+    reasonLabel: moderationReasonLabels[item.reason],
+    reportCount: item.reportCount,
+    reporterLabel: item.newestReport.reporter.displayName,
+    target: {
+      href: `/admin/moderacion/recursos/${item.provider.id}`,
+      id: item.provider.id,
+      locationLabel: item.provider.locationLabel,
+      status: "visible",
+      title: item.provider.name,
+      type: "resource_provider_profile",
+    },
+  };
+}
+
+function formatNewestReportLabel(value: Date | string) {
+  return new Intl.DateTimeFormat("es-BO", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "America/La_Paz",
+  }).format(new Date(value));
 }

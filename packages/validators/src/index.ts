@@ -202,6 +202,17 @@ export const resourceProviderVerificationStatusSchema = z.enum([
   "verified",
 ]);
 
+export const moderationReportReasonSchema = z.enum([
+  "spam",
+  "scam",
+  "incorrect_location",
+  "offensive_content",
+  "animal_cruelty",
+  "stolen_pet_concern",
+  "impersonation",
+  "other",
+]);
+
 export const resourceProviderApproximatePublicLocationRadiusMeters = 300;
 
 export function buildApproximatePublicResourceProviderLocation({
@@ -344,6 +355,14 @@ export const updateResourceProviderInputSchema = z
 export const resourceProviderDetailInputSchema = z.object({
   providerId: z.uuid(),
 });
+
+export const createResourceProviderReportInputSchema = z
+  .object({
+    providerId: z.uuid(),
+    reason: moderationReportReasonSchema,
+    detail: z.string().trim().min(10).max(1000),
+  })
+  .strict();
 
 export const nearbyResourceProvidersInputSchema = z.object({
   latitude: boliviaLatitudeSchema,
@@ -518,6 +537,9 @@ export type LocalSponsorPlacementSurface = z.infer<
 export type ResourceProviderVerificationStatus = z.infer<
   typeof resourceProviderVerificationStatusSchema
 >;
+export type ModerationReportReason = z.infer<
+  typeof moderationReportReasonSchema
+>;
 export type CreateResourceProviderInput = z.infer<
   typeof createResourceProviderInputSchema
 >;
@@ -526,6 +548,9 @@ export type UpdateResourceProviderInput = z.infer<
 >;
 export type ResourceProviderDetailInput = z.infer<
   typeof resourceProviderDetailInputSchema
+>;
+export type CreateResourceProviderReportInput = z.infer<
+  typeof createResourceProviderReportInputSchema
 >;
 export type NearbyResourceProvidersInput = z.infer<
   typeof nearbyResourceProvidersInputSchema

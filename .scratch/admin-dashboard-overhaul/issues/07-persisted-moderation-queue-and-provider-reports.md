@@ -1,7 +1,7 @@
 # ADMIN-007 Persisted moderation queue and Resource Provider report ingestion
 
-Status: needs-triage
-Labels: needs-triage
+Status: verified-runbook
+Labels: verified-runbook
 Severity: P0
 Issue ID: ADMIN-007
 Type: AFK
@@ -17,13 +17,13 @@ Create a persisted moderation queue and wire Resource Provider reporting into it
 
 ## Acceptance criteria
 
-- [ ] Moderation review item tables or equivalent persisted model exist.
-- [ ] Public/member Resource Provider report mutation exists and validates reporter, target, reason, and detail.
-- [ ] Duplicate reports are suppressed or grouped by a defined idempotency rule.
-- [ ] `/admin/moderacion` reads its Resource Provider queue from the database.
-- [ ] Admin queue shows reason, reporter, reported provider, target location, newest report label, and count.
-- [ ] Expo Resource Provider report action calls the real API and shows backend-confirmed success/failure.
-- [ ] In-memory moderation fixtures are not used for Resource Provider moderation in production.
+- [x] Moderation review item tables or equivalent persisted model exist.
+- [x] Public/member Resource Provider report mutation exists and validates reporter, target, reason, and detail.
+- [x] Duplicate reports are suppressed or grouped by a defined idempotency rule.
+- [x] `/admin/moderacion` reads its Resource Provider queue from the database.
+- [x] Admin queue shows reason, reporter, reported provider, target location, newest report label, and count.
+- [x] Expo Resource Provider report action calls the real API and shows backend-confirmed success/failure.
+- [x] In-memory moderation fixtures are not used for Resource Provider moderation in production.
 
 ## Required automated tests
 
@@ -51,3 +51,18 @@ Create a persisted moderation queue and wire Resource Provider reporting into it
 ## Notes
 
 This is the first moderation persistence tracer bullet. Keep the target narrow: Resource Provider reports only.
+
+## ADMIN-007 verification notes
+
+- Added persisted Resource Provider moderation review items/reports, API ingestion, admin queue listing, and Expo report submission through the real TRPC client.
+- Verified database migration with `pnpm -F @acme/db migrate`.
+- Verified validators/DB/API/Expo/Next with:
+  - `pnpm -F @acme/validators test -- src/resource-provider-contracts.test.ts`
+  - `pnpm -F @acme/db test -- src/resource-provider-schema.test.ts`
+  - `pnpm -F @acme/api test -- src/resource-provider-moderation-repository.test.ts src/router/resources.test.ts src/router/admin.test.ts`
+  - `pnpm -F @acme/expo test -- src/features/resources/resources-api-adapter.test.ts src/features/resources/resource-provider-profile-screen.test.ts`
+  - `pnpm -F @acme/nextjs test -- admin-resource-provider-actions.test.ts admin-resource-provider-form-parser.test.ts admin-resources-dashboard.test.tsx admin-resources-page.test.tsx admin-moderation-page.test.tsx admin-moderation-dashboard.test.tsx`
+- Verified touched package lint/typecheck for `@acme/validators`, `@acme/db`, `@acme/api`, `@acme/expo`, and `@acme/nextjs`.
+- Verified full-stack success path with root `TURBO_UI=true pnpm dev`, mobile MCP provider report, and a direct Postgres query showing the persisted review item/report for `Veterinaria QA Recursos Actualizada`.
+- Verified no client-only success on backend failure with Expo adapter/screen failure tests and mobile MCP backend-off screenshot; provider profile cannot open with the API down because production Resource Provider data is API-backed.
+- Visual artifacts: `/tmp/rastro-admin-007-moderation-db-backed.png`, `/tmp/rastro-admin-007-mobile-current-report-state.png`, and `/tmp/rastro-admin-007-mobile-backend-off-error.png`.

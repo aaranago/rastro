@@ -69,4 +69,89 @@ describe("admin settings router", () => {
       },
     ]);
   });
+
+  it("lists the DB-backed Resource Provider moderation queue for allowlisted admins", async () => {
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      authApi: {},
+      db: {},
+      resourceProviderModerationRepository: {
+        listResourceProviderQueue: () =>
+          Promise.resolve([
+            {
+              createdAt: new Date("2026-06-26T16:00:00.000Z"),
+              id: "22222222-2222-4222-8222-222222222222",
+              lastReportedAt: new Date("2026-06-26T16:00:00.000Z"),
+              newestReport: {
+                createdAt: new Date("2026-06-26T16:00:00.000Z"),
+                detail: "La direccion visible no coincide con el local.",
+                reporter: {
+                  displayName: "Ana S.",
+                  email: "ana@example.com",
+                  memberId: "member-ana",
+                },
+              },
+              provider: {
+                city: "La Paz",
+                department: "La Paz",
+                id: "11111111-1111-4111-8111-111111111111",
+                locationLabel: "Sopocachi, La Paz",
+                name: "Clinica Veterinaria San Roque",
+                verificationStatus: "verified",
+              },
+              reason: "incorrect_location",
+              reportCount: 2,
+              status: "pending",
+            },
+          ]),
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin",
+        },
+      },
+    });
+
+    await expect(
+      caller.admin.moderation.resourceProviderQueue(),
+    ).resolves.toMatchObject([
+      {
+        newestReport: {
+          reporter: {
+            displayName: "Ana S.",
+          },
+        },
+        provider: {
+          city: "La Paz",
+          name: "Clinica Veterinaria San Roque",
+        },
+        reason: "incorrect_location",
+        reportCount: 2,
+      },
+    ]);
+  });
+
+  it("rejects Resource Provider moderation queue reads for non-admin members", async () => {
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      authApi: {},
+      db: {},
+      resourceProviderModerationRepository: {
+        listResourceProviderQueue: () => Promise.resolve([]),
+      },
+      session: {
+        user: {
+          email: "ana@example.com",
+          id: "member-ana",
+        },
+      },
+    });
+
+    await expect(
+      caller.admin.moderation.resourceProviderQueue(),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+  });
 });

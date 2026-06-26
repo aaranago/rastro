@@ -126,19 +126,19 @@ describe("AdminModerationDashboard", () => {
       <AdminModerationDashboard {...adminDashboardViewModel} />,
     );
 
-    expect(html).toContain("Moderacion Rastro");
+    expect(html).toContain("Moderación Rastro");
     expect(html).toContain("Contenido reportado");
     expect(html).toContain("Reporte de mascota perdida");
-    expect(html).toContain("Publicacion de adopcion");
+    expect(html).toContain("Publicación de adopción");
     expect(html).toContain("Chat en Rastro");
-    expect(html).toContain("Perfil de Resource Provider");
+    expect(html).toContain("Perfil de proveedor de recursos");
     expect(html).toContain("Ocultar reporte");
-    expect(html).toContain("Restaurar publicacion");
+    expect(html).toContain("Restaurar publicación");
     expect(html).toContain("Suspender miembro");
     expect(html).toContain("Reactivar miembro");
     expect(html).toContain("Review Mode para adopciones");
     expect(html).toContain("Correo verificado requerido para publicar");
-    expect(html).toContain("Metricas de abuso por ciudad");
+    expect(html).toContain("Métricas de abuso por ciudad");
     expect(html).toContain("La Paz");
     expect(html).toContain("Cochabamba");
     expect(html).not.toMatch(/marketplace|seller|comprar|vender/i);
@@ -157,8 +157,8 @@ describe("AdminModerationDashboard", () => {
 
     expect(html).toContain("Acceso restringido");
     expect(html).toContain("Solo administradores de Rastro");
-    expect(html).not.toContain("Cola de revision");
+    expect(html).not.toContain("Cola de revisión");
     expect(html).not.toContain("Suspender miembro");
-    expect(html).not.toContain("Metricas de abuso por ciudad");
+    expect(html).not.toContain("Métricas de abuso por ciudad");
   });
 });

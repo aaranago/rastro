@@ -5,9 +5,11 @@ import {
   attachLocalSponsorPlacementInputSchema,
   buildApproximatePublicResourceProviderLocation,
   createResourceProviderInputSchema,
+  createResourceProviderReportInputSchema,
   deleteResourceProviderInputSchema,
   localSponsorPlacementPolicySchema,
   localSponsorPlacementSurfaceSchema,
+  moderationReportReasonSchema,
   nearbyResourceProvidersInputSchema,
   publicResourceProviderProfileSchema,
   resourceProviderApproximatePublicLocationRadiusMeters,
@@ -82,6 +84,16 @@ describe("resource provider validation contracts", () => {
       "launch_home_banner",
       "report_success",
       "contextual_care_resources",
+    ]);
+    expect(moderationReportReasonSchema.options).toEqual([
+      "spam",
+      "scam",
+      "incorrect_location",
+      "offensive_content",
+      "animal_cruelty",
+      "stolen_pet_concern",
+      "impersonation",
+      "other",
     ]);
   });
 
@@ -194,6 +206,34 @@ describe("resource provider validation contracts", () => {
         providerId: "clinic-san-roque",
       }).success,
     ).toBe(false);
+  });
+
+  it("validates member Resource Provider reports with reporter-safe target, reason, and detail", () => {
+    const result = createResourceProviderReportInputSchema.safeParse({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      reason: "incorrect_location",
+      detail: "La direccion visible no coincide con el proveedor.",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data).toMatchObject({
+      detail: "La direccion visible no coincide con el proveedor.",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      reason: "incorrect_location",
+    });
+  });
+
+  it("rejects malformed provider reports before they reach the moderation repository", () => {
+    const result = createResourceProviderReportInputSchema.safeParse({
+      providerId: "clinic-san-roque",
+      reason: "unsupported_reason",
+      detail: "corto",
+    });
+
+    expect(result.success).toBe(false);
+    expect(JSON.stringify(result.error?.issues)).toContain("providerId");
+    expect(JSON.stringify(result.error?.issues)).toContain("reason");
+    expect(JSON.stringify(result.error?.issues)).toContain("detail");
   });
 
   it("snaps provider public coordinates to the same privacy grid as reports", () => {

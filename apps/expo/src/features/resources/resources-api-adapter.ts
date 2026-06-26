@@ -19,6 +19,10 @@ export type ResourceNearbyInput = RouterInputs["resources"]["nearby"];
 export type ResourceNearbyOutput = RouterOutputs["resources"]["nearby"];
 export type ResourceDetailInput = RouterInputs["resources"]["detail"];
 export type ResourceDetailOutput = RouterOutputs["resources"]["detail"];
+export type ResourceProviderReportApiInput =
+  RouterInputs["resources"]["reportProvider"];
+export type ResourceProviderReportApiOutput =
+  RouterOutputs["resources"]["reportProvider"];
 
 export interface ResourcesApiClient {
   resources: {
@@ -27,6 +31,11 @@ export interface ResourcesApiClient {
     };
     detail: {
       query: (input: ResourceDetailInput) => Promise<ResourceDetailOutput>;
+    };
+    reportProvider: {
+      mutate: (
+        input: ResourceProviderReportApiInput,
+      ) => Promise<ResourceProviderReportApiOutput>;
     };
   };
 }
@@ -94,7 +103,9 @@ export function createApiResourcesAdapter({
         (result) => result.profile,
       );
     },
-    reportProvider,
+    reportProvider(input) {
+      return reportProvider(client, input);
+    },
   };
 }
 
@@ -168,12 +179,41 @@ function isNotFoundLikeError(error: unknown) {
   );
 }
 
-function reportProvider(
-  _input: ResourceProviderReportInput,
+async function reportProvider(
+  client: ResourcesApiClient,
+  input: ResourceProviderReportInput,
 ): Promise<ResourceProviderReportReceipt> {
-  return Promise.reject(
-    new Error(
-      "El reporte de proveedores requiere moderacion persistida y aun no esta habilitado.",
-    ),
-  );
+  const response = await client.resources.reportProvider.mutate({
+    detail: input.detail,
+    providerId: input.providerId,
+    reason: input.reason,
+  });
+
+  return {
+    status: response.status,
+    moderationItem: {
+      id: response.reviewItem.id,
+      targetType: "resource_provider",
+      providerId: response.reviewItem.provider.id,
+      providerName: response.reviewItem.provider.name,
+      reason: response.reviewItem.reason,
+      detail: response.reviewItem.newestReport.detail,
+      reviewItem: {
+        createdAt: toIsoString(response.reviewItem.createdAt),
+        detail: response.reviewItem.newestReport.detail,
+        id: response.reviewItem.id,
+        kind: "abuse_report",
+        reason: response.reviewItem.reason,
+        reporterMemberId:
+          response.reviewItem.newestReport.reporter.memberId ?? undefined,
+        status: "pending",
+        targetId: response.reviewItem.provider.id,
+        targetType: "resource_provider",
+      },
+    },
+  };
+}
+
+function toIsoString(value: Date | string) {
+  return value instanceof Date ? value.toISOString() : value;
 }

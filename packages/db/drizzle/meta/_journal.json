@@ -36,6 +36,13 @@
       "when": 1782500178616,
       "tag": "0004_far_celestials",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782505134914,
+      "tag": "0005_eager_gargoyle",
+      "breakpoints": true
     }
   ]
 }

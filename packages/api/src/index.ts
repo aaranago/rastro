@@ -27,6 +27,13 @@ export {
   type ReportMediaUploadStatus,
 } from "./report-media-repository";
 export {
+  createDrizzleResourceProviderModerationRepository,
+  createInMemoryResourceProviderModerationRepository,
+  type ResourceProviderModerationQueueItem,
+  type ResourceProviderModerationRepository,
+  type ResourceProviderReportCreationResult,
+} from "./resource-provider-moderation-repository";
+export {
   buildLocalSponsorPlacementPolicy,
   buildNearbyResourceProvidersCondition,
   buildNearbyResourceProvidersDistance,

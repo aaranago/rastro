@@ -12,6 +12,7 @@ import {
   buildForbiddenAdminModerationDashboardProps,
   toAdminModerationDashboardProps,
 } from "~/admin-moderation-dashboard-adapter";
+import { listAdminResourceProviderModerationQueue } from "~/admin-resource-provider-moderation-api-adapter";
 import { getAdminSettings } from "~/admin-settings-api-adapter";
 import { getSession } from "~/auth/server";
 import { env } from "~/env";
@@ -35,7 +36,10 @@ export default async function AdminModerationPage() {
     );
   }
 
-  const settings = await getAdminSettings();
+  const [settings, resourceProviderQueue] = await Promise.all([
+    getAdminSettings(),
+    listAdminResourceProviderModerationQueue(),
+  ]);
 
   return (
     <AdminModerationDashboard
@@ -47,6 +51,9 @@ export default async function AdminModerationPage() {
           reviewModeEnabled: settings.adoptionReviewModeEnabled,
           verifiedEmailRequiredToPublish:
             settings.verifiedEmailRequiredToPublish,
+        },
+        {
+          resourceProviderQueue,
         },
       )}
     />

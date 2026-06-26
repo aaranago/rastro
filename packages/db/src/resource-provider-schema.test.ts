@@ -3,12 +3,16 @@ import { describe, expect, it } from "vitest";
 
 import {
   LocalSponsorPlacement,
+  moderationReportReason,
   localSponsorPlacementSurface,
   ResourceProvider,
   resourceProviderCategory,
   resourceProviderContactKind,
   ResourceProviderContactOption,
   ResourceProviderLocation,
+  ResourceProviderModerationReport,
+  ResourceProviderModerationReviewItem,
+  resourceProviderModerationReviewStatus,
 } from "./schema";
 
 describe("resource provider schema", () => {
@@ -37,6 +41,19 @@ describe("resource provider schema", () => {
       "launch_home_banner",
       "report_success",
       "contextual_care_resources",
+    ]);
+    expect(moderationReportReason.enumValues).toEqual([
+      "spam",
+      "scam",
+      "incorrect_location",
+      "offensive_content",
+      "animal_cruelty",
+      "stolen_pet_concern",
+      "impersonation",
+      "other",
+    ]);
+    expect(resourceProviderModerationReviewStatus.enumValues).toEqual([
+      "pending",
     ]);
   });
 
@@ -87,6 +104,35 @@ describe("resource provider schema", () => {
     );
   });
 
+  it("persists Resource Provider moderation groups and suppresses duplicate reporter reports", () => {
+    const reviewIndexes = getTableConfig(
+      ResourceProviderModerationReviewItem,
+    ).indexes.map((index) => index.config);
+    const reportIndexes = getTableConfig(
+      ResourceProviderModerationReport,
+    ).indexes.map((index) => index.config);
+    const reviewUnique = reviewIndexes.find(
+      (index) => index.name === "resource_provider_moderation_review_unique_idx",
+    );
+    const reportUnique = reportIndexes.find(
+      (index) =>
+        index.name === "resource_provider_moderation_report_reporter_idx",
+    );
+
+    expect(ResourceProviderModerationReviewItem.providerId).toBeDefined();
+    expect(ResourceProviderModerationReviewItem.reason).toBeDefined();
+    expect(ResourceProviderModerationReviewItem.lastReportedAt).toBeDefined();
+    expect(ResourceProviderModerationReport.reviewItemId).toBeDefined();
+    expect(ResourceProviderModerationReport.reporterId).toBeDefined();
+    expect(ResourceProviderModerationReport.detail).toBeDefined();
+    expect(
+      reviewUnique?.columns.map((column) => "name" in column && column.name),
+    ).toEqual(["providerId", "reason", "status"]);
+    expect(
+      reportUnique?.columns.map((column) => "name" in column && column.name),
+    ).toEqual(["reporterId", "providerId", "reason"]);
+  });
+
   it("uses Date values for provider timestamp update hooks", () => {
     expect(ResourceProvider.updatedAt.onUpdateFn?.()).toBeInstanceOf(Date);
     expect(ResourceProviderLocation.updatedAt.onUpdateFn?.()).toBeInstanceOf(
@@ -96,5 +142,8 @@ describe("resource provider schema", () => {
       ResourceProviderContactOption.updatedAt.onUpdateFn?.(),
     ).toBeInstanceOf(Date);
     expect(LocalSponsorPlacement.updatedAt.onUpdateFn?.()).toBeInstanceOf(Date);
+    expect(
+      ResourceProviderModerationReviewItem.updatedAt.onUpdateFn?.(),
+    ).toBeInstanceOf(Date);
   });
 });

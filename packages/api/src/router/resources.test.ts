@@ -165,6 +165,124 @@ describe("resources router", () => {
     expect(findProfileWasCalled).toBe(false);
   });
 
+  it("requires a signed-in member before reporting a Resource Provider", async () => {
+    const caller = createCaller({
+      resourceProviderModerationRepository: {
+        createResourceProviderReport: () => {
+          throw new Error("Should not report without a member session.");
+        },
+      },
+      session: null,
+    });
+
+    await expect(
+      caller.resources.reportProvider({
+        detail: "La direccion visible no coincide con el local.",
+        providerId: "11111111-1111-4111-8111-111111111111",
+        reason: "incorrect_location",
+      }),
+    ).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+  });
+
+  it("creates member Resource Provider reports through the moderation repository", async () => {
+    const calls: unknown[] = [];
+    const caller = createCaller({
+      resourceProviderModerationRepository: {
+        createResourceProviderReport: (input: unknown) => {
+          calls.push(input);
+
+          return Promise.resolve({
+            status: "created",
+            reviewItem: {
+              createdAt: new Date("2026-06-26T16:00:00.000Z"),
+              id: "22222222-2222-4222-8222-222222222222",
+              lastReportedAt: new Date("2026-06-26T16:00:00.000Z"),
+              newestReport: {
+                createdAt: new Date("2026-06-26T16:00:00.000Z"),
+                detail: "La direccion visible no coincide con el local.",
+                reporter: {
+                  displayName: "Ana S.",
+                  email: "ana@example.com",
+                  memberId: "member-ana",
+                },
+              },
+              provider: {
+                city: "La Paz",
+                department: "La Paz",
+                id: "11111111-1111-4111-8111-111111111111",
+                locationLabel: "Sopocachi, La Paz",
+                name: "Clinica Veterinaria San Roque",
+                verificationStatus: "verified",
+              },
+              reason: "incorrect_location",
+              reportCount: 1,
+              status: "pending",
+            },
+          });
+        },
+      },
+      session: {
+        user: {
+          email: "ana@example.com",
+          id: "member-ana",
+        },
+      },
+    });
+
+    const created = await caller.resources.reportProvider({
+      detail: "La direccion visible no coincide con el local.",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      reason: "incorrect_location",
+    });
+
+    expect(calls).toEqual([
+      {
+        reporterId: "member-ana",
+        report: {
+          detail: "La direccion visible no coincide con el local.",
+          providerId: "11111111-1111-4111-8111-111111111111",
+          reason: "incorrect_location",
+        },
+      },
+    ]);
+    expect(created).toMatchObject({
+      status: "created",
+      reviewItem: {
+        provider: {
+          name: "Clinica Veterinaria San Roque",
+        },
+        reason: "incorrect_location",
+        reportCount: 1,
+      },
+    });
+  });
+
+  it("returns not found when reporting a missing Resource Provider", async () => {
+    const caller = createCaller({
+      resourceProviderModerationRepository: {
+        createResourceProviderReport: () => Promise.resolve(null),
+      },
+      session: {
+        user: {
+          email: "ana@example.com",
+          id: "member-ana",
+        },
+      },
+    });
+
+    await expect(
+      caller.resources.reportProvider({
+        detail: "No encontramos el proveedor reportado.",
+        providerId: "11111111-1111-4111-8111-111111111111",
+        reason: "other",
+      }),
+    ).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
   it("requires a signed-in session before admin provider access", async () => {
     const caller = createCaller({
       resourceProviderRepository: {

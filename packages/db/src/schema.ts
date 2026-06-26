@@ -96,6 +96,22 @@ export const resourceProviderVerificationStatus = pgEnum(
   ["unverified", "verified"],
 );
 
+export const moderationReportReason = pgEnum("moderation_report_reason", [
+  "spam",
+  "scam",
+  "incorrect_location",
+  "offensive_content",
+  "animal_cruelty",
+  "stolen_pet_concern",
+  "impersonation",
+  "other",
+]);
+
+export const resourceProviderModerationReviewStatus = pgEnum(
+  "resource_provider_moderation_review_status",
+  ["pending"],
+);
+
 export const localSponsorPlacementSurface = pgEnum(
   "local_sponsor_placement_surface",
   [
@@ -475,6 +491,90 @@ export const LocalSponsorPlacement = pgTable(
   ],
 );
 
+export const ResourceProviderModerationReviewItem = pgTable(
+  "resource_provider_moderation_review_item",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    providerId: t
+      .uuid()
+      .notNull()
+      .references(() => ResourceProvider.id, { onDelete: "cascade" }),
+    reason: moderationReportReason().notNull(),
+    status: resourceProviderModerationReviewStatus()
+      .default("pending")
+      .notNull(),
+    firstReportedAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastReportedAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    createdAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  }),
+  (table) => [
+    uniqueIndex("resource_provider_moderation_review_unique_idx").on(
+      table.providerId,
+      table.reason,
+      table.status,
+    ),
+    index("resource_provider_moderation_review_provider_idx").on(
+      table.providerId,
+    ),
+    index("resource_provider_moderation_review_status_latest_idx").on(
+      table.status,
+      table.lastReportedAt,
+    ),
+  ],
+);
+
+export const ResourceProviderModerationReport = pgTable(
+  "resource_provider_moderation_report",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    reviewItemId: t
+      .uuid()
+      .notNull()
+      .references(() => ResourceProviderModerationReviewItem.id, {
+        onDelete: "cascade",
+      }),
+    providerId: t
+      .uuid()
+      .notNull()
+      .references(() => ResourceProvider.id, { onDelete: "cascade" }),
+    reporterId: t.text().references(() => user.id, {
+      onDelete: "set null",
+    }),
+    reason: moderationReportReason().notNull(),
+    detail: t.text().notNull(),
+    createdAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  }),
+  (table) => [
+    uniqueIndex("resource_provider_moderation_report_reporter_idx")
+      .on(table.reporterId, table.providerId, table.reason)
+      .where(sql`${table.reporterId} IS NOT NULL`),
+    index("resource_provider_moderation_report_review_item_idx").on(
+      table.reviewItemId,
+      table.createdAt,
+    ),
+    index("resource_provider_moderation_report_provider_idx").on(
+      table.providerId,
+    ),
+  ],
+);
+
 export const reportRelations = relations(Report, ({ one, many }) => ({
   caretaker: one(user, {
     fields: [Report.caretakerId],
@@ -529,6 +629,7 @@ export const resourceProviderRelations = relations(
       references: [ResourceProviderLocation.providerId],
     }),
     sponsorPlacements: many(LocalSponsorPlacement),
+    moderationReviewItems: many(ResourceProviderModerationReviewItem),
     verificationUpdatedByAdmin: one(user, {
       fields: [ResourceProvider.verificationUpdatedByAdminId],
       references: [user.id],
@@ -566,6 +667,35 @@ export const localSponsorPlacementRelations = relations(
     provider: one(ResourceProvider, {
       fields: [LocalSponsorPlacement.providerId],
       references: [ResourceProvider.id],
+    }),
+  }),
+);
+
+export const resourceProviderModerationReviewItemRelations = relations(
+  ResourceProviderModerationReviewItem,
+  ({ one, many }) => ({
+    provider: one(ResourceProvider, {
+      fields: [ResourceProviderModerationReviewItem.providerId],
+      references: [ResourceProvider.id],
+    }),
+    reports: many(ResourceProviderModerationReport),
+  }),
+);
+
+export const resourceProviderModerationReportRelations = relations(
+  ResourceProviderModerationReport,
+  ({ one }) => ({
+    provider: one(ResourceProvider, {
+      fields: [ResourceProviderModerationReport.providerId],
+      references: [ResourceProvider.id],
+    }),
+    reporter: one(user, {
+      fields: [ResourceProviderModerationReport.reporterId],
+      references: [user.id],
+    }),
+    reviewItem: one(ResourceProviderModerationReviewItem, {
+      fields: [ResourceProviderModerationReport.reviewItemId],
+      references: [ResourceProviderModerationReviewItem.id],
     }),
   }),
 );

@@ -39,6 +39,13 @@ function requireAdmin(ctx: {
 }
 
 export const adminRouter = createTRPCRouter({
+  moderation: createTRPCRouter({
+    resourceProviderQueue: protectedProcedure.query(async ({ ctx }) => {
+      requireAdmin(ctx);
+
+      return ctx.resourceProviderModerationRepository.listResourceProviderQueue();
+    }),
+  }),
   settings: createTRPCRouter({
     get: protectedProcedure.query(async ({ ctx }) => {
       requireAdmin(ctx);

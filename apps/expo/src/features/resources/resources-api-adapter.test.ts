@@ -166,26 +166,92 @@ describe("createApiResourcesAdapter", () => {
     });
   });
 
-  it("does not fake successful provider reports", async () => {
+  it("calls the persisted provider report API and returns the backend receipt", async () => {
+    const reportProvider = vi.fn().mockResolvedValue({
+      status: "created",
+      reviewItem: {
+        createdAt: new Date("2026-06-26T16:00:00.000Z"),
+        id: "22222222-2222-4222-8222-222222222222",
+        lastReportedAt: new Date("2026-06-26T16:00:00.000Z"),
+        newestReport: {
+          createdAt: new Date("2026-06-26T16:00:00.000Z"),
+          detail: "La direccion visible no coincide con el local.",
+          reporter: {
+            displayName: "Ana S.",
+            email: "ana@example.com",
+            memberId: "member-ana",
+          },
+        },
+        provider: {
+          city: "La Paz",
+          department: "La Paz",
+          id: "11111111-1111-4111-8111-111111111111",
+          locationLabel: "Sopocachi, La Paz",
+          name: "Clinica Veterinaria San Roque",
+          verificationStatus: "verified",
+        },
+        reason: "incorrect_location",
+        reportCount: 1,
+        status: "pending",
+      },
+    });
     const adapter = createApiResourcesAdapter({
-      client: createClient(),
+      client: createClient({ reportProvider }),
+    });
+
+    const receipt = await adapter.reportProvider({
+      detail: "La direccion visible no coincide con el local.",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      reason: "incorrect_location",
+    });
+
+    expect(reportProvider).toHaveBeenCalledWith({
+      detail: "La direccion visible no coincide con el local.",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      reason: "incorrect_location",
+    });
+    expect(receipt).toMatchObject({
+      status: "created",
+      moderationItem: {
+        providerId: "11111111-1111-4111-8111-111111111111",
+        providerName: "Clinica Veterinaria San Roque",
+        reason: "incorrect_location",
+        reviewItem: {
+          createdAt: "2026-06-26T16:00:00.000Z",
+          reporterMemberId: "member-ana",
+          status: "pending",
+        },
+      },
+    });
+  });
+
+  it("does not fake successful provider reports when the API rejects", async () => {
+    const adapter = createApiResourcesAdapter({
+      client: createClient({
+        reportProvider: vi
+          .fn()
+          .mockRejectedValue(new Error("Backend moderation unavailable.")),
+      }),
     });
 
     await expect(
       adapter.reportProvider({
+        detail: "La direccion visible no coincide con el local.",
         providerId: "11111111-1111-4111-8111-111111111111",
         reason: "other",
       }),
-    ).rejects.toThrow("requiere moderacion persistida");
+    ).rejects.toThrow("Backend moderation unavailable.");
   });
 });
 
 function createClient({
   detail = vi.fn(),
   nearby = vi.fn(),
+  reportProvider = vi.fn(),
 }: {
   detail?: ResourcesApiClient["resources"]["detail"]["query"];
   nearby?: ResourcesApiClient["resources"]["nearby"]["query"];
+  reportProvider?: ResourcesApiClient["resources"]["reportProvider"]["mutate"];
 } = {}): ResourcesApiClient {
   return {
     resources: {
@@ -194,6 +260,9 @@ function createClient({
       },
       nearby: {
         query: nearby,
+      },
+      reportProvider: {
+        mutate: reportProvider,
       },
     },
   };

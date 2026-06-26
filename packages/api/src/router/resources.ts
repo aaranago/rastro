@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 
 import {
   attachLocalSponsorPlacementInputSchema,
+  createResourceProviderReportInputSchema,
   createResourceProviderInputSchema,
   deleteResourceProviderInputSchema,
   detachLocalSponsorPlacementInputSchema,
@@ -79,6 +80,23 @@ export const resourcesRouter = createTRPCRouter({
       }
 
       return profile;
+    }),
+  reportProvider: protectedProcedure
+    .input(createResourceProviderReportInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const result =
+        await ctx.resourceProviderModerationRepository.createResourceProviderReport(
+          {
+            report: input,
+            reporterId: ctx.session.user.id,
+          },
+        );
+
+      if (!result) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      return result;
     }),
   admin: createTRPCRouter({
     listProviders: protectedProcedure.query(async ({ ctx }) => {
