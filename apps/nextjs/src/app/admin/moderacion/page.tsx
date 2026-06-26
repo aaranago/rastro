@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 import { revalidatePath } from "next/cache";
 
-import type {
-  AdminModerationAction,
-  HideableAdminModerationTargetType,
-} from "~/admin-moderation";
+import type { HideableAdminModerationTargetType } from "~/admin-moderation";
 import { createInMemoryAdminModerationDashboard } from "~/admin-moderation";
 import { buildAdminModerationViewer } from "~/admin-moderation-access";
 import { AdminModerationDashboard } from "~/admin-moderation-dashboard";
@@ -12,6 +9,11 @@ import {
   buildForbiddenAdminModerationDashboardProps,
   toAdminModerationDashboardProps,
 } from "~/admin-moderation-dashboard-adapter";
+import {
+  hideAdminReportTarget,
+  listAdminReportModerationQueue,
+  restoreAdminReportTarget,
+} from "~/admin-report-moderation-api-adapter";
 import { listAdminResourceProviderModerationQueue } from "~/admin-resource-provider-moderation-api-adapter";
 import { getAdminSettings } from "~/admin-settings-api-adapter";
 import { getSession } from "~/auth/server";
@@ -36,8 +38,9 @@ export default async function AdminModerationPage() {
     );
   }
 
-  const [settings, resourceProviderQueue] = await Promise.all([
+  const [settings, reportQueue, resourceProviderQueue] = await Promise.all([
     getAdminSettings(),
+    listAdminReportModerationQueue(),
     listAdminResourceProviderModerationQueue(),
   ]);
 
@@ -53,6 +56,7 @@ export default async function AdminModerationPage() {
             settings.verifiedEmailRequiredToPublish,
         },
         {
+          reportQueue,
           resourceProviderQueue,
         },
       )}
@@ -70,44 +74,63 @@ async function applyAdminModerationForm(formData: FormData) {
     return;
   }
 
-  const actions = parseAdminModerationActions(formData);
+  const action = parseAdminReportModerationAction(formData);
 
-  for (const action of actions) {
-    adminModerationDashboard.applyAction(viewer.modelViewer, action);
+  if (action?.type === "hide_target") {
+    await hideAdminReportTarget({
+      note: action.note,
+      reason: action.reason,
+      reportId: action.targetId,
+    });
+  }
+
+  if (action?.type === "restore_target") {
+    await restoreAdminReportTarget({
+      note: action.note,
+      reason: action.reason,
+      reportId: action.targetId,
+    });
   }
 
   revalidatePath("/admin/moderacion");
 }
 
-function parseAdminModerationActions(
-  formData: FormData,
-): AdminModerationAction[] {
+function parseAdminReportModerationAction(formData: FormData): {
+  note?: string;
+  reason: string;
+  targetId: string;
+  targetType: HideableAdminModerationTargetType;
+  type: "hide_target" | "restore_target";
+} | null {
   const actionType = getStringFormValue(formData, "moderationAction");
-
-  if (actionType === "ban_member" || actionType === "unban_member") {
-    const memberId = getStringFormValue(formData, "memberId");
-
-    return memberId ? [{ memberId, type: actionType }] : [];
-  }
 
   if (actionType === "hide_target" || actionType === "restore_target") {
     const targetId = getStringFormValue(formData, "targetId");
     const targetType = getHideableTargetType(
       getStringFormValue(formData, "targetType"),
     );
+    const reason =
+      getStringFormValue(formData, "moderationReason") ?? "admin_review";
+    const note = getOptionalStringFormValue(formData, "moderationNote");
 
     return targetId && targetType
-      ? [{ targetId, targetType, type: actionType }]
-      : [];
+      ? { note, reason, targetId, targetType, type: actionType }
+      : null;
   }
 
-  return [];
+  return null;
 }
 
 function getStringFormValue(formData: FormData, key: string) {
   const value = formData.get(key);
 
   return typeof value === "string" ? value : null;
+}
+
+function getOptionalStringFormValue(formData: FormData, key: string) {
+  const value = getStringFormValue(formData, key)?.trim();
+
+  return value && value.length > 0 ? value : undefined;
 }
 
 function getHideableTargetType(

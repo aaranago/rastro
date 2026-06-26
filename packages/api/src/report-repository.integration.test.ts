@@ -13,6 +13,10 @@ import type {
   ReportMediaRepository,
 } from "./report-media-repository";
 import type {
+  createDrizzleReportModerationRepository,
+  ReportModerationRepository,
+} from "./report-moderation-repository";
+import type {
   createDrizzleReportRepository,
   ReportRepository,
 } from "./report-repository";
@@ -54,8 +58,10 @@ describeIntegration("report repository integration", () => {
   let db: DbClientModule.Database;
   let pool: { end: () => Promise<void> } | null = null;
   let createReportMediaRepository: typeof createDrizzleReportMediaRepository;
+  let createReportModerationRepository: typeof createDrizzleReportModerationRepository;
   let createReportRepository: typeof createDrizzleReportRepository;
   let mediaRepository: ReportMediaRepository;
+  let moderationRepository: ReportModerationRepository;
   let repository: ReportRepository;
   let user: typeof DbSchemaModule.user;
   let tempDatabaseName = "";
@@ -91,6 +97,9 @@ describeIntegration("report repository integration", () => {
     const reportMediaRepositoryModule = await import(
       "./report-media-repository"
     );
+    const reportModerationRepositoryModule = await import(
+      "./report-moderation-repository"
+    );
     const reportRepositoryModule = await import("./report-repository");
 
     db = dbClientModule.db;
@@ -98,15 +107,23 @@ describeIntegration("report repository integration", () => {
     user = dbSchemaModule.user;
     createReportMediaRepository =
       reportMediaRepositoryModule.createDrizzleReportMediaRepository;
+    createReportModerationRepository =
+      reportModerationRepositoryModule.createDrizzleReportModerationRepository;
     createReportRepository =
       reportRepositoryModule.createDrizzleReportRepository;
     mediaRepository = createReportMediaRepository(db, { deliveryBaseUrl });
+    moderationRepository = createReportModerationRepository(db);
     repository = createReportRepository(db);
 
     await db.insert(user).values({
       email: "camila-report-test@example.invalid",
       id: "member-report-integration",
       name: "Camila",
+    });
+    await db.insert(user).values({
+      email: "admin-report-test@example.invalid",
+      id: "member-admin-report-integration",
+      name: "Admin Rastro",
     });
   }, 90_000);
 
@@ -313,6 +330,107 @@ describeIntegration("report repository integration", () => {
     });
     expect(duplicate.id).toBe(created.id);
   });
+
+  it("persists report hide and restore state outside lifecycle status", async () => {
+    const created = await repository.create({
+      caretakerId: "member-report-integration",
+      report: {
+        contact: {
+          preference: "in_app_chat",
+        },
+        description: "Gato gris reportado para verificar moderacion.",
+        eventOccurredAt: "2026-06-26T17:30:00.000Z",
+        idempotencyKey: "moderation-hide-restore-2026-06-26",
+        location: {
+          exactLatitude: -16.510231,
+          exactLongitude: -68.123881,
+          exposeExactLocation: false,
+          label: "Sopocachi, La Paz",
+          locationCell: "bo-lpb-sopocachi",
+        },
+        media: [],
+        pet: {
+          color: "gris",
+          name: "Michi",
+          species: "cat",
+        },
+        title: "Michi en moderacion",
+        type: "adoption",
+      },
+    });
+
+    const hidden = await moderationRepository.hideReportTarget({
+      adminId: "member-admin-report-integration",
+      note: "Fotos ajenas al reporte.",
+      reason: "spam",
+      reportId: created.id,
+    });
+
+    expect(hidden).toMatchObject({
+      newestAction: {
+        action: "hide",
+        adminId: "member-admin-report-integration",
+        note: "Fotos ajenas al reporte.",
+        reason: "spam",
+      },
+      target: {
+        hiddenByAdminId: "member-admin-report-integration",
+        hiddenNote: "Fotos ajenas al reporte.",
+        hiddenReason: "spam",
+        reportType: "adoption",
+        status: "hidden",
+        type: "adoption_listing",
+      },
+    });
+
+    const hiddenDetail = await repository.findById(created.id);
+    expect(hiddenDetail).toMatchObject({
+      hiddenByAdminId: "member-admin-report-integration",
+      hiddenNote: "Fotos ajenas al reporte.",
+      hiddenReason: "spam",
+      status: "active",
+    });
+    expect(hiddenDetail?.hiddenAt).toBeInstanceOf(Date);
+
+    const hiddenNearby = await repository.nearby({
+      latitude: -16.51,
+      limit: 10,
+      longitude: -68.12,
+      radiusMeters: 5000,
+      types: ["adoption"],
+    });
+    expect(hiddenNearby.map((report) => report.id)).not.toContain(created.id);
+
+    const restored = await moderationRepository.restoreReportTarget({
+      adminId: "member-admin-report-integration",
+      note: "Contenido validado.",
+      reason: "approved_after_review",
+      reportId: created.id,
+    });
+
+    expect(restored).toMatchObject({
+      newestAction: {
+        action: "restore",
+        adminId: "member-admin-report-integration",
+        note: "Contenido validado.",
+        reason: "approved_after_review",
+      },
+      target: {
+        hiddenAt: null,
+        hiddenByAdminId: null,
+        status: "visible",
+      },
+    });
+
+    const visibleAgain = await repository.nearby({
+      latitude: -16.51,
+      limit: 10,
+      longitude: -68.12,
+      radiusMeters: 5000,
+      types: ["adoption"],
+    });
+    expect(visibleAgain.map((report) => report.id)).toContain(created.id);
+  }, 90_000);
 
   it("leaves ready report media canonicalUrl null without a configured delivery base", async () => {
     const mediaRepositoryWithoutDeliveryBase = createReportMediaRepository(db);

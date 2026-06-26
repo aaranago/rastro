@@ -298,6 +298,65 @@ describe("report router", () => {
     });
   });
 
+  it("returns not found for hidden public report details", async () => {
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      session: null,
+      reportRepository: {
+        findById: () =>
+          Promise.resolve(
+            persistedSightingReport({
+              hiddenAt: new Date("2026-06-26T17:10:00.000Z"),
+              hiddenByAdminId: "member-admin",
+              hiddenNote: "Fotos ajenas al reporte.",
+              hiddenReason: "spam",
+            }),
+          ),
+      },
+    });
+
+    await expect(
+      caller.report.detail({ id: "report-sighting-sopocachi" }),
+    ).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("excludes hidden reports from nearby public results", async () => {
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      session: null,
+      reportRepository: {
+        nearby: () =>
+          Promise.resolve([
+            persistedSightingReport({
+              id: "report-visible-sopocachi",
+              hiddenAt: null,
+            }),
+            persistedSightingReport({
+              id: "report-hidden-sopocachi",
+              hiddenAt: new Date("2026-06-26T17:10:00.000Z"),
+              hiddenByAdminId: "member-admin",
+              hiddenReason: "spam",
+            }),
+          ]),
+      },
+    });
+
+    const result = await caller.report.nearby({
+      latitude: -16.5,
+      longitude: -68.12,
+      radiusMeters: 5000,
+      types: ["lost_pet", "found_pet", "sighting", "adoption"],
+    });
+
+    expect(result.results.map((report) => report.id)).toEqual([
+      "report-visible-sopocachi",
+    ]);
+  });
+
   it("creates a protected upload session with backend-owned object instructions", async () => {
     let createInput:
       | {

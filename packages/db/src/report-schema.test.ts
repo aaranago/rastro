@@ -7,6 +7,8 @@ import {
   ReportLifecycleEvent,
   ReportLocation,
   ReportMedia,
+  ReportModerationAction,
+  reportModerationActionType,
   reportStatus,
 } from "./schema";
 
@@ -25,6 +27,10 @@ describe("report schema", () => {
     expect(Report.idempotencyKey).toBeDefined();
     expect(Report.status).toBeDefined();
     expect(Report.outcome).toBeDefined();
+    expect(Report.hiddenAt).toBeDefined();
+    expect(Report.hiddenByAdminId).toBeDefined();
+    expect(Report.hiddenReason).toBeDefined();
+    expect(Report.hiddenNote).toBeDefined();
 
     expect(ReportLocation.reportId).toBeDefined();
     expect(ReportLocation.exactPoint.getSQLType()).toBe("geometry(point,4326)");
@@ -45,6 +51,11 @@ describe("report schema", () => {
     expect(ReportMedia.position).toBeDefined();
     expect(ReportLifecycleEvent.type).toBeDefined();
     expect(ReportLifecycleEvent.actorId).toBeDefined();
+    expect(ReportModerationAction.reportId).toBeDefined();
+    expect(ReportModerationAction.targetType).toBeDefined();
+    expect(ReportModerationAction.adminId).toBeDefined();
+    expect(ReportModerationAction.reason).toBeDefined();
+    expect(ReportModerationAction.note).toBeDefined();
   });
 
   it("supports pending, ready, failed, and removed media states", () => {
@@ -62,6 +73,25 @@ describe("report schema", () => {
       "pending_review",
       "closed",
     ]);
+  });
+
+  it("records hide and restore moderation actions separately from report status", () => {
+    expect(reportModerationActionType.enumValues).toEqual(["hide", "restore"]);
+
+    const reportIndexes = getTableConfig(Report).indexes.map(
+      (index) => index.config.name,
+    );
+    const actionIndexes = getTableConfig(ReportModerationAction).indexes.map(
+      (index) => index.config.name,
+    );
+
+    expect(reportIndexes).toContain("report_hidden_at_idx");
+    expect(actionIndexes).toEqual(
+      expect.arrayContaining([
+        "report_moderation_action_admin_idx",
+        "report_moderation_action_report_idx",
+      ]),
+    );
   });
 
   it("allows media replacement history without blocking reused display positions", () => {

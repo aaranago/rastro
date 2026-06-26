@@ -390,6 +390,7 @@ function FlaggedItemActions(props: {
         method={props.formAction ? undefined : "post"}
       >
         <input name="reviewItemId" type="hidden" value={props.item.id} />
+        <input name="moderationReason" type="hidden" value="admin_review" />
         <input name="targetId" type="hidden" value={props.item.target.id} />
         <input name="targetType" type="hidden" value={props.item.target.type} />
         <input
@@ -398,7 +399,19 @@ function FlaggedItemActions(props: {
           value={props.item.accusedMember.id}
         />
         {props.contentAction ? (
-          <ModerationButton action={props.contentAction} />
+          <>
+            <label className="sr-only" htmlFor={`note-${props.item.id}`}>
+              Nota de moderación
+            </label>
+            <textarea
+              className="border-input bg-background min-h-16 rounded-md border px-3 py-2 text-sm"
+              id={`note-${props.item.id}`}
+              maxLength={1000}
+              name="moderationNote"
+              placeholder="Nota breve"
+            />
+            <ModerationButton action={props.contentAction} />
+          </>
         ) : null}
         <ModerationButton action={props.memberAction} />
       </form>

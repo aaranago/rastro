@@ -16,6 +16,7 @@ import type { Database } from "@acme/db/client";
 import type { AdminSettingsRepository } from "./admin-settings-repository";
 import type { MediaStorage, MediaStorageConfig } from "./media-storage";
 import type { ReportMediaRepository } from "./report-media-repository";
+import type { ReportModerationRepository } from "./report-moderation-repository";
 import type { ReportRepository } from "./report-repository";
 import type { ResourceProviderModerationRepository } from "./resource-provider-moderation-repository";
 import type { ResourceProviderRepository } from "./resource-provider-repository";
@@ -27,6 +28,7 @@ import {
   resolveMediaDeliveryBaseUrl,
 } from "./media-storage";
 import { createDrizzleReportMediaRepository } from "./report-media-repository";
+import { createDrizzleReportModerationRepository } from "./report-moderation-repository";
 import { createDrizzleReportRepository } from "./report-repository";
 import { createDrizzleResourceProviderModerationRepository } from "./resource-provider-moderation-repository";
 import { createDrizzleResourceProviderRepository } from "./resource-provider-repository";
@@ -56,6 +58,7 @@ export const createTRPCContext = async (opts: {
   mediaRepository: ReportMediaRepository;
   mediaStorageConfig: MediaStorageConfig | null;
   mediaStorage: MediaStorage;
+  reportModerationRepository: ReportModerationRepository;
   reportRepository: ReportRepository;
   resourceProviderModerationRepository: ResourceProviderModerationRepository;
   resourceProviderRepository: ResourceProviderRepository;
@@ -87,6 +90,7 @@ export const createTRPCContext = async (opts: {
     mediaStorage: mediaStorageConfig
       ? createS3MediaStorage(mediaStorageConfig)
       : createUnavailableMediaStorage(),
+    reportModerationRepository: createDrizzleReportModerationRepository(db),
     reportRepository: createDrizzleReportRepository(db, {
       deliveryBaseUrl: mediaDeliveryBaseUrl,
     }),

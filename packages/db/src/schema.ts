@@ -162,6 +162,11 @@ export const reportLifecycleEventType = pgEnum("report_lifecycle_event_type", [
   "deleted",
 ]);
 
+export const reportModerationActionType = pgEnum(
+  "report_moderation_action_type",
+  ["hide", "restore"],
+);
+
 export const Report = pgTable(
   "report",
   (t) => ({
@@ -196,6 +201,12 @@ export const Report = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
+    hiddenAt: t.timestamp({ mode: "date", withTimezone: true }),
+    hiddenByAdminId: t.text().references(() => user.id, {
+      onDelete: "set null",
+    }),
+    hiddenReason: t.varchar({ length: 120 }),
+    hiddenNote: t.text(),
     resolvedAt: t.timestamp({ mode: "date", withTimezone: true }),
     deletedAt: t.timestamp({ mode: "date", withTimezone: true }),
   }),
@@ -206,6 +217,7 @@ export const Report = pgTable(
     ),
     index("report_caretaker_idx").on(table.caretakerId),
     index("report_type_status_idx").on(table.type, table.status),
+    index("report_hidden_at_idx").on(table.hiddenAt),
     index("report_created_at_idx").on(table.createdAt),
   ],
 );
@@ -322,6 +334,33 @@ export const ReportLifecycleEvent = pgTable(
   (table) => [
     index("report_lifecycle_report_idx").on(table.reportId),
     index("report_lifecycle_actor_idx").on(table.actorId),
+  ],
+);
+
+export const ReportModerationAction = pgTable(
+  "report_moderation_action",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    reportId: t
+      .uuid()
+      .notNull()
+      .references(() => Report.id, { onDelete: "cascade" }),
+    targetType: reportType().notNull(),
+    action: reportModerationActionType().notNull(),
+    adminId: t.text().references(() => user.id, { onDelete: "set null" }),
+    reason: t.varchar({ length: 120 }).notNull(),
+    note: t.text(),
+    createdAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  }),
+  (table) => [
+    index("report_moderation_action_report_idx").on(
+      table.reportId,
+      table.createdAt,
+    ),
+    index("report_moderation_action_admin_idx").on(table.adminId),
   ],
 );
 
@@ -586,6 +625,11 @@ export const reportRelations = relations(Report, ({ one, many }) => ({
   }),
   media: many(ReportMedia),
   lifecycleEvents: many(ReportLifecycleEvent),
+  moderationActions: many(ReportModerationAction),
+  hiddenByAdmin: one(user, {
+    fields: [Report.hiddenByAdminId],
+    references: [user.id],
+  }),
 }));
 
 export const reportLocationRelations = relations(ReportLocation, ({ one }) => ({
@@ -612,6 +656,20 @@ export const reportLifecycleEventRelations = relations(
     actor: one(user, {
       fields: [ReportLifecycleEvent.actorId],
       references: [user.id],
+    }),
+  }),
+);
+
+export const reportModerationActionRelations = relations(
+  ReportModerationAction,
+  ({ one }) => ({
+    admin: one(user, {
+      fields: [ReportModerationAction.adminId],
+      references: [user.id],
+    }),
+    report: one(Report, {
+      fields: [ReportModerationAction.reportId],
+      references: [Report.id],
     }),
   }),
 );

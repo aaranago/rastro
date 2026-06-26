@@ -132,6 +132,239 @@ describe("admin settings router", () => {
     ]);
   });
 
+  it("lists the DB-backed report and Adoption Listing moderation queue for allowlisted admins", async () => {
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      authApi: {},
+      db: {},
+      reportModerationRepository: {
+        listReportQueue: () =>
+          Promise.resolve([
+            {
+              createdAt: new Date("2026-06-26T17:00:00.000Z"),
+              id: "report-review-11111111-1111-4111-8111-111111111111",
+              newestAction: null,
+              reportCount: 1,
+              target: {
+                caretaker: {
+                  displayName: "Camila R.",
+                  email: "camila@example.com",
+                  memberId: "member-camila",
+                },
+                city: "La Paz",
+                department: "La Paz",
+                hiddenAt: null,
+                hiddenByAdminId: null,
+                hiddenNote: null,
+                hiddenReason: null,
+                id: "11111111-1111-4111-8111-111111111111",
+                locationLabel: "Sopocachi, La Paz",
+                reportType: "adoption",
+                status: "visible",
+                title: "Nala busca nuevo hogar",
+                type: "adoption_listing",
+              },
+              updatedAt: new Date("2026-06-26T17:00:00.000Z"),
+            },
+          ]),
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin",
+        },
+      },
+    });
+
+    await expect(caller.admin.moderation.reportQueue()).resolves.toMatchObject([
+      {
+        target: {
+          id: "11111111-1111-4111-8111-111111111111",
+          reportType: "adoption",
+          status: "visible",
+          type: "adoption_listing",
+        },
+      },
+    ]);
+  });
+
+  it("persists report hide and restore actions with the admin actor", async () => {
+    const actions: unknown[] = [];
+    const hiddenAt = new Date("2026-06-26T17:10:00.000Z");
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      authApi: {},
+      db: {},
+      reportModerationRepository: {
+        hideReportTarget: (input: unknown) => {
+          actions.push(["hide", input]);
+
+          return Promise.resolve({
+            createdAt: hiddenAt,
+            id: "report-review-11111111-1111-4111-8111-111111111111",
+            newestAction: {
+              action: "hide",
+              adminId: "member-admin",
+              createdAt: hiddenAt,
+              note: "Fotos ajenas al reporte.",
+              reason: "spam",
+            },
+            reportCount: 1,
+            target: {
+              caretaker: {
+                displayName: "Camila R.",
+                email: "camila@example.com",
+                memberId: "member-camila",
+              },
+              city: "La Paz",
+              department: "La Paz",
+              hiddenAt,
+              hiddenByAdminId: "member-admin",
+              hiddenNote: "Fotos ajenas al reporte.",
+              hiddenReason: "spam",
+              id: "11111111-1111-4111-8111-111111111111",
+              locationLabel: "Sopocachi, La Paz",
+              reportType: "lost_pet",
+              status: "hidden",
+              title: "Luna perdida cerca de Sopocachi",
+              type: "lost_pet_report",
+            },
+            updatedAt: hiddenAt,
+          });
+        },
+        restoreReportTarget: (input: unknown) => {
+          actions.push(["restore", input]);
+
+          return Promise.resolve({
+            createdAt: hiddenAt,
+            id: "report-review-11111111-1111-4111-8111-111111111111",
+            newestAction: {
+              action: "restore",
+              adminId: "member-admin",
+              createdAt: new Date("2026-06-26T17:20:00.000Z"),
+              note: "Contenido validado.",
+              reason: "approved_after_review",
+            },
+            reportCount: 1,
+            target: {
+              caretaker: {
+                displayName: "Camila R.",
+                email: "camila@example.com",
+                memberId: "member-camila",
+              },
+              city: "La Paz",
+              department: "La Paz",
+              hiddenAt: null,
+              hiddenByAdminId: null,
+              hiddenNote: null,
+              hiddenReason: null,
+              id: "11111111-1111-4111-8111-111111111111",
+              locationLabel: "Sopocachi, La Paz",
+              reportType: "lost_pet",
+              status: "visible",
+              title: "Luna perdida cerca de Sopocachi",
+              type: "lost_pet_report",
+            },
+            updatedAt: new Date("2026-06-26T17:20:00.000Z"),
+          });
+        },
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin",
+        },
+      },
+    });
+
+    await expect(
+      caller.admin.moderation.hideReportTarget({
+        note: "Fotos ajenas al reporte.",
+        reason: "spam",
+        reportId: "11111111-1111-4111-8111-111111111111",
+      }),
+    ).resolves.toMatchObject({
+      newestAction: {
+        action: "hide",
+        adminId: "member-admin",
+        reason: "spam",
+      },
+      target: {
+        hiddenByAdminId: "member-admin",
+        status: "hidden",
+      },
+    });
+
+    await expect(
+      caller.admin.moderation.restoreReportTarget({
+        note: "Contenido validado.",
+        reason: "approved_after_review",
+        reportId: "11111111-1111-4111-8111-111111111111",
+      }),
+    ).resolves.toMatchObject({
+      newestAction: {
+        action: "restore",
+        adminId: "member-admin",
+      },
+      target: {
+        hiddenAt: null,
+        status: "visible",
+      },
+    });
+
+    expect(actions).toEqual([
+      [
+        "hide",
+        {
+          adminId: "member-admin",
+          note: "Fotos ajenas al reporte.",
+          reason: "spam",
+          reportId: "11111111-1111-4111-8111-111111111111",
+        },
+      ],
+      [
+        "restore",
+        {
+          adminId: "member-admin",
+          note: "Contenido validado.",
+          reason: "approved_after_review",
+          reportId: "11111111-1111-4111-8111-111111111111",
+        },
+      ],
+    ]);
+  });
+
+  it("rejects report moderation mutations for non-admin members", async () => {
+    let hideWasCalled = false;
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      authApi: {},
+      db: {},
+      reportModerationRepository: {
+        hideReportTarget: () => {
+          hideWasCalled = true;
+          return Promise.resolve(null);
+        },
+      },
+      session: {
+        user: {
+          email: "ana@example.com",
+          id: "member-ana",
+        },
+      },
+    });
+
+    await expect(
+      caller.admin.moderation.hideReportTarget({
+        reason: "spam",
+        reportId: "11111111-1111-4111-8111-111111111111",
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(hideWasCalled).toBe(false);
+  });
+
   it("rejects Resource Provider moderation queue reads for non-admin members", async () => {
     const caller = createCaller({
       adminEmailList: "admin@rastro.bo",

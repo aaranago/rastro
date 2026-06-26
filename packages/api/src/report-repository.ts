@@ -67,6 +67,10 @@ export interface PersistedReport {
   whatsappPhone: string | null;
   createdAt: Date;
   updatedAt: Date;
+  hiddenAt?: Date | null;
+  hiddenByAdminId?: string | null;
+  hiddenReason?: string | null;
+  hiddenNote?: string | null;
   resolvedAt: Date | null;
   deletedAt: Date | null;
   location: PersistedReportLocation;
@@ -148,6 +152,10 @@ export function buildNearbyReportsDistance(input: NearbyReportsInput) {
   return sql<number>`ST_Distance(${ReportLocation.exactPoint}::geography, ${buildNearbyReportsOrigin(input)}::geography)`;
 }
 
+export function buildPublicReportVisibilityCondition() {
+  return and(isNull(Report.deletedAt), isNull(Report.hiddenAt));
+}
+
 function publicLocationFromInput(
   location: CreateReportInput["location"],
 ): Pick<
@@ -210,6 +218,10 @@ function toPersistedReport(
     whatsappPhone: row.whatsappPhone,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    hiddenAt: row.hiddenAt,
+    hiddenByAdminId: row.hiddenByAdminId,
+    hiddenReason: row.hiddenReason,
+    hiddenNote: row.hiddenNote,
     resolvedAt: row.resolvedAt,
     deletedAt: row.deletedAt,
     location: {
@@ -471,7 +483,7 @@ export function createDrizzleReportRepository(
     },
     nearby: async (input) => {
       const filters = [
-        isNull(Report.deletedAt),
+        buildPublicReportVisibilityCondition(),
         buildNearbyReportsCondition(input),
         input.statuses
           ? inArray(Report.status, input.statuses)

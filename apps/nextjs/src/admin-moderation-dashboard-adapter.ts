@@ -15,6 +15,8 @@ import type {
 
 export type AdminResourceProviderModerationQueue =
   RouterOutputs["admin"]["moderation"]["resourceProviderQueue"];
+export type AdminReportModerationQueue =
+  RouterOutputs["admin"]["moderation"]["reportQueue"];
 
 export function toAdminModerationDashboardProps(
   viewModel: AdminModerationDashboardViewModel,
@@ -28,6 +30,7 @@ export function toAdminModerationDashboardProps(
       viewModel.settings.verifiedEmailRequiredToPublish.enabled,
   },
   options: {
+    reportQueue?: AdminReportModerationQueue;
     resourceProviderQueue?: AdminResourceProviderModerationQueue;
   } = {},
 ): AdminModerationDashboardProps {
@@ -58,20 +61,24 @@ export function buildForbiddenAdminModerationDashboardProps(
 function flattenModerationItems(
   viewModel: AdminModerationDashboardViewModel,
   options: {
+    reportQueue?: AdminReportModerationQueue;
     resourceProviderQueue?: AdminResourceProviderModerationQueue;
   },
 ): AdminModerationFlaggedItem[] {
-  const fixtureItems = [
-    ...viewModel.queues.flaggedReports.items,
-    ...viewModel.queues.flaggedAdoptionListings.items,
-    ...viewModel.queues.flaggedChats.items,
-  ].map(toFlaggedItem);
+  const reportItems =
+    options.reportQueue !== undefined
+      ? options.reportQueue.map(toReportFlaggedItem)
+      : [
+          ...viewModel.queues.flaggedReports.items,
+          ...viewModel.queues.flaggedAdoptionListings.items,
+        ].map(toFlaggedItem);
+  const chatItems = viewModel.queues.flaggedChats.items.map(toFlaggedItem);
   const resourceProviderItems =
     options.resourceProviderQueue !== undefined
       ? options.resourceProviderQueue.map(toResourceProviderFlaggedItem)
       : viewModel.queues.flaggedResourceProviders.items.map(toFlaggedItem);
 
-  return [...fixtureItems, ...resourceProviderItems];
+  return [...reportItems, ...chatItems, ...resourceProviderItems];
 }
 
 function toFlaggedItem(
@@ -187,6 +194,63 @@ const moderationReasonLabels = {
   AdminResourceProviderModerationQueue[number]["reason"],
   string
 >;
+
+const reportTypeLabels = {
+  adoption: "Publicación de adopción",
+  found_pet: "Reporte de mascota encontrada",
+  lost_pet: "Reporte de mascota perdida",
+  sighting: "Reporte de avistamiento",
+} satisfies Record<
+  AdminReportModerationQueue[number]["target"]["reportType"],
+  string
+>;
+
+function toReportFlaggedItem(
+  item: AdminReportModerationQueue[number],
+): AdminModerationFlaggedItem {
+  const actionDetail = item.newestAction
+    ? `Ultima acción: ${item.newestAction.action === "hide" ? "oculto" : "restaurado"} por ${item.newestAction.adminId ?? "admin"} (${item.newestAction.reason}).`
+    : "Sin acciones administrativas previas.";
+
+  return {
+    accusedMember: {
+      displayName: item.target.caretaker.displayName,
+      id: item.target.caretaker.memberId,
+      status: "active",
+    },
+    department: item.target.department,
+    detail: [
+      `${reportTypeLabels[item.target.reportType]} en ${item.target.locationLabel}.`,
+      actionDetail,
+    ].join(" "),
+    id: item.id,
+    newestReportLabel: formatNewestReportLabel(item.updatedAt),
+    reasonLabel: item.target.hiddenReason ?? "Revisión de contenido",
+    reportCount: item.reportCount,
+    reporterLabel: "Moderación Rastro",
+    target: {
+      href: buildReportTargetHref(item),
+      id: item.target.id,
+      locationLabel: item.target.city,
+      status: item.target.status,
+      title: item.target.title,
+      type: item.target.type,
+    },
+  };
+}
+
+function buildReportTargetHref(item: AdminReportModerationQueue[number]) {
+  switch (item.target.type) {
+    case "adoption_listing":
+      return `/adopciones/${item.target.id}`;
+    case "found_pet_report":
+      return `/admin/moderacion/reportes/encontrados/${item.target.id}`;
+    case "lost_pet_report":
+      return `/reportes/perdidos/${item.target.id}`;
+    case "sighting_report":
+      return `/admin/moderacion/reportes/avistamientos/${item.target.id}`;
+  }
+}
 
 function toResourceProviderFlaggedItem(
   item: AdminResourceProviderModerationQueue[number],

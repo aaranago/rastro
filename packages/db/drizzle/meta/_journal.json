@@ -43,6 +43,13 @@
       "when": 1782505134914,
       "tag": "0005_eager_gargoyle",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782508848364,
+      "tag": "0006_amused_warbound",
+      "breakpoints": true
     }
   ]
 }

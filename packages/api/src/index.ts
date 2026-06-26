@@ -27,6 +27,12 @@ export {
   type ReportMediaUploadStatus,
 } from "./report-media-repository";
 export {
+  createDrizzleReportModerationRepository,
+  type ReportModerationQueueItem,
+  type ReportModerationRepository,
+  type ReportModerationTargetType,
+} from "./report-moderation-repository";
+export {
   createDrizzleResourceProviderModerationRepository,
   createInMemoryResourceProviderModerationRepository,
   type ResourceProviderModerationQueueItem,

@@ -120,6 +120,10 @@ function canReadReport(
   report: PersistedReport,
   viewerMemberId: string | null,
 ): boolean {
+  if (report.hiddenAt) {
+    return false;
+  }
+
   return (
     report.status !== "pending_review" || report.caretakerId === viewerMemberId
   );

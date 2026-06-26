@@ -17,6 +17,11 @@ const adminSettingsApi = vi.hoisted(() => ({
 const resourceProviderModerationApi = vi.hoisted(() => ({
   listAdminResourceProviderModerationQueue: vi.fn(),
 }));
+const reportModerationApi = vi.hoisted(() => ({
+  hideAdminReportTarget: vi.fn(),
+  listAdminReportModerationQueue: vi.fn(),
+  restoreAdminReportTarget: vi.fn(),
+}));
 
 vi.mock("~/auth/server", () => authServer);
 vi.mock("~/env", () => envMock);
@@ -25,6 +30,7 @@ vi.mock(
   "~/admin-resource-provider-moderation-api-adapter",
   () => resourceProviderModerationApi,
 );
+vi.mock("~/admin-report-moderation-api-adapter", () => reportModerationApi);
 
 describe("admin moderation page", () => {
   beforeEach(() => {
@@ -41,6 +47,10 @@ describe("admin moderation page", () => {
     resourceProviderModerationApi.listAdminResourceProviderModerationQueue.mockResolvedValue(
       [],
     );
+    reportModerationApi.listAdminReportModerationQueue.mockReset();
+    reportModerationApi.listAdminReportModerationQueue.mockResolvedValue([]);
+    reportModerationApi.hideAdminReportTarget.mockReset();
+    reportModerationApi.restoreAdminReportTarget.mockReset();
   });
 
   it("renders the moderation dashboard for an allowed admin member", async () => {
@@ -51,6 +61,34 @@ describe("admin moderation page", () => {
         name: "Admin Rastro",
       },
     });
+    reportModerationApi.listAdminReportModerationQueue.mockResolvedValue([
+      {
+        createdAt: new Date("2026-06-26T17:00:00.000Z"),
+        id: "report-review-33333333-3333-4333-8333-333333333333",
+        newestAction: null,
+        reportCount: 1,
+        target: {
+          caretaker: {
+            displayName: "Huellitas La Paz",
+            email: "huellitas@example.com",
+            memberId: "member-huellitas",
+          },
+          city: "La Paz",
+          department: "La Paz",
+          hiddenAt: null,
+          hiddenByAdminId: null,
+          hiddenNote: null,
+          hiddenReason: null,
+          id: "33333333-3333-4333-8333-333333333333",
+          locationLabel: "Sopocachi, La Paz",
+          reportType: "adoption",
+          status: "visible",
+          title: "Nala busca nuevo hogar DB",
+          type: "adoption_listing",
+        },
+        updatedAt: new Date("2026-06-26T17:00:00.000Z"),
+      },
+    ]);
     resourceProviderModerationApi.listAdminResourceProviderModerationQueue.mockResolvedValue(
       [
         {
@@ -87,8 +125,11 @@ describe("admin moderation page", () => {
     const html = renderToStaticMarkup(await AdminModerationPage());
 
     expect(html).toContain("Contenido reportado");
-    expect(html).toContain("Bruno reportado como posible riesgo");
-    expect(html).toContain("Reporte de mascota perdida");
+    expect(html).toContain("Nala busca nuevo hogar DB");
+    expect(html).toContain("Publicación de adopción");
+    expect(html).toContain("Ocultar publicación");
+    expect(html).toContain("Nota breve");
+    expect(html).not.toContain("Bruno reportado como posible riesgo");
     expect(html).toContain("Perfil de proveedor de recursos");
     expect(html).toContain("Clinica Veterinaria San Roque DB");
     expect(html).toContain("Ubicación incorrecta");
@@ -101,6 +142,9 @@ describe("admin moderation page", () => {
     expect(html).toContain("Admin Rastro");
     expect(
       resourceProviderModerationApi.listAdminResourceProviderModerationQueue,
+    ).toHaveBeenCalledOnce();
+    expect(
+      reportModerationApi.listAdminReportModerationQueue,
     ).toHaveBeenCalledOnce();
   });
 
@@ -125,6 +169,9 @@ describe("admin moderation page", () => {
     expect(html).not.toContain("Suspender miembro");
     expect(
       resourceProviderModerationApi.listAdminResourceProviderModerationQueue,
+    ).not.toHaveBeenCalled();
+    expect(
+      reportModerationApi.listAdminReportModerationQueue,
     ).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildNearbyReportsCondition } from "./report-repository";
+import {
+  buildNearbyReportsCondition,
+  buildPublicReportVisibilityCondition,
+} from "./report-repository";
 
 const postgresQueryConfig = {
   casing: {
@@ -25,5 +28,18 @@ describe("report repository", () => {
     expect(query.sql).toContain("ST_SetSRID(ST_MakePoint($1, $2), 4326)");
     expect(query.sql).toContain('"report_location"."exact_point"');
     expect(query.params).toEqual([-68.12, -16.5, 5000]);
+  });
+
+  it("builds public visibility filters that exclude deleted and hidden reports", () => {
+    const condition = buildPublicReportVisibilityCondition();
+
+    if (!condition) {
+      throw new Error("Expected public visibility condition.");
+    }
+
+    const query = condition.toQuery(postgresQueryConfig as never);
+
+    expect(query.sql).toContain('"report"."deletedAt" is null');
+    expect(query.sql).toContain('"report"."hiddenAt" is null');
   });
 });

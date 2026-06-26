@@ -134,6 +134,8 @@ describe("AdminModerationDashboard", () => {
     expect(html).toContain("Perfil de proveedor de recursos");
     expect(html).toContain("Ocultar reporte");
     expect(html).toContain("Restaurar publicación");
+    expect(html).toContain("moderationReason");
+    expect(html).toContain("moderationNote");
     expect(html).toContain("Suspender miembro");
     expect(html).toContain("Reactivar miembro");
     expect(html).toContain("Review Mode para adopciones");
