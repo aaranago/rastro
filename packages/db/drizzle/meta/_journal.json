@@ -29,6 +29,13 @@
       "when": 1782496129904,
       "tag": "0003_previous_medusa",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782500178616,
+      "tag": "0004_far_celestials",
+      "breakpoints": true
     }
   ]
 }

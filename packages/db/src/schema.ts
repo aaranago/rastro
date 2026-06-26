@@ -46,7 +46,11 @@ export const reportType = pgEnum("report_type", [
   "adoption",
 ]);
 
-export const reportStatus = pgEnum("report_status", ["active", "closed"]);
+export const reportStatus = pgEnum("report_status", [
+  "active",
+  "pending_review",
+  "closed",
+]);
 
 export const reportOutcome = pgEnum("report_outcome", [
   "still_missing",
@@ -107,6 +111,24 @@ export const publicLocationPrecision = pgEnum("public_location_precision", [
   "exact",
   "approximate",
 ]);
+
+export const AdminSettings = pgTable("admin_settings", (t) => ({
+  id: t.varchar({ length: 64 }).notNull().primaryKey(),
+  adoptionReviewModeEnabled: t.boolean().default(false).notNull(),
+  verifiedEmailRequiredToPublish: t.boolean().default(false).notNull(),
+  updatedByAdminId: t.text().references(() => user.id, {
+    onDelete: "set null",
+  }),
+  createdAt: t
+    .timestamp({ mode: "date", withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: t
+    .timestamp({ mode: "date", withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+}));
 
 export const reportMediaKind = pgEnum("report_media_kind", ["photo"]);
 
@@ -547,5 +569,12 @@ export const localSponsorPlacementRelations = relations(
     }),
   }),
 );
+
+export const adminSettingsRelations = relations(AdminSettings, ({ one }) => ({
+  updatedByAdmin: one(user, {
+    fields: [AdminSettings.updatedByAdminId],
+    references: [user.id],
+  }),
+}));
 
 export * from "./auth-schema";

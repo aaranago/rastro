@@ -115,11 +115,40 @@ describe("Adoption Listing publish adapter", () => {
       types: ["lost_pet", "found_pet", "sighting", "adoption"],
     });
   });
+
+  it("accepts Review Mode pending review without requiring public nearby visibility", async () => {
+    const client = createClient({
+      created: {
+        id: "report-adoption-backend-1",
+        status: "pending_review",
+        type: "adoption",
+      },
+      detail: {
+        id: "report-adoption-backend-1",
+        status: "pending_review",
+        type: "adoption",
+      },
+      nearby: {
+        query: {},
+        results: [],
+      },
+    });
+    const publish = createApiAdoptionListingPublishHandler({
+      client,
+      now: () => "2026-06-18T11:00:00.000Z",
+    });
+
+    await expect(publish(createPublishInput())).resolves.toEqual({
+      id: "report-adoption-backend-1",
+      status: "pending_review",
+    });
+    expect(client.report.nearby.query).not.toHaveBeenCalled();
+  });
 });
 
 interface MockAdoptionReport {
   id: string;
-  status: "active" | "closed";
+  status: "active" | "closed" | "pending_review";
   type: "adoption";
 }
 

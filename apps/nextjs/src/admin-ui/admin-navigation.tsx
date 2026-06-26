@@ -64,8 +64,8 @@ export const adminNavigationItems = [
     href: "/admin/ajustes",
     issueId: "ADMIN-006",
     label: "Ajustes",
-    status: "planned",
-    statusLabel: "Planificado",
+    status: "available",
+    statusLabel: "Disponible",
   },
   {
     description:

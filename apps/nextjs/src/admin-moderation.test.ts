@@ -215,7 +215,7 @@ describe("admin moderation dashboard", () => {
         label: "Review Mode",
       },
       verifiedEmailRequiredToPublish: {
-        enabled: true,
+        enabled: false,
         label: "Email verificado requerido para publicar",
       },
     });
@@ -245,17 +245,17 @@ describe("admin moderation dashboard", () => {
       }),
     ).toMatchObject({
       announcement: {
-        title: "Email verificado opcional",
+        title: "Email verificado requerido",
       },
       status: "updated",
     });
     expect(
       getAuthorizedViewModel(dashboard).settings.verifiedEmailRequiredToPublish,
     ).toMatchObject({
-      enabled: false,
-      stateLabel: "Desactivado",
+      enabled: true,
+      stateLabel: "Activado",
       summary:
-        "Los miembros pueden publicar mientras terminan la verificacion de email.",
+        "Los miembros deben verificar su email antes de crear reportes o Adoption Listings.",
     });
   });
 

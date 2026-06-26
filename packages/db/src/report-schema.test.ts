@@ -7,6 +7,7 @@ import {
   ReportLifecycleEvent,
   ReportLocation,
   ReportMedia,
+  reportStatus,
 } from "./schema";
 
 const postgresQueryConfig = {
@@ -52,6 +53,14 @@ describe("report schema", () => {
       "ready",
       "failed",
       "removed",
+    ]);
+  });
+
+  it("supports pending review reports for Review Mode adoption publishing", () => {
+    expect(reportStatus.enumValues).toEqual([
+      "active",
+      "pending_review",
+      "closed",
     ]);
   });
 

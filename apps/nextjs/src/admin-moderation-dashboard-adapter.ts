@@ -14,17 +14,21 @@ import type {
 export function toAdminModerationDashboardProps(
   viewModel: AdminModerationDashboardViewModel,
   viewer: AdminModerationViewer,
+  settings: {
+    reviewModeEnabled: boolean;
+    verifiedEmailRequiredToPublish: boolean;
+  } = {
+    reviewModeEnabled: viewModel.settings.adoptionReviewMode.enabled,
+    verifiedEmailRequiredToPublish:
+      viewModel.settings.verifiedEmailRequiredToPublish.enabled,
+  },
 ): AdminModerationDashboardProps {
   const flaggedItems = flattenModerationItems(viewModel);
 
   return {
     flaggedItems,
     metrics: buildDashboardMetrics(flaggedItems),
-    settings: {
-      reviewModeEnabled: viewModel.settings.adoptionReviewMode.enabled,
-      verifiedEmailRequiredToPublish:
-        viewModel.settings.verifiedEmailRequiredToPublish.enabled,
-    },
+    settings,
     viewer,
   };
 }

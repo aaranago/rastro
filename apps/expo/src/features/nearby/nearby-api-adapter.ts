@@ -4,7 +4,10 @@ import {
   buildPublicLostReportShareTarget,
 } from "@acme/validators";
 
-import type { ReportOutcome } from "../reports/report-lifecycle";
+import type {
+  ReportLifecycleStatus,
+  ReportOutcome,
+} from "../reports/report-lifecycle";
 import type {
   AdoptionListingSummary,
   FoundPetReportSummary,
@@ -315,8 +318,14 @@ function toLifecycleFields(report: ApiNearbyReport) {
 
   return {
     ...(outcome ? { outcome } : {}),
-    status: report.status,
+    status: toLifecycleStatus(report.status),
   };
+}
+
+function toLifecycleStatus(
+  status: ApiNearbyReport["status"],
+): ReportLifecycleStatus {
+  return status === "closed" ? "closed" : "active";
 }
 
 function normalizeOutcome(

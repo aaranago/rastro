@@ -81,6 +81,7 @@ export interface ReportRepository {
   }): Promise<PersistedReport | null>;
   create(input: {
     caretakerId: string;
+    initialStatus?: ReportStatus;
     report: CreateReportInput;
   }): Promise<PersistedReport>;
   nearby(input: NearbyReportsInput): Promise<PersistedReport[]>;
@@ -342,7 +343,7 @@ export function createDrizzleReportRepository(
 
       return row ? toPersistedReportWithMedia(row) : null;
     },
-    create: async ({ caretakerId, report }) => {
+    create: async ({ caretakerId, initialStatus = "active", report }) => {
       const existing = await repository.findByCaretakerAndIdempotencyKey({
         caretakerId,
         idempotencyKey: report.idempotencyKey,
@@ -386,6 +387,7 @@ export function createDrizzleReportRepository(
               species: report.pet.species,
               breed: report.pet.breed ?? null,
               size: report.pet.size ?? null,
+              status: initialStatus,
               title: report.title,
               type: report.type,
               whatsappPhone: report.contact.whatsappPhone ?? null,
@@ -449,7 +451,7 @@ export function createDrizzleReportRepository(
           await tx.insert(ReportLifecycleEvent).values({
             actorId: caretakerId,
             reportId: persisted.id,
-            toStatus: "active",
+            toStatus: initialStatus,
             type: "created",
           });
 

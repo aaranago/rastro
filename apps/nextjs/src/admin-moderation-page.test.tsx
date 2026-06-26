@@ -11,12 +11,25 @@ const envMock = vi.hoisted(() => ({
   },
 }));
 
+const adminSettingsApi = vi.hoisted(() => ({
+  getAdminSettings: vi.fn(),
+}));
+
 vi.mock("~/auth/server", () => authServer);
 vi.mock("~/env", () => envMock);
+vi.mock("~/admin-settings-api-adapter", () => adminSettingsApi);
 
 describe("admin moderation page", () => {
   beforeEach(() => {
+    vi.resetModules();
     authServer.getSession.mockReset();
+    adminSettingsApi.getAdminSettings.mockReset();
+    adminSettingsApi.getAdminSettings.mockResolvedValue({
+      adoptionReviewModeEnabled: false,
+      updatedAt: null,
+      updatedByAdminId: null,
+      verifiedEmailRequiredToPublish: false,
+    });
   });
 
   it("renders the moderation dashboard for an allowed admin member", async () => {

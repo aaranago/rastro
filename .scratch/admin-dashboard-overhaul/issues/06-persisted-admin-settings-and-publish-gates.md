@@ -1,7 +1,7 @@
 # ADMIN-006 Persisted admin settings and publish gates
 
-Status: needs-triage
-Labels: needs-triage
+Status: verified-runbook
+Labels: verified-runbook
 Severity: P0
 Issue ID: ADMIN-006
 Type: AFK
@@ -17,13 +17,13 @@ Replace in-memory admin settings with persisted settings for Review Mode and ver
 
 ## Acceptance criteria
 
-- [ ] Settings are persisted in the database and survive server restart.
-- [ ] `/admin/ajustes` shows Review Mode and verified-email publish requirement.
-- [ ] Admins can toggle settings with confirmation, clear copy, and success/error feedback.
-- [ ] Adoption publish flow respects Review Mode.
-- [ ] Report/listing publish paths respect verified-email requirement when enabled.
-- [ ] Default state matches product docs: email verification is configurable and off by default unless explicitly enabled.
-- [ ] Settings changes produce audit events or are ready to be included by ADMIN-010.
+- [x] Settings are persisted in the database and survive server restart.
+- [x] `/admin/ajustes` shows Review Mode and verified-email publish requirement.
+- [x] Admins can toggle settings with confirmation, clear copy, and success/error feedback.
+- [x] Adoption publish flow respects Review Mode.
+- [x] Report/listing publish paths respect verified-email requirement when enabled.
+- [x] Default state matches product docs: email verification is configurable and off by default unless explicitly enabled.
+- [x] Settings changes produce audit events or are ready to be included by ADMIN-010.
 
 ## Required automated tests
 
@@ -44,3 +44,15 @@ Replace in-memory admin settings with persisted settings for Review Mode and ver
 ## Notes
 
 Do not keep the current `admin-moderation.ts` in-memory settings as production behavior.
+
+ADMIN-006 implementation verified persistence with DB-backed settings,
+repository/router tests, and Playwright coverage for `/admin/ajustes` default,
+error, toggled, reload, and fresh Next server restart states.
+
+Visual evidence:
+
+- `/tmp/rastro-admin-006-default.png`
+- `/tmp/rastro-admin-006-error.png`
+- `/tmp/rastro-admin-006-toggled.png`
+- `/tmp/rastro-admin-006-reload-persistence.png`
+- `/tmp/rastro-admin-006-restart-persistence.png`

@@ -13,10 +13,12 @@ import { z, ZodError } from "zod/v4";
 import type { Auth } from "@acme/auth";
 import type { Database } from "@acme/db/client";
 
+import type { AdminSettingsRepository } from "./admin-settings-repository";
 import type { MediaStorage, MediaStorageConfig } from "./media-storage";
 import type { ReportMediaRepository } from "./report-media-repository";
 import type { ReportRepository } from "./report-repository";
 import type { ResourceProviderRepository } from "./resource-provider-repository";
+import { createDrizzleAdminSettingsRepository } from "./admin-settings-repository";
 import {
   createS3MediaStorage,
   createUnavailableMediaStorage,
@@ -47,6 +49,7 @@ export const createTRPCContext = async (opts: {
 }): Promise<{
   adminEmailList: string | undefined;
   authApi: Auth["api"];
+  adminSettingsRepository: AdminSettingsRepository;
   db: Database;
   mediaRepository: ReportMediaRepository;
   mediaStorageConfig: MediaStorageConfig | null;
@@ -70,6 +73,7 @@ export const createTRPCContext = async (opts: {
 
   return {
     adminEmailList: opts.adminEmailList,
+    adminSettingsRepository: createDrizzleAdminSettingsRepository(db),
     authApi,
     db,
     mediaRepository: createDrizzleReportMediaRepository(db, {

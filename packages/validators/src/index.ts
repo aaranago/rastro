@@ -14,7 +14,11 @@ export const reportTypeSchema = z.enum([
   "adoption",
 ]);
 
-export const reportStatusSchema = z.enum(["active", "closed"]);
+export const reportStatusSchema = z.enum([
+  "active",
+  "pending_review",
+  "closed",
+]);
 
 export const reportOutcomeSchema = z.enum([
   "still_missing",

@@ -12,9 +12,11 @@ import {
   uploadSessionIdInputSchema,
 } from "@acme/validators";
 
+import type { PersistedAdminSettings } from "../admin-settings-repository";
 import type { MediaStorage, StoredObjectHead } from "../media-storage";
 import type { PersistedReportMediaUpload } from "../report-media-repository";
 import type { PersistedReport } from "../report-repository";
+import { defaultAdminSettings } from "../admin-settings-repository";
 import { toPublicReport } from "../report-repository";
 import { protectedProcedure, publicProcedure } from "../trpc";
 
@@ -112,6 +114,38 @@ function requireOwnedReport(
   }
 
   return report;
+}
+
+function canReadReport(
+  report: PersistedReport,
+  viewerMemberId: string | null,
+): boolean {
+  return (
+    report.status !== "pending_review" || report.caretakerId === viewerMemberId
+  );
+}
+
+async function getPublishGateSettings(ctx: {
+  adminSettingsRepository?: {
+    get: () => Promise<PersistedAdminSettings>;
+  };
+}) {
+  return ctx.adminSettingsRepository?.get() ?? defaultAdminSettings;
+}
+
+function assertVerifiedEmailCanPublish(ctx: {
+  session: {
+    user: {
+      emailVerified?: boolean | null;
+    };
+  };
+}) {
+  if (ctx.session.user.emailVerified !== true) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Verified email is required to publish in Rastro.",
+    });
+  }
 }
 
 export const reportRouter = {
@@ -239,6 +273,20 @@ export const reportRouter = {
           caretakerId,
           idempotencyKey: input.idempotencyKey,
         });
+      const settings = existing
+        ? defaultAdminSettings
+        : await getPublishGateSettings(ctx);
+
+      if (!existing && settings.verifiedEmailRequiredToPublish) {
+        assertVerifiedEmailCanPublish(ctx);
+      }
+
+      const initialStatus =
+        !existing &&
+        input.type === "adoption" &&
+        settings.adoptionReviewModeEnabled
+          ? "pending_review"
+          : "active";
 
       if (!existing && input.media.length > 0) {
         try {
@@ -260,6 +308,7 @@ export const reportRouter = {
         existing ??
         (await ctx.reportRepository.create({
           caretakerId,
+          initialStatus,
           report: input,
         }));
 
@@ -274,6 +323,10 @@ export const reportRouter = {
         throw new TRPCError({ code: "NOT_FOUND" });
       }
 
+      if (!canReadReport(report, ctx.session?.user.id ?? null)) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
       return toPublicReport(report, ctx.session?.user.id ?? null);
     }),
   nearby: publicProcedure
@@ -285,6 +338,9 @@ export const reportRouter = {
         query: input,
         results: reports
           .filter((report) => !report.deletedAt)
+          .filter((report) =>
+            canReadReport(report, ctx.session?.user.id ?? null),
+          )
           .map((report) =>
             toPublicReport(report, ctx.session?.user.id ?? null),
           ),

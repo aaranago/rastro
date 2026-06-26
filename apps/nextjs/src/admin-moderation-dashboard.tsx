@@ -123,10 +123,7 @@ export function AdminModerationDashboard(props: AdminModerationDashboardProps) {
         </section>
 
         <aside className="flex flex-col gap-6">
-          <ModerationSettings
-            formAction={props.formAction}
-            settings={props.settings}
-          />
+          <ModerationSettings settings={props.settings} />
           <AbuseMetrics metrics={props.metrics} />
         </aside>
       </div>
@@ -428,10 +425,7 @@ function ModerationButton(props: {
   );
 }
 
-function ModerationSettings(props: {
-  formAction?: React.ComponentProps<"form">["action"];
-  settings: AdminModerationSettings;
-}) {
+function ModerationSettings(props: { settings: AdminModerationSettings }) {
   return (
     <section
       aria-labelledby="moderation-settings-heading"
@@ -440,72 +434,45 @@ function ModerationSettings(props: {
       <h2 id="moderation-settings-heading" className="text-xl font-semibold">
         Ajustes de seguridad
       </h2>
-      <form
-        action={props.formAction}
-        className="mt-4 flex flex-col gap-4"
-        method={props.formAction ? undefined : "post"}
-      >
-        <SettingSwitch
-          defaultChecked={props.settings.reviewModeEnabled}
+      <div className="mt-4 flex flex-col gap-4">
+        <SettingState
+          checked={props.settings.reviewModeEnabled}
           description={settingsCopy.reviewMode}
-          id="review-mode"
           label="Review Mode para adopciones"
-          name="reviewModeEnabled"
         />
-        <SettingSwitch
-          defaultChecked={props.settings.verifiedEmailRequiredToPublish}
+        <SettingState
+          checked={props.settings.verifiedEmailRequiredToPublish}
           description={settingsCopy.verifiedEmail}
-          id="verified-email-required"
           label="Correo verificado requerido para publicar"
-          name="verifiedEmailRequiredToPublish"
         />
-        <button
-          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-semibold"
-          name="moderationAction"
-          type="submit"
-          value="save_settings"
+        <a
+          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-center text-sm font-semibold"
+          href="/admin/ajustes"
         >
-          Guardar ajustes
-        </button>
-      </form>
+          Abrir ajustes
+        </a>
+      </div>
     </section>
   );
 }
 
-function SettingSwitch(props: {
-  defaultChecked: boolean;
+function SettingState(props: {
+  checked: boolean;
   description: string;
-  id: string;
   label: string;
-  name: string;
 }) {
-  const descriptionId = `${props.id}-description`;
-
   return (
-    <label
-      className="border-border flex items-start justify-between gap-4 rounded-lg border p-3"
-      htmlFor={props.id}
-    >
+    <div className="border-border flex items-start justify-between gap-4 rounded-lg border p-3">
       <span>
         <span className="block text-sm font-semibold">{props.label}</span>
-        <span
-          className="text-muted-foreground mt-1 block text-sm"
-          id={descriptionId}
-        >
+        <span className="text-muted-foreground mt-1 block text-sm">
           {props.description}
         </span>
       </span>
-      <input
-        aria-describedby={descriptionId}
-        className="accent-primary mt-1 h-5 w-9 shrink-0"
-        defaultChecked={props.defaultChecked}
-        id={props.id}
-        name={props.name}
-        role="switch"
-        type="checkbox"
-        value="on"
-      />
-    </label>
+      <span className="bg-muted text-muted-foreground rounded-md px-2 py-1 text-xs font-semibold">
+        {props.checked ? "Activado" : "Desactivado"}
+      </span>
+    </div>
   );
 }
 

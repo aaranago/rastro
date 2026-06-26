@@ -12,6 +12,7 @@ import {
   buildForbiddenAdminModerationDashboardProps,
   toAdminModerationDashboardProps,
 } from "~/admin-moderation-dashboard-adapter";
+import { getAdminSettings } from "~/admin-settings-api-adapter";
 import { getSession } from "~/auth/server";
 import { env } from "~/env";
 
@@ -34,12 +35,19 @@ export default async function AdminModerationPage() {
     );
   }
 
+  const settings = await getAdminSettings();
+
   return (
     <AdminModerationDashboard
       formAction={applyAdminModerationForm}
       {...toAdminModerationDashboardProps(
         result.viewModel,
         viewer.dashboardViewer,
+        {
+          reviewModeEnabled: settings.adoptionReviewModeEnabled,
+          verifiedEmailRequiredToPublish:
+            settings.verifiedEmailRequiredToPublish,
+        },
       )}
     />
   );
@@ -55,7 +63,7 @@ async function applyAdminModerationForm(formData: FormData) {
     return;
   }
 
-  const actions = parseAdminModerationActions(formData, viewer.modelViewer);
+  const actions = parseAdminModerationActions(formData);
 
   for (const action of actions) {
     adminModerationDashboard.applyAction(viewer.modelViewer, action);
@@ -66,7 +74,6 @@ async function applyAdminModerationForm(formData: FormData) {
 
 function parseAdminModerationActions(
   formData: FormData,
-  viewer: ReturnType<typeof buildAdminModerationViewer>["modelViewer"],
 ): AdminModerationAction[] {
   const actionType = getStringFormValue(formData, "moderationAction");
 
@@ -87,43 +94,7 @@ function parseAdminModerationActions(
       : [];
   }
 
-  if (actionType === "save_settings") {
-    return getSettingsActions(formData, viewer);
-  }
-
   return [];
-}
-
-function getSettingsActions(
-  formData: FormData,
-  viewer: ReturnType<typeof buildAdminModerationViewer>["modelViewer"],
-): AdminModerationAction[] {
-  const result = adminModerationDashboard.getViewModel(viewer);
-
-  if (result.status !== "authorized") {
-    return [];
-  }
-
-  const nextReviewModeEnabled = formData.get("reviewModeEnabled") === "on";
-  const nextVerifiedEmailRequired =
-    formData.get("verifiedEmailRequiredToPublish") === "on";
-  const actions: AdminModerationAction[] = [];
-
-  if (
-    result.viewModel.settings.adoptionReviewMode.enabled !==
-    nextReviewModeEnabled
-  ) {
-    actions.push({ type: "toggle_adoption_review_mode" });
-  }
-
-  if (
-    result.viewModel.settings.verifiedEmailRequiredToPublish.enabled !==
-    nextVerifiedEmailRequired
-  ) {
-    actions.push({ type: "toggle_verified_email_required_to_publish" });
-  }
-
-  return actions;
 }
 
 function getStringFormValue(formData: FormData, key: string) {

@@ -30,6 +30,24 @@ const validReportCreateInput = {
   media: [],
 } satisfies CreateReportInput;
 
+const validAdoptionCreateInput = {
+  ...validReportCreateInput,
+  idempotencyKey: "adoption-2026-06-19-device-1",
+  type: "adoption",
+  title: "Nala en adopcion en Sopocachi",
+  description: "Nala busca un hogar tranquilo y responsable.",
+  pet: {
+    species: "cat",
+    color: "gris",
+    name: "Nala",
+  },
+  media: [
+    {
+      mediaId: "55555555-5555-4555-8555-555555555555",
+    },
+  ],
+} satisfies CreateReportInput;
+
 function createCaller(context: unknown) {
   return appRouter.createCaller(context as never);
 }
@@ -158,6 +176,126 @@ describe("report router", () => {
     });
     expect(JSON.stringify(report)).not.toContain("-16.510231");
     expect(JSON.stringify(report)).not.toContain("-68.123881");
+  });
+
+  it("rejects report publishing for unverified members when the verified-email gate is enabled", async () => {
+    let createWasCalled = false;
+    const caller = createCaller({
+      adminSettingsRepository: {
+        get: () =>
+          Promise.resolve({
+            adoptionReviewModeEnabled: false,
+            updatedAt: null,
+            updatedByAdminId: null,
+            verifiedEmailRequiredToPublish: true,
+          }),
+      },
+      authApi: {},
+      db: {},
+      session: {
+        user: {
+          emailVerified: false,
+          id: "member-camila",
+        },
+      },
+      reportRepository: {
+        findByCaretakerAndIdempotencyKey: () => Promise.resolve(null),
+        create: () => {
+          createWasCalled = true;
+          return Promise.reject(new Error("Should not create report."));
+        },
+      },
+    });
+
+    await expect(
+      caller.report.create(validReportCreateInput),
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+    });
+    expect(createWasCalled).toBe(false);
+  });
+
+  it("creates adoption reports as pending review while Review Mode is enabled", async () => {
+    let createInput:
+      | {
+          initialStatus?: string;
+        }
+      | undefined;
+    const caller = createCaller({
+      adminSettingsRepository: {
+        get: () =>
+          Promise.resolve({
+            adoptionReviewModeEnabled: true,
+            updatedAt: null,
+            updatedByAdminId: null,
+            verifiedEmailRequiredToPublish: false,
+          }),
+      },
+      authApi: {},
+      db: {},
+      mediaRepository: {
+        assertReadyMediaForReport: () => Promise.resolve(),
+      },
+      session: {
+        user: {
+          id: "member-camila",
+        },
+      },
+      reportRepository: {
+        findByCaretakerAndIdempotencyKey: () => Promise.resolve(null),
+        create: (input: { initialStatus?: string }) => {
+          createInput = input;
+
+          return Promise.resolve(
+            persistedSightingReport({
+              id: "report-adoption-review",
+              idempotencyKey: validAdoptionCreateInput.idempotencyKey,
+              status: "pending_review",
+              type: "adoption",
+            }),
+          );
+        },
+      },
+    });
+
+    const report = await caller.report.create(validAdoptionCreateInput);
+
+    expect(createInput).toMatchObject({
+      initialStatus: "pending_review",
+    });
+    expect(report).toMatchObject({
+      id: "report-adoption-review",
+      status: "pending_review",
+      type: "adoption",
+    });
+  });
+
+  it("does not expose pending-review adoption reports to other members", async () => {
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      session: {
+        user: {
+          id: "member-diego",
+        },
+      },
+      reportRepository: {
+        findById: () =>
+          Promise.resolve(
+            persistedSightingReport({
+              caretakerId: "member-camila",
+              status: "pending_review",
+              type: "adoption",
+            }),
+          ),
+      },
+    });
+
+    await expect(
+      caller.report.detail({ id: "report-adoption-review" }),
+    ).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
   });
 
   it("creates a protected upload session with backend-owned object instructions", async () => {

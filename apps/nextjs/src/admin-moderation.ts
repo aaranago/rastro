@@ -386,7 +386,7 @@ function createInitialState(): AdminModerationState {
     ),
     settings: {
       adoptionReviewModeEnabled: false,
-      verifiedEmailRequiredToPublish: true,
+      verifiedEmailRequiredToPublish: false,
     },
   };
 }

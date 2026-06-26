@@ -72,13 +72,21 @@ export function createApiAdoptionListingPublishHandler({
     const createInput = toCreateAdoptionListingReportInput(input, { now });
     const created = await client.report.create.mutate(createInput);
     const detail = await client.report.detail.query({ id: created.id });
-    const nearby = await client.report.nearby.query(
-      toNearbyVerificationInput(input.exactLocation),
-    );
 
     if (detail.id !== created.id || detail.type !== "adoption") {
       throw new Error("Created Adoption Listing could not be confirmed.");
     }
+
+    if (detail.status === "pending_review") {
+      return {
+        id: detail.id,
+        status: detail.status,
+      };
+    }
+
+    const nearby = await client.report.nearby.query(
+      toNearbyVerificationInput(input.exactLocation),
+    );
 
     if (!nearby.results.some((report) => report.id === created.id)) {
       throw new Error("Created Adoption Listing was not returned by nearby.");
