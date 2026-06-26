@@ -14,6 +14,19 @@ const reportModerationTransitionInputSchema = z.object({
   reportId: z.uuid(),
 });
 
+const memberSearchInputSchema = z.object({
+  limit: z.number().int().min(1).max(50).optional(),
+  query: z.string().trim().min(1).max(120),
+});
+
+const memberProfileInputSchema = z.object({
+  memberId: z.string().trim().min(1).max(191),
+});
+
+const memberSuspensionTransitionInputSchema = memberProfileInputSchema.extend({
+  reason: z.string().trim().min(1).max(1_000),
+});
+
 function parseRastroAdminEmails(value: string | undefined) {
   return new Set(
     (value ?? "")
@@ -45,6 +58,63 @@ function requireAdmin(ctx: {
 }
 
 export const adminRouter = createTRPCRouter({
+  members: createTRPCRouter({
+    profile: protectedProcedure
+      .input(memberProfileInputSchema)
+      .query(async ({ ctx, input }) => {
+        requireAdmin(ctx);
+        const profile = await ctx.memberSuspensionRepository.getMemberProfile(
+          input.memberId,
+        );
+
+        if (!profile) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        return profile;
+      }),
+    search: protectedProcedure
+      .input(memberSearchInputSchema)
+      .query(async ({ ctx, input }) => {
+        requireAdmin(ctx);
+
+        return ctx.memberSuspensionRepository.searchMembers(input);
+      }),
+    suspend: protectedProcedure
+      .input(memberSuspensionTransitionInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const admin = requireAdmin(ctx);
+        const suspension = await ctx.memberSuspensionRepository.suspendMember({
+          adminId: admin.id,
+          memberId: input.memberId,
+          reason: input.reason,
+        });
+
+        if (!suspension) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        return suspension;
+      }),
+    unsuspend: protectedProcedure
+      .input(memberSuspensionTransitionInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const admin = requireAdmin(ctx);
+        const suspension = await ctx.memberSuspensionRepository.unsuspendMember(
+          {
+            adminId: admin.id,
+            memberId: input.memberId,
+            reason: input.reason,
+          },
+        );
+
+        if (!suspension) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        return suspension;
+      }),
+  }),
   moderation: createTRPCRouter({
     hideReportTarget: protectedProcedure
       .input(reportModerationTransitionInputSchema)

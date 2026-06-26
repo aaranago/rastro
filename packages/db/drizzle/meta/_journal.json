@@ -50,6 +50,13 @@
       "when": 1782508848364,
       "tag": "0006_amused_warbound",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782511987671,
+      "tag": "0007_member_suspension",
+      "breakpoints": true
     }
   ]
 }

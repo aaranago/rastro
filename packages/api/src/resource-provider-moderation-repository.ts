@@ -11,11 +11,18 @@ import {
   ResourceProviderModerationReviewItem,
 } from "@acme/db/schema";
 
+import type { ActiveMemberSuspensionSummary } from "./member-suspension-repository";
+import { listActiveMemberSuspensionSummaries } from "./member-suspension-repository";
+
 export interface ResourceProviderModerationReporter {
   displayName: string;
   email: string | null;
   memberId: string | null;
+  suspension: ResourceProviderModerationReporterSuspension | null;
 }
+
+export type ResourceProviderModerationReporterSuspension =
+  ActiveMemberSuspensionSummary;
 
 export interface ResourceProviderModerationQueueItem {
   createdAt: Date;
@@ -54,20 +61,22 @@ export interface ResourceProviderModerationRepository {
 
 type ResourceProviderReviewItemRow =
   typeof ResourceProviderModerationReviewItem.$inferSelect & {
-    provider: (typeof ResourceProvider.$inferSelect & {
-      location: {
-        approximateLocationLabel: string;
-        city: string;
-        department: string;
-      } | null;
-    }) | null;
+    provider:
+      | (typeof ResourceProvider.$inferSelect & {
+          location: {
+            approximateLocationLabel: string;
+            city: string;
+            department: string;
+          } | null;
+        })
+      | null;
     reports: (typeof ResourceProviderModerationReport.$inferSelect & {
-        reporter: {
-          email: string;
-          id: string;
-          name: string;
-        } | null;
-      })[];
+      reporter: {
+        email: string;
+        id: string;
+        name: string;
+      } | null;
+    })[];
   };
 
 export function createDrizzleResourceProviderModerationRepository(
@@ -120,7 +129,10 @@ export function createDrizzleResourceProviderModerationRepository(
         const existingReport =
           await txDb.query.ResourceProviderModerationReport.findFirst({
             where: and(
-              eq(ResourceProviderModerationReport.providerId, report.providerId),
+              eq(
+                ResourceProviderModerationReport.providerId,
+                report.providerId,
+              ),
               eq(ResourceProviderModerationReport.reporterId, reporterId),
               eq(ResourceProviderModerationReport.reason, report.reason),
             ),
@@ -208,31 +220,37 @@ async function listResourceProviderQueueItems(
   db: Database,
   options: { reviewItemId?: string } = {},
 ): Promise<ResourceProviderModerationQueueItem[]> {
-  const rows =
-    await db.query.ResourceProviderModerationReviewItem.findMany({
-      orderBy: [desc(ResourceProviderModerationReviewItem.lastReportedAt)],
-      where: options.reviewItemId
-        ? eq(ResourceProviderModerationReviewItem.id, options.reviewItemId)
-        : eq(ResourceProviderModerationReviewItem.status, "pending"),
-      with: {
-        provider: {
-          with: {
-            location: true,
-          },
-        },
-        reports: {
-          orderBy: [desc(ResourceProviderModerationReport.createdAt)],
-          with: {
-            reporter: true,
-          },
+  const rows = await db.query.ResourceProviderModerationReviewItem.findMany({
+    orderBy: [desc(ResourceProviderModerationReviewItem.lastReportedAt)],
+    where: options.reviewItemId
+      ? eq(ResourceProviderModerationReviewItem.id, options.reviewItemId)
+      : eq(ResourceProviderModerationReviewItem.status, "pending"),
+    with: {
+      provider: {
+        with: {
+          location: true,
         },
       },
-    });
+      reports: {
+        orderBy: [desc(ResourceProviderModerationReport.createdAt)],
+        with: {
+          reporter: true,
+        },
+      },
+    },
+  });
+  const activeSuspensions = await listActiveMemberSuspensionSummaries(
+    db,
+    rows
+      .map((row) => row.reports[0]?.reporterId)
+      .filter((memberId): memberId is string => Boolean(memberId)),
+  );
 
   return rows
     .map((row) =>
       toResourceProviderModerationQueueItem(
         row as ResourceProviderReviewItemRow,
+        activeSuspensions,
       ),
     )
     .filter((item) => item !== null);
@@ -240,6 +258,7 @@ async function listResourceProviderQueueItems(
 
 function toResourceProviderModerationQueueItem(
   row: ResourceProviderReviewItemRow,
+  activeSuspensions: Map<string, ResourceProviderModerationReporterSuspension>,
 ): ResourceProviderModerationQueueItem | null {
   if (!row.provider?.location || row.provider.deletedAt !== null) {
     return null;
@@ -258,7 +277,7 @@ function toResourceProviderModerationQueueItem(
     newestReport: {
       createdAt: newestReport.createdAt,
       detail: newestReport.detail,
-      reporter: toReporter(newestReport),
+      reporter: toReporter(newestReport, activeSuspensions),
     },
     provider: {
       city: row.provider.location.city,
@@ -276,12 +295,16 @@ function toResourceProviderModerationQueueItem(
 
 function toReporter(
   report: ResourceProviderReviewItemRow["reports"][number],
+  activeSuspensions: Map<string, ResourceProviderModerationReporterSuspension>,
 ): ResourceProviderModerationReporter {
   if (!report.reporter) {
     return {
       displayName: "Miembro no disponible",
       email: null,
       memberId: report.reporterId,
+      suspension: report.reporterId
+        ? (activeSuspensions.get(report.reporterId) ?? null)
+        : null,
     };
   }
 
@@ -289,6 +312,7 @@ function toReporter(
     displayName: report.reporter.name || report.reporter.email,
     email: report.reporter.email,
     memberId: report.reporter.id,
+    suspension: activeSuspensions.get(report.reporter.id) ?? null,
   };
 }
 
@@ -339,16 +363,14 @@ export function createInMemoryResourceProviderModerationRepository({
       const key = `${report.providerId}:${report.reason}`;
       const timestamp = now();
       const existingReviewItem = reviewItems.get(key);
-      const reviewItem =
-        existingReviewItem ??
-        {
-          createdAt: timestamp,
-          id: `review-${reviewItems.size + 1}`,
-          lastReportedAt: timestamp,
-          provider,
-          reason: report.reason,
-          reports: [],
-        };
+      const reviewItem = existingReviewItem ?? {
+        createdAt: timestamp,
+        id: `review-${reviewItems.size + 1}`,
+        lastReportedAt: timestamp,
+        provider,
+        reason: report.reason,
+        reports: [],
+      };
       const existingReport = reviewItem.reports.find(
         (candidate) => candidate.reporterId === reporterId,
       );
@@ -381,8 +403,8 @@ export function createInMemoryResourceProviderModerationRepository({
         Array.from(reviewItems.values())
           .map((reviewItem) => toInMemoryQueueItem(reviewItem, reporters))
           .sort(
-          (left, right) =>
-            right.lastReportedAt.getTime() - left.lastReportedAt.getTime(),
+            (left, right) =>
+              right.lastReportedAt.getTime() - left.lastReportedAt.getTime(),
           ),
       );
     },
@@ -423,6 +445,7 @@ function toInMemoryQueueItem(
         displayName: reporter?.name ?? newestReport.reporterId,
         email: reporter?.email ?? null,
         memberId: newestReport.reporterId,
+        suspension: null,
       },
     },
     provider: {

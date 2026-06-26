@@ -77,16 +77,6 @@ type ContentModerationAction =
       value: "restore_target";
     };
 
-type MemberModerationAction =
-  | {
-      label: "Reactivar miembro";
-      value: "unban_member";
-    }
-  | {
-      label: "Suspender miembro";
-      value: "ban_member";
-    };
-
 const targetTypeLabels: Record<AdminModerationTargetType, string> = {
   adoption_listing: "Publicación de adopción",
   found_pet_report: "Reporte de mascota encontrada",
@@ -289,7 +279,6 @@ function FlaggedItemRow(props: {
 }) {
   const item = props.item;
   const contentAction = getContentAction(item);
-  const memberAction = getMemberAction(item);
 
   return (
     <tr className="align-top">
@@ -301,7 +290,6 @@ function FlaggedItemRow(props: {
         contentAction={contentAction}
         formAction={props.formAction}
         item={item}
-        memberAction={memberAction}
       />
     </tr>
   );
@@ -379,7 +367,6 @@ function FlaggedItemActions(props: {
   contentAction: ContentModerationAction | null;
   formAction?: React.ComponentProps<"form">["action"];
   item: AdminModerationFlaggedItem;
-  memberAction: MemberModerationAction;
 }) {
   return (
     <td className="px-5 py-4">
@@ -413,22 +400,23 @@ function FlaggedItemActions(props: {
             <ModerationButton action={props.contentAction} />
           </>
         ) : null}
-        <ModerationButton action={props.memberAction} />
+        {props.item.target.type !== "resource_provider_profile" ? (
+          <a
+            className="border-border text-foreground hover:bg-muted rounded-md border px-3 py-2 text-center text-sm font-semibold"
+            href={`/admin/miembros?memberId=${encodeURIComponent(props.item.accusedMember.id)}`}
+          >
+            Gestionar miembro
+          </a>
+        ) : null}
       </form>
     </td>
   );
 }
 
-function ModerationButton(props: {
-  action: ContentModerationAction | MemberModerationAction;
-}) {
+function ModerationButton(props: { action: ContentModerationAction }) {
   return (
     <button
-      className={
-        props.action.value === "ban_member"
-          ? "bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-md px-3 py-2 text-sm font-semibold"
-          : "border-border text-foreground hover:bg-muted rounded-md border px-3 py-2 text-sm font-semibold"
-      }
+      className="border-border text-foreground hover:bg-muted rounded-md border px-3 py-2 text-sm font-semibold"
       name="moderationAction"
       type="submit"
       value={props.action.value}
@@ -593,22 +581,6 @@ function getContentAction(
   return {
     label: noun === "publicación" ? "Ocultar publicación" : "Ocultar reporte",
     value: "hide_target",
-  };
-}
-
-function getMemberAction(
-  item: AdminModerationFlaggedItem,
-): MemberModerationAction {
-  if (item.accusedMember.status === "banned") {
-    return {
-      label: "Reactivar miembro",
-      value: "unban_member",
-    };
-  }
-
-  return {
-    label: "Suspender miembro",
-    value: "ban_member",
   };
 }
 

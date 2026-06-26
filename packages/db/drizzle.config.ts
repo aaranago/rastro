@@ -23,6 +23,7 @@ export default {
     "report_media",
     "report_lifecycle_event",
     "report_moderation_action",
+    "member_suspension",
     "resource_provider",
     "resource_provider_location",
     "resource_provider_contact_option",

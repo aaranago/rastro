@@ -37,6 +37,7 @@ describe("admin shell foundation", () => {
     expect(html).toContain("Disponible");
     expect(html).toContain("Planificado");
     expect(html).toContain('href="/admin/proveedores"');
+    expect(html).toContain('href="/admin/miembros"');
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('aria-disabled="true"');
   });

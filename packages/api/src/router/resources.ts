@@ -45,6 +45,30 @@ function requireResourceProviderAdmin(ctx: {
   };
 }
 
+async function assertMemberCanReportResourceProvider(ctx: {
+  memberSuspensionRepository?: {
+    findActiveByMemberId: (memberId: string) => Promise<unknown>;
+  };
+  session: {
+    user: {
+      id: string;
+    };
+  };
+}) {
+  const activeSuspension =
+    await ctx.memberSuspensionRepository?.findActiveByMemberId(
+      ctx.session.user.id,
+    );
+
+  if (activeSuspension) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message:
+        "El miembro esta suspendido y no puede reportar Resource Providers.",
+    });
+  }
+}
+
 export const resourcesRouter = createTRPCRouter({
   nearby: publicProcedure
     .input(nearbyResourceProvidersInputSchema)
@@ -85,6 +109,8 @@ export const resourcesRouter = createTRPCRouter({
   reportProvider: protectedProcedure
     .input(createResourceProviderReportInputSchema)
     .mutation(async ({ ctx, input }) => {
+      await assertMemberCanReportResourceProvider(ctx);
+
       const result =
         await ctx.resourceProviderModerationRepository.createResourceProviderReport(
           {

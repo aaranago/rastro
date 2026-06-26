@@ -7,6 +7,311 @@ function createCaller(context: unknown) {
 }
 
 describe("admin settings router", () => {
+  it("searches members only for allowlisted admins", async () => {
+    const searches: unknown[] = [];
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      authApi: {},
+      db: {},
+      memberSuspensionRepository: {
+        searchMembers: (input: unknown) => {
+          searches.push(input);
+
+          return Promise.resolve([
+            {
+              currentSuspension: null,
+              email: "camila@example.com",
+              emailVerified: true,
+              id: "member-camila",
+              name: "Camila R.",
+            },
+          ]);
+        },
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin",
+        },
+      },
+    });
+
+    await expect(
+      caller.admin.members.search({
+        query: "camila@example.com",
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        email: "camila@example.com",
+        id: "member-camila",
+      }),
+    ]);
+    expect(searches).toEqual([
+      {
+        query: "camila@example.com",
+      },
+    ]);
+  });
+
+  it("rejects member search for non-admin members", async () => {
+    let searchWasCalled = false;
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      authApi: {},
+      db: {},
+      memberSuspensionRepository: {
+        searchMembers: () => {
+          searchWasCalled = true;
+          return Promise.resolve([]);
+        },
+      },
+      session: {
+        user: {
+          email: "ana@example.com",
+          id: "member-ana",
+        },
+      },
+    });
+
+    await expect(
+      caller.admin.members.search({
+        query: "ana",
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(searchWasCalled).toBe(false);
+  });
+
+  it("returns member safety profiles for allowlisted admins", async () => {
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      authApi: {},
+      db: {},
+      memberSuspensionRepository: {
+        getMemberProfile: (memberId: string) =>
+          Promise.resolve({
+            currentSuspension: {
+              id: "member-suspension-1",
+              memberId,
+              reason: "Reportes falsos repetidos.",
+              revokedAt: null,
+              revokedByAdminId: null,
+              revokedReason: null,
+              status: "active",
+              suspendedAt: new Date("2026-06-26T16:00:00.000Z"),
+              suspendedByAdminId: "member-admin",
+              updatedAt: new Date("2026-06-26T16:00:00.000Z"),
+            },
+            member: {
+              createdAt: new Date("2026-06-20T12:00:00.000Z"),
+              email: "diego@example.com",
+              emailVerified: false,
+              id: memberId,
+              name: "Diego P.",
+              updatedAt: new Date("2026-06-26T12:00:00.000Z"),
+            },
+            moderationReports: [
+              {
+                action: "hide",
+                adminId: "member-admin",
+                createdAt: new Date("2026-06-26T16:20:00.000Z"),
+                id: "moderation-action-1",
+                note: "Contenido duplicado.",
+                reason: "spam",
+                reportId: "report-1",
+                reportTitle: "Bruno perdido",
+                reportType: "lost_pet",
+              },
+            ],
+            recentReports: [
+              {
+                createdAt: new Date("2026-06-26T15:00:00.000Z"),
+                hiddenAt: null,
+                id: "report-1",
+                locationLabel: "Sopocachi, La Paz",
+                status: "active",
+                title: "Bruno perdido",
+                type: "lost_pet",
+              },
+            ],
+            summary: {
+              adoptionListingCount: 0,
+              moderationReportCount: 1,
+              reportCount: 1,
+            },
+            suspensionHistory: [
+              {
+                id: "member-suspension-1",
+                memberId,
+                reason: "Reportes falsos repetidos.",
+                revokedAt: null,
+                revokedByAdminId: null,
+                revokedReason: null,
+                status: "active",
+                suspendedAt: new Date("2026-06-26T16:00:00.000Z"),
+                suspendedByAdminId: "member-admin",
+                updatedAt: new Date("2026-06-26T16:00:00.000Z"),
+              },
+            ],
+          }),
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin",
+        },
+      },
+    });
+
+    await expect(
+      caller.admin.members.profile({
+        memberId: "member-diego",
+      }),
+    ).resolves.toMatchObject({
+      currentSuspension: {
+        reason: "Reportes falsos repetidos.",
+        status: "active",
+      },
+      member: {
+        email: "diego@example.com",
+        emailVerified: false,
+      },
+      moderationReports: [
+        {
+          reason: "spam",
+          reportTitle: "Bruno perdido",
+        },
+      ],
+      recentReports: [
+        {
+          locationLabel: "Sopocachi, La Paz",
+          title: "Bruno perdido",
+        },
+      ],
+    });
+  });
+
+  it("persists member suspend and unsuspend actions with required reasons", async () => {
+    const actions: unknown[] = [];
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      authApi: {},
+      db: {},
+      memberSuspensionRepository: {
+        suspendMember: (input: unknown) => {
+          actions.push(["suspend", input]);
+
+          return Promise.resolve({
+            id: "member-suspension-1",
+            memberId: "member-diego",
+            reason: "Estafa confirmada por moderación.",
+            revokedAt: null,
+            revokedByAdminId: null,
+            revokedReason: null,
+            status: "active",
+            suspendedAt: new Date("2026-06-26T16:00:00.000Z"),
+            suspendedByAdminId: "member-admin",
+            updatedAt: new Date("2026-06-26T16:00:00.000Z"),
+          });
+        },
+        unsuspendMember: (input: unknown) => {
+          actions.push(["unsuspend", input]);
+
+          return Promise.resolve({
+            id: "member-suspension-1",
+            memberId: "member-diego",
+            reason: "Estafa confirmada por moderación.",
+            revokedAt: new Date("2026-06-26T17:00:00.000Z"),
+            revokedByAdminId: "member-admin",
+            revokedReason: "Apelación revisada.",
+            status: "revoked",
+            suspendedAt: new Date("2026-06-26T16:00:00.000Z"),
+            suspendedByAdminId: "member-admin",
+            updatedAt: new Date("2026-06-26T17:00:00.000Z"),
+          });
+        },
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin",
+        },
+      },
+    });
+
+    await expect(
+      caller.admin.members.suspend({
+        memberId: "member-diego",
+        reason: "Estafa confirmada por moderación.",
+      }),
+    ).resolves.toMatchObject({
+      memberId: "member-diego",
+      reason: "Estafa confirmada por moderación.",
+      status: "active",
+    });
+    await expect(
+      caller.admin.members.unsuspend({
+        memberId: "member-diego",
+        reason: "Apelación revisada.",
+      }),
+    ).resolves.toMatchObject({
+      memberId: "member-diego",
+      revokedReason: "Apelación revisada.",
+      status: "revoked",
+    });
+
+    expect(actions).toEqual([
+      [
+        "suspend",
+        {
+          adminId: "member-admin",
+          memberId: "member-diego",
+          reason: "Estafa confirmada por moderación.",
+        },
+      ],
+      [
+        "unsuspend",
+        {
+          adminId: "member-admin",
+          memberId: "member-diego",
+          reason: "Apelación revisada.",
+        },
+      ],
+    ]);
+  });
+
+  it("rejects suspend mutations with blank reasons before persistence", async () => {
+    let suspendWasCalled = false;
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      authApi: {},
+      db: {},
+      memberSuspensionRepository: {
+        suspendMember: () => {
+          suspendWasCalled = true;
+          return Promise.resolve(null);
+        },
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin",
+        },
+      },
+    });
+
+    await expect(
+      caller.admin.members.suspend({
+        memberId: "member-diego",
+        reason: " ",
+      }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect(suspendWasCalled).toBe(false);
+  });
+
   it("rejects settings reads for non-admin members", async () => {
     const caller = createCaller({
       adminEmailList: "admin@rastro.bo",

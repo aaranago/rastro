@@ -112,6 +112,11 @@ export const resourceProviderModerationReviewStatus = pgEnum(
   ["pending"],
 );
 
+export const memberSuspensionStatus = pgEnum("member_suspension_status", [
+  "active",
+  "revoked",
+]);
+
 export const localSponsorPlacementSurface = pgEnum(
   "local_sponsor_placement_surface",
   [
@@ -145,6 +150,51 @@ export const AdminSettings = pgTable("admin_settings", (t) => ({
     .$onUpdate(() => new Date())
     .notNull(),
 }));
+
+export const MemberSuspension = pgTable(
+  "member_suspension",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    memberId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    status: memberSuspensionStatus().default("active").notNull(),
+    reason: t.text().notNull(),
+    suspendedByAdminId: t.text().references(() => user.id, {
+      onDelete: "set null",
+    }),
+    suspendedAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    revokedAt: t.timestamp({ mode: "date", withTimezone: true }),
+    revokedByAdminId: t.text().references(() => user.id, {
+      onDelete: "set null",
+    }),
+    revokedReason: t.text(),
+    createdAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  }),
+  (table) => [
+    uniqueIndex("member_suspension_active_member_idx")
+      .on(table.memberId)
+      .where(sql`${table.status} = 'active' AND ${table.revokedAt} IS NULL`),
+    index("member_suspension_member_created_idx").on(
+      table.memberId,
+      table.createdAt,
+    ),
+    index("member_suspension_admin_idx").on(table.suspendedByAdminId),
+    index("member_suspension_revoked_admin_idx").on(table.revokedByAdminId),
+  ],
+);
 
 export const reportMediaKind = pgEnum("report_media_kind", ["photo"]);
 
@@ -670,6 +720,24 @@ export const reportModerationActionRelations = relations(
     report: one(Report, {
       fields: [ReportModerationAction.reportId],
       references: [Report.id],
+    }),
+  }),
+);
+
+export const memberSuspensionRelations = relations(
+  MemberSuspension,
+  ({ one }) => ({
+    member: one(user, {
+      fields: [MemberSuspension.memberId],
+      references: [user.id],
+    }),
+    revokedByAdmin: one(user, {
+      fields: [MemberSuspension.revokedByAdminId],
+      references: [user.id],
+    }),
+    suspendedByAdmin: one(user, {
+      fields: [MemberSuspension.suspendedByAdminId],
+      references: [user.id],
     }),
   }),
 );

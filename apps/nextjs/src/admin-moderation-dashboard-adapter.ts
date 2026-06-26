@@ -88,7 +88,7 @@ function toFlaggedItem(
     accusedMember: {
       displayName: item.reportedMember.displayName,
       id: item.reportedMember.memberId,
-      status: item.reportedMember.status,
+      status: item.reportedMember.status === "banned" ? "banned" : "active",
     },
     department: item.department,
     detail: buildModerationDetail(item),
@@ -216,12 +216,15 @@ function toReportFlaggedItem(
     accusedMember: {
       displayName: item.target.caretaker.displayName,
       id: item.target.caretaker.memberId,
-      status: "active",
+      status: item.target.caretaker.suspension ? "banned" : "active",
     },
     department: item.target.department,
     detail: [
       `${reportTypeLabels[item.target.reportType]} en ${item.target.locationLabel}.`,
       actionDetail,
+      item.target.caretaker.suspension
+        ? `Miembro suspendido desde ${formatNewestReportLabel(item.target.caretaker.suspension.suspendedAt)}: ${item.target.caretaker.suspension.reason}.`
+        : "Miembro activo.",
     ].join(" "),
     id: item.id,
     newestReportLabel: formatNewestReportLabel(item.updatedAt),
@@ -265,6 +268,9 @@ function toResourceProviderFlaggedItem(
     detail: [
       `Perfil de proveedor de recursos en ${item.provider.locationLabel}, ${item.provider.department}.`,
       `Detalle más reciente: ${item.newestReport.detail}`,
+      item.newestReport.reporter.suspension
+        ? `Reportante suspendido desde ${formatNewestReportLabel(item.newestReport.reporter.suspension.suspendedAt)}: ${item.newestReport.reporter.suspension.reason}.`
+        : "Reportante sin suspensión activa.",
     ].join(" "),
     id: item.id,
     newestReportLabel: formatNewestReportLabel(item.newestReport.createdAt),

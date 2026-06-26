@@ -40,6 +40,15 @@ export {
   type ResourceProviderReportCreationResult,
 } from "./resource-provider-moderation-repository";
 export {
+  createDrizzleMemberSuspensionRepository,
+  type AdminMemberModerationReportSummary,
+  type AdminMemberProfile,
+  type AdminMemberReportSummary,
+  type AdminMemberSearchResult,
+  type MemberSuspensionRepository,
+  type PersistedMemberSuspension,
+} from "./member-suspension-repository";
+export {
   buildLocalSponsorPlacementPolicy,
   buildNearbyResourceProvidersCondition,
   buildNearbyResourceProvidersDistance,

@@ -4,6 +4,9 @@ import type { ReportType } from "@acme/validators";
 import { and, desc, eq, inArray, isNull } from "@acme/db";
 import { Report, ReportModerationAction } from "@acme/db/schema";
 
+import type { ActiveMemberSuspensionSummary } from "./member-suspension-repository";
+import { listActiveMemberSuspensionSummaries } from "./member-suspension-repository";
+
 const reportModerationTypes = [
   "lost_pet",
   "found_pet",
@@ -33,6 +36,7 @@ export interface ReportModerationQueueItem {
       displayName: string;
       email: string | null;
       memberId: string;
+      suspension: ReportModerationMemberSuspension | null;
     };
     city: string;
     department: string;
@@ -49,6 +53,8 @@ export interface ReportModerationQueueItem {
   };
   updatedAt: Date;
 }
+
+export type ReportModerationMemberSuspension = ActiveMemberSuspensionSummary;
 
 export interface ReportModerationRepository {
   hideReportTarget(
@@ -102,10 +108,18 @@ export function createDrizzleReportModerationRepository(
         location: true,
       },
     });
+    const activeSuspensions = await listActiveMemberSuspensionSummaries(
+      db,
+      rows.map((row) => row.caretaker.id),
+    );
 
     const items = await Promise.all(
       rows.map(async (row) =>
-        toReportModerationQueueItem(row, await findLatestAction(row.id)),
+        toReportModerationQueueItem(
+          row,
+          await findLatestAction(row.id),
+          activeSuspensions.get(row.caretaker.id) ?? null,
+        ),
       ),
     );
 
@@ -187,6 +201,7 @@ export function createDrizzleReportModerationRepository(
 function toReportModerationQueueItem(
   report: ReportQueueRow,
   latestAction: typeof ReportModerationAction.$inferSelect | undefined,
+  activeSuspension: ReportModerationMemberSuspension | null,
 ): ReportModerationQueueItem | null {
   if (!report.location) {
     return null;
@@ -212,6 +227,7 @@ function toReportModerationQueueItem(
         displayName: report.caretaker.name,
         email: report.caretaker.email,
         memberId: report.caretaker.id,
+        suspension: activeSuspension,
       },
       city: targetLocation.city,
       department: targetLocation.department,

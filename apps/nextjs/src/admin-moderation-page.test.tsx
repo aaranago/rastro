@@ -72,6 +72,11 @@ describe("admin moderation page", () => {
             displayName: "Huellitas La Paz",
             email: "huellitas@example.com",
             memberId: "member-huellitas",
+            suspension: {
+              reason: "Reportes falsos repetidos.",
+              suspendedAt: new Date("2026-06-26T16:30:00.000Z"),
+              suspendedByAdminId: "member-admin",
+            },
           },
           city: "La Paz",
           department: "La Paz",
@@ -128,6 +133,9 @@ describe("admin moderation page", () => {
     expect(html).toContain("Nala busca nuevo hogar DB");
     expect(html).toContain("Publicación de adopción");
     expect(html).toContain("Ocultar publicación");
+    expect(html).toContain("Miembro suspendido");
+    expect(html).toContain("Reportes falsos repetidos.");
+    expect(html).toContain("/admin/miembros?memberId=member-huellitas");
     expect(html).toContain("Nota breve");
     expect(html).not.toContain("Bruno reportado como posible riesgo");
     expect(html).toContain("Perfil de proveedor de recursos");

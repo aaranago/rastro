@@ -259,6 +259,51 @@ describe("resources router", () => {
     });
   });
 
+  it("rejects Resource Provider reports from suspended members before persistence", async () => {
+    let reportWasCreated = false;
+    const caller = createCaller({
+      memberSuspensionRepository: {
+        findActiveByMemberId: (memberId: string) =>
+          Promise.resolve({
+            id: "member-suspension-1",
+            memberId,
+            reason: "Reportes falsos repetidos.",
+            revokedAt: null,
+            revokedByAdminId: null,
+            revokedReason: null,
+            status: "active",
+            suspendedAt: new Date("2026-06-26T16:00:00.000Z"),
+            suspendedByAdminId: "member-admin",
+            updatedAt: new Date("2026-06-26T16:00:00.000Z"),
+          }),
+      },
+      resourceProviderModerationRepository: {
+        createResourceProviderReport: () => {
+          reportWasCreated = true;
+
+          return Promise.resolve(null);
+        },
+      },
+      session: {
+        user: {
+          email: "ana@example.com",
+          id: "member-ana",
+        },
+      },
+    });
+
+    await expect(
+      caller.resources.reportProvider({
+        detail: "La direccion visible no coincide con el local.",
+        providerId: "11111111-1111-4111-8111-111111111111",
+        reason: "incorrect_location",
+      }),
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+    });
+    expect(reportWasCreated).toBe(false);
+  });
+
   it("returns not found when reporting a missing Resource Provider", async () => {
     const caller = createCaller({
       resourceProviderModerationRepository: {

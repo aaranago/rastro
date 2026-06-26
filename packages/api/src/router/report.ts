@@ -152,6 +152,29 @@ function assertVerifiedEmailCanPublish(ctx: {
   }
 }
 
+async function assertMemberIsNotSuspendedForPublishing(ctx: {
+  memberSuspensionRepository?: {
+    findActiveByMemberId: (memberId: string) => Promise<unknown>;
+  };
+  session: {
+    user: {
+      id: string;
+    };
+  };
+}) {
+  const activeSuspension =
+    await ctx.memberSuspensionRepository?.findActiveByMemberId(
+      ctx.session.user.id,
+    );
+
+  if (activeSuspension) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "El miembro esta suspendido y no puede publicar en Rastro.",
+    });
+  }
+}
+
 export const reportRouter = {
   createUploadSession: protectedProcedure
     .input(createUploadSessionInputSchema)
@@ -280,6 +303,10 @@ export const reportRouter = {
       const settings = existing
         ? defaultAdminSettings
         : await getPublishGateSettings(ctx);
+
+      if (!existing) {
+        await assertMemberIsNotSuspendedForPublishing(ctx);
+      }
 
       if (!existing && settings.verifiedEmailRequiredToPublish) {
         assertVerifiedEmailCanPublish(ctx);

@@ -215,6 +215,58 @@ describe("report router", () => {
     expect(createWasCalled).toBe(false);
   });
 
+  it("rejects report and Adoption Listing publishing for suspended members before persistence", async () => {
+    let createWasCalled = false;
+    let mediaWasChecked = false;
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      mediaRepository: {
+        assertReadyMediaForReport: () => {
+          mediaWasChecked = true;
+          return Promise.resolve();
+        },
+      },
+      memberSuspensionRepository: {
+        findActiveByMemberId: (memberId: string) =>
+          Promise.resolve({
+            id: "member-suspension-1",
+            memberId,
+            reason: "Estafa confirmada por moderación.",
+            revokedAt: null,
+            revokedByAdminId: null,
+            revokedReason: null,
+            status: "active",
+            suspendedAt: new Date("2026-06-26T16:00:00.000Z"),
+            suspendedByAdminId: "member-admin",
+            updatedAt: new Date("2026-06-26T16:00:00.000Z"),
+          }),
+      },
+      session: {
+        user: {
+          id: "member-camila",
+        },
+      },
+      reportRepository: {
+        findByCaretakerAndIdempotencyKey: () => Promise.resolve(null),
+        create: () => {
+          createWasCalled = true;
+          return Promise.reject(
+            new Error("Suspended member must not create reports."),
+          );
+        },
+      },
+    });
+
+    await expect(
+      caller.report.create(validAdoptionCreateInput),
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+    });
+    expect(createWasCalled).toBe(false);
+    expect(mediaWasChecked).toBe(false);
+  });
+
   it("creates adoption reports as pending review while Review Mode is enabled", async () => {
     let createInput:
       | {
