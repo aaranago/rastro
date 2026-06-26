@@ -27,6 +27,18 @@ export {
   type ReportMediaUploadStatus,
 } from "./report-media-repository";
 export {
+  buildLocalSponsorPlacementPolicy,
+  buildNearbyResourceProvidersCondition,
+  buildNearbyResourceProvidersDistance,
+  buildNearbyResourceProvidersOrigin,
+  createDrizzleResourceProviderRepository,
+  type PersistedLocalSponsorPlacement,
+  type PersistedResourceProvider,
+  type PersistedResourceProviderContactOption,
+  type PersistedResourceProviderLocation,
+  type ResourceProviderRepository,
+} from "./resource-provider-repository";
+export {
   createS3MediaStorage,
   parseMediaStorageConfig,
   parseOptionalMediaStorageConfig,

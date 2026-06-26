@@ -1,0 +1,363 @@
+import { describe, expect, it } from "vitest";
+
+import type {
+  CreateResourceProviderInput,
+  PublicResourceProviderProfile,
+} from "@acme/validators";
+
+import { appRouter } from "../root";
+
+function createCaller(context: unknown) {
+  return appRouter.createCaller(context as never);
+}
+
+function providerProfile(
+  overrides: Partial<PublicResourceProviderProfile> = {},
+): PublicResourceProviderProfile {
+  return {
+    id: "11111111-1111-4111-8111-111111111111",
+    name: "Clinica Veterinaria San Roque",
+    categoryId: "veterinary",
+    description: "Veterinaria local con atencion general y urgencias.",
+    approximateLocationLabel: "Sopocachi, La Paz",
+    approximateLocation: {
+      latitude: -16.51051,
+      longitude: -68.124602,
+      precision: "approximate",
+      label: "Sopocachi, La Paz",
+      locationCell: "bo-lpb-sopocachi",
+    },
+    serviceAreaLabel: "Atiende La Paz y El Alto",
+    hoursLabel: "Lun - Dom: 24 horas",
+    shortDescription:
+      "Atencion veterinaria general y orientacion para familias cuidadoras.",
+    isVerified: true,
+    emergencyAvailable: true,
+    isOpenNow: true,
+    contactOptions: [
+      {
+        kind: "phone",
+        label: "Llamar",
+        value: "+591 2 222 1111",
+      },
+    ],
+    ...overrides,
+  };
+}
+
+const createProviderInput = {
+  name: "Clinica Veterinaria San Roque",
+  category: "veterinary",
+  description: "Veterinaria local con atencion general y urgencias.",
+  shortDescription:
+    "Atencion veterinaria general y orientacion para familias cuidadoras.",
+  location: {
+    exactLatitude: -16.510231,
+    exactLongitude: -68.123881,
+    approximateLocationLabel: "Sopocachi, La Paz",
+    locationCell: "bo-lpb-sopocachi",
+  },
+  serviceAreaLabel: "Atiende La Paz y El Alto",
+  hoursLabel: "Lun - Dom: 24 horas",
+  contactOptions: [
+    {
+      kind: "phone",
+      label: "Llamar",
+      value: "+591 2 222 1111",
+    },
+  ],
+  emergencyAvailable: true,
+  isOpenNow: true,
+} satisfies CreateResourceProviderInput;
+
+describe("resources router", () => {
+  it("returns nearby provider results with public approximate location only", async () => {
+    let nearbyInput: unknown;
+    const caller = createCaller({
+      resourceProviderRepository: {
+        nearby: (input: unknown) => {
+          nearbyInput = input;
+          return Promise.resolve([
+            {
+              ...providerProfile(),
+              distanceMeters: 800,
+            },
+          ]);
+        },
+      },
+      session: null,
+    });
+
+    const result = await caller.resources.nearby({
+      latitude: -16.5,
+      longitude: -68.12,
+      radiusMeters: 5000,
+      categoryIds: ["veterinary"],
+    });
+
+    expect(nearbyInput).toMatchObject({
+      latitude: -16.5,
+      longitude: -68.12,
+      strategy: "postgis_radius",
+    });
+    expect(result).toMatchObject({
+      radiusMeters: 5000,
+      searchBoundary: {
+        engine: "rastro-postgis-radius",
+        owner: "rastro",
+        publicLocationPrecision: "location-cell",
+      },
+      searchStrategy: "postgis_radius",
+      results: [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          approximateLocation: {
+            latitude: -16.51051,
+            longitude: -68.124602,
+          },
+        },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toContain("-16.510231");
+    expect(JSON.stringify(result)).not.toContain("-68.123881");
+    expect(JSON.stringify(result)).not.toContain("exactLatitude");
+  });
+
+  it("returns not found for missing provider profiles", async () => {
+    const caller = createCaller({
+      resourceProviderRepository: {
+        findProfile: () => Promise.resolve(null),
+      },
+      session: null,
+    });
+
+    await expect(
+      caller.resources.detail({
+        providerId: "11111111-1111-4111-8111-111111111111",
+      }),
+    ).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("rejects malformed provider IDs before public repository access", async () => {
+    let findProfileWasCalled = false;
+    const caller = createCaller({
+      resourceProviderRepository: {
+        findProfile: () => {
+          findProfileWasCalled = true;
+          return Promise.resolve(null);
+        },
+      },
+      session: null,
+    });
+
+    await expect(
+      caller.resources.detail({
+        providerId: "clinic-san-roque",
+      }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect(findProfileWasCalled).toBe(false);
+  });
+
+  it("requires a signed-in session before admin provider access", async () => {
+    const caller = createCaller({
+      resourceProviderRepository: {
+        listProviders: () => Promise.resolve([providerProfile()]),
+      },
+      session: null,
+    });
+
+    await expect(caller.resources.admin.listProviders()).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+  });
+
+  it("requires the signed-in member email to be in RASTRO_ADMIN_EMAILS", async () => {
+    let createWasCalled = false;
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      resourceProviderRepository: {
+        createProvider: () => {
+          createWasCalled = true;
+          return Promise.resolve(providerProfile());
+        },
+      },
+      session: {
+        user: {
+          email: "member@rastro.bo",
+          id: "member-camila",
+        },
+      },
+    });
+
+    await expect(
+      caller.resources.admin.createProvider(createProviderInput),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(createWasCalled).toBe(false);
+  });
+
+  it("lets allowlisted admins create providers through the repository", async () => {
+    let createInput:
+      | {
+          adminId: string;
+          provider: CreateResourceProviderInput;
+        }
+      | undefined;
+    const caller = createCaller({
+      adminEmailList: "ops@rastro.bo\nADMIN@rastro.bo",
+      resourceProviderRepository: {
+        createProvider: (input: NonNullable<typeof createInput>) => {
+          createInput = input;
+          return Promise.resolve(
+            providerProfile({
+              name: input.provider.name,
+            }),
+          );
+        },
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin-la-paz",
+        },
+      },
+    });
+
+    const created =
+      await caller.resources.admin.createProvider(createProviderInput);
+
+    expect(createInput).toMatchObject({
+      adminId: "member-admin-la-paz",
+      provider: {
+        category: "veterinary",
+        location: {
+          exactLatitude: -16.510231,
+          exactLongitude: -68.123881,
+        },
+      },
+    });
+    expect(created.name).toBe("Clinica Veterinaria San Roque");
+    expect(JSON.stringify(created)).not.toContain("-16.510231");
+  });
+
+  it("runs verification and sponsor admin mutations behind the same allowlist", async () => {
+    const operations: string[] = [];
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      resourceProviderRepository: {
+        updateVerification: (input: {
+          adminId: string;
+          verification: { status: string };
+        }) => {
+          operations.push(
+            `verify:${input.adminId}:${input.verification.status}`,
+          );
+          return Promise.resolve(
+            providerProfile({
+              isVerified: true,
+            }),
+          );
+        },
+        attachSponsor: (input: {
+          adminId: string;
+          sponsorPlacement: { surface: string };
+        }) => {
+          operations.push(
+            `attach:${input.adminId}:${input.sponsorPlacement.surface}`,
+          );
+          return Promise.resolve(
+            providerProfile({
+              sponsorPlacement: {
+                kind: "Local Sponsor Placement",
+                label: "Patrocinado",
+                disclosure:
+                  "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+                eligibleSurfaces: ["provider_details"],
+                safetyPolicy: {
+                  recoveryPriority: {
+                    label: "Recovery Priority",
+                    canAffect: false,
+                  },
+                  pushNotifications: {
+                    eligible: false,
+                  },
+                },
+              },
+            }),
+          );
+        },
+        detachSponsor: (input: { placementId: string }) => {
+          operations.push(`detach:${input.placementId}`);
+          return Promise.resolve(providerProfile());
+        },
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin-la-paz",
+        },
+      },
+    });
+
+    await caller.resources.admin.updateVerification({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      status: "verified",
+      note: "Identidad revisada por Rastro.",
+    });
+    const sponsored = await caller.resources.admin.attachSponsor({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      placementId: "22222222-2222-4222-8222-222222222222",
+      surface: "provider_details",
+      startsOn: "2026-07-01",
+      endsOn: "2026-07-31",
+    });
+    await caller.resources.admin.detachSponsor({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      placementId: "22222222-2222-4222-8222-222222222222",
+    });
+
+    expect(sponsored.sponsorPlacement?.safetyPolicy).toEqual({
+      recoveryPriority: {
+        label: "Recovery Priority",
+        canAffect: false,
+      },
+      pushNotifications: {
+        eligible: false,
+      },
+    });
+    expect(operations).toEqual([
+      "verify:member-admin-la-paz:verified",
+      "attach:member-admin-la-paz:provider_details",
+      "detach:22222222-2222-4222-8222-222222222222",
+    ]);
+  });
+
+  it("returns not found when an admin mutation cannot find its provider or placement", async () => {
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      resourceProviderRepository: {
+        updateVerification: () => Promise.resolve(null),
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin-la-paz",
+        },
+      },
+    });
+
+    await expect(
+      caller.resources.admin.updateVerification({
+        providerId: "11111111-1111-4111-8111-111111111111",
+        status: "verified",
+      }),
+    ).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+});

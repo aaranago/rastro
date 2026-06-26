@@ -15,6 +15,13 @@
       "when": 1782065870763,
       "tag": "0001_furry_echo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782486236057,
+      "tag": "20260626150356_resource_provider_backend_foundation",
+      "breakpoints": true
     }
   ]
 }

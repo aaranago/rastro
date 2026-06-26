@@ -4,6 +4,7 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter, createTRPCContext } from "@acme/api";
 
 import { auth } from "~/auth/server";
+import { env } from "~/env";
 
 const handler = (req: Request) =>
   fetchRequestHandler({
@@ -12,6 +13,7 @@ const handler = (req: Request) =>
     req,
     createContext: () =>
       createTRPCContext({
+        adminEmailList: env.RASTRO_ADMIN_EMAILS,
         auth: auth,
         headers: req.headers,
       }),

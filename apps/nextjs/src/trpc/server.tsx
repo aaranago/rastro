@@ -8,6 +8,7 @@ import type { AppRouter } from "@acme/api";
 import { appRouter, createTRPCContext } from "@acme/api";
 
 import { auth } from "~/auth/server";
+import { env } from "~/env";
 import { createQueryClient } from "./query-client";
 
 /**
@@ -19,6 +20,7 @@ const createContext = cache(async () => {
   heads.set("x-trpc-source", "rsc");
 
   return createTRPCContext({
+    adminEmailList: env.RASTRO_ADMIN_EMAILS,
     headers: heads,
     auth,
   });

@@ -165,6 +165,214 @@ export const reportDetailInputSchema = z.object({
   id: z.string().min(1).max(128),
 });
 
+export const resourceProviderCategorySchema = z.enum([
+  "veterinary",
+  "shelter",
+  "groomer",
+  "pet_food",
+  "trainer",
+  "pet_store",
+  "transport",
+  "other",
+]);
+
+export const resourceProviderContactKindSchema = z.enum([
+  "phone",
+  "whatsapp",
+  "website",
+  "email",
+  "directions",
+  "social",
+]);
+
+export const localSponsorPlacementSurfaceSchema = z.enum([
+  "resources_directory",
+  "provider_details",
+  "launch_home_banner",
+  "report_success",
+  "contextual_care_resources",
+]);
+
+export const resourceProviderVerificationStatusSchema = z.enum([
+  "unverified",
+  "verified",
+]);
+
+export const resourceProviderApproximatePublicLocationRadiusMeters = 300;
+
+export function buildApproximatePublicResourceProviderLocation({
+  exactLatitude,
+  exactLongitude,
+}: {
+  exactLatitude: number;
+  exactLongitude: number;
+}) {
+  const latitudeStepDegrees =
+    resourceProviderApproximatePublicLocationRadiusMeters /
+    metersPerLatitudeDegree;
+  const longitudeStepDegrees =
+    resourceProviderApproximatePublicLocationRadiusMeters /
+    getMetersPerLongitudeDegree(exactLatitude);
+
+  return {
+    approximateLatitude: roundCoordinateToPrecisionGridCenter(
+      exactLatitude,
+      latitudeStepDegrees,
+    ),
+    approximateLongitude: roundCoordinateToPrecisionGridCenter(
+      exactLongitude,
+      longitudeStepDegrees,
+    ),
+  };
+}
+
+const publicResourceProviderContactOptionSchema = z.object({
+  kind: resourceProviderContactKindSchema,
+  label: z.string().min(1).max(80),
+  value: z.string().min(1).max(500),
+});
+
+const resourceProviderLocationInputSchema = z
+  .object({
+    exactLatitude: boliviaLatitudeSchema,
+    exactLongitude: boliviaLongitudeSchema,
+    approximateLocationLabel: z.string().min(2).max(160),
+    locationCell: z.string().min(3).max(96),
+    addressLabel: z.string().min(2).max(240).optional(),
+  })
+  .strict();
+
+const resourceProviderLinkSchema = z.object({
+  label: z.string().min(1).max(80),
+  url: z.url(),
+});
+
+export const createResourceProviderInputSchema = z.object({
+  name: z.string().min(2).max(120),
+  category: resourceProviderCategorySchema,
+  description: z.string().min(10).max(500),
+  shortDescription: z.string().min(10).max(1000),
+  logoUrl: z.url().optional(),
+  photoUrl: z.url().optional(),
+  location: resourceProviderLocationInputSchema,
+  serviceAreaLabel: z.string().min(2).max(160),
+  hoursLabel: z.string().min(2).max(160),
+  contactOptions: z
+    .array(publicResourceProviderContactOptionSchema)
+    .min(1)
+    .max(8),
+  websiteUrl: z.url().optional(),
+  socialLinks: z.array(resourceProviderLinkSchema).max(6).optional(),
+  externalLinks: z.array(resourceProviderLinkSchema).max(6).optional(),
+  emergencyAvailable: z.boolean().default(false),
+  isOpenNow: z.boolean().default(false),
+});
+
+export const resourceProviderDetailInputSchema = z.object({
+  providerId: z.uuid(),
+});
+
+export const nearbyResourceProvidersInputSchema = z.object({
+  latitude: boliviaLatitudeSchema,
+  longitude: boliviaLongitudeSchema,
+  radiusMeters: z.number().int().min(500).max(100_000),
+  categoryIds: z.array(resourceProviderCategorySchema).min(1).max(8).optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+  strategy: z.literal("postgis_radius").default("postgis_radius"),
+});
+
+export const updateResourceProviderVerificationInputSchema = z.object({
+  providerId: z.uuid(),
+  status: resourceProviderVerificationStatusSchema,
+  note: z.string().max(1000).optional(),
+});
+
+const isoDateOnlySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected a YYYY-MM-DD date.");
+
+export const attachLocalSponsorPlacementInputSchema = z
+  .object({
+    providerId: z.uuid(),
+    placementId: z.uuid().optional(),
+    surface: localSponsorPlacementSurfaceSchema,
+    label: z.string().min(1).max(80).default("Patrocinado"),
+    disclosure: z
+      .string()
+      .min(10)
+      .max(240)
+      .default("Patrocinado: apoyo local. No cambia la prioridad de reportes."),
+    startsOn: isoDateOnlySchema,
+    endsOn: isoDateOnlySchema,
+  })
+  .refine(
+    (input) =>
+      Date.parse(`${input.endsOn}T00:00:00.000Z`) >=
+      Date.parse(`${input.startsOn}T00:00:00.000Z`),
+    {
+      message: "Sponsor placement end date must be on or after start date.",
+      path: ["endsOn"],
+    },
+  );
+
+export const detachLocalSponsorPlacementInputSchema = z.object({
+  providerId: z.uuid(),
+  placementId: z.uuid(),
+});
+
+export const localSponsorPlacementPolicySchema = z.object({
+  kind: z.literal("Local Sponsor Placement"),
+  label: z.string().min(1).max(80),
+  disclosure: z.string().min(1).max(240),
+  eligibleSurfaces: z.array(localSponsorPlacementSurfaceSchema).min(1).max(5),
+  safetyPolicy: z.object({
+    recoveryPriority: z.object({
+      label: z.literal("Recovery Priority"),
+      canAffect: z.literal(false),
+    }),
+    pushNotifications: z.object({
+      eligible: z.literal(false),
+    }),
+  }),
+});
+
+const publicResourceProviderApproximateLocationSchema = z.object({
+  latitude: boliviaLatitudeSchema,
+  longitude: boliviaLongitudeSchema,
+  precision: z.literal("approximate"),
+  label: z.string().min(2).max(160),
+  locationCell: z.string().min(3).max(96),
+});
+
+export const publicResourceProviderSummarySchema = z.object({
+  id: z.uuid(),
+  name: z.string().min(2).max(120),
+  categoryId: resourceProviderCategorySchema,
+  description: z.string().min(10).max(500),
+  approximateLocationLabel: z.string().min(2).max(160),
+  approximateLocation:
+    publicResourceProviderApproximateLocationSchema.optional(),
+  serviceAreaLabel: z.string().min(2).max(160).optional(),
+  distanceMeters: z.number().int().nonnegative().optional(),
+  isVerified: z.boolean().optional(),
+  sponsorPlacement: localSponsorPlacementPolicySchema.optional(),
+  isOpenNow: z.boolean().optional(),
+  emergencyAvailable: z.boolean().optional(),
+  logoUrl: z.url().optional(),
+  photoUrl: z.url().optional(),
+  contactOptions: z.array(publicResourceProviderContactOptionSchema),
+});
+
+export const publicResourceProviderProfileSchema =
+  publicResourceProviderSummarySchema.extend({
+    serviceAreaLabel: z.string().min(2).max(160),
+    hoursLabel: z.string().min(2).max(160),
+    shortDescription: z.string().min(10).max(1000),
+    websiteUrl: z.url().optional(),
+    socialLinks: z.array(resourceProviderLinkSchema).optional(),
+    externalLinks: z.array(resourceProviderLinkSchema).optional(),
+  });
+
 export const nearbyReportsInputSchema = z.object({
   latitude: boliviaLatitudeSchema,
   longitude: boliviaLongitudeSchema,
@@ -221,6 +429,45 @@ export type CreateUploadSessionInput = z.infer<
 >;
 export type UploadSessionIdInput = z.infer<typeof uploadSessionIdInputSchema>;
 export type ReportLocationInput = z.infer<typeof reportLocationInputSchema>;
+export type ResourceProviderCategory = z.infer<
+  typeof resourceProviderCategorySchema
+>;
+export type ResourceProviderContactKind = z.infer<
+  typeof resourceProviderContactKindSchema
+>;
+export type LocalSponsorPlacementSurface = z.infer<
+  typeof localSponsorPlacementSurfaceSchema
+>;
+export type ResourceProviderVerificationStatus = z.infer<
+  typeof resourceProviderVerificationStatusSchema
+>;
+export type CreateResourceProviderInput = z.infer<
+  typeof createResourceProviderInputSchema
+>;
+export type ResourceProviderDetailInput = z.infer<
+  typeof resourceProviderDetailInputSchema
+>;
+export type NearbyResourceProvidersInput = z.infer<
+  typeof nearbyResourceProvidersInputSchema
+>;
+export type UpdateResourceProviderVerificationInput = z.infer<
+  typeof updateResourceProviderVerificationInputSchema
+>;
+export type AttachLocalSponsorPlacementInput = z.infer<
+  typeof attachLocalSponsorPlacementInputSchema
+>;
+export type DetachLocalSponsorPlacementInput = z.infer<
+  typeof detachLocalSponsorPlacementInputSchema
+>;
+export type LocalSponsorPlacementPolicy = z.infer<
+  typeof localSponsorPlacementPolicySchema
+>;
+export type PublicResourceProviderSummary = z.infer<
+  typeof publicResourceProviderSummarySchema
+>;
+export type PublicResourceProviderProfile = z.infer<
+  typeof publicResourceProviderProfileSchema
+>;
 export type CreateReportInput = z.infer<typeof createReportInputSchema>;
 export type ReportDetailInput = z.infer<typeof reportDetailInputSchema>;
 export type NearbyReportsInput = z.infer<typeof nearbyReportsInputSchema>;

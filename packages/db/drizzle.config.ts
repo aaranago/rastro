@@ -22,5 +22,9 @@ export default {
     "report_location",
     "report_media",
     "report_lifecycle_event",
+    "resource_provider",
+    "resource_provider_location",
+    "resource_provider_contact_option",
+    "local_sponsor_placement",
   ],
 } satisfies Config;

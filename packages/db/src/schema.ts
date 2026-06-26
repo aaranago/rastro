@@ -71,6 +71,38 @@ export const contactPreference = pgEnum("contact_preference", [
   "both",
 ]);
 
+export const resourceProviderCategory = pgEnum("resource_provider_category", [
+  "veterinary",
+  "shelter",
+  "groomer",
+  "pet_food",
+  "trainer",
+  "pet_store",
+  "transport",
+  "other",
+]);
+
+export const resourceProviderContactKind = pgEnum(
+  "resource_provider_contact_kind",
+  ["phone", "whatsapp", "website", "email", "directions", "social"],
+);
+
+export const resourceProviderVerificationStatus = pgEnum(
+  "resource_provider_verification_status",
+  ["unverified", "verified"],
+);
+
+export const localSponsorPlacementSurface = pgEnum(
+  "local_sponsor_placement_surface",
+  [
+    "resources_directory",
+    "provider_details",
+    "launch_home_banner",
+    "report_success",
+    "contextual_care_resources",
+  ],
+);
+
 export const publicLocationPrecision = pgEnum("public_location_precision", [
   "exact",
   "approximate",
@@ -255,6 +287,168 @@ export const ReportLifecycleEvent = pgTable(
   ],
 );
 
+export interface ResourceProviderLinkJson {
+  label: string;
+  url: string;
+}
+
+export const ResourceProvider = pgTable(
+  "resource_provider",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    name: t.varchar({ length: 120 }).notNull(),
+    category: resourceProviderCategory().notNull(),
+    description: t.text().notNull(),
+    shortDescription: t.text().notNull(),
+    logoUrl: t.text(),
+    photoUrl: t.text(),
+    serviceAreaLabel: t.varchar({ length: 160 }).notNull(),
+    hoursLabel: t.varchar({ length: 160 }).notNull(),
+    websiteUrl: t.text(),
+    socialLinks: t.jsonb().$type<ResourceProviderLinkJson[]>(),
+    externalLinks: t.jsonb().$type<ResourceProviderLinkJson[]>(),
+    emergencyAvailable: t.boolean().default(false).notNull(),
+    isOpenNow: t.boolean().default(false).notNull(),
+    verificationStatus: resourceProviderVerificationStatus()
+      .default("unverified")
+      .notNull(),
+    verificationNote: t.text(),
+    verifiedAt: t.timestamp({ mode: "date", withTimezone: true }),
+    createdByAdminId: t.text().references(() => user.id, {
+      onDelete: "set null",
+    }),
+    verificationUpdatedByAdminId: t.text().references(() => user.id, {
+      onDelete: "set null",
+    }),
+    createdAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+    deletedAt: t.timestamp({ mode: "date", withTimezone: true }),
+  }),
+  (table) => [
+    index("resource_provider_category_idx").on(table.category),
+    index("resource_provider_verification_idx").on(table.verificationStatus),
+    index("resource_provider_created_at_idx").on(table.createdAt),
+  ],
+);
+
+export const ResourceProviderLocation = pgTable(
+  "resource_provider_location",
+  (t) => ({
+    providerId: t
+      .uuid()
+      .notNull()
+      .primaryKey()
+      .references(() => ResourceProvider.id, { onDelete: "cascade" }),
+    exactPoint: postgisPoint4326("exact_point").notNull(),
+    exactLatitude: t.doublePrecision().notNull(),
+    exactLongitude: t.doublePrecision().notNull(),
+    publicPoint: postgisPoint4326("public_point").notNull(),
+    publicLatitude: t.doublePrecision().notNull(),
+    publicLongitude: t.doublePrecision().notNull(),
+    publicPrecision: publicLocationPrecision().default("approximate").notNull(),
+    approximateLocationLabel: t.varchar({ length: 160 }).notNull(),
+    locationCell: t.varchar({ length: 96 }).notNull(),
+    addressLabel: t.varchar({ length: 240 }),
+    countryCode: t.varchar({ length: 2 }).default("BO").notNull(),
+    createdAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  }),
+  (table) => [
+    index("resource_provider_location_exact_point_gist_idx").using(
+      "gist",
+      table.exactPoint,
+    ),
+    index("resource_provider_location_public_point_gist_idx").using(
+      "gist",
+      table.publicPoint,
+    ),
+    index("resource_provider_location_cell_idx").on(table.locationCell),
+  ],
+);
+
+export const ResourceProviderContactOption = pgTable(
+  "resource_provider_contact_option",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    providerId: t
+      .uuid()
+      .notNull()
+      .references(() => ResourceProvider.id, { onDelete: "cascade" }),
+    kind: resourceProviderContactKind().notNull(),
+    label: t.varchar({ length: 80 }).notNull(),
+    value: t.text().notNull(),
+    sortOrder: t.integer().default(0).notNull(),
+    createdAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  }),
+  (table) => [
+    index("resource_provider_contact_provider_idx").on(
+      table.providerId,
+      table.sortOrder,
+    ),
+  ],
+);
+
+export const LocalSponsorPlacement = pgTable(
+  "local_sponsor_placement",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    providerId: t
+      .uuid()
+      .notNull()
+      .references(() => ResourceProvider.id, { onDelete: "cascade" }),
+    surface: localSponsorPlacementSurface().notNull(),
+    label: t.varchar({ length: 80 }).default("Patrocinado").notNull(),
+    disclosure: t
+      .varchar({ length: 240 })
+      .default("Patrocinado: apoyo local. No cambia la prioridad de reportes.")
+      .notNull(),
+    startsAt: t.timestamp({ mode: "date", withTimezone: true }).notNull(),
+    endsAt: t.timestamp({ mode: "date", withTimezone: true }).notNull(),
+    createdByAdminId: t.text().references(() => user.id, {
+      onDelete: "set null",
+    }),
+    createdAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  }),
+  (table) => [
+    index("local_sponsor_placement_provider_idx").on(table.providerId),
+    index("local_sponsor_placement_surface_idx").on(table.surface),
+    index("local_sponsor_placement_active_window_idx").on(
+      table.startsAt,
+      table.endsAt,
+    ),
+  ],
+);
+
 export const reportRelations = relations(Report, ({ one, many }) => ({
   caretaker: one(user, {
     fields: [Report.caretakerId],
@@ -292,6 +486,60 @@ export const reportLifecycleEventRelations = relations(
     actor: one(user, {
       fields: [ReportLifecycleEvent.actorId],
       references: [user.id],
+    }),
+  }),
+);
+
+export const resourceProviderRelations = relations(
+  ResourceProvider,
+  ({ one, many }) => ({
+    contactOptions: many(ResourceProviderContactOption),
+    createdByAdmin: one(user, {
+      fields: [ResourceProvider.createdByAdminId],
+      references: [user.id],
+    }),
+    location: one(ResourceProviderLocation, {
+      fields: [ResourceProvider.id],
+      references: [ResourceProviderLocation.providerId],
+    }),
+    sponsorPlacements: many(LocalSponsorPlacement),
+    verificationUpdatedByAdmin: one(user, {
+      fields: [ResourceProvider.verificationUpdatedByAdminId],
+      references: [user.id],
+    }),
+  }),
+);
+
+export const resourceProviderLocationRelations = relations(
+  ResourceProviderLocation,
+  ({ one }) => ({
+    provider: one(ResourceProvider, {
+      fields: [ResourceProviderLocation.providerId],
+      references: [ResourceProvider.id],
+    }),
+  }),
+);
+
+export const resourceProviderContactOptionRelations = relations(
+  ResourceProviderContactOption,
+  ({ one }) => ({
+    provider: one(ResourceProvider, {
+      fields: [ResourceProviderContactOption.providerId],
+      references: [ResourceProvider.id],
+    }),
+  }),
+);
+
+export const localSponsorPlacementRelations = relations(
+  LocalSponsorPlacement,
+  ({ one }) => ({
+    createdByAdmin: one(user, {
+      fields: [LocalSponsorPlacement.createdByAdminId],
+      references: [user.id],
+    }),
+    provider: one(ResourceProvider, {
+      fields: [LocalSponsorPlacement.providerId],
+      references: [ResourceProvider.id],
     }),
   }),
 );

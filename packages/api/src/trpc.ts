@@ -16,6 +16,7 @@ import type { Database } from "@acme/db/client";
 import type { MediaStorage, MediaStorageConfig } from "./media-storage";
 import type { ReportMediaRepository } from "./report-media-repository";
 import type { ReportRepository } from "./report-repository";
+import type { ResourceProviderRepository } from "./resource-provider-repository";
 import {
   createS3MediaStorage,
   createUnavailableMediaStorage,
@@ -24,6 +25,7 @@ import {
 } from "./media-storage";
 import { createDrizzleReportMediaRepository } from "./report-media-repository";
 import { createDrizzleReportRepository } from "./report-repository";
+import { createDrizzleResourceProviderRepository } from "./resource-provider-repository";
 
 /**
  * 1. CONTEXT
@@ -39,15 +41,18 @@ import { createDrizzleReportRepository } from "./report-repository";
  */
 
 export const createTRPCContext = async (opts: {
+  adminEmailList: string | undefined;
   headers: Headers;
   auth: Auth;
 }): Promise<{
+  adminEmailList: string | undefined;
   authApi: Auth["api"];
   db: Database;
   mediaRepository: ReportMediaRepository;
   mediaStorageConfig: MediaStorageConfig | null;
   mediaStorage: MediaStorage;
   reportRepository: ReportRepository;
+  resourceProviderRepository: ResourceProviderRepository;
   session: Awaited<ReturnType<Auth["api"]["getSession"]>>;
 }> => {
   const authApi = opts.auth.api;
@@ -64,6 +69,7 @@ export const createTRPCContext = async (opts: {
     : null;
 
   return {
+    adminEmailList: opts.adminEmailList,
     authApi,
     db,
     mediaRepository: createDrizzleReportMediaRepository(db, {
@@ -77,6 +83,7 @@ export const createTRPCContext = async (opts: {
     reportRepository: createDrizzleReportRepository(db, {
       deliveryBaseUrl: mediaDeliveryBaseUrl,
     }),
+    resourceProviderRepository: createDrizzleResourceProviderRepository(db),
     session,
   };
 };

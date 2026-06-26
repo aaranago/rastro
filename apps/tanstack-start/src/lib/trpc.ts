@@ -25,7 +25,11 @@ export const makeTRPCClient = createIsomorphicFn()
           createContext: () => {
             const headers = new Headers(getRequestHeaders());
             headers.set("x-trpc-source", "tanstack-start-server");
-            return Api.createTRPCContext({ auth, headers });
+            return Api.createTRPCContext({
+              adminEmailList: env.RASTRO_ADMIN_EMAILS,
+              auth,
+              headers,
+            });
           },
         }),
       ],
