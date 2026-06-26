@@ -2,12 +2,13 @@ import { TRPCError } from "@trpc/server";
 
 import {
   attachLocalSponsorPlacementInputSchema,
-  createResourceProviderReportInputSchema,
   createResourceProviderInputSchema,
+  createResourceProviderReportInputSchema,
   deleteResourceProviderInputSchema,
   detachLocalSponsorPlacementInputSchema,
   nearbyResourceProvidersInputSchema,
   resourceProviderDetailInputSchema,
+  updateLocalSponsorPlacementInputSchema,
   updateResourceProviderInputSchema,
   updateResourceProviderVerificationInputSchema,
 } from "@acme/validators";
@@ -104,6 +105,11 @@ export const resourcesRouter = createTRPCRouter({
 
       return ctx.resourceProviderRepository.listProviders();
     }),
+    listSponsorPlacements: protectedProcedure.query(async ({ ctx }) => {
+      requireResourceProviderAdmin(ctx);
+
+      return ctx.resourceProviderRepository.listSponsorPlacements();
+    }),
     createProvider: protectedProcedure
       .input(createResourceProviderInputSchema)
       .mutation(async ({ ctx, input }) => {
@@ -178,6 +184,55 @@ export const resourcesRouter = createTRPCRouter({
         }
 
         return provider;
+      }),
+    createSponsor: protectedProcedure
+      .input(attachLocalSponsorPlacementInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const admin = requireResourceProviderAdmin(ctx);
+        const placement =
+          await ctx.resourceProviderRepository.createSponsorPlacement({
+            adminId: admin.id,
+            sponsorPlacement: input,
+          });
+
+        if (!placement) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        return placement;
+      }),
+    updateSponsor: protectedProcedure
+      .input(updateLocalSponsorPlacementInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const admin = requireResourceProviderAdmin(ctx);
+        const placement =
+          await ctx.resourceProviderRepository.updateSponsorPlacement({
+            adminId: admin.id,
+            sponsorPlacement: input,
+          });
+
+        if (!placement) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        return placement;
+      }),
+    detachSponsorPlacement: protectedProcedure
+      .input(detachLocalSponsorPlacementInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        requireResourceProviderAdmin(ctx);
+        const provider =
+          await ctx.resourceProviderRepository.detachSponsor(input);
+
+        if (!provider) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        return {
+          detached: true as const,
+          placementId: input.placementId,
+          providerId: input.providerId,
+        };
       }),
     detachSponsor: protectedProcedure
       .input(detachLocalSponsorPlacementInputSchema)

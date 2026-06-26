@@ -11,6 +11,7 @@ import type {
   ResourceProviderCategory,
   ResourceProviderContactKind,
   ResourceProviderVerificationStatus,
+  UpdateLocalSponsorPlacementInput,
   UpdateResourceProviderInput,
   UpdateResourceProviderVerificationInput,
 } from "@acme/validators";
@@ -90,6 +91,33 @@ export interface AdminResourceProviderSponsorPlacement {
   surface: LocalSponsorPlacementSurface;
 }
 
+export interface AdminLocalSponsorPlacementSafetyPolicy {
+  eligibleSurfaces: LocalSponsorPlacementSurface[];
+  pushNotifications: {
+    eligible: false;
+  };
+  recoveryPriority: {
+    canAffect: false;
+    label: "Recovery Priority";
+  };
+}
+
+export interface AdminLocalSponsorPlacement {
+  category: ResourceProviderCategory;
+  city: string;
+  department: string;
+  disclosure: string;
+  endsOn: string;
+  isActive: boolean;
+  label: string;
+  placementId: string;
+  providerId: string;
+  providerName: string;
+  safetyPolicy: AdminLocalSponsorPlacementSafetyPolicy;
+  startsOn: string;
+  surface: LocalSponsorPlacementSurface;
+}
+
 export type AdminResourceProviderProfile = PublicResourceProviderProfile & {
   addressLabel?: string;
   city: string;
@@ -107,6 +135,7 @@ export interface ResourceProviderRepository {
     providerId: string,
   ): Promise<PublicResourceProviderProfile | null>;
   listProviders(): Promise<AdminResourceProviderProfile[]>;
+  listSponsorPlacements(): Promise<AdminLocalSponsorPlacement[]>;
   createProvider(input: {
     adminId: string;
     provider: CreateResourceProviderInput;
@@ -127,6 +156,14 @@ export interface ResourceProviderRepository {
     adminId: string;
     sponsorPlacement: AttachLocalSponsorPlacementInput;
   }): Promise<PublicResourceProviderProfile | null>;
+  createSponsorPlacement(input: {
+    adminId: string;
+    sponsorPlacement: AttachLocalSponsorPlacementInput;
+  }): Promise<AdminLocalSponsorPlacement | null>;
+  updateSponsorPlacement(input: {
+    adminId: string;
+    sponsorPlacement: UpdateLocalSponsorPlacementInput;
+  }): Promise<AdminLocalSponsorPlacement | null>;
   detachSponsor(
     input: DetachLocalSponsorPlacementInput,
   ): Promise<PublicResourceProviderProfile | null>;
@@ -361,6 +398,9 @@ export function createDrizzleResourceProviderRepository(
         toAdminResourceProviderProfile(provider, { now: now() }),
       );
     },
+    listSponsorPlacements: async () => {
+      return toAdminLocalSponsorPlacements(await repository.listProviders());
+    },
     createProvider: async ({ adminId, provider }) => {
       const createdProviderId = await db.transaction(async (tx) => {
         const [created] = await tx
@@ -501,6 +541,16 @@ export function createDrizzleResourceProviderRepository(
       return updated ? repository.findProfile(updated.id) : null;
     },
     attachSponsor: async ({ adminId, sponsorPlacement }) => {
+      const created = await repository.createSponsorPlacement({
+        adminId,
+        sponsorPlacement,
+      });
+
+      return created
+        ? repository.findProfile(sponsorPlacement.providerId)
+        : null;
+    },
+    createSponsorPlacement: async ({ adminId, sponsorPlacement }) => {
       const existing = await findPersistedProviderById(
         sponsorPlacement.providerId,
       );
@@ -523,9 +573,41 @@ export function createDrizzleResourceProviderRepository(
         insertValue.id = sponsorPlacement.placementId;
       }
 
-      await db.insert(LocalSponsorPlacement).values(insertValue);
+      const [created] = await db
+        .insert(LocalSponsorPlacement)
+        .values(insertValue)
+        .returning({ id: LocalSponsorPlacement.id });
 
-      return repository.findProfile(sponsorPlacement.providerId);
+      return findAdminSponsorPlacementById(
+        sponsorPlacement.providerId,
+        created?.id ?? null,
+      );
+    },
+    updateSponsorPlacement: async ({ sponsorPlacement }) => {
+      const [updated] = await db
+        .update(LocalSponsorPlacement)
+        .set({
+          disclosure: sponsorPlacement.disclosure,
+          endsAt: endOfDateOnlyUtc(sponsorPlacement.endsOn),
+          label: sponsorPlacement.label,
+          startsAt: startOfDateOnlyUtc(sponsorPlacement.startsOn),
+          surface: sponsorPlacement.surface,
+          updatedAt: now(),
+        })
+        .where(
+          and(
+            eq(LocalSponsorPlacement.id, sponsorPlacement.placementId),
+            eq(LocalSponsorPlacement.providerId, sponsorPlacement.providerId),
+          ),
+        )
+        .returning({ id: LocalSponsorPlacement.id });
+
+      return updated
+        ? findAdminSponsorPlacementById(
+            sponsorPlacement.providerId,
+            sponsorPlacement.placementId,
+          )
+        : null;
     },
     detachSponsor: async (input) => {
       const [deleted] = await db
@@ -541,6 +623,21 @@ export function createDrizzleResourceProviderRepository(
       return deleted ? repository.findProfile(input.providerId) : null;
     },
   };
+
+  async function findAdminSponsorPlacementById(
+    providerId: string,
+    placementId: string | null,
+  ): Promise<AdminLocalSponsorPlacement | null> {
+    const placements = await repository.listSponsorPlacements();
+
+    return (
+      placements.find(
+        (placement) =>
+          placement.providerId === providerId &&
+          (placementId === null || placement.placementId === placementId),
+      ) ?? null
+    );
+  }
 
   return repository;
 }
@@ -765,6 +862,40 @@ function toPersistedResourceProvider(
       endsAt: placement.endsAt,
     })),
   };
+}
+
+export function toAdminLocalSponsorPlacements(
+  providers: readonly AdminResourceProviderProfile[],
+): AdminLocalSponsorPlacement[] {
+  return providers
+    .flatMap((provider) =>
+      provider.sponsorPlacements.map((placement) => ({
+        category: provider.categoryId,
+        city: provider.city,
+        department: provider.department,
+        disclosure: placement.disclosure,
+        endsOn: placement.endsOn,
+        isActive: placement.isActive,
+        label: placement.label,
+        placementId: placement.placementId,
+        providerId: provider.id,
+        providerName: provider.name,
+        safetyPolicy: {
+          eligibleSurfaces:
+            buildLocalSponsorPlacementPolicy(placement).eligibleSurfaces,
+          ...buildLocalSponsorPlacementPolicy(placement).safetyPolicy,
+        },
+        startsOn: placement.startsOn,
+        surface: placement.surface,
+      })),
+    )
+    .sort((left, right) => {
+      const dateComparison = left.startsOn.localeCompare(right.startsOn);
+
+      return dateComparison === 0
+        ? left.providerName.localeCompare(right.providerName)
+        : dateComparison;
+    });
 }
 
 function isSponsorPlacementActive(

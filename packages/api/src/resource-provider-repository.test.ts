@@ -9,6 +9,7 @@ import {
   buildResourceProviderLocationWriteValues,
   buildResourceProviderUpdateValues,
   derivePublicResourceProviderLocation,
+  toAdminLocalSponsorPlacements,
   toAdminResourceProviderProfile,
   toPublicResourceProviderProfile,
   toPublicResourceProviderSummary,
@@ -370,6 +371,65 @@ describe("resource provider repository", () => {
       verificationNote: "Identidad revisada por Rastro.",
     });
     expect(JSON.stringify(profile)).not.toContain("exact");
+  });
+
+  it("lists admin sponsor placements across providers with provider context and safety policy", () => {
+    const placements = toAdminLocalSponsorPlacements([
+      toAdminResourceProviderProfile(persistedProvider(), {
+        now: new Date("2026-07-15T12:00:00.000Z"),
+      }),
+      toAdminResourceProviderProfile(
+        persistedProvider({
+          id: "33333333-3333-4333-8333-333333333333",
+          name: "Patitas La Paz",
+          category: "shelter",
+          location: {
+            ...persistedProvider().location,
+            city: "El Alto",
+            department: "La Paz",
+          },
+          sponsorPlacements: [
+            {
+              id: "44444444-4444-4444-8444-444444444444",
+              surface: "provider_details",
+              label: "Aliado local",
+              disclosure:
+                "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+              startsAt: new Date("2026-06-01T00:00:00.000Z"),
+              endsAt: new Date("2026-06-30T23:59:59.999Z"),
+            },
+          ],
+        }),
+        {
+          now: new Date("2026-07-15T12:00:00.000Z"),
+        },
+      ),
+    ]);
+
+    expect(placements).toEqual([
+      expect.objectContaining({
+        city: "El Alto",
+        isActive: false,
+        placementId: "44444444-4444-4444-8444-444444444444",
+        providerName: "Patitas La Paz",
+        safetyPolicy: {
+          eligibleSurfaces: ["provider_details"],
+          recoveryPriority: {
+            label: "Recovery Priority",
+            canAffect: false,
+          },
+          pushNotifications: {
+            eligible: false,
+          },
+        },
+      }),
+      expect.objectContaining({
+        isActive: true,
+        placementId: "22222222-2222-4222-8222-222222222222",
+        providerName: "Clinica Veterinaria San Roque",
+        surface: "resources_directory",
+      }),
+    ]);
   });
 
   it("builds standalone sponsor policy for any supported surface", () => {

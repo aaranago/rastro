@@ -788,6 +788,143 @@ describe("resources router", () => {
     ]);
   });
 
+  it("lists Local Sponsor Placements across providers for allowlisted admins", async () => {
+    let listWasCalled = false;
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      resourceProviderRepository: {
+        listSponsorPlacements: () => {
+          listWasCalled = true;
+          return Promise.resolve([
+            sponsorPlacement({
+              providerId: "11111111-1111-4111-8111-111111111111",
+              providerName: "Clinica Veterinaria San Roque",
+            }),
+            sponsorPlacement({
+              placementId: "33333333-3333-4333-8333-333333333333",
+              providerId: "22222222-2222-4222-8222-222222222222",
+              providerName: "Patitas La Paz",
+              surface: "provider_details",
+            }),
+          ]);
+        },
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin-la-paz",
+        },
+      },
+    });
+
+    const placements = await caller.resources.admin.listSponsorPlacements();
+
+    expect(listWasCalled).toBe(true);
+    expect(placements).toEqual([
+      expect.objectContaining({
+        placementId: "22222222-2222-4222-8222-222222222222",
+        providerName: "Clinica Veterinaria San Roque",
+      }),
+      expect.objectContaining({
+        placementId: "33333333-3333-4333-8333-333333333333",
+        providerName: "Patitas La Paz",
+        surface: "provider_details",
+      }),
+    ]);
+    expect(placements[0]?.safetyPolicy).toMatchObject({
+      recoveryPriority: {
+        canAffect: false,
+      },
+      pushNotifications: {
+        eligible: false,
+      },
+    });
+  });
+
+  it("creates, updates, and detaches standalone sponsor placements behind the admin allowlist", async () => {
+    const operations: string[] = [];
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      resourceProviderRepository: {
+        createSponsorPlacement: (input: {
+          adminId: string;
+          sponsorPlacement: { surface: string };
+        }) => {
+          operations.push(
+            `create:${input.adminId}:${input.sponsorPlacement.surface}`,
+          );
+          return Promise.resolve(sponsorPlacement());
+        },
+        updateSponsorPlacement: (input: {
+          adminId: string;
+          sponsorPlacement: {
+            placementId: string;
+            surface: SponsorPlacementFixture["surface"];
+          };
+        }) => {
+          operations.push(
+            `update:${input.adminId}:${input.sponsorPlacement.placementId}:${input.sponsorPlacement.surface}`,
+          );
+          return Promise.resolve(
+            sponsorPlacement({
+              surface: input.sponsorPlacement.surface,
+            }),
+          );
+        },
+        detachSponsor: (input: { placementId: string }) => {
+          operations.push(`detach:${input.placementId}`);
+          return Promise.resolve(providerProfile());
+        },
+      },
+      session: {
+        user: {
+          email: "ADMIN@rastro.bo",
+          id: "member-admin-la-paz",
+        },
+      },
+    });
+
+    const created = await caller.resources.admin.createSponsor({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      surface: "resources_directory",
+      startsOn: "2026-07-01",
+      endsOn: "2026-07-31",
+    });
+    const updated = await caller.resources.admin.updateSponsor({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      placementId: "22222222-2222-4222-8222-222222222222",
+      surface: "provider_details",
+      label: "Aliado local",
+      disclosure:
+        "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+      startsOn: "2026-07-01",
+      endsOn: "2026-08-31",
+    });
+    const detached = await caller.resources.admin.detachSponsorPlacement({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      placementId: "22222222-2222-4222-8222-222222222222",
+    });
+
+    expect(created).toMatchObject({
+      providerName: "Clinica Veterinaria San Roque",
+      surface: "resources_directory",
+    });
+    expect(updated).toMatchObject({
+      label: "Patrocinado",
+      surface: "provider_details",
+    });
+    expect(detached).toEqual({
+      detached: true,
+      placementId: "22222222-2222-4222-8222-222222222222",
+      providerId: "11111111-1111-4111-8111-111111111111",
+    });
+    expect(operations).toEqual([
+      "create:member-admin-la-paz:resources_directory",
+      "update:member-admin-la-paz:22222222-2222-4222-8222-222222222222:provider_details",
+      "detach:22222222-2222-4222-8222-222222222222",
+    ]);
+  });
+
   it("returns not found when an admin mutation cannot find its provider or placement", async () => {
     const caller = createCaller({
       adminEmailList: "admin@rastro.bo",
@@ -829,3 +966,64 @@ describe("resources router", () => {
     });
   });
 });
+
+interface SponsorPlacementFixture {
+  category: "veterinary" | "shelter";
+  city: string;
+  department: string;
+  disclosure: string;
+  endsOn: string;
+  isActive: boolean;
+  label: string;
+  placementId: string;
+  providerId: string;
+  providerName: string;
+  safetyPolicy: {
+    eligibleSurfaces: ("provider_details" | "resources_directory")[];
+    recoveryPriority: {
+      label: "Recovery Priority";
+      canAffect: false;
+    };
+    pushNotifications: {
+      eligible: false;
+    };
+  };
+  startsOn: string;
+  surface: "provider_details" | "resources_directory";
+}
+
+function sponsorPlacement(
+  overrides: Partial<SponsorPlacementFixture> = {},
+): SponsorPlacementFixture {
+  return {
+    ...buildSponsorPlacement(),
+    ...overrides,
+  };
+}
+
+function buildSponsorPlacement(): SponsorPlacementFixture {
+  return {
+    category: "veterinary",
+    city: "La Paz",
+    department: "La Paz",
+    disclosure: "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+    endsOn: "2026-07-31",
+    isActive: true,
+    label: "Patrocinado",
+    placementId: "22222222-2222-4222-8222-222222222222",
+    providerId: "11111111-1111-4111-8111-111111111111",
+    providerName: "Clinica Veterinaria San Roque",
+    safetyPolicy: {
+      eligibleSurfaces: ["resources_directory"],
+      recoveryPriority: {
+        label: "Recovery Priority",
+        canAffect: false,
+      },
+      pushNotifications: {
+        eligible: false,
+      },
+    },
+    startsOn: "2026-07-01",
+    surface: "resources_directory",
+  };
+}

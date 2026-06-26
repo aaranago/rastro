@@ -46,8 +46,8 @@ export const adminNavigationItems = [
     href: "/admin/patrocinios",
     issueId: "ADMIN-005",
     label: "Patrocinios",
-    status: "planned",
-    statusLabel: "Planificado",
+    status: "available",
+    statusLabel: "Disponible",
   },
   {
     description:

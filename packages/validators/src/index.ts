@@ -383,17 +383,8 @@ const isoDateOnlySchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected a YYYY-MM-DD date.");
 
-export const attachLocalSponsorPlacementInputSchema = z
+const localSponsorPlacementDateWindowSchema = z
   .object({
-    providerId: z.uuid(),
-    placementId: z.uuid().optional(),
-    surface: localSponsorPlacementSurfaceSchema,
-    label: z.string().min(1).max(80).default("Patrocinado"),
-    disclosure: z
-      .string()
-      .min(10)
-      .max(240)
-      .default("Patrocinado: apoyo local. No cambia la prioridad de reportes."),
     startsOn: isoDateOnlySchema,
     endsOn: isoDateOnlySchema,
   })
@@ -406,6 +397,32 @@ export const attachLocalSponsorPlacementInputSchema = z
       path: ["endsOn"],
     },
   );
+
+const localSponsorPlacementFieldsSchema = z.object({
+  surface: localSponsorPlacementSurfaceSchema,
+  label: z.string().min(1).max(80).default("Patrocinado"),
+  disclosure: z
+    .string()
+    .min(10)
+    .max(240)
+    .default("Patrocinado: apoyo local. No cambia la prioridad de reportes."),
+});
+
+export const attachLocalSponsorPlacementInputSchema =
+  localSponsorPlacementFieldsSchema
+    .extend({
+      providerId: z.uuid(),
+      placementId: z.uuid().optional(),
+    })
+    .and(localSponsorPlacementDateWindowSchema);
+
+export const updateLocalSponsorPlacementInputSchema =
+  localSponsorPlacementFieldsSchema
+    .extend({
+      providerId: z.uuid(),
+      placementId: z.uuid(),
+    })
+    .and(localSponsorPlacementDateWindowSchema);
 
 export const detachLocalSponsorPlacementInputSchema = z.object({
   providerId: z.uuid(),
@@ -560,6 +577,9 @@ export type UpdateResourceProviderVerificationInput = z.infer<
 >;
 export type AttachLocalSponsorPlacementInput = z.infer<
   typeof attachLocalSponsorPlacementInputSchema
+>;
+export type UpdateLocalSponsorPlacementInput = z.infer<
+  typeof updateLocalSponsorPlacementInputSchema
 >;
 export type DetachLocalSponsorPlacementInput = z.infer<
   typeof detachLocalSponsorPlacementInputSchema

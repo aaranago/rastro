@@ -15,6 +15,7 @@ import {
   resourceProviderApproximatePublicLocationRadiusMeters,
   resourceProviderCategorySchema,
   resourceProviderContactKindSchema,
+  updateLocalSponsorPlacementInputSchema,
   updateResourceProviderInputSchema,
 } from "./index";
 
@@ -333,6 +334,29 @@ describe("resource provider validation contracts", () => {
 
     expect(result.success).toBe(false);
     expect(JSON.stringify(result.error?.issues)).toContain("endsOn");
+  });
+
+  it("requires a placement ID and valid date window for sponsor placement updates", () => {
+    const result = updateLocalSponsorPlacementInputSchema.safeParse({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      placementId: "22222222-2222-4222-8222-222222222222",
+      surface: "provider_details",
+      label: "Patrocinado",
+      disclosure:
+        "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+      startsOn: "2026-07-01",
+      endsOn: "2026-07-31",
+    });
+
+    expect(result.success).toBe(true);
+    expect(
+      updateLocalSponsorPlacementInputSchema.safeParse({
+        providerId: "11111111-1111-4111-8111-111111111111",
+        surface: "provider_details",
+        startsOn: "2026-08-01",
+        endsOn: "2026-07-31",
+      }).success,
+    ).toBe(false);
   });
 
   it("parses public provider profiles without accepting private exact location fields", () => {
