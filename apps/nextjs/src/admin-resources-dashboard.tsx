@@ -60,6 +60,7 @@ import {
   adminResourceProviderMaxContactOptions,
   adminResourceProviderMaxLinks,
 } from "./admin-resource-provider-form-parser";
+import { AdminSubmitButton } from "./admin-ui/admin-submit-button";
 
 export type AdminResourcesViewerRole = "admin" | "member" | "visitor";
 
@@ -505,14 +506,14 @@ function CreateProviderWorkflow(props: {
           />
           <ProviderBooleanFields idPrefix="create-provider" />
           <SheetFooter className="px-0 pb-0">
-            <Button
+            <AdminSubmitButton
               data-submit-action="create_provider"
               name="resourceAction"
-              type="submit"
+              pendingLabel="Creando proveedor"
               value="create_provider"
             >
               {props.actionLabel}
-            </Button>
+            </AdminSubmitButton>
           </SheetFooter>
         </form>
       </SheetContent>
@@ -581,14 +582,14 @@ function EditProviderWorkflow(props: {
             provider={props.provider}
           />
           <SheetFooter className="px-0 pb-0">
-            <Button
+            <AdminSubmitButton
               data-submit-action="update_provider_details"
               name="resourceAction"
-              type="submit"
+              pendingLabel="Guardando detalles"
               value="update_provider_details"
             >
               Guardar detalles
-            </Button>
+            </AdminSubmitButton>
           </SheetFooter>
         </form>
       </SheetContent>
@@ -630,7 +631,7 @@ function ProviderProfileFields(props: {
           id={`${props.idPrefix}-description`}
           label="Descripción"
           name="description"
-          placeholder="Atencion veterinaria general, orientacion y apoyo para familias cuidadoras."
+          placeholder="Atención veterinaria general, orientación y apoyo para familias cuidadoras."
           required
           value={props.provider?.description}
         />
@@ -639,7 +640,7 @@ function ProviderProfileFields(props: {
           id={`${props.idPrefix}-short-description`}
           label="Resumen corto"
           name="shortDescription"
-          placeholder="Clinica local con atencion general y urgencias."
+          placeholder="Clínica local con atención general y urgencias."
           required
           value={props.provider?.shortDescription}
         />
@@ -1046,14 +1047,14 @@ function VerificationProviderWorkflow(props: {
             value={provider.verificationBadge.note}
           />
           <DialogFooter>
-            <Button
+            <AdminSubmitButton
               data-submit-action="update_verification"
               name="resourceAction"
-              type="submit"
+              pendingLabel="Guardando verificación"
               value="update_verification"
             >
               Guardar verificación
-            </Button>
+            </AdminSubmitButton>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -1173,15 +1174,15 @@ function SponsorPlacementList(props: {
                   type="hidden"
                   value={placement.placementId}
                 />
-                <Button
+                <AdminSubmitButton
                   data-submit-action="detach_sponsor"
                   name="resourceAction"
-                  type="submit"
+                  pendingLabel="Retirando patrocinio"
                   value="detach_sponsor"
                   variant="outline"
                 >
                   Retirar este patrocinio
-                </Button>
+                </AdminSubmitButton>
               </form>
             ) : (
               <p className="text-muted-foreground mt-3 text-xs">
@@ -1275,14 +1276,14 @@ function AttachSponsorForm(props: {
         </div>
       </FieldSet>
       <SheetFooter className="px-0 pb-0">
-        <Button
+        <AdminSubmitButton
           data-submit-action="attach_sponsor"
           name="resourceAction"
-          type="submit"
+          pendingLabel="Adjuntando patrocinio"
           value="attach_sponsor"
         >
           Adjuntar patrocinio local
-        </Button>
+        </AdminSubmitButton>
       </SheetFooter>
     </form>
   );
@@ -1355,15 +1356,15 @@ function ArchiveProviderWorkflow(props: {
             </div>
           </Field>
           <DialogFooter>
-            <Button
+            <AdminSubmitButton
               data-submit-action="archive_provider"
               name="resourceAction"
-              type="submit"
+              pendingLabel="Archivando proveedor"
               value="archive_provider"
               variant="destructive"
             >
               Archivar proveedor
-            </Button>
+            </AdminSubmitButton>
           </DialogFooter>
         </form>
       </DialogContent>

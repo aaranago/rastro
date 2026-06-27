@@ -79,7 +79,7 @@ export interface AdminResourceProviderActiveSponsorPlacementViewModel {
 }
 
 export interface VerificationBadgeViewModel {
-  label: "Insignia de verificacion" | "Sin insignia de verificacion";
+  label: "Insignia de verificación" | "Sin insignia de verificación";
   note: string;
   status: AdminResourceProviderVerificationStatus;
 }
@@ -136,7 +136,7 @@ interface LocalSponsorPlacementSurfaceOption {
 export const resourceProviderCategoryOptions = [
   {
     id: "veterinary",
-    label: "Clinica veterinaria",
+    label: "Clínica veterinaria",
   },
   {
     id: "shelter",
@@ -210,7 +210,7 @@ export const localSponsorPlacementSurfaceOptions = [
   },
   {
     id: "report_success",
-    label: "Confirmacion de reporte",
+    label: "Confirmación de reporte",
   },
   {
     id: "contextual_care_resources",
@@ -294,13 +294,13 @@ function toAdminResourceProviderViewModel(
     ),
     verificationBadge: {
       label: profile.isVerified
-        ? "Insignia de verificacion"
-        : "Sin insignia de verificacion",
+        ? "Insignia de verificación"
+        : "Sin insignia de verificación",
       note:
         profile.verificationNote ??
         (profile.isVerified
           ? "Identidad marcada como verificada en Recursos."
-          : "Identidad pendiente de revision por Rastro."),
+          : "Identidad pendiente de revisión por Rastro."),
       status: profile.isVerified ? "verified" : "unverified",
     },
     websiteUrl: profile.websiteUrl,

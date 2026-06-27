@@ -1,3 +1,7 @@
+import Link from "next/link";
+
+import { AdminSubmitButton } from "./admin-ui/admin-submit-button";
+
 export type AdminModerationViewerRole = "admin" | "member" | "visitor";
 
 export type AdminModerationTargetType =
@@ -101,8 +105,8 @@ export function AdminModerationDashboard(props: AdminModerationDashboardProps) {
   const summaryStats = getSummaryStats(props.flaggedItems);
 
   return (
-    <main className="bg-background min-h-screen">
-      <div className="container grid gap-6 py-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:py-8">
+    <main className="bg-background min-h-screen overflow-x-hidden">
+      <div className="mx-auto grid w-full max-w-[1500px] min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="flex min-w-0 flex-col gap-6">
           <AdminDashboardHeader viewer={props.viewer} />
           <ModerationSummary stats={summaryStats} />
@@ -112,7 +116,7 @@ export function AdminModerationDashboard(props: AdminModerationDashboardProps) {
           />
         </section>
 
-        <aside className="flex flex-col gap-6">
+        <aside className="flex min-w-0 flex-col gap-6">
           <ModerationSettings settings={props.settings} />
           <AbuseMetrics metrics={props.metrics} />
         </aside>
@@ -195,7 +199,20 @@ function FlaggedContentQueue(props: {
           daño a la comunidad.
         </p>
       </div>
-      <div className="overflow-x-auto">
+      <div className="grid gap-3 p-4 md:hidden">
+        {props.items.length === 0 ? (
+          <ModerationQueueEmptyState />
+        ) : (
+          props.items.map((item) => (
+            <FlaggedItemCard
+              formAction={props.formAction}
+              item={item}
+              key={item.id}
+            />
+          ))
+        )}
+      </div>
+      <div className="hidden min-w-0 overflow-x-auto md:block">
         <table className="w-full min-w-[860px] text-left text-sm">
           <caption className="sr-only">
             Contenido reportado para moderación
@@ -234,6 +251,17 @@ function FlaggedContentQueue(props: {
   );
 }
 
+function ModerationQueueEmptyState() {
+  return (
+    <div className="border-border bg-background rounded-lg border p-5">
+      <p className="font-semibold">No hay contenido pendiente de revisión.</p>
+      <p className="text-muted-foreground mt-1 text-sm">
+        Cuando lleguen reportes de abuso o riesgo, aparecerán en esta cola.
+      </p>
+    </div>
+  );
+}
+
 function AdminAccessDenied(props: { viewer: AdminModerationViewer }) {
   return (
     <main className="bg-background min-h-screen">
@@ -253,10 +281,10 @@ function AdminAccessDenied(props: { viewer: AdminModerationViewer }) {
           </h1>
           <p className="text-muted-foreground mt-3 text-sm">
             Solo administradores de Rastro pueden revisar colas de abuso,
-            cambiar Review Mode o modificar reglas de publicación.
+            cambiar el modo de revisión o modificar reglas de publicación.
           </p>
           <p className="bg-muted text-muted-foreground mt-5 rounded-md px-3 py-2 text-sm font-medium">
-            Sesion actual: {props.viewer.displayName}
+            Sesión actual: {props.viewer.displayName}
           </p>
         </div>
       </section>
@@ -295,6 +323,74 @@ function FlaggedItemRow(props: {
   );
 }
 
+function FlaggedItemCard(props: {
+  formAction?: React.ComponentProps<"form">["action"];
+  item: AdminModerationFlaggedItem;
+}) {
+  const item = props.item;
+  const targetLabel = targetTypeLabels[item.target.type];
+  const contentAction = getContentAction(item);
+
+  return (
+    <article className="border-border bg-background rounded-lg border p-4">
+      <div className="min-w-0">
+        <a
+          className="text-foreground hover:text-primary focus-visible:border-ring focus-visible:ring-ring/50 break-words font-semibold underline-offset-4 outline-none hover:underline focus-visible:ring-[3px]"
+          href={item.target.href}
+        >
+          {item.target.title}
+        </a>
+        <p className="text-primary mt-1 text-xs font-semibold">
+          {targetLabel}
+        </p>
+        <p className="text-muted-foreground text-xs">
+          {item.target.locationLabel} - {item.department}
+        </p>
+      </div>
+      <dl className="mt-4 grid gap-3 text-sm">
+        <div>
+          <dt className="text-muted-foreground text-xs font-semibold">
+            Motivo
+          </dt>
+          <dd className="mt-1 font-medium">{item.reasonLabel}</dd>
+          <dd className="text-muted-foreground text-xs">
+            {item.reportCount} reportes - {item.newestReportLabel}
+          </dd>
+          <dd className="text-muted-foreground mt-1 text-xs">{item.detail}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground text-xs font-semibold">
+            Responsable
+          </dt>
+          <dd className="mt-1 font-medium">
+            {item.accusedMember.displayName}
+          </dd>
+          <dd className="text-muted-foreground text-xs">
+            Reportado por {item.reporterLabel}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground text-xs font-semibold">
+            Estado
+          </dt>
+          <dd className="mt-2 flex flex-wrap gap-2">
+            <StatusPill status={item.target.status} />
+            <MemberStatusPill status={item.accusedMember.status} />
+          </dd>
+        </div>
+      </dl>
+      <div className="mt-4">
+        <FlaggedItemActionForm
+          contentAction={contentAction}
+          formAction={props.formAction}
+          idPrefix="mobile"
+          item={item}
+        />
+      </div>
+    </article>
+  );
+}
+
 function FlaggedItemTargetCell(props: { item: AdminModerationFlaggedItem }) {
   const item = props.item;
   const targetLabel = targetTypeLabels[item.target.type];
@@ -303,7 +399,7 @@ function FlaggedItemTargetCell(props: { item: AdminModerationFlaggedItem }) {
     <th className="px-5 py-4 font-normal" scope="row">
       <div className="flex flex-col gap-1">
         <a
-          className="text-foreground hover:text-primary font-semibold underline-offset-4 hover:underline"
+          className="text-foreground hover:text-primary focus-visible:border-ring focus-visible:ring-ring/50 font-semibold underline-offset-4 outline-none hover:underline focus-visible:ring-[3px]"
           href={item.target.href}
         >
           {item.target.title}
@@ -370,59 +466,78 @@ function FlaggedItemActions(props: {
 }) {
   return (
     <td className="px-5 py-4">
-      <form
-        aria-label={`Acciones para ${props.item.target.title}`}
-        action={props.formAction}
-        className="flex flex-col items-stretch gap-2"
-        method={props.formAction ? undefined : "post"}
-      >
-        <input name="reviewItemId" type="hidden" value={props.item.id} />
-        <input name="moderationReason" type="hidden" value="admin_review" />
-        <input name="targetId" type="hidden" value={props.item.target.id} />
-        <input name="targetType" type="hidden" value={props.item.target.type} />
-        <input
-          name="memberId"
-          type="hidden"
-          value={props.item.accusedMember.id}
-        />
-        {props.contentAction ? (
-          <>
-            <label className="sr-only" htmlFor={`note-${props.item.id}`}>
-              Nota de moderación
-            </label>
-            <textarea
-              className="border-input bg-background min-h-16 rounded-md border px-3 py-2 text-sm"
-              id={`note-${props.item.id}`}
-              maxLength={1000}
-              name="moderationNote"
-              placeholder="Nota breve"
-            />
-            <ModerationButton action={props.contentAction} />
-          </>
-        ) : null}
-        {props.item.target.type !== "resource_provider_profile" ? (
-          <a
-            className="border-border text-foreground hover:bg-muted rounded-md border px-3 py-2 text-center text-sm font-semibold"
-            href={`/admin/miembros?memberId=${encodeURIComponent(props.item.accusedMember.id)}`}
-          >
-            Gestionar miembro
-          </a>
-        ) : null}
-      </form>
+      <FlaggedItemActionForm
+        contentAction={props.contentAction}
+        formAction={props.formAction}
+        idPrefix="desktop"
+        item={props.item}
+      />
     </td>
+  );
+}
+
+function FlaggedItemActionForm(props: {
+  contentAction: ContentModerationAction | null;
+  formAction?: React.ComponentProps<"form">["action"];
+  idPrefix: "desktop" | "mobile";
+  item: AdminModerationFlaggedItem;
+}) {
+  const noteId = `note-${props.idPrefix}-${props.item.id}`;
+
+  return (
+    <form
+      aria-label={`Acciones para ${props.item.target.title}`}
+      action={props.formAction}
+      className="flex flex-col items-stretch gap-2"
+      method={props.formAction ? undefined : "post"}
+    >
+      <input name="reviewItemId" type="hidden" value={props.item.id} />
+      <input name="moderationReason" type="hidden" value="admin_review" />
+      <input name="targetId" type="hidden" value={props.item.target.id} />
+      <input name="targetType" type="hidden" value={props.item.target.type} />
+      <input
+        name="memberId"
+        type="hidden"
+        value={props.item.accusedMember.id}
+      />
+      {props.contentAction ? (
+        <>
+          <label className="sr-only" htmlFor={noteId}>
+            Nota de moderación
+          </label>
+          <textarea
+            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 min-h-16 rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-[3px]"
+            id={noteId}
+            maxLength={1000}
+            name="moderationNote"
+            placeholder="Nota breve"
+          />
+          <ModerationButton action={props.contentAction} />
+        </>
+      ) : null}
+      {props.item.target.type !== "resource_provider_profile" ? (
+        <a
+          className="border-border text-foreground hover:bg-muted focus-visible:border-ring focus-visible:ring-ring/50 rounded-md border px-3 py-2 text-center text-sm font-semibold outline-none focus-visible:ring-[3px]"
+          href={`/admin/miembros?memberId=${encodeURIComponent(props.item.accusedMember.id)}`}
+        >
+          Gestionar miembro
+        </a>
+      ) : null}
+    </form>
   );
 }
 
 function ModerationButton(props: { action: ContentModerationAction }) {
   return (
-    <button
-      className="border-border text-foreground hover:bg-muted rounded-md border px-3 py-2 text-sm font-semibold"
+    <AdminSubmitButton
+      className="min-h-11"
       name="moderationAction"
-      type="submit"
+      pendingLabel="Aplicando decisión"
       value={props.action.value}
+      variant="outline"
     >
       {props.action.label}
-    </button>
+    </AdminSubmitButton>
   );
 }
 
@@ -439,19 +554,19 @@ function ModerationSettings(props: { settings: AdminModerationSettings }) {
         <SettingState
           checked={props.settings.reviewModeEnabled}
           description={settingsCopy.reviewMode}
-          label="Review Mode para adopciones"
+          label="Modo de revisión para adopciones"
         />
         <SettingState
           checked={props.settings.verifiedEmailRequiredToPublish}
           description={settingsCopy.verifiedEmail}
           label="Correo verificado requerido para publicar"
         />
-        <a
+        <Link
           className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-center text-sm font-semibold"
           href="/admin/ajustes"
         >
           Abrir ajustes
-        </a>
+        </Link>
       </div>
     </section>
   );

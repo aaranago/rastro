@@ -36,7 +36,9 @@ export function AdminShell(props: {
         <aside className="border-border bg-background/95 border-b px-4 py-4 lg:sticky lg:top-0 lg:min-h-screen lg:border-r lg:border-b-0 lg:px-5 lg:py-6">
           <div className="flex min-w-0 flex-col gap-4">
             <div className="min-w-0">
-              <p className="text-primary text-sm font-semibold">Rastro Admin</p>
+              <p className="text-primary text-sm font-semibold">
+                Administración Rastro
+              </p>
               <h1 className="mt-1 truncate text-xl font-semibold tracking-normal">
                 Operación es-BO
               </h1>
@@ -66,7 +68,7 @@ export function AdminShell(props: {
                   </Badge>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex min-w-0 items-center gap-2">
                 <span className="text-muted-foreground text-sm">Tema</span>
                 <AdminHeaderThemeToggle />
               </div>
@@ -102,8 +104,8 @@ export function AdminAccessDenied(props: { viewer: AdminShellViewer }) {
             Solo administradores de Rastro pueden entrar al panel
           </CardTitle>
           <CardDescription>
-            Esta área permite revisar reportes, Resource Providers, patrocinios
-            locales, miembros y métricas operativas.
+            Esta área permite revisar reportes, proveedores de recursos,
+            patrocinios locales, miembros y métricas operativas.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -132,7 +134,7 @@ function AdminShellRouteStyles() {
 
 function getViewerRoleLabel(role: AdminShellViewerRole) {
   if (role === "admin") {
-    return "Admin";
+    return "Administrador";
   }
 
   return role === "member" ? "Miembro" : "Visitante";

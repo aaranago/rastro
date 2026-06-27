@@ -54,7 +54,7 @@ describe("admin settings page", () => {
       title: "Ajustes admin | Rastro",
     });
     expect(html).toContain("Ajustes de publicación");
-    expect(html).toContain("Review Mode para adopciones");
+    expect(html).toContain("Modo de revisión para adopciones");
     expect(html).toContain("Correo verificado requerido");
     expect(html).toContain("No se pudieron guardar los ajustes");
     expect(html).toContain("Admin Rastro");

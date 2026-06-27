@@ -116,17 +116,17 @@ export interface AdminModerationQueueItemViewModel {
   reportedMember: AdminModerationReportedMemberViewModel;
   statusLabel: string;
   surfaceLabel:
-    | "Adoption Listing"
-    | "Found Pet Report"
-    | "In-App Chat"
-    | "Lost Pet Report"
-    | "Resource Provider"
-    | "Sighting Report";
+    | "Chat interno"
+    | "Perfil de proveedor"
+    | "Publicación de adopción"
+    | "Reporte de avistamiento"
+    | "Reporte de mascota encontrada"
+    | "Reporte de mascota perdida";
   targetId: string;
   targetType: AdminModerationTargetType;
   title: string;
   verificationBadge: {
-    label: "Verification Badge";
+    label: "Insignia de verificación";
     note: string;
   } | null;
   visibility: "hidden" | "visible";
@@ -212,8 +212,8 @@ const moderationFixtures: Omit<AdminModerationItemState, "visibility">[] = [
     queue: "flaggedReports",
     reportCount: 4,
     reportedMemberId: "member-diego",
-    statusLabel: "Visible en superficies publicas",
-    surfaceLabel: "Lost Pet Report",
+    statusLabel: "Visible en superficies públicas",
+    surfaceLabel: "Reporte de mascota perdida",
     targetId: "lost-bruno-achumani",
     targetType: "lost_pet_report",
     title: "Bruno reportado como posible riesgo",
@@ -225,11 +225,11 @@ const moderationFixtures: Omit<AdminModerationItemState, "visibility">[] = [
     queue: "flaggedReports",
     reportCount: 2,
     reportedMemberId: "member-camila",
-    statusLabel: "Visible en superficies publicas",
-    surfaceLabel: "Found Pet Report",
+    statusLabel: "Visible en superficies públicas",
+    surfaceLabel: "Reporte de mascota encontrada",
     targetId: "found-michi-sarco",
     targetType: "found_pet_report",
-    title: "Michi con ubicacion disputada",
+    title: "Michi con ubicación disputada",
     verificationBadge: null,
   },
   {
@@ -238,8 +238,8 @@ const moderationFixtures: Omit<AdminModerationItemState, "visibility">[] = [
     queue: "flaggedReports",
     reportCount: 1,
     reportedMemberId: "member-lucia",
-    statusLabel: "Visible en superficies publicas",
-    surfaceLabel: "Sighting Report",
+    statusLabel: "Visible en superficies públicas",
+    surfaceLabel: "Reporte de avistamiento",
     targetId: "sighting-toby-miraflores",
     targetType: "sighting_report",
     title: "Avistamiento de Toby en Miraflores",
@@ -251,14 +251,14 @@ const moderationFixtures: Omit<AdminModerationItemState, "visibility">[] = [
     queue: "flaggedAdoptionListings",
     reportCount: 3,
     reportedMemberId: "member-huellitas",
-    statusLabel: "Visible en superficies publicas",
-    surfaceLabel: "Adoption Listing",
+    statusLabel: "Visible en superficies públicas",
+    surfaceLabel: "Publicación de adopción",
     targetId: "adopt-nala-sopocachi",
     targetType: "adoption_listing",
     title: "Nala busca nuevo hogar",
     verificationBadge: {
-      label: "Verification Badge",
-      note: "Organizacion verificada por Rastro.",
+      label: "Insignia de verificación",
+      note: "Organización verificada por Rastro.",
     },
   },
   {
@@ -267,11 +267,11 @@ const moderationFixtures: Omit<AdminModerationItemState, "visibility">[] = [
     queue: "flaggedChats",
     reportCount: 5,
     reportedMemberId: "member-diego",
-    statusLabel: "Pendiente de revision",
-    surfaceLabel: "In-App Chat",
+    statusLabel: "Pendiente de revisión",
+    surfaceLabel: "Chat interno",
     targetId: "chat-bruno-achumani",
     targetType: "chat_conversation",
-    title: "Conversacion sobre Bruno en Achumani",
+    title: "Conversación sobre Bruno en Achumani",
     verificationBadge: null,
   },
   {
@@ -281,13 +281,13 @@ const moderationFixtures: Omit<AdminModerationItemState, "visibility">[] = [
     reportCount: 2,
     reportedMemberId: "member-san-roque",
     statusLabel: "Perfil visible",
-    surfaceLabel: "Resource Provider",
+    surfaceLabel: "Perfil de proveedor",
     targetId: "clinic-san-roque",
     targetType: "resource_provider",
-    title: "Clinica San Roque",
+    title: "Clínica San Roque",
     verificationBadge: {
-      label: "Verification Badge",
-      note: "Resource Provider verificado por Rastro.",
+      label: "Insignia de verificación",
+      note: "Proveedor de recursos verificado por Rastro.",
     },
   },
 ];
@@ -314,17 +314,17 @@ const memberFixtures: AdminModerationMemberState[] = [
     status: "active",
   },
   {
-    displayName: "Clinica San Roque",
+    displayName: "Clínica San Roque",
     memberId: "member-san-roque",
     status: "active",
   },
 ];
 
 const queueTitles: Record<AdminModerationQueueKey, string> = {
-  flaggedAdoptionListings: "Adoption Listings reportadas",
-  flaggedChats: "In-App Chats reportados",
+  flaggedAdoptionListings: "Publicaciones de adopción reportadas",
+  flaggedChats: "Chats internos reportados",
   flaggedReports: "Reportes marcados",
-  flaggedResourceProviders: "Perfiles de Resource Provider reportados",
+  flaggedResourceProviders: "Perfiles de proveedores reportados",
 };
 
 export function createInMemoryAdminModerationDashboard(): AdminModerationDashboard {
@@ -492,19 +492,19 @@ function buildSettingsViewModel(
   return {
     adoptionReviewMode: {
       enabled: adoptionReviewModeEnabled,
-      label: "Review Mode",
+      label: "Modo de revisión",
       stateLabel: adoptionReviewModeEnabled ? "Activado" : "Desactivado",
       summary: adoptionReviewModeEnabled
-        ? "Nuevas Adoption Listings requieren revision antes de publicarse."
-        : "Nuevas Adoption Listings pueden publicarse sin revision previa.",
+        ? "Nuevas adopciones requieren revisión antes de publicarse."
+        : "Nuevas adopciones pueden publicarse sin revisión previa.",
     },
     verifiedEmailRequiredToPublish: {
       enabled: verifiedEmailRequiredToPublish,
-      label: "Email verificado requerido para publicar",
+      label: "Correo verificado requerido para publicar",
       stateLabel: verifiedEmailRequiredToPublish ? "Activado" : "Desactivado",
       summary: verifiedEmailRequiredToPublish
-        ? "Los miembros deben verificar su email antes de crear reportes o Adoption Listings."
-        : "Los miembros pueden publicar mientras terminan la verificacion de email.",
+        ? "Los miembros deben verificar su correo antes de crear reportes o adopciones."
+        : "Los miembros pueden publicar mientras terminan la verificación de correo.",
     },
   };
 }
@@ -568,19 +568,19 @@ function applyTargetVisibilityAction(
 
   item.visibility = action.type === "hide_target" ? "hidden" : "visible";
   item.statusLabel =
-    item.visibility === "hidden"
-      ? "Oculto de superficies publicas"
-      : "Visible en superficies publicas";
+      item.visibility === "hidden"
+      ? "Oculto de superficies públicas"
+      : "Visible en superficies públicas";
 
   return {
     announcement:
       action.type === "hide_target"
         ? {
-            body: "El contenido queda fuera de las superficies publicas mientras se revisa.",
+            body: "El contenido queda fuera de las superficies públicas mientras se revisa.",
             title: "Contenido oculto",
           }
         : {
-            body: "El contenido vuelve a las superficies publicas de Rastro.",
+            body: "El contenido vuelve a las superficies públicas de Rastro.",
             title: "Contenido restaurado",
           },
     status: "updated",
@@ -643,11 +643,11 @@ function applySettingsAction(
     return {
       announcement: {
         body: state.settings.adoptionReviewModeEnabled
-          ? "Nuevas Adoption Listings pasan por revision antes de publicarse."
-          : "Nuevas Adoption Listings pueden publicarse sin revision previa.",
+          ? "Nuevas adopciones pasan por revisión antes de publicarse."
+          : "Nuevas adopciones pueden publicarse sin revisión previa.",
         title: state.settings.adoptionReviewModeEnabled
-          ? "Review Mode activado"
-          : "Review Mode desactivado",
+          ? "Modo de revisión activado"
+          : "Modo de revisión desactivado",
       },
       status: "updated",
       viewModel: buildDashboardViewModel(state),
@@ -660,11 +660,11 @@ function applySettingsAction(
   return {
     announcement: {
       body: state.settings.verifiedEmailRequiredToPublish
-        ? "Solo miembros con email verificado pueden publicar."
-        : "Los miembros pueden publicar mientras terminan la verificacion de email.",
+        ? "Solo miembros con correo verificado pueden publicar."
+        : "Los miembros pueden publicar mientras terminan la verificación de correo.",
       title: state.settings.verifiedEmailRequiredToPublish
-        ? "Email verificado requerido"
-        : "Email verificado opcional",
+        ? "Correo verificado requerido"
+        : "Correo verificado opcional",
     },
     status: "updated",
     viewModel: buildDashboardViewModel(state),

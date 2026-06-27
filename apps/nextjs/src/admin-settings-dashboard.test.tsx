@@ -24,7 +24,7 @@ describe("AdminSettingsDashboard", () => {
     );
 
     expect(html).toContain("Ajustes de publicación");
-    expect(html).toContain("Review Mode para adopciones");
+    expect(html).toContain("Modo de revisión para adopciones");
     expect(html).toContain("Correo verificado requerido");
     expect(html).toContain("Confirmo aplicar estos ajustes");
     expect(html).toContain("Sin cambios guardados todavía");
@@ -72,5 +72,8 @@ describe("AdminSettingsDashboard", () => {
 
     expect(html).toContain("No se pudieron guardar los ajustes");
     expect(html).toContain("Revisa la confirmación");
+    expect(html).toContain('aria-invalid="true"');
+    expect(html).toContain('aria-describedby="confirm-settings-change-error"');
+    expect(html).toContain("Marca esta confirmación antes de guardar cambios.");
   });
 });

@@ -138,7 +138,7 @@ describe("AdminModerationDashboard", () => {
     expect(html).toContain("moderationNote");
     expect(html).toContain("Gestionar miembro");
     expect(html).toContain("/admin/miembros?memberId=member-mateo");
-    expect(html).toContain("Review Mode para adopciones");
+    expect(html).toContain("Modo de revisión para adopciones");
     expect(html).toContain("Correo verificado requerido para publicar");
     expect(html).toContain("Métricas de abuso por ciudad");
     expect(html).toContain("La Paz");

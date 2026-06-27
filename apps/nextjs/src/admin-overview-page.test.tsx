@@ -59,15 +59,27 @@ describe("admin overview page", () => {
     const html = renderToStaticMarkup(await AdminOverviewPage());
 
     expect(metadata).toMatchObject({
-      title: "Overview admin | Rastro",
+      title: "Panel de administración | Rastro",
     });
     expect(html).toContain("Panel de administración");
-    expect(html).toContain("Snapshot operativo");
-    expect(html).toContain("Subconjunto de las mismas métricas");
+    expect(html).toContain("proveedores de recursos");
+    expect(html).toContain("Resumen operativo");
+    expect(html).toContain("Indicadores principales");
+    expect(html).toContain("Eventos de auditoría");
+    expect(html).toContain("Reportes de abuso");
+    expect(html).toContain("Pendientes de moderación");
+    expect(html).toContain("Proveedores verificados");
     expect(html).toContain("Métricas");
-    expect(html).toContain("Auditoría");
-    expect(html).toContain("Abrir Métricas");
-    expect(html).toContain("Abrir Auditoría");
+    expect(html).toContain("Ir a métricas");
+    expect(html).toContain("Ir a auditoría");
+    expect(html).toContain(
+      'aria-label="Abrir la sección de métricas del panel"',
+    );
+    expect(html).toContain(
+      'aria-label="Abrir la sección de proveedores del panel"',
+    );
+    expect(html).not.toContain("Resource Providers");
+    expect(html).not.toContain("Snapshot operativo");
     expect(html).not.toContain("Secciones planificadas");
     expect(metricsApi.getAdminMetricsOverview).toHaveBeenCalledOnce();
   });
@@ -88,8 +100,9 @@ describe("admin overview page", () => {
 
     const html = renderToStaticMarkup(await AdminOverviewPage());
 
-    expect(html).toContain("Métricas operativas no disponibles");
-    expect(html).toContain("admin.metrics.overview");
-    expect(html).toContain("Abrir Métricas");
+    expect(html).toContain("Resumen operativo no disponible");
+    expect(html).toContain("Las secciones del panel siguen disponibles");
+    expect(html).not.toContain("admin.metrics.overview");
+    expect(html).toContain("Ir a métricas");
   });
 });

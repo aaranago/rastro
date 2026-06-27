@@ -47,7 +47,7 @@ describe("AdminResourcesDashboard", () => {
     expect(html).not.toContain("modelo administrativo temporal");
     expect(html).not.toContain("no confirma publicacion");
     expect(html).toContain("Clinica Veterinaria San Roque");
-    expect(html).toContain("Clinica veterinaria");
+    expect(html).toContain("Clínica veterinaria");
     expect(html).toContain("Sopocachi");
     expect(html).toContain("La Paz");
     expect(html).toContain("1 patrocinio activo");

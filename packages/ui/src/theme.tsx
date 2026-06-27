@@ -113,6 +113,10 @@ export function ThemeProvider({ children }: React.PropsWithChildren) {
     return setupPreferredListener();
   }, [themeMode]);
 
+  React.useEffect(() => {
+    updateThemeClass(themeMode);
+  }, [themeMode]);
+
   const resolvedTheme = themeMode === "auto" ? getSystemTheme() : themeMode;
 
   const setTheme = (newTheme: ThemeMode) => {

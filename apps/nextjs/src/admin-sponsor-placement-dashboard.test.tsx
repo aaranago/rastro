@@ -32,10 +32,15 @@ describe("admin sponsor placement dashboard", () => {
     expect(html).toContain("Perfil del proveedor");
     expect(html).toContain("Activo");
     expect(html).toContain("Expirado");
-    expect(html).toContain("No afecta Recovery Priority");
+    expect(html).toContain("No afecta prioridad de recuperación");
     expect(html).toContain("No elegible");
     expect(html).toContain("Editar");
     expect(html).toContain("Retirar");
+    expect(html).toContain("data-sponsor-placement-card");
+    expect(html).toContain("Prioridad de recuperación");
+    expect(html).not.toContain("Local Sponsor Placements");
+    expect(html).not.toContain("Resource Providers");
+    expect(html).not.toContain("Disclosure");
     expect(html).not.toContain("billing");
     expect(html).not.toContain("marketplace");
   });

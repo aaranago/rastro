@@ -156,5 +156,6 @@ describe("AdminMemberDashboard", () => {
     expect(html).toContain("Correo verificado");
     expect(html).toContain("Suspender miembro");
     expect(html).toContain("No se guardó el cambio");
+    expect(html).toContain('data-state="open"');
   });
 });

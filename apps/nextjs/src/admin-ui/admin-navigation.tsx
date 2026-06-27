@@ -18,13 +18,13 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
   {
     description: "Resumen operativo y accesos rápidos del área admin.",
     href: "/admin",
-    label: "Overview",
+    label: "Resumen",
     status: "available",
     statusLabel: "Disponible",
   },
   {
     description:
-      "Cola actual para reportes, publicaciones, chats y Resource Provider.",
+      "Cola actual para reportes, publicaciones, chats y proveedores.",
     href: "/admin/moderacion",
     issueId: "ADMIN-007",
     label: "Moderación",
@@ -33,7 +33,7 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
   },
   {
     description:
-      "Gestión actual de perfiles de Resource Provider y verificación.",
+      "Gestión actual de perfiles de proveedores y verificación.",
     href: "/admin/proveedores",
     issueId: "ADMIN-002",
     label: "Proveedores",
@@ -42,7 +42,7 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
   },
   {
     description:
-      "Gestión independiente de Local Sponsor Placements, sin afectar recuperación.",
+      "Gestión independiente de patrocinios locales, sin afectar la recuperación.",
     href: "/admin/patrocinios",
     issueId: "ADMIN-005",
     label: "Patrocinios",
@@ -60,7 +60,7 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
   },
   {
     description:
-      "Review Mode, correo verificado requerido y reglas operativas.",
+      "Modo de revisión, correo verificado requerido y reglas operativas.",
     href: "/admin/ajustes",
     issueId: "ADMIN-006",
     label: "Ajustes",
@@ -99,10 +99,13 @@ function isAdminNavigationItemActive(
 
 export function AdminNavigation(props: { currentPathname: string }) {
   return (
-    <nav aria-label="Navegación de administración" className="min-w-0">
-      <ul className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
+    <nav
+      aria-label="Navegación de administración"
+      className="min-w-0 max-w-full"
+    >
+      <ul className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:flex-col">
         {adminNavigationItems.map((item) => (
-          <li className="min-w-fit lg:min-w-0" key={item.href}>
+          <li className="min-w-0" key={item.href}>
             <AdminNavigationEntry
               currentPathname={props.currentPathname}
               item={item}
@@ -123,7 +126,7 @@ function AdminNavigationEntry(props: {
     props.item,
   );
   const className = cn(
-    "border-border/70 bg-card/60 text-card-foreground flex min-h-12 w-full items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors",
+    "border-border/70 bg-card/60 text-card-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex min-h-12 w-full min-w-0 items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors outline-none focus-visible:ring-[3px]",
     isActive && "border-primary bg-primary/10 text-primary",
     props.item.status === "available" &&
       "hover:border-primary/50 hover:bg-primary/5",

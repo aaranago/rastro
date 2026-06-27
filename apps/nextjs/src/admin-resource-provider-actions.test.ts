@@ -95,7 +95,7 @@ describe("admin resource provider actions", () => {
     expect(result.fieldErrors).toEqual([
       {
         field: "verificationStatus",
-        message: "Selecciona un estado de verificacion valido.",
+        message: "Selecciona un estado de verificación válido.",
       },
     ]);
     expect(api.updateAdminResourceProviderVerification).not.toHaveBeenCalled();

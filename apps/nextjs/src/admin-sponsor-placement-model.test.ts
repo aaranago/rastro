@@ -40,7 +40,7 @@ describe("admin sponsor placement model", () => {
         "Directorio de recursos",
         "Perfil del proveedor",
         "Inicio de lanzamiento",
-        "Confirmacion de reporte",
+        "Confirmación de reporte",
         "Cuidados contextuales",
       ],
       pushNotifications: {

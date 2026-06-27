@@ -565,7 +565,7 @@ function getResourceCategoryFormValue(
 
   fieldErrors.push({
     field: "category",
-    message: "Selecciona una categoria valida.",
+    message: "Selecciona una categoría válida.",
   });
   return null;
 }
@@ -601,7 +601,7 @@ function getVerificationStatusFormValue(
 
   fieldErrors.push({
     field: "verificationStatus",
-    message: "Selecciona un estado de verificacion valido.",
+    message: "Selecciona un estado de verificación válido.",
   });
   return null;
 }

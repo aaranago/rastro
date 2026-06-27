@@ -8,7 +8,7 @@ const adminViewer = {
 } as const;
 
 describe("admin moderation dashboard", () => {
-  it("lets admins view flagged reports, Adoption Listings, In-App Chats, and Resource Provider profiles", () => {
+  it("lets admins view flagged reports, adoption listings, chats, and provider profiles", () => {
     const dashboard = createInMemoryAdminModerationDashboard();
 
     const result = dashboard.getViewModel(adminViewer);
@@ -19,10 +19,10 @@ describe("admin moderation dashboard", () => {
         locale: "es-BO",
         settings: {
           adoptionReviewMode: {
-            label: "Review Mode",
+            label: "Modo de revisión",
           },
           verifiedEmailRequiredToPublish: {
-            label: "Email verificado requerido para publicar",
+            label: "Correo verificado requerido para publicar",
           },
         },
         title: "Panel de moderacion",
@@ -38,32 +38,32 @@ describe("admin moderation dashboard", () => {
         expect.objectContaining({
           city: "La Paz",
           department: "La Paz",
-          surfaceLabel: "Lost Pet Report",
+          surfaceLabel: "Reporte de mascota perdida",
           targetId: "lost-bruno-achumani",
         }),
         expect.objectContaining({
           city: "Cochabamba",
           department: "Cochabamba",
-          surfaceLabel: "Found Pet Report",
+          surfaceLabel: "Reporte de mascota encontrada",
           targetId: "found-michi-sarco",
         }),
         expect.objectContaining({
           city: "La Paz",
           department: "La Paz",
-          surfaceLabel: "Sighting Report",
+          surfaceLabel: "Reporte de avistamiento",
           targetId: "sighting-toby-miraflores",
         }),
       ]),
     );
     expect(result.viewModel.queues.flaggedAdoptionListings.items).toEqual([
       expect.objectContaining({
-        surfaceLabel: "Adoption Listing",
+        surfaceLabel: "Publicación de adopción",
         targetId: "adopt-nala-sopocachi",
       }),
     ]);
     expect(result.viewModel.queues.flaggedChats.items).toEqual([
       expect.objectContaining({
-        surfaceLabel: "In-App Chat",
+        surfaceLabel: "Chat interno",
         targetId: "chat-bruno-achumani",
       }),
     ]);
@@ -71,20 +71,20 @@ describe("admin moderation dashboard", () => {
       result.viewModel.queues.flaggedResourceProviders.items[0];
 
     expect(resourceProvider).toMatchObject({
-      surfaceLabel: "Resource Provider",
+      surfaceLabel: "Perfil de proveedor",
       targetId: "clinic-san-roque",
     });
 
     if (!resourceProvider) {
-      throw new Error("Expected a flagged Resource Provider profile");
+      throw new Error("Expected a flagged provider profile");
     }
 
     expect(resourceProvider.verificationBadge).toMatchObject({
-      label: "Verification Badge",
+      label: "Insignia de verificación",
     });
   });
 
-  it("lets admins hide and restore reports and Adoption Listings", () => {
+  it("lets admins hide and restore reports and adoption listings", () => {
     const dashboard = createInMemoryAdminModerationDashboard();
 
     expect(
@@ -107,7 +107,7 @@ describe("admin moderation dashboard", () => {
           type: "restore_target",
         },
       ],
-      statusLabel: "Oculto de superficies publicas",
+      statusLabel: "Oculto de superficies públicas",
       visibility: "hidden",
     });
 
@@ -130,7 +130,7 @@ describe("admin moderation dashboard", () => {
           type: "hide_target",
         },
       ],
-      statusLabel: "Visible en superficies publicas",
+      statusLabel: "Visible en superficies públicas",
       visibility: "visible",
     });
 
@@ -142,8 +142,8 @@ describe("admin moderation dashboard", () => {
 
     expect(findModerationItem(dashboard, "adopt-nala-sopocachi")).toMatchObject(
       {
-        statusLabel: "Oculto de superficies publicas",
-        surfaceLabel: "Adoption Listing",
+        statusLabel: "Oculto de superficies públicas",
+        surfaceLabel: "Publicación de adopción",
         visibility: "hidden",
       },
     );
@@ -206,17 +206,17 @@ describe("admin moderation dashboard", () => {
     });
   });
 
-  it("lets admins toggle Review Mode and verified email requirements", () => {
+  it("lets admins toggle review mode and verified email requirements", () => {
     const dashboard = createInMemoryAdminModerationDashboard();
 
     expect(getAuthorizedViewModel(dashboard).settings).toMatchObject({
       adoptionReviewMode: {
         enabled: false,
-        label: "Review Mode",
+        label: "Modo de revisión",
       },
       verifiedEmailRequiredToPublish: {
         enabled: false,
-        label: "Email verificado requerido para publicar",
+        label: "Correo verificado requerido para publicar",
       },
     });
 
@@ -226,7 +226,7 @@ describe("admin moderation dashboard", () => {
       }),
     ).toMatchObject({
       announcement: {
-        title: "Review Mode activado",
+        title: "Modo de revisión activado",
       },
       status: "updated",
     });
@@ -235,8 +235,7 @@ describe("admin moderation dashboard", () => {
     ).toMatchObject({
       enabled: true,
       stateLabel: "Activado",
-      summary:
-        "Nuevas Adoption Listings requieren revision antes de publicarse.",
+      summary: "Nuevas adopciones requieren revisión antes de publicarse.",
     });
 
     expect(
@@ -245,7 +244,7 @@ describe("admin moderation dashboard", () => {
       }),
     ).toMatchObject({
       announcement: {
-        title: "Email verificado requerido",
+        title: "Correo verificado requerido",
       },
       status: "updated",
     });
@@ -255,7 +254,7 @@ describe("admin moderation dashboard", () => {
       enabled: true,
       stateLabel: "Activado",
       summary:
-        "Los miembros deben verificar su email antes de crear reportes o Adoption Listings.",
+        "Los miembros deben verificar su correo antes de crear reportes o adopciones.",
     });
   });
 

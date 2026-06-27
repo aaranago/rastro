@@ -38,6 +38,7 @@ import {
 import { Textarea } from "@acme/ui/textarea";
 
 import type { AdminMemberWorkflowFeedback } from "./admin-member-actions";
+import { AdminSubmitButton } from "./admin-ui/admin-submit-button";
 
 export type AdminMemberSearchResults =
   RouterOutputs["admin"]["members"]["search"];
@@ -379,7 +380,7 @@ function SuspendMemberDialog(props: {
   );
 
   return (
-    <Dialog>
+    <Dialog defaultOpen={Boolean(feedback)}>
       <DialogTrigger asChild>
         <Button variant="destructive">Suspender miembro</Button>
       </DialogTrigger>
@@ -388,7 +389,7 @@ function SuspendMemberDialog(props: {
           <DialogTitle>Suspender a {props.memberName}</DialogTitle>
           <DialogDescription>
             La suspensión bloquea nuevos reportes, publicaciones de adopción y
-            reportes de Resource Provider.
+            reportes sobre proveedores de recursos.
           </DialogDescription>
         </DialogHeader>
         <MemberSuspensionForm
@@ -419,7 +420,7 @@ function UnsuspendMemberDialog(props: {
   );
 
   return (
-    <Dialog>
+    <Dialog defaultOpen={Boolean(feedback)}>
       <DialogTrigger asChild>
         <Button variant="outline">Revocar suspensión</Button>
       </DialogTrigger>
@@ -454,6 +455,7 @@ function MemberSuspensionForm(props: {
 }) {
   const reasonError = props.feedback?.fieldErrors.reason;
   const confirmationError = props.feedback?.fieldErrors.confirmation;
+  const confirmationErrorId = `${props.workflow}-confirmation-error`;
 
   return (
     <form
@@ -492,6 +494,9 @@ function MemberSuspensionForm(props: {
           orientation="horizontal"
         >
           <Checkbox
+            aria-describedby={
+              confirmationError ? confirmationErrorId : undefined
+            }
             aria-invalid={Boolean(confirmationError)}
             id="confirm-member-suspension"
             name="confirmMemberSuspension"
@@ -501,23 +506,29 @@ function MemberSuspensionForm(props: {
               Confirmo la suspensión
             </FieldLabel>
             <FieldDescription>
-              El miembro no podrá publicar ni reportar Resource Providers hasta
-              que un admin revoque la suspensión.
+              El miembro no podrá publicar ni reportar proveedores de recursos
+              hasta que un admin revoque la suspensión.
             </FieldDescription>
             {confirmationError ? (
-              <FieldError>{confirmationError}</FieldError>
+              <FieldError id={confirmationErrorId}>
+                {confirmationError}
+              </FieldError>
             ) : null}
           </div>
         </Field>
       ) : null}
 
       <DialogFooter>
-        <Button
-          type="submit"
+        <AdminSubmitButton
+          pendingLabel={
+            props.workflow === "suspend"
+              ? "Suspendiendo miembro"
+              : "Restaurando acceso"
+          }
           variant={props.destructive ? "destructive" : "default"}
         >
           {props.actionLabel}
-        </Button>
+        </AdminSubmitButton>
       </DialogFooter>
     </form>
   );

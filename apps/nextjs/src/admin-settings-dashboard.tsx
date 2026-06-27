@@ -1,6 +1,5 @@
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Badge } from "@acme/ui/badge";
-import { Button } from "@acme/ui/button";
 import {
   Card,
   CardContent,
@@ -11,6 +10,7 @@ import {
 
 import type { AdminSettingsState } from "./admin-settings-api-adapter";
 import type { AdminShellViewer } from "./admin-ui/admin-shell";
+import { AdminSubmitButton } from "./admin-ui/admin-submit-button";
 
 export interface AdminSettingsDashboardProps {
   formAction?: React.ComponentProps<"form">["action"];
@@ -31,7 +31,7 @@ const settingCopy = {
       "Retiene nuevas publicaciones de adopción para revisión antes de mostrarlas públicamente.",
     off: "Las publicaciones de adopción se publican inmediatamente.",
     on: "Las nuevas publicaciones de adopción quedan pendientes de revisión.",
-    title: "Review Mode para adopciones",
+    title: "Modo de revisión para adopciones",
   },
   verifiedEmail: {
     description:
@@ -43,6 +43,9 @@ const settingCopy = {
 } as const;
 
 export function AdminSettingsDashboard(props: AdminSettingsDashboardProps) {
+  const hasConfirmationError = props.notice?.tone === "error";
+  const confirmationErrorId = "confirm-settings-change-error";
+
   return (
     <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6">
       <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -54,8 +57,8 @@ export function AdminSettingsDashboard(props: AdminSettingsDashboardProps) {
             Ajustes de publicación
           </h2>
           <p className="text-muted-foreground mt-3 max-w-3xl text-sm leading-6 sm:text-base">
-            Controla Review Mode y el requisito de correo verificado para las
-            rutas de publicación de Rastro.
+            Controla el modo de revisión y el requisito de correo verificado
+            para las rutas de publicación de Rastro.
           </p>
         </div>
         <p className="bg-muted text-muted-foreground rounded-md px-3 py-2 text-sm font-medium">
@@ -112,6 +115,10 @@ export function AdminSettingsDashboard(props: AdminSettingsDashboardProps) {
                 htmlFor="confirm-settings-change"
               >
                 <input
+                  aria-describedby={
+                    hasConfirmationError ? confirmationErrorId : undefined
+                  }
+                  aria-invalid={hasConfirmationError}
                   className="border-input text-primary focus-visible:border-ring focus-visible:ring-ring/50 mt-0.5 size-4 shrink-0 rounded border shadow-xs focus-visible:ring-[3px]"
                   id="confirm-settings-change"
                   name="confirmSettingsChange"
@@ -123,15 +130,26 @@ export function AdminSettingsDashboard(props: AdminSettingsDashboardProps) {
                     Confirmo aplicar estos ajustes
                   </span>
                   <span className="text-muted-foreground mt-1 block">
-                    Estas reglas afectan publicación de reportes y Adoption
-                    Listings para miembros de Rastro.
+                    Estas reglas afectan publicación de reportes y adopciones
+                    para miembros de Rastro.
                   </span>
+                  {hasConfirmationError ? (
+                    <span
+                      className="text-destructive mt-2 block"
+                      id={confirmationErrorId}
+                    >
+                      Marca esta confirmación antes de guardar cambios.
+                    </span>
+                  ) : null}
                 </span>
               </label>
 
-              <Button className="w-fit" type="submit">
+              <AdminSubmitButton
+                className="w-fit"
+                pendingLabel="Guardando ajustes"
+              >
                 Guardar ajustes
-              </Button>
+              </AdminSubmitButton>
             </form>
           </CardContent>
         </Card>

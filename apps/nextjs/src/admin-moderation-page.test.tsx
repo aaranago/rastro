@@ -145,7 +145,7 @@ describe("admin moderation page", () => {
     expect(html).toContain("Sopocachi, La Paz");
     expect(html).toContain("2 reportes");
     expect(html).not.toContain("Clinica San Roque");
-    expect(html).toContain("Review Mode para adopciones");
+    expect(html).toContain("Modo de revisión para adopciones");
     expect(html).toContain("Métricas de abuso por ciudad");
     expect(html).toContain("Admin Rastro");
     expect(

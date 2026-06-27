@@ -35,14 +35,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@acme/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@acme/ui/table";
 import { Textarea } from "@acme/ui/textarea";
 
 import type {
@@ -55,6 +47,7 @@ import type {
   AdminSponsorPlacementViewModel,
   AdminSponsorProviderOption,
 } from "./admin-sponsor-placement-model";
+import { AdminSubmitButton } from "./admin-ui/admin-submit-button";
 
 export type AdminSponsorPlacementViewerRole = "admin" | "member" | "visitor";
 
@@ -123,7 +116,7 @@ function SponsorHeader(props: {
           {props.viewModel.title}
         </h1>
         <p className="text-muted-foreground mt-2 max-w-2xl text-sm">
-          Gestiona Local Sponsor Placements de Resource Providers sin mezclar
+          Gestiona patrocinios locales de proveedores de recursos sin mezclar
           pagos, recuperación ni notificaciones.
         </p>
       </div>
@@ -196,15 +189,15 @@ function SponsorSafetyPolicy(props: {
 
   return (
     <Alert>
-      <AlertTitle>Política de seguridad data-backed</AlertTitle>
+      <AlertTitle>Política de seguridad respaldada por datos</AlertTitle>
       <AlertDescription>
         <div className="mt-2 grid gap-3 md:grid-cols-3">
           <PolicyValue
-            label="Recovery Priority"
+            label="Prioridad de recuperación"
             value={policy.recoveryPriority.label}
           />
           <PolicyValue
-            label="Push notifications"
+            label="Notificaciones push"
             value={policy.pushNotifications.label}
           />
           <PolicyValue
@@ -247,30 +240,18 @@ function SponsorPlacementTable(props: {
         {props.viewModel.placements.length === 0 ? (
           <SponsorEmptyState />
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Proveedor</TableHead>
-                <TableHead>Superficie</TableHead>
-                <TableHead>Vigencia</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Política</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {props.viewModel.placements.map((placement) => (
-                <SponsorPlacementRow
-                  formAction={props.formAction}
-                  key={placement.placementId}
-                  placement={placement}
-                  providerOptions={props.viewModel.providerOptions}
-                  surfaceOptions={props.viewModel.surfaceOptions}
-                  workflowFeedback={props.workflowFeedback}
-                />
-              ))}
-            </TableBody>
-          </Table>
+          <div className="grid gap-3">
+            {props.viewModel.placements.map((placement) => (
+              <SponsorPlacementCard
+                formAction={props.formAction}
+                key={placement.placementId}
+                placement={placement}
+                providerOptions={props.viewModel.providerOptions}
+                surfaceOptions={props.viewModel.surfaceOptions}
+                workflowFeedback={props.workflowFeedback}
+              />
+            ))}
+          </div>
         )}
       </CardContent>
     </Card>
@@ -282,14 +263,14 @@ function SponsorEmptyState() {
     <div className="border-border bg-muted/30 rounded-lg border p-5">
       <p className="font-semibold">Todavía no hay patrocinios locales.</p>
       <p className="text-muted-foreground mt-1 text-sm">
-        Crea el primer placement cuando exista un Resource Provider elegible y
-        una ventana de fechas confirmada.
+        Crea el primer patrocinio cuando exista un proveedor de recursos
+        elegible y una ventana de fechas confirmada.
       </p>
     </div>
   );
 }
 
-function SponsorPlacementRow(props: {
+function SponsorPlacementCard(props: {
   formAction?: React.ComponentProps<"form">["action"];
   placement: AdminSponsorPlacementViewModel;
   providerOptions: readonly AdminSponsorProviderOption[];
@@ -302,37 +283,49 @@ function SponsorPlacementRow(props: {
       : undefined;
 
   return (
-    <TableRow data-sponsor-placement-row={props.placement.placementId}>
-      <TableCell className="min-w-[220px] whitespace-normal">
+    <article
+      className="border-border bg-background rounded-lg border p-4"
+      data-sponsor-placement-card={props.placement.placementId}
+    >
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-start">
         <div className="min-w-0">
-          <p className="font-medium">{props.placement.providerName}</p>
+          <p className="break-words font-medium">
+            {props.placement.providerName}
+          </p>
           <p className="text-muted-foreground text-xs">
             {props.placement.providerCity}, {props.placement.providerDepartment}
           </p>
-          <p className="text-muted-foreground text-xs">
+          <p className="text-muted-foreground break-all text-xs">
             ID: {props.placement.placementId}
           </p>
         </div>
-      </TableCell>
-      <TableCell>
-        <Badge variant="secondary">{props.placement.surfaceLabel}</Badge>
-      </TableCell>
-      <TableCell>{props.placement.dateWindowLabel}</TableCell>
-      <TableCell>
-        <PlacementStateBadge state={props.placement.state}>
-          {props.placement.stateLabel}
-        </PlacementStateBadge>
-      </TableCell>
-      <TableCell className="min-w-[220px] whitespace-normal">
-        <p className="text-sm">
-          {props.placement.safetyPolicy.recoveryPriority.label}
-        </p>
-        <p className="text-muted-foreground text-xs">
-          {props.placement.safetyPolicy.pushNotifications.label}
-        </p>
-      </TableCell>
-      <TableCell className="text-right">
-        <div className="flex justify-end gap-2">
+
+        <div className="grid min-w-0 gap-2">
+          <p className="text-muted-foreground text-xs font-semibold uppercase">
+            Superficie y vigencia
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary">{props.placement.surfaceLabel}</Badge>
+            <PlacementStateBadge state={props.placement.state}>
+              {props.placement.stateLabel}
+            </PlacementStateBadge>
+          </div>
+          <p className="text-sm">{props.placement.dateWindowLabel}</p>
+        </div>
+
+        <div className="grid min-w-0 gap-2">
+          <p className="text-muted-foreground text-xs font-semibold uppercase">
+            Política
+          </p>
+          <p className="text-sm">
+            {props.placement.safetyPolicy.recoveryPriority.label}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            {props.placement.safetyPolicy.pushNotifications.label}
+          </p>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row lg:justify-end">
           <EditSponsorPlacementWorkflow
             feedback={
               feedback?.action === "update_sponsor_placement"
@@ -354,8 +347,8 @@ function SponsorPlacementRow(props: {
             placement={props.placement}
           />
         </div>
-      </TableCell>
-    </TableRow>
+      </div>
+    </article>
   );
 }
 
@@ -413,6 +406,8 @@ function EditSponsorPlacementWorkflow(props: {
     <Dialog defaultOpen={Boolean(props.feedback)}>
       <DialogTrigger asChild>
         <Button
+          aria-label={`Editar patrocinio de ${props.placement.providerName}`}
+          className="min-h-11"
           data-workflow-trigger="edit-sponsor"
           type="button"
           variant="outline"
@@ -424,7 +419,7 @@ function EditSponsorPlacementWorkflow(props: {
         <DialogHeader>
           <DialogTitle>Editar patrocinio</DialogTitle>
           <DialogDescription>
-            Actualiza superficie, fechas, etiqueta y disclosure.
+            Actualiza superficie, fechas, etiqueta y texto de patrocinio.
           </DialogDescription>
         </DialogHeader>
         <SponsorPlacementForm
@@ -451,6 +446,8 @@ function DetachSponsorPlacementWorkflow(props: {
     <Dialog defaultOpen={Boolean(props.feedback)}>
       <DialogTrigger asChild>
         <Button
+          aria-label={`Retirar patrocinio de ${props.placement.providerName}`}
+          className="min-h-11"
           data-workflow-trigger="detach-sponsor"
           type="button"
           variant="outline"
@@ -462,7 +459,7 @@ function DetachSponsorPlacementWorkflow(props: {
         <DialogHeader>
           <DialogTitle>Retirar patrocinio</DialogTitle>
           <DialogDescription>
-            Esta acción separa el placement del Resource Provider.
+            Esta acción separa el patrocinio del proveedor de recursos.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -480,15 +477,15 @@ function DetachSponsorPlacementWorkflow(props: {
             </AlertDescription>
           </Alert>
           <DialogFooter>
-            <Button
+            <AdminSubmitButton
               data-submit-action="detach_sponsor_placement"
               name="sponsorAction"
-              type="submit"
+              pendingLabel="Retirando patrocinio"
               value="detach_sponsor_placement"
               variant="destructive"
             >
               Retirar patrocinio
-            </Button>
+            </AdminSubmitButton>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -524,14 +521,18 @@ function SponsorPlacementForm(props: {
         surfaceOptions={props.surfaceOptions}
       />
       <DialogFooter>
-        <Button
+        <AdminSubmitButton
           data-submit-action={props.action}
           name="sponsorAction"
-          type="submit"
+          pendingLabel={
+            props.action === "create_sponsor_placement"
+              ? "Creando patrocinio"
+              : "Guardando patrocinio"
+          }
           value={props.action}
         >
           {props.submitLabel}
-        </Button>
+        </AdminSubmitButton>
       </DialogFooter>
     </form>
   );
@@ -667,7 +668,7 @@ function SponsorDisclosureField(props: {
 
   return (
     <Field data-invalid={Boolean(props.error)}>
-      <FieldLabel htmlFor={props.id}>Disclosure</FieldLabel>
+      <FieldLabel htmlFor={props.id}>Texto de patrocinio</FieldLabel>
       <Textarea
         aria-describedby={props.error ? errorId : undefined}
         aria-invalid={Boolean(props.error)}

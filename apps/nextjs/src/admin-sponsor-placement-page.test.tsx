@@ -61,7 +61,7 @@ describe("admin sponsor placement page", () => {
     });
     expect(html).toContain("Gestión de patrocinios locales");
     expect(html).toContain("Clinica Veterinaria San Roque");
-    expect(html).toContain("Política de seguridad data-backed");
+    expect(html).toContain("Política de seguridad respaldada por datos");
     expect(sponsorApi.listAdminSponsorPlacements).toHaveBeenCalledTimes(1);
     expect(
       resourceProviderApi.listAdminResourceProviderProfiles,

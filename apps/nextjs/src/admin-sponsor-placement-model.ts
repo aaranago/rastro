@@ -58,7 +58,7 @@ export interface AdminSponsorPlacementSafetyPolicyViewModel {
   };
   recoveryPriority: {
     canAffect: false;
-    label: "No afecta Recovery Priority";
+    label: "No afecta prioridad de recuperación";
   };
 }
 
@@ -165,7 +165,7 @@ function buildSponsorSafetyPolicy(
     },
     recoveryPriority: {
       canAffect: false,
-      label: "No afecta Recovery Priority",
+      label: "No afecta prioridad de recuperación",
     },
   };
 }
