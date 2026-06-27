@@ -75,6 +75,8 @@ pnpm -F @acme/nextjs typecheck
 pnpm -F @acme/ui typecheck
 git diff --check
 pnpm exec fallow audit --base HEAD --format json --quiet 2>/dev/null || true
+pnpm -C apps/nextjs with-env node /tmp/rastro-admin-009-011-playwright/seed-admin-009-011.js
+pnpm -C apps/nextjs with-env pnpm --dir ../.. dlx @playwright/test test --config=/tmp/rastro-admin-final-moderation-playwright/playwright.config.js
 pnpm -C apps/nextjs with-env node /tmp/rastro-admin-012-playwright/seed-admin-012.js
 pnpm -C apps/nextjs with-env pnpm --dir ../.. dlx @playwright/test test --config=/tmp/rastro-admin-012-playwright/playwright.config.js
 ```
@@ -85,3 +87,4 @@ Playwright evidence:
 - Dark-mode screenshots: `/tmp/rastro-admin-012-{overview,proveedores,moderacion,ajustes,miembros}-dark-1440.png`.
 - Large-text screenshots: `/tmp/rastro-admin-012-{overview,proveedores,miembros,metricas}-large-text.png`.
 - State screenshots: `/tmp/rastro-admin-012-state-{filtered-empty,not-found,one-row,twenty-row,saving,success,server-error}.png`.
+- Focused moderation workflow screenshots: `/tmp/rastro-admin-final-moderation-detail.png`, `/tmp/rastro-admin-final-moderation-hidden.png`, and `/tmp/rastro-admin-final-moderation-restored.png`.

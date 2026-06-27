@@ -130,9 +130,14 @@ describe("admin moderation page", () => {
     const html = renderToStaticMarkup(await AdminModerationPage());
 
     expect(html).toContain("Contenido reportado");
+    expect(html).toContain("Filtros de revisión");
     expect(html).toContain("Nala busca nuevo hogar DB");
     expect(html).toContain("Publicación de adopción");
+    expect(html).toContain(
+      "/admin/moderacion/report-review-33333333-3333-4333-8333-333333333333",
+    );
     expect(html).toContain("Ocultar publicación");
+    expect(html).toContain("Confirmo ocultar publicación");
     expect(html).toContain("Miembro suspendido");
     expect(html).toContain("Reportes falsos repetidos.");
     expect(html).toContain("/admin/miembros?memberId=member-huellitas");
@@ -154,6 +159,164 @@ describe("admin moderation page", () => {
     expect(
       reportModerationApi.listAdminReportModerationQueue,
     ).toHaveBeenCalledOnce();
+  });
+
+  it("filters the persisted queue and renders action feedback from search params", async () => {
+    authServer.getSession.mockResolvedValue({
+      user: {
+        email: "admin@rastro.bo",
+        id: "member-admin-la-paz",
+        name: "Admin Rastro",
+      },
+    });
+    reportModerationApi.listAdminReportModerationQueue.mockResolvedValue([
+      {
+        createdAt: new Date("2026-06-26T17:00:00.000Z"),
+        id: "report-review-luna",
+        newestAction: null,
+        reportCount: 4,
+        target: {
+          caretaker: {
+            displayName: "Mateo R.",
+            email: "mateo@example.com",
+            memberId: "member-mateo",
+            suspension: null,
+          },
+          city: "La Paz",
+          department: "La Paz",
+          hiddenAt: null,
+          hiddenByAdminId: null,
+          hiddenNote: null,
+          hiddenReason: "Ubicación incorrecta",
+          id: "lost-luna-centro",
+          locationLabel: "Centro, La Paz",
+          reportType: "lost_pet",
+          status: "visible",
+          title: "Luna perdida cerca de la plaza",
+          type: "lost_pet_report",
+        },
+        updatedAt: new Date("2026-06-26T17:00:00.000Z"),
+      },
+      {
+        createdAt: new Date("2026-06-26T17:30:00.000Z"),
+        id: "report-review-michi",
+        newestAction: null,
+        reportCount: 1,
+        target: {
+          caretaker: {
+            displayName: "Carla P.",
+            email: "carla@example.com",
+            memberId: "member-carla",
+            suspension: null,
+          },
+          city: "Cochabamba",
+          department: "Cochabamba",
+          hiddenAt: null,
+          hiddenByAdminId: null,
+          hiddenNote: null,
+          hiddenReason: "Spam",
+          id: "adoption-michi",
+          locationLabel: "Queru Queru, Cochabamba",
+          reportType: "adoption",
+          status: "hidden",
+          title: "Michi busca nuevo hogar",
+          type: "adoption_listing",
+        },
+        updatedAt: new Date("2026-06-26T17:30:00.000Z"),
+      },
+    ]);
+    const { default: AdminModerationPage } = await import(
+      "./app/admin/moderacion/page"
+    );
+
+    const html = renderToStaticMarkup(
+      await AdminModerationPage({
+        searchParams: Promise.resolve({
+          accion: "hide_target",
+          estado: "ok",
+          objetivo: "Luna perdida cerca de la plaza",
+          risk: "high",
+          targetType: "lost_pet_report",
+        }),
+      }),
+    );
+
+    expect(html).toContain("Contenido ocultado");
+    expect(html).toContain("Luna perdida cerca de la plaza quedó oculto");
+    expect(html).toContain("Mostrando 1 de 2 revisiones");
+    expect(html).toContain("Luna perdida cerca de la plaza");
+    expect(html).not.toContain("Michi busca nuevo hogar");
+    expect(html).toContain('name="confirmModerationAction"');
+    expect(html).toContain(
+      'value="/admin/moderacion?targetType=lost_pet_report&amp;risk=high"',
+    );
+  });
+
+  it("renders a persisted review detail route with evidence and moderation actions", async () => {
+    authServer.getSession.mockResolvedValue({
+      user: {
+        email: "admin@rastro.bo",
+        id: "member-admin-la-paz",
+        name: "Admin Rastro",
+      },
+    });
+    reportModerationApi.listAdminReportModerationQueue.mockResolvedValue([
+      {
+        createdAt: new Date("2026-06-26T17:00:00.000Z"),
+        id: "report-review-luna",
+        newestAction: {
+          action: "hide",
+          adminId: "member-admin",
+          createdAt: new Date("2026-06-26T17:10:00.000Z"),
+          note: "Ubicación inconsistente.",
+          reason: "admin_review",
+        },
+        reportCount: 4,
+        target: {
+          caretaker: {
+            displayName: "Mateo R.",
+            email: "mateo@example.com",
+            memberId: "member-mateo",
+            suspension: null,
+          },
+          city: "La Paz",
+          department: "La Paz",
+          hiddenAt: null,
+          hiddenByAdminId: null,
+          hiddenNote: null,
+          hiddenReason: "Ubicación incorrecta",
+          id: "lost-luna-centro",
+          locationLabel: "Centro, La Paz",
+          reportType: "lost_pet",
+          status: "visible",
+          title: "Luna perdida cerca de la plaza",
+          type: "lost_pet_report",
+        },
+        updatedAt: new Date("2026-06-26T17:10:00.000Z"),
+      },
+    ]);
+    const { default: AdminModerationReviewItemPage } = await import(
+      "./app/admin/moderacion/[reviewItemId]/page"
+    );
+
+    const html = renderToStaticMarkup(
+      await AdminModerationReviewItemPage({
+        params: Promise.resolve({ reviewItemId: "report-review-luna" }),
+        searchParams: Promise.resolve({
+          accion: "hide_target",
+          estado: "error",
+          error: "confirmation",
+        }),
+      }),
+    );
+
+    expect(html).toContain("Revisión de moderación");
+    expect(html).toContain("Evidencia");
+    expect(html).toContain("Historial");
+    expect(html).toContain("Confirmación requerida");
+    expect(html).toContain("Luna perdida cerca de la plaza");
+    expect(html).toContain("Confirmo ocultar reporte");
+    expect(html).toContain("/admin/miembros?memberId=member-mateo");
   });
 
   it("renders access denied for signed-in non-admin members", async () => {

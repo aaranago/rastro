@@ -1,3 +1,5 @@
+// Legacy in-memory moderation model kept for regression tests only.
+// Production admin routes use persisted API-backed adapters.
 export interface AdminModerationViewer {
   memberId: string;
   role: "admin" | "member";

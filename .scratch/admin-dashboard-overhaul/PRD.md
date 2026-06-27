@@ -1,7 +1,7 @@
 # Admin dashboard overhaul
 
-Status: needs-triage
-Labels: needs-triage
+Status: verified-runbook
+Labels: verified-runbook
 Owner: Unassigned
 
 ## Problem
@@ -30,12 +30,12 @@ Build a real admin app area in Next.js that supports:
 - Metrics and admin audit history.
 - Public web pages that read the same persisted report data used by the app/API.
 
-## Current evidence
+## Initial evidence
 
 - Admin routes only include `/admin/moderacion` and `/admin/proveedores`; there is no `/admin` index or shared admin layout.
 - Resource Provider backend CRUD exists in `packages/api/src/router/resources.ts` and `packages/api/src/resource-provider-repository.ts`.
 - Resource Provider tables exist in `packages/db/src/schema.ts`.
-- Moderation page instantiates `createInMemoryAdminModerationDashboard()` in `apps/nextjs/src/app/admin/moderacion/page.tsx`.
+- Moderation page instantiated `createInMemoryAdminModerationDashboard()` in `apps/nextjs/src/app/admin/moderacion/page.tsx` before the final coordinator audit.
 - Admin access is an env allowlist via `RASTRO_ADMIN_EMAILS`, not a persisted role/permission model.
 - `packages/ui/components.json` uses the shadcn schema, and `packages/ui/src` already exports some primitives, but admin screens do not consistently use them.
 
@@ -64,16 +64,16 @@ Build a real admin app area in Next.js that supports:
 
 ## Global definition of done
 
-- [ ] No production admin flow depends on in-memory fixture state unless explicitly marked as prototype/test-only.
-- [ ] No admin route clips controls at 1280, 1440, or 1600px desktop widths.
-- [ ] No admin route has horizontal document overflow at 320 or 390px mobile widths.
-- [ ] Admin actions produce specific success/error/validation feedback.
-- [ ] Destructive actions require confirmation.
-- [ ] Forms preserve existing data when only one field changes.
-- [ ] `@acme/ui` primitives or equivalent shadcn-derived wrappers are used for controls.
-- [ ] Playwright evidence is captured for desktop, mobile, dark mode where relevant, and important error states.
-- [ ] Relevant package lint, typecheck, tests, and Fallow audit pass.
-- [ ] If Expo is touched, verify through the full `pnpm dev` stack and mobile MCP, not Expo-only.
+- [x] No production admin flow depends on in-memory fixture state unless explicitly marked as prototype/test-only.
+- [x] No admin route clips controls at 1280, 1440, or 1600px desktop widths.
+- [x] No admin route has horizontal document overflow at 320 or 390px mobile widths.
+- [x] Admin actions produce specific success/error/validation feedback.
+- [x] Destructive actions require confirmation.
+- [x] Forms preserve existing data when only one field changes.
+- [x] `@acme/ui` primitives or equivalent shadcn-derived wrappers are used for controls.
+- [x] Playwright evidence is captured for desktop, mobile, dark mode where relevant, and important error states.
+- [x] Relevant package lint, typecheck, tests, and Fallow audit pass.
+- [x] If Expo is touched, verify through the full `pnpm dev` stack and mobile MCP, not Expo-only.
 
 ## Proposed issue wave
 
@@ -89,6 +89,18 @@ Build a real admin app area in Next.js that supports:
 10. `ADMIN-010`: Admin metrics and audit log.
 11. `ADMIN-011`: Replace public web fixture pages with persisted report data.
 12. `ADMIN-012`: Admin visual QA hardening and scale-state polish.
+
+## Completion verification
+
+- All 12 implementation issues under `.scratch/admin-dashboard-overhaul/issues/` are marked `verified-runbook` and have checked acceptance criteria.
+- Final audit removed the production `/admin/moderacion` dependency on `createInMemoryAdminModerationDashboard()`. The legacy in-memory model in `apps/nextjs/src/admin-moderation.ts` is marked test-only and is only referenced by its regression tests.
+- Final auditor blockers were closed: `/admin/moderacion/[reviewItemId]` now provides review detail with evidence, actions, notes, and history; `/admin/moderacion` filters by target type, reason, city, department, and risk; hide/restore actions require confirmation and return specific success/error feedback.
+- Current-tree moderation verification: `pnpm -F @acme/nextjs exec vitest run --config vitest.config.ts src/admin-moderation-page.test.tsx src/admin-moderation-dashboard.test.tsx src/admin-moderation.test.ts`.
+- Current-tree admin regression verification: `pnpm -F @acme/nextjs exec vitest run --config vitest.config.ts src/admin-not-found-page.test.tsx src/admin-ui/admin-shell.test.tsx src/admin-ui/admin-route-state.test.tsx src/admin-ui/admin-submit-button.test.tsx src/admin-overview-page.test.tsx src/admin-sponsor-placement-dashboard.test.tsx src/admin-sponsor-placement-model.test.ts src/admin-sponsor-placement-page.test.tsx src/admin-settings-dashboard.test.tsx src/admin-settings-page.test.tsx src/admin-member-dashboard.test.tsx src/admin-moderation.test.ts src/admin-moderation-dashboard.test.tsx src/admin-moderation-page.test.tsx src/admin-resources-dashboard.test.tsx src/admin-resource-provider-actions.test.ts src/admin-resource-provider-admin-model.test.ts`.
+- Current-tree static verification: `pnpm -F @acme/nextjs lint`, `pnpm -F @acme/ui lint`, `pnpm -F @acme/nextjs typecheck`, `pnpm -F @acme/ui typecheck`, and `git diff --check`.
+- Current-tree focused browser verification: `pnpm -C apps/nextjs with-env node /tmp/rastro-admin-009-011-playwright/seed-admin-009-011.js && pnpm -C apps/nextjs with-env pnpm --dir ../.. dlx @playwright/test test --config=/tmp/rastro-admin-final-moderation-playwright/playwright.config.js`.
+- Visual evidence is recorded in `ADMIN-012`, including Playwright coverage for every admin route at `1440x900`, `1280x900`, `390x844`, and `320x568`, dark-mode coverage for core routes, large-text checks, state coverage, and overflow assertions.
+- Expo Resource Provider reporting evidence is recorded in `ADMIN-007`, including root `TURBO_UI=true pnpm dev`, mobile MCP success/failure verification, and persisted backend confirmation.
 
 ## Approval questions
 

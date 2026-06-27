@@ -1,18 +1,22 @@
 import type { Metadata } from "next";
-import { revalidatePath } from "next/cache";
 
-import type { HideableAdminModerationTargetType } from "~/admin-moderation";
-import { createInMemoryAdminModerationDashboard } from "~/admin-moderation";
+import {
+  applyAdminModerationForm,
+  buildAdminModerationFeedback,
+  buildAdminModerationNotice,
+} from "~/admin-moderation-actions";
 import { buildAdminModerationViewer } from "~/admin-moderation-access";
 import { AdminModerationDashboard } from "~/admin-moderation-dashboard";
 import {
   buildForbiddenAdminModerationDashboardProps,
-  toAdminModerationDashboardProps,
+  toPersistedAdminModerationDashboardProps,
 } from "~/admin-moderation-dashboard-adapter";
 import {
-  hideAdminReportTarget,
+  buildAdminModerationFilters,
+  buildAdminModerationReturnPath,
+} from "~/admin-moderation-filters";
+import {
   listAdminReportModerationQueue,
-  restoreAdminReportTarget,
 } from "~/admin-report-moderation-api-adapter";
 import { listAdminResourceProviderModerationQueue } from "~/admin-resource-provider-moderation-api-adapter";
 import { getAdminSettings } from "~/admin-settings-api-adapter";
@@ -23,14 +27,19 @@ export const metadata: Metadata = {
   title: "Moderacion | Rastro",
 };
 
-const adminModerationDashboard = createInMemoryAdminModerationDashboard();
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-export default async function AdminModerationPage() {
+export default async function AdminModerationPage(
+  props: {
+    searchParams?: SearchParams;
+  } = {},
+) {
+  const searchParams = props.searchParams ? await props.searchParams : {};
+  const filters = buildAdminModerationFilters(searchParams);
   const session = await getSession();
   const viewer = buildAdminModerationViewer(session, env.RASTRO_ADMIN_EMAILS);
-  const result = adminModerationDashboard.getViewModel(viewer.modelViewer);
 
-  if (result.status === "forbidden") {
+  if (viewer.modelViewer.role !== "admin") {
     return (
       <AdminModerationDashboard
         {...buildForbiddenAdminModerationDashboardProps(viewer.dashboardViewer)}
@@ -46,9 +55,13 @@ export default async function AdminModerationPage() {
 
   return (
     <AdminModerationDashboard
+      filters={filters}
       formAction={applyAdminModerationForm}
-      {...toAdminModerationDashboardProps(
-        result.viewModel,
+      notice={buildAdminModerationNotice(
+        buildAdminModerationFeedback(searchParams),
+      )}
+      returnTo={buildAdminModerationReturnPath("/admin/moderacion", filters)}
+      {...toPersistedAdminModerationDashboardProps(
         viewer.dashboardViewer,
         {
           reviewModeEnabled: settings.adoptionReviewModeEnabled,
@@ -62,88 +75,4 @@ export default async function AdminModerationPage() {
       )}
     />
   );
-}
-
-async function applyAdminModerationForm(formData: FormData) {
-  "use server";
-
-  const session = await getSession();
-  const viewer = buildAdminModerationViewer(session, env.RASTRO_ADMIN_EMAILS);
-
-  if (viewer.modelViewer.role !== "admin") {
-    return;
-  }
-
-  const action = parseAdminReportModerationAction(formData);
-
-  if (action?.type === "hide_target") {
-    await hideAdminReportTarget({
-      note: action.note,
-      reason: action.reason,
-      reportId: action.targetId,
-    });
-  }
-
-  if (action?.type === "restore_target") {
-    await restoreAdminReportTarget({
-      note: action.note,
-      reason: action.reason,
-      reportId: action.targetId,
-    });
-  }
-
-  revalidatePath("/admin/moderacion");
-}
-
-function parseAdminReportModerationAction(formData: FormData): {
-  note?: string;
-  reason: string;
-  targetId: string;
-  targetType: HideableAdminModerationTargetType;
-  type: "hide_target" | "restore_target";
-} | null {
-  const actionType = getStringFormValue(formData, "moderationAction");
-
-  if (actionType === "hide_target" || actionType === "restore_target") {
-    const targetId = getStringFormValue(formData, "targetId");
-    const targetType = getHideableTargetType(
-      getStringFormValue(formData, "targetType"),
-    );
-    const reason =
-      getStringFormValue(formData, "moderationReason") ?? "admin_review";
-    const note = getOptionalStringFormValue(formData, "moderationNote");
-
-    return targetId && targetType
-      ? { note, reason, targetId, targetType, type: actionType }
-      : null;
-  }
-
-  return null;
-}
-
-function getStringFormValue(formData: FormData, key: string) {
-  const value = formData.get(key);
-
-  return typeof value === "string" ? value : null;
-}
-
-function getOptionalStringFormValue(formData: FormData, key: string) {
-  const value = getStringFormValue(formData, key)?.trim();
-
-  return value && value.length > 0 ? value : undefined;
-}
-
-function getHideableTargetType(
-  targetType: string | null,
-): HideableAdminModerationTargetType | null {
-  if (
-    targetType === "adoption_listing" ||
-    targetType === "found_pet_report" ||
-    targetType === "lost_pet_report" ||
-    targetType === "sighting_report"
-  ) {
-    return targetType;
-  }
-
-  return null;
 }

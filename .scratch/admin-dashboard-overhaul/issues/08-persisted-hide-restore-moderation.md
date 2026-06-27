@@ -57,3 +57,6 @@ If adoption listings remain represented as `report.type = adoption`, use the exi
 - Verified current code with Playwright: `pnpm dlx @playwright/test test --config=/tmp/rastro-admin-005-008-playwright/playwright.config.js`.
 - Playwright covered hide, reload-hidden state, public `report.detail` hidden `NOT_FOUND`, restore, reload-restored state, and public `report.detail` visibility returning.
 - Visual artifacts: `/tmp/rastro-admin-008-moderation-visible.png`, `/tmp/rastro-admin-008-moderation-hidden-after-reload.png`, and `/tmp/rastro-admin-008-moderation-restored-after-reload.png`.
+- Final coordinator audit added `/admin/moderacion/[reviewItemId]`, required hide/restore confirmation, specific action success/error notices, and city/department/risk/reason/type filters on the persisted queue.
+- Final focused Playwright verification: `pnpm -C apps/nextjs with-env node /tmp/rastro-admin-009-011-playwright/seed-admin-009-011.js && pnpm -C apps/nextjs with-env pnpm --dir ../.. dlx @playwright/test test --config=/tmp/rastro-admin-final-moderation-playwright/playwright.config.js`.
+- Final focused artifacts: `/tmp/rastro-admin-final-moderation-detail.png`, `/tmp/rastro-admin-final-moderation-hidden.png`, and `/tmp/rastro-admin-final-moderation-restored.png`.

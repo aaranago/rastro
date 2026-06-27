@@ -1,16 +1,10 @@
 import type { RouterOutputs } from "@acme/api";
 
 import type {
-  AdminModerationDashboardViewModel,
-  AdminModerationQueueItemViewModel,
-  AdminModerationTargetType as ModelAdminModerationTargetType,
-} from "./admin-moderation";
-import type {
   AdminModerationDashboardProps,
   AdminModerationFlaggedItem,
   AdminModerationMetric,
   AdminModerationViewer,
-  AdminModerationTargetType as DashboardAdminModerationTargetType,
 } from "./admin-moderation-dashboard";
 
 export type AdminResourceProviderModerationQueue =
@@ -18,23 +12,21 @@ export type AdminResourceProviderModerationQueue =
 export type AdminReportModerationQueue =
   RouterOutputs["admin"]["moderation"]["reportQueue"];
 
-export function toAdminModerationDashboardProps(
-  viewModel: AdminModerationDashboardViewModel,
+export function toPersistedAdminModerationDashboardProps(
   viewer: AdminModerationViewer,
   settings: {
     reviewModeEnabled: boolean;
     verifiedEmailRequiredToPublish: boolean;
-  } = {
-    reviewModeEnabled: viewModel.settings.adoptionReviewMode.enabled,
-    verifiedEmailRequiredToPublish:
-      viewModel.settings.verifiedEmailRequiredToPublish.enabled,
   },
-  options: {
-    reportQueue?: AdminReportModerationQueue;
-    resourceProviderQueue?: AdminResourceProviderModerationQueue;
-  } = {},
+  queues: {
+    reportQueue: AdminReportModerationQueue;
+    resourceProviderQueue: AdminResourceProviderModerationQueue;
+  },
 ): AdminModerationDashboardProps {
-  const flaggedItems = flattenModerationItems(viewModel, options);
+  const flaggedItems = [
+    ...queues.reportQueue.map(toReportFlaggedItem),
+    ...queues.resourceProviderQueue.map(toResourceProviderFlaggedItem),
+  ];
 
   return {
     flaggedItems,
@@ -56,95 +48,6 @@ export function buildForbiddenAdminModerationDashboardProps(
     },
     viewer,
   };
-}
-
-function flattenModerationItems(
-  viewModel: AdminModerationDashboardViewModel,
-  options: {
-    reportQueue?: AdminReportModerationQueue;
-    resourceProviderQueue?: AdminResourceProviderModerationQueue;
-  },
-): AdminModerationFlaggedItem[] {
-  const reportItems =
-    options.reportQueue !== undefined
-      ? options.reportQueue.map(toReportFlaggedItem)
-      : [
-          ...viewModel.queues.flaggedReports.items,
-          ...viewModel.queues.flaggedAdoptionListings.items,
-        ].map(toFlaggedItem);
-  const chatItems = viewModel.queues.flaggedChats.items.map(toFlaggedItem);
-  const resourceProviderItems =
-    options.resourceProviderQueue !== undefined
-      ? options.resourceProviderQueue.map(toResourceProviderFlaggedItem)
-      : viewModel.queues.flaggedResourceProviders.items.map(toFlaggedItem);
-
-  return [...reportItems, ...chatItems, ...resourceProviderItems];
-}
-
-function toFlaggedItem(
-  item: AdminModerationQueueItemViewModel,
-): AdminModerationFlaggedItem {
-  return {
-    accusedMember: {
-      displayName: item.reportedMember.displayName,
-      id: item.reportedMember.memberId,
-      status: item.reportedMember.status === "banned" ? "banned" : "active",
-    },
-    department: item.department,
-    detail: buildModerationDetail(item),
-    id: `review-${item.targetId}`,
-    newestReportLabel: "Pendiente de revisión",
-    reasonLabel: "Reportado por la comunidad",
-    reportCount: item.reportCount,
-    reporterLabel:
-      item.reportCount === 1 ? "1 miembro" : `${item.reportCount} miembros`,
-    target: {
-      href: buildTargetHref(item),
-      id: item.targetId,
-      locationLabel: item.city,
-      status: item.visibility,
-      title: item.title,
-      type: toDashboardTargetType(item.targetType),
-    },
-  };
-}
-
-function buildModerationDetail(item: AdminModerationQueueItemViewModel) {
-  const verificationCopy = item.verificationBadge
-    ? ` Tiene ${item.verificationBadge.label}: ${item.verificationBadge.note}`
-    : "";
-
-  return `${item.surfaceLabel} con ${item.reportCount} reporte(s) en ${item.city}, ${item.department}. ${item.statusLabel}.${verificationCopy}`;
-}
-
-function buildTargetHref(item: AdminModerationQueueItemViewModel) {
-  switch (item.targetType) {
-    case "adoption_listing":
-      return `/adopciones/${item.targetId}`;
-    case "chat_conversation":
-      return `/admin/moderacion/chats/${item.targetId}`;
-    case "found_pet_report":
-      return `/admin/moderacion/reportes/encontrados/${item.targetId}`;
-    case "lost_pet_report":
-      return `/reportes/perdidos/${item.targetId}`;
-    case "resource_provider":
-      return `/admin/moderacion/recursos/${item.targetId}`;
-    case "sighting_report":
-      return `/admin/moderacion/reportes/avistamientos/${item.targetId}`;
-  }
-}
-
-function toDashboardTargetType(
-  targetType: ModelAdminModerationTargetType,
-): DashboardAdminModerationTargetType {
-  switch (targetType) {
-    case "chat_conversation":
-      return "in_app_chat";
-    case "resource_provider":
-      return "resource_provider_profile";
-    default:
-      return targetType;
-  }
 }
 
 function buildDashboardMetrics(
@@ -232,7 +135,7 @@ function toReportFlaggedItem(
     reportCount: item.reportCount,
     reporterLabel: "Moderación Rastro",
     target: {
-      href: buildReportTargetHref(item),
+      href: buildReviewTargetHref(item.id),
       id: item.target.id,
       locationLabel: item.target.city,
       status: item.target.status,
@@ -240,19 +143,6 @@ function toReportFlaggedItem(
       type: item.target.type,
     },
   };
-}
-
-function buildReportTargetHref(item: AdminReportModerationQueue[number]) {
-  switch (item.target.type) {
-    case "adoption_listing":
-      return `/adopciones/${item.target.id}`;
-    case "found_pet_report":
-      return `/admin/moderacion/reportes/encontrados/${item.target.id}`;
-    case "lost_pet_report":
-      return `/reportes/perdidos/${item.target.id}`;
-    case "sighting_report":
-      return `/admin/moderacion/reportes/avistamientos/${item.target.id}`;
-  }
 }
 
 function toResourceProviderFlaggedItem(
@@ -278,7 +168,7 @@ function toResourceProviderFlaggedItem(
     reportCount: item.reportCount,
     reporterLabel: item.newestReport.reporter.displayName,
     target: {
-      href: `/admin/moderacion/recursos/${item.provider.id}`,
+      href: buildReviewTargetHref(item.id),
       id: item.provider.id,
       locationLabel: item.provider.locationLabel,
       status: "visible",
@@ -286,6 +176,10 @@ function toResourceProviderFlaggedItem(
       type: "resource_provider_profile",
     },
   };
+}
+
+function buildReviewTargetHref(reviewItemId: string) {
+  return `/admin/moderacion/${reviewItemId}`;
 }
 
 function formatNewestReportLabel(value: Date | string) {

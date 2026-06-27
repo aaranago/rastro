@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { AdminModerationDashboard } from "./admin-moderation-dashboard";
+import {
+  AdminModerationDashboard,
+  AdminModerationReviewDetail,
+} from "./admin-moderation-dashboard";
 
 const adminDashboardViewModel = {
   flaggedItems: [
@@ -128,14 +131,20 @@ describe("AdminModerationDashboard", () => {
 
     expect(html).toContain("Moderación Rastro");
     expect(html).toContain("Contenido reportado");
+    expect(html).toContain("Filtros de revisión");
+    expect(html).toContain('name="targetType"');
+    expect(html).toContain('name="risk"');
     expect(html).toContain("Reporte de mascota perdida");
     expect(html).toContain("Publicación de adopción");
     expect(html).toContain("Chat en Rastro");
     expect(html).toContain("Perfil de proveedor de recursos");
+    expect(html).toContain("/admin/moderacion/review-lost-1");
     expect(html).toContain("Ocultar reporte");
     expect(html).toContain("Restaurar publicación");
     expect(html).toContain("moderationReason");
     expect(html).toContain("moderationNote");
+    expect(html).toContain("confirmModerationAction");
+    expect(html).toContain("Confirmo ocultar reporte");
     expect(html).toContain("Gestionar miembro");
     expect(html).toContain("/admin/miembros?memberId=member-mateo");
     expect(html).toContain("Modo de revisión para adopciones");
@@ -144,6 +153,46 @@ describe("AdminModerationDashboard", () => {
     expect(html).toContain("La Paz");
     expect(html).toContain("Cochabamba");
     expect(html).not.toMatch(/marketplace|seller|comprar|vender/i);
+  });
+
+  it("filters the queue by target type, reason, department, and risk", () => {
+    const html = renderToStaticMarkup(
+      <AdminModerationDashboard
+        {...adminDashboardViewModel}
+        filters={{
+          city: "Achumani, La Paz",
+          department: "La Paz",
+          reason: "Suplantacion de identidad",
+          risk: "high",
+          targetType: "resource_provider_profile",
+        }}
+      />,
+    );
+
+    expect(html).toContain("Mostrando 1 de 4 revisiones");
+    expect(html).toContain("Vet Norte 24 horas");
+    expect(html).not.toContain("Luna perdida cerca de la plaza");
+    expect(html).not.toContain("Michi busca nuevo hogar");
+  });
+
+  it("renders a focused moderation review detail with evidence, history, and confirmation", () => {
+    const detailHtml = renderToStaticMarkup(
+      <AdminModerationReviewDetail
+        formAction={undefined}
+        item={adminDashboardViewModel.flaggedItems[0]}
+        returnTo="/admin/moderacion/review-lost-1"
+        settings={adminDashboardViewModel.settings}
+        viewer={adminDashboardViewModel.viewer}
+      />,
+    );
+
+    expect(detailHtml).toContain("Revisión de moderación");
+    expect(detailHtml).toContain("Evidencia");
+    expect(detailHtml).toContain("Historial");
+    expect(detailHtml).toContain("Luna perdida cerca de la plaza");
+    expect(detailHtml).toContain("Alto riesgo");
+    expect(detailHtml).toContain("Confirmo ocultar reporte");
+    expect(detailHtml).toContain('value="/admin/moderacion/review-lost-1"');
   });
 
   it("renders an access-denied surface without admin queues for non-admin members", () => {

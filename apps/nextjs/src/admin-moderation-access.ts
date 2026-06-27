@@ -1,4 +1,3 @@
-import type { AdminModerationViewer as ModelAdminModerationViewer } from "./admin-moderation";
 import type {
   AdminModerationViewerRole,
   AdminModerationViewer as DashboardAdminModerationViewer,
@@ -14,7 +13,10 @@ export interface AdminModerationSession {
 
 export interface CurrentAdminModerationViewer {
   dashboardViewer: DashboardAdminModerationViewer;
-  modelViewer: ModelAdminModerationViewer;
+  modelViewer: {
+    memberId: string;
+    role: "admin" | "member";
+  };
 }
 
 export function buildAdminModerationViewer(

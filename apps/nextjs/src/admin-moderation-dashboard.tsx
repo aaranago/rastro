@@ -1,5 +1,8 @@
 import Link from "next/link";
 
+import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
+import { Button } from "@acme/ui/button";
+
 import { AdminSubmitButton } from "./admin-ui/admin-submit-button";
 
 export type AdminModerationViewerRole = "admin" | "member" | "visitor";
@@ -15,6 +18,22 @@ export type AdminModerationTargetType =
 export type AdminModerationContentStatus = "hidden" | "visible";
 
 export type AdminModerationMemberStatus = "active" | "banned";
+
+export type AdminModerationRiskFilter = "all" | "high" | "normal";
+
+export interface AdminModerationFilters {
+  city: string;
+  department: string;
+  reason: string;
+  risk: AdminModerationRiskFilter;
+  targetType: AdminModerationTargetType | "all";
+}
+
+export interface AdminModerationNotice {
+  body: string;
+  title: string;
+  tone: "error" | "success";
+}
 
 export interface AdminModerationViewer {
   displayName: string;
@@ -58,9 +77,12 @@ export interface AdminModerationMetric {
 }
 
 export interface AdminModerationDashboardProps {
+  filters?: AdminModerationFilters;
   flaggedItems: readonly AdminModerationFlaggedItem[];
   formAction?: React.ComponentProps<"form">["action"];
   metrics: readonly AdminModerationMetric[];
+  notice?: AdminModerationNotice;
+  returnTo?: string;
   settings: AdminModerationSettings;
   viewer: AdminModerationViewer;
 }
@@ -97,22 +119,38 @@ const settingsCopy = {
     "Los miembros deben verificar su correo antes de crear reportes o publicaciones visibles.",
 } as const;
 
+const emptyModerationFilters = {
+  city: "all",
+  department: "all",
+  reason: "all",
+  risk: "all",
+  targetType: "all",
+} as const satisfies AdminModerationFilters;
+
 export function AdminModerationDashboard(props: AdminModerationDashboardProps) {
   if (props.viewer.role !== "admin") {
     return <AdminAccessDenied viewer={props.viewer} />;
   }
 
-  const summaryStats = getSummaryStats(props.flaggedItems);
+  const filters = props.filters ?? emptyModerationFilters;
+  const filteredItems = filterAdminModerationItems(props.flaggedItems, filters);
+  const summaryStats = getSummaryStats(filteredItems);
 
   return (
     <main className="bg-background min-h-screen overflow-x-hidden">
       <div className="mx-auto grid w-full max-w-[1500px] min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="flex min-w-0 flex-col gap-6">
           <AdminDashboardHeader viewer={props.viewer} />
+          {props.notice ? (
+            <AdminModerationNoticeBanner notice={props.notice} />
+          ) : null}
           <ModerationSummary stats={summaryStats} />
+          <ModerationFilters filters={filters} items={props.flaggedItems} />
           <FlaggedContentQueue
             formAction={props.formAction}
-            items={props.flaggedItems}
+            items={filteredItems}
+            totalItemCount={props.flaggedItems.length}
+            returnTo={props.returnTo ?? "/admin/moderacion"}
           />
         </section>
 
@@ -120,6 +158,146 @@ export function AdminModerationDashboard(props: AdminModerationDashboardProps) {
           <ModerationSettings settings={props.settings} />
           <AbuseMetrics metrics={props.metrics} />
         </aside>
+      </div>
+    </main>
+  );
+}
+
+export function AdminModerationReviewDetail(props: {
+  formAction?: React.ComponentProps<"form">["action"];
+  item: AdminModerationFlaggedItem;
+  notice?: AdminModerationNotice;
+  returnTo?: string;
+  settings: AdminModerationSettings;
+  viewer: AdminModerationViewer;
+}) {
+  if (props.viewer.role !== "admin") {
+    return <AdminAccessDenied viewer={props.viewer} />;
+  }
+
+  const contentAction = getContentAction(props.item);
+  const risk = getModerationRisk(props.item);
+
+  return (
+    <main className="bg-background min-h-screen overflow-x-hidden">
+      <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-6">
+        <header className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs">
+          <Button asChild className="w-fit" size="sm" variant="outline">
+            <Link href="/admin/moderacion">Volver a la cola</Link>
+          </Button>
+          <p className="text-primary mt-5 text-sm font-semibold">
+            Revisión de moderación
+          </p>
+          <h1 className="mt-2 max-w-4xl text-3xl font-bold tracking-normal">
+            {props.item.target.title}
+          </h1>
+          <p className="text-muted-foreground mt-2 max-w-3xl text-sm">
+            Evidencia, estado, notas y acciones para una revisión reportada por
+            la comunidad.
+          </p>
+        </header>
+
+        {props.notice ? (
+          <AdminModerationNoticeBanner notice={props.notice} />
+        ) : null}
+
+        <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <article className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs">
+            <h2 className="text-xl font-semibold">Evidencia</h2>
+            <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
+              <DetailValue
+                label="Tipo"
+                value={targetTypeLabels[props.item.target.type]}
+              />
+              <DetailValue label="Motivo" value={props.item.reasonLabel} />
+              <DetailValue
+                label="Reportes acumulados"
+                value={`${props.item.reportCount}`}
+              />
+              <DetailValue
+                label="Riesgo"
+                value={risk === "high" ? "Alto riesgo" : "Riesgo estándar"}
+              />
+              <DetailValue
+                label="Ubicación"
+                value={`${props.item.target.locationLabel} - ${props.item.department}`}
+              />
+              <DetailValue
+                label="Última señal"
+                value={props.item.newestReportLabel}
+              />
+              <div className="sm:col-span-2">
+                <dt className="text-muted-foreground text-xs font-semibold uppercase">
+                  Detalle
+                </dt>
+                <dd className="mt-1 leading-6">{props.item.detail}</dd>
+              </div>
+            </dl>
+          </article>
+
+          <aside className="flex flex-col gap-6">
+            <section className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs">
+              <h2 className="text-xl font-semibold">Acciones</h2>
+              <div className="mt-4 flex flex-col gap-3">
+                {contentAction ? (
+                  <FlaggedItemActionForm
+                    contentAction={contentAction}
+                    formAction={props.formAction}
+                    idPrefix="detail"
+                    item={props.item}
+                    returnTo={props.returnTo ?? `/admin/moderacion/${props.item.id}`}
+                  />
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    Este objetivo se revisa desde su flujo especializado. La
+                    cola mantiene la evidencia y el conteo de reportes.
+                  </p>
+                )}
+              </div>
+            </section>
+
+            <section className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs">
+              <h2 className="text-xl font-semibold">Historial</h2>
+              <dl className="mt-4 grid gap-4 text-sm">
+                <DetailValue
+                  label="Responsable"
+                  value={props.item.accusedMember.displayName}
+                />
+                <DetailValue
+                  label="Reportado por"
+                  value={props.item.reporterLabel}
+                />
+                <div>
+                  <dt className="text-muted-foreground text-xs font-semibold uppercase">
+                    Estado actual
+                  </dt>
+                  <dd className="mt-2 flex flex-wrap gap-2">
+                    <StatusPill status={props.item.target.status} />
+                    <MemberStatusPill status={props.item.accusedMember.status} />
+                  </dd>
+                </div>
+              </dl>
+            </section>
+
+            <section className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs">
+              <h2 className="text-xl font-semibold">Reglas activas</h2>
+              <dl className="mt-4 grid gap-3 text-sm">
+                <DetailValue
+                  label="Adopciones en revisión"
+                  value={props.settings.reviewModeEnabled ? "Activado" : "Desactivado"}
+                />
+                <DetailValue
+                  label="Correo verificado requerido"
+                  value={
+                    props.settings.verifiedEmailRequiredToPublish
+                      ? "Activado"
+                      : "Desactivado"
+                  }
+                />
+              </dl>
+            </section>
+          </aside>
+        </section>
       </div>
     </main>
   );
@@ -145,6 +323,20 @@ function getSummaryStats(
   );
 }
 
+function AdminModerationNoticeBanner(props: { notice: AdminModerationNotice }) {
+  return (
+    <Alert
+      aria-live="polite"
+      variant={props.notice.tone === "error" ? "destructive" : "default"}
+    >
+      <AlertTitle>{props.notice.title}</AlertTitle>
+      <AlertDescription>
+        <p>{props.notice.body}</p>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 function AdminDashboardHeader(props: { viewer: AdminModerationViewer }) {
   return (
     <header className="border-border bg-card text-card-foreground flex flex-col gap-4 rounded-lg border p-5 shadow-xs md:flex-row md:items-end md:justify-between">
@@ -162,6 +354,101 @@ function AdminDashboardHeader(props: { viewer: AdminModerationViewer }) {
         {props.viewer.displayName}
       </p>
     </header>
+  );
+}
+
+function ModerationFilters(props: {
+  filters: AdminModerationFilters;
+  items: readonly AdminModerationFlaggedItem[];
+}) {
+  const options = buildModerationFilterOptions(props.items);
+
+  return (
+    <section
+      aria-labelledby="moderation-filters-heading"
+      className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs"
+    >
+      <div className="flex flex-col gap-1">
+        <h2 id="moderation-filters-heading" className="text-xl font-semibold">
+          Filtros de revisión
+        </h2>
+        <p className="text-muted-foreground text-sm">
+          Acota la cola por tipo, motivo, ciudad, departamento y nivel de
+          riesgo.
+        </p>
+      </div>
+      <form
+        action="/admin/moderacion"
+        className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[repeat(5,minmax(0,1fr))_auto]"
+        method="get"
+      >
+        <NativeFilterSelect
+          label="Tipo"
+          name="targetType"
+          options={options.targetTypes}
+          value={props.filters.targetType}
+        />
+        <NativeFilterSelect
+          label="Motivo"
+          name="reason"
+          options={options.reasons}
+          value={props.filters.reason}
+        />
+        <NativeFilterSelect
+          label="Departamento"
+          name="department"
+          options={options.departments}
+          value={props.filters.department}
+        />
+        <NativeFilterSelect
+          label="Ciudad"
+          name="city"
+          options={options.cities}
+          value={props.filters.city}
+        />
+        <NativeFilterSelect
+          label="Riesgo"
+          name="risk"
+          options={options.risks}
+          value={props.filters.risk}
+        />
+        <div className="flex items-end gap-2 sm:col-span-2 xl:col-span-1">
+          <Button className="min-h-10 flex-1" type="submit">
+            Aplicar
+          </Button>
+          <Button asChild className="min-h-10 flex-1" variant="outline">
+            <Link href="/admin/moderacion">Limpiar</Link>
+          </Button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function NativeFilterSelect(props: {
+  label: string;
+  name: keyof AdminModerationFilters;
+  options: readonly { label: string; value: string }[];
+  value: string;
+}) {
+  const id = `moderation-filter-${props.name}`;
+
+  return (
+    <label className="grid gap-1.5 text-sm font-medium" htmlFor={id}>
+      {props.label}
+      <select
+        className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 min-h-10 w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-[3px]"
+        defaultValue={props.value}
+        id={id}
+        name={props.name}
+      >
+        {props.options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -184,6 +471,8 @@ function ModerationSummary(props: { stats: AdminModerationSummaryStats }) {
 function FlaggedContentQueue(props: {
   formAction?: React.ComponentProps<"form">["action"];
   items: readonly AdminModerationFlaggedItem[];
+  returnTo: string;
+  totalItemCount: number;
 }) {
   return (
     <section
@@ -198,16 +487,20 @@ function FlaggedContentQueue(props: {
           Prioriza reportes con más avisos o riesgo de fraude, ubicación falsa o
           daño a la comunidad.
         </p>
+        <p className="text-muted-foreground text-xs">
+          Mostrando {props.items.length} de {props.totalItemCount} revisiones.
+        </p>
       </div>
       <div className="grid gap-3 p-4 md:hidden">
         {props.items.length === 0 ? (
-          <ModerationQueueEmptyState />
+          <ModerationQueueEmptyState hasFilters={props.totalItemCount > 0} />
         ) : (
           props.items.map((item) => (
             <FlaggedItemCard
               formAction={props.formAction}
               item={item}
               key={item.id}
+              returnTo={props.returnTo}
             />
           ))
         )}
@@ -237,13 +530,24 @@ function FlaggedContentQueue(props: {
             </tr>
           </thead>
           <tbody className="divide-border divide-y">
-            {props.items.map((item) => (
-              <FlaggedItemRow
-                formAction={props.formAction}
-                item={item}
-                key={item.id}
-              />
-            ))}
+            {props.items.length === 0 ? (
+              <tr>
+                <td className="px-5 py-6" colSpan={5}>
+                  <ModerationQueueEmptyState
+                    hasFilters={props.totalItemCount > 0}
+                  />
+                </td>
+              </tr>
+            ) : (
+              props.items.map((item) => (
+                <FlaggedItemRow
+                  formAction={props.formAction}
+                  item={item}
+                  key={item.id}
+                  returnTo={props.returnTo}
+                />
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -251,12 +555,18 @@ function FlaggedContentQueue(props: {
   );
 }
 
-function ModerationQueueEmptyState() {
+function ModerationQueueEmptyState(props: { hasFilters?: boolean }) {
   return (
     <div className="border-border bg-background rounded-lg border p-5">
-      <p className="font-semibold">No hay contenido pendiente de revisión.</p>
+      <p className="font-semibold">
+        {props.hasFilters
+          ? "No hay resultados con estos filtros."
+          : "No hay contenido pendiente de revisión."}
+      </p>
       <p className="text-muted-foreground mt-1 text-sm">
-        Cuando lleguen reportes de abuso o riesgo, aparecerán en esta cola.
+        {props.hasFilters
+          ? "Ajusta tipo, motivo, departamento o riesgo para ampliar la cola."
+          : "Cuando lleguen reportes de abuso o riesgo, aparecerán en esta cola."}
       </p>
     </div>
   );
@@ -304,6 +614,7 @@ function SummaryStat(props: { label: string; value: number }) {
 function FlaggedItemRow(props: {
   formAction?: React.ComponentProps<"form">["action"];
   item: AdminModerationFlaggedItem;
+  returnTo: string;
 }) {
   const item = props.item;
   const contentAction = getContentAction(item);
@@ -318,6 +629,7 @@ function FlaggedItemRow(props: {
         contentAction={contentAction}
         formAction={props.formAction}
         item={item}
+        returnTo={props.returnTo}
       />
     </tr>
   );
@@ -326,6 +638,7 @@ function FlaggedItemRow(props: {
 function FlaggedItemCard(props: {
   formAction?: React.ComponentProps<"form">["action"];
   item: AdminModerationFlaggedItem;
+  returnTo: string;
 }) {
   const item = props.item;
   const targetLabel = targetTypeLabels[item.target.type];
@@ -336,7 +649,7 @@ function FlaggedItemCard(props: {
       <div className="min-w-0">
         <a
           className="text-foreground hover:text-primary focus-visible:border-ring focus-visible:ring-ring/50 break-words font-semibold underline-offset-4 outline-none hover:underline focus-visible:ring-[3px]"
-          href={item.target.href}
+          href={`/admin/moderacion/${item.id}`}
         >
           {item.target.title}
         </a>
@@ -385,6 +698,7 @@ function FlaggedItemCard(props: {
           formAction={props.formAction}
           idPrefix="mobile"
           item={item}
+          returnTo={props.returnTo}
         />
       </div>
     </article>
@@ -400,7 +714,7 @@ function FlaggedItemTargetCell(props: { item: AdminModerationFlaggedItem }) {
       <div className="flex flex-col gap-1">
         <a
           className="text-foreground hover:text-primary focus-visible:border-ring focus-visible:ring-ring/50 font-semibold underline-offset-4 outline-none hover:underline focus-visible:ring-[3px]"
-          href={item.target.href}
+          href={`/admin/moderacion/${item.id}`}
         >
           {item.target.title}
         </a>
@@ -463,6 +777,7 @@ function FlaggedItemActions(props: {
   contentAction: ContentModerationAction | null;
   formAction?: React.ComponentProps<"form">["action"];
   item: AdminModerationFlaggedItem;
+  returnTo: string;
 }) {
   return (
     <td className="px-5 py-4">
@@ -471,6 +786,7 @@ function FlaggedItemActions(props: {
         formAction={props.formAction}
         idPrefix="desktop"
         item={props.item}
+        returnTo={props.returnTo}
       />
     </td>
   );
@@ -479,10 +795,15 @@ function FlaggedItemActions(props: {
 function FlaggedItemActionForm(props: {
   contentAction: ContentModerationAction | null;
   formAction?: React.ComponentProps<"form">["action"];
-  idPrefix: "desktop" | "mobile";
+  idPrefix: "desktop" | "detail" | "mobile";
   item: AdminModerationFlaggedItem;
+  returnTo: string;
 }) {
   const noteId = `note-${props.idPrefix}-${props.item.id}`;
+  const confirmationId = `confirm-${props.idPrefix}-${props.item.id}`;
+  const confirmationLabel = props.contentAction
+    ? `Confirmo ${props.contentAction.label.toLowerCase()}`
+    : "Confirmo aplicar esta decisión";
 
   return (
     <form
@@ -493,7 +814,9 @@ function FlaggedItemActionForm(props: {
     >
       <input name="reviewItemId" type="hidden" value={props.item.id} />
       <input name="moderationReason" type="hidden" value="admin_review" />
+      <input name="returnTo" type="hidden" value={props.returnTo} />
       <input name="targetId" type="hidden" value={props.item.target.id} />
+      <input name="targetTitle" type="hidden" value={props.item.target.title} />
       <input name="targetType" type="hidden" value={props.item.target.type} />
       <input
         name="memberId"
@@ -512,6 +835,25 @@ function FlaggedItemActionForm(props: {
             name="moderationNote"
             placeholder="Nota breve"
           />
+          <label
+            className="border-border flex items-start gap-2 rounded-md border p-3 text-sm"
+            htmlFor={confirmationId}
+          >
+            <input
+              className="border-input text-primary focus-visible:border-ring focus-visible:ring-ring/50 mt-0.5 size-4 shrink-0 rounded border shadow-xs focus-visible:ring-[3px]"
+              id={confirmationId}
+              name="confirmModerationAction"
+              required
+              type="checkbox"
+              value="on"
+            />
+            <span>
+              <span className="block font-medium">{confirmationLabel}</span>
+              <span className="text-muted-foreground mt-1 block">
+                Esta acción queda registrada y afecta la visibilidad pública.
+              </span>
+            </span>
+          </label>
           <ModerationButton action={props.contentAction} />
         </>
       ) : null}
@@ -672,6 +1014,113 @@ function MemberStatusPill(props: { status: AdminModerationMemberStatus }) {
     <span className="bg-muted text-muted-foreground w-fit rounded-md px-2 py-1 text-xs font-semibold">
       Miembro activo
     </span>
+  );
+}
+
+function DetailValue(props: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-muted-foreground text-xs font-semibold uppercase">
+        {props.label}
+      </dt>
+      <dd className="mt-1 font-medium">{props.value}</dd>
+    </div>
+  );
+}
+
+function buildModerationFilterOptions(
+  items: readonly AdminModerationFlaggedItem[],
+) {
+  return {
+    cities: [
+      { label: "Todas las ciudades", value: "all" },
+      ...uniqueSorted(items.map((item) => item.target.locationLabel)).map(
+        (value) => ({
+          label: value,
+          value,
+        }),
+      ),
+    ],
+    departments: [
+      { label: "Todos los departamentos", value: "all" },
+      ...uniqueSorted(items.map((item) => item.department)).map((value) => ({
+        label: value,
+        value,
+      })),
+    ],
+    reasons: [
+      { label: "Todos los motivos", value: "all" },
+      ...uniqueSorted(items.map((item) => item.reasonLabel)).map((value) => ({
+        label: value,
+        value,
+      })),
+    ],
+    risks: [
+      { label: "Todos los riesgos", value: "all" },
+      { label: "Alto riesgo", value: "high" },
+      { label: "Riesgo estándar", value: "normal" },
+    ],
+    targetTypes: [
+      { label: "Todos los tipos", value: "all" },
+      ...uniqueSorted(items.map((item) => item.target.type)).map((value) => ({
+        label: targetTypeLabels[value],
+        value,
+      })),
+    ],
+  };
+}
+
+function filterAdminModerationItems(
+  items: readonly AdminModerationFlaggedItem[],
+  filters: AdminModerationFilters,
+) {
+  return items.filter((item) => {
+    if (filters.targetType !== "all" && item.target.type !== filters.targetType) {
+      return false;
+    }
+
+    if (filters.reason !== "all" && item.reasonLabel !== filters.reason) {
+      return false;
+    }
+
+    if (filters.department !== "all" && item.department !== filters.department) {
+      return false;
+    }
+
+    if (filters.city !== "all" && item.target.locationLabel !== filters.city) {
+      return false;
+    }
+
+    if (filters.risk !== "all" && getModerationRisk(item) !== filters.risk) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function getModerationRisk(
+  item: AdminModerationFlaggedItem,
+): Exclude<AdminModerationRiskFilter, "all"> {
+  const riskText = `${item.reasonLabel} ${item.detail}`.toLowerCase();
+
+  if (
+    item.reportCount >= 3 ||
+    item.accusedMember.status === "banned" ||
+    riskText.includes("crueldad") ||
+    riskText.includes("estafa") ||
+    riskText.includes("robada") ||
+    riskText.includes("suplant")
+  ) {
+    return "high";
+  }
+
+  return "normal";
+}
+
+function uniqueSorted<T extends string>(values: readonly T[]) {
+  return Array.from(new Set(values)).sort((left, right) =>
+    left.localeCompare(right, "es-BO"),
   );
 }
 
