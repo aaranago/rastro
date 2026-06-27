@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import { cn } from "@acme/ui";
 import { ThemeProvider, ThemeToggle } from "@acme/ui/theme";
+import { themeDetectorScript } from "@acme/ui/theme-script";
 import { Toaster } from "@acme/ui/toast";
 
 import { env } from "~/env";
@@ -57,6 +58,10 @@ export default function RootLayout(props: { children: React.ReactNode }) {
           geistMono.variable,
         )}
       >
+        <script
+          dangerouslySetInnerHTML={{ __html: themeDetectorScript }}
+          suppressHydrationWarning
+        />
         <ThemeProvider>
           <TRPCReactProvider>{props.children}</TRPCReactProvider>
           <div className="absolute right-4 bottom-4">

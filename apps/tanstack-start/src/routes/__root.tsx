@@ -12,6 +12,7 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import type { AppRouter } from "@acme/api";
 import { ThemeProvider, ThemeToggle } from "@acme/ui/theme";
+import { themeDetectorScript } from "@acme/ui/theme-script";
 import { Toaster } from "@acme/ui/toast";
 
 import appCss from "~/styles.css?url";
@@ -42,6 +43,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           <HeadContent />
         </head>
         <body className="bg-background text-foreground min-h-screen font-sans antialiased">
+          <script
+            dangerouslySetInnerHTML={{ __html: themeDetectorScript }}
+            suppressHydrationWarning
+          />
           {children}
           <div className="absolute right-4 bottom-12">
             <ThemeToggle />

@@ -70,11 +70,14 @@ describe("admin shell foundation", () => {
       </ThemeProvider>,
     );
 
-    expect(html).toContain(
-      'aria-label="Cambiar tema de color. Tema actual: automático"',
-    );
+    expect(html).toContain('aria-label="Cambiar tema de color"');
+    expect(html).toContain('aria-label="Usar tema claro"');
+    expect(html).toContain('aria-label="Usar tema oscuro"');
+    expect(html).toContain('aria-label="Usar tema automático"');
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain("Claro");
+    expect(html).toContain("Oscuro");
     expect(html).toContain("Sistema");
-    expect(html).toContain("min-h-11");
     expect(html).not.toContain("Toggle theme");
   });
 });

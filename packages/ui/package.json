@@ -22,6 +22,7 @@
     "./table": "./src/table.tsx",
     "./tabs": "./src/tabs.tsx",
     "./theme": "./src/theme.tsx",
+    "./theme-script": "./src/theme-script.ts",
     "./toast": "./src/toast.tsx",
     "./textarea": "./src/textarea.tsx"
   },
