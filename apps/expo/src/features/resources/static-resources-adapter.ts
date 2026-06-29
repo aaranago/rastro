@@ -487,7 +487,11 @@ function cloneLocalSponsorPlacement(
   }
 
   return {
-    ...placement,
+    kind: placement.kind,
+    label: placement.label,
+    disclosure: placement.disclosure,
+    logoUrl: placement.logoUrl,
+    imageUrl: placement.imageUrl,
     eligibleSurfaces: [...placement.eligibleSurfaces],
     safetyPolicy: {
       recoveryPriority: { ...placement.safetyPolicy.recoveryPriority },

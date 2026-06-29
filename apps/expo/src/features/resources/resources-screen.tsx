@@ -26,15 +26,15 @@ import type {
   ResourceProviderDirectoryResult,
   ResourcesAdapter,
 } from "./static-resources-adapter";
-import { defaultCachedResourcesAdapter } from "./default-resources-adapter";
 import { ResourceProviderCard } from "./resource-provider-card";
+import { defaultApiResourcesAdapter } from "./resources-default-api-adapter";
 import { resourcesColors, resourcesShadow } from "./resources-theme";
 import {
   buildResourcesDirectoryViewModel,
   resourceCategoryOptions,
 } from "./resources-view-model";
 
-const defaultResourcesAdapter = defaultCachedResourcesAdapter;
+const defaultResourcesAdapter = defaultApiResourcesAdapter;
 
 type ResourceNoticeAction = NonNullable<
   NonNullable<ResourcesDirectoryViewModel["notice"]>["actions"]
@@ -215,10 +215,12 @@ export function ResourcesScreen({
         categoryLabel={item.categoryLabel}
         description={item.description}
         locationLabel={item.locationLabel}
+        serviceAreaLabel={item.serviceAreaLabel}
         distanceLabel={item.distanceLabel}
         isVerified={item.isVerified}
         isSponsored={item.isSponsored}
         sponsorLabel={item.sponsorLabel}
+        sponsorDisclosure={item.sponsorDisclosure}
         sponsorLogoUrl={item.sponsorLogoUrl}
         sponsorImageUrl={item.sponsorImageUrl}
         availabilityLabel={item.availabilityLabel}

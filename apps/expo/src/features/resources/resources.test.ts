@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import type { ResourceProviderFixture } from "./resource-types";
+import type {
+  LocalSponsorPlacement,
+  ResourceProviderFixture,
+  ResourceProviderProfile,
+  ResourceProviderSummary,
+} from "./resource-types";
 import type {
   ResourceProviderDirectoryResult,
   ResourceProviderProfileResult,
@@ -12,12 +17,35 @@ import {
   buildResourcesDirectoryViewModel,
 } from "./resources-view-model";
 import {
+  getLocalSponsorPlacementForSurface,
+  isLocalSponsorPlacementEligibleForSurface,
+} from "./sponsor-surface-policy";
+import {
   createCachedResourcesAdapter,
   createStaticResourcesAdapter,
 } from "./static-resources-adapter";
 import { rastroResourceFixtures } from "./static-resources-fixtures";
 
 describe("Resources directory", () => {
+  it("uses a shared helper for Local Sponsor Placement surface eligibility", () => {
+    const placement = buildSponsorPlacement({
+      eligibleSurfaces: ["resources_directory"],
+    });
+
+    expect(
+      isLocalSponsorPlacementEligibleForSurface(
+        placement,
+        "resources_directory",
+      ),
+    ).toBe(true);
+    expect(
+      isLocalSponsorPlacementEligibleForSurface(placement, "provider_details"),
+    ).toBe(false);
+    expect(
+      getLocalSponsorPlacementForSurface(placement, "provider_details"),
+    ).toBeUndefined();
+  });
+
   it("lets visitors and members browse Resource Providers without sign-in", () => {
     const visitorViewModel = buildResourcesDirectoryViewModel({
       providers: rastroResourceFixtures.providers,
@@ -198,6 +226,115 @@ describe("Resources directory", () => {
         },
       },
     });
+  });
+
+  it("suppresses wrong-surface sponsor placements in directory cards", () => {
+    const provider = buildProviderSummary({
+      id: "profile-only-sponsor",
+      isVerified: false,
+      sponsorPlacement: buildSponsorPlacement({
+        eligibleSurfaces: ["provider_details"],
+        imageUrl: "https://example.com/profile-only-banner.png",
+        logoUrl: "https://example.com/profile-only-logo.png",
+      }),
+    });
+
+    const viewModel = buildResourcesDirectoryViewModel({
+      providers: [provider],
+      location: {
+        kind: "manual",
+        label: "La Paz",
+      },
+      mode: "list",
+      status: "ready",
+    });
+
+    expect(viewModel.results[0]).toMatchObject({
+      id: "profile-only-sponsor",
+      isSponsored: false,
+      isVerified: false,
+    });
+    expect(viewModel.results[0]?.sponsorLabel).toBeUndefined();
+    expect(viewModel.results[0]?.sponsorDisclosure).toBeUndefined();
+    expect(viewModel.results[0]?.sponsorLogoUrl).toBeUndefined();
+    expect(viewModel.results[0]?.sponsorImageUrl).toBeUndefined();
+    expect(viewModel.results[0]?.sponsorPlacement).toBeUndefined();
+  });
+
+  it("keeps correct-surface directory sponsor media optional and policy explicit", () => {
+    const provider = buildProviderSummary({
+      sponsorPlacement: buildSponsorPlacement({
+        eligibleSurfaces: ["resources_directory"],
+        imageUrl: undefined,
+        logoUrl: undefined,
+      }),
+    });
+
+    const viewModel = buildResourcesDirectoryViewModel({
+      providers: [provider],
+      location: {
+        kind: "manual",
+        label: "La Paz",
+      },
+      mode: "list",
+      status: "ready",
+    });
+    const sponsoredProvider = viewModel.results[0];
+
+    expect(sponsoredProvider).toMatchObject({
+      isSponsored: true,
+      sponsorLabel: "Patrocinado",
+      sponsorDisclosure:
+        "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+    });
+    expect(sponsoredProvider?.sponsorLogoUrl).toBeUndefined();
+    expect(sponsoredProvider?.sponsorImageUrl).toBeUndefined();
+    expect(sponsoredProvider?.sponsorPlacement?.safetyPolicy).toEqual({
+      recoveryPriority: {
+        label: "Recovery Priority",
+        canAffect: false,
+      },
+      pushNotifications: {
+        eligible: false,
+      },
+    });
+  });
+
+  it("does not expose exact provider coordinates or admin media asset IDs in directory view data", () => {
+    const provider = {
+      ...buildProviderSummary({
+        sponsorPlacement: {
+          ...buildSponsorPlacement({
+            eligibleSurfaces: ["resources_directory"],
+            imageUrl: "https://example.com/public-sponsor-banner.png",
+            logoUrl: "https://example.com/public-sponsor-logo.png",
+          }),
+          imageAssetId: "33333333-3333-4333-8333-333333333333",
+          logoAssetId: "22222222-2222-4222-8222-222222222222",
+        } as unknown as LocalSponsorPlacement,
+      }),
+      adminNotes: "No debe salir en mobile",
+      exactLatitude: -16.510231,
+      exactLongitude: -68.123881,
+    } as unknown as ResourceProviderSummary;
+
+    const viewModel = buildResourcesDirectoryViewModel({
+      providers: [provider],
+      location: {
+        kind: "manual",
+        label: "Sopocachi, La Paz",
+      },
+      mode: "map",
+      status: "ready",
+    });
+    const serialized = JSON.stringify(viewModel);
+
+    expect(serialized).toContain("Sopocachi, La Paz");
+    expect(serialized).not.toContain("-16.510231");
+    expect(serialized).not.toContain("-68.123881");
+    expect(serialized).not.toContain("adminNotes");
+    expect(serialized).not.toContain("logoAssetId");
+    expect(serialized).not.toContain("imageAssetId");
   });
 
   it("describes empty, denied-location, offline, and error notices with Spanish actions", () => {
@@ -403,6 +540,56 @@ describe("Resources directory", () => {
         },
       },
     });
+  });
+
+  it("suppresses wrong-surface sponsor placements on provider profiles without setting verification", () => {
+    const profile = buildProviderProfile({
+      contactOptions: [
+        {
+          kind: "phone",
+          label: "Llamar",
+          value: "+591 2 222 1111",
+        },
+        {
+          kind: "email",
+          label: "",
+          value: "",
+        },
+      ],
+      hoursLabel: undefined,
+      isVerified: false,
+      sponsorPlacement: buildSponsorPlacement({
+        eligibleSurfaces: ["resources_directory"],
+      }),
+    });
+
+    const viewModel = buildResourceProviderProfileViewModel(profile);
+
+    expect(viewModel.badges).toEqual([
+      {
+        label: "Veterinarias",
+        tone: "category",
+      },
+    ]);
+    expect(viewModel.primaryActions).toEqual([
+      {
+        kind: "phone",
+        label: "Llamar",
+        value: "+591 2 222 1111",
+      },
+    ]);
+    expect(viewModel.sponsorPlacement).toBeUndefined();
+    expect(viewModel.sponsorDisclosure).toBeUndefined();
+    expect(viewModel.sections[1]?.rows).toEqual([
+      {
+        label: "Ubicación",
+        value: "Sopocachi, La Paz",
+      },
+      {
+        label: "Cobertura",
+        value: "Atiende La Paz y El Alto",
+      },
+    ]);
   });
 
   it("omits missing provider profile optional fields without leaving empty sections", () => {
@@ -781,3 +968,72 @@ describe("Resources directory", () => {
     });
   });
 });
+
+function buildProviderSummary(
+  overrides: Partial<ResourceProviderSummary> = {},
+): ResourceProviderSummary {
+  return {
+    id: "11111111-1111-4111-8111-111111111111",
+    name: "Clinica Veterinaria San Roque",
+    categoryId: "veterinary",
+    description: "Veterinaria local con atencion general y urgencias.",
+    approximateLocationLabel: "Sopocachi, La Paz",
+    serviceAreaLabel: "Atiende La Paz y El Alto",
+    distanceMeters: 800,
+    contactOptions: [
+      {
+        kind: "phone",
+        label: "Llamar",
+        value: "+591 2 222 1111",
+      },
+      {
+        kind: "whatsapp",
+        label: "WhatsApp",
+        value: "+591 70000001",
+      },
+      {
+        kind: "email",
+        label: "Correo",
+        value: "contacto@example.com",
+      },
+    ],
+    ...overrides,
+  };
+}
+
+function buildProviderProfile(
+  overrides: Partial<ResourceProviderProfile> = {},
+): ResourceProviderProfile {
+  return {
+    ...buildProviderSummary(),
+    serviceAreaLabel: "Atiende La Paz y El Alto",
+    hoursLabel: "Lun - Dom: 24 horas",
+    shortDescription:
+      "Atencion veterinaria general y orientacion para familias cuidadoras.",
+    websiteUrl: "https://sanroque.example.com",
+    ...overrides,
+  };
+}
+
+function buildSponsorPlacement(
+  overrides: Partial<LocalSponsorPlacement> = {},
+): LocalSponsorPlacement {
+  return {
+    kind: "Local Sponsor Placement",
+    label: "Patrocinado",
+    disclosure: "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+    logoUrl: "https://example.com/sponsor-logo.png",
+    imageUrl: "https://example.com/sponsor-banner.png",
+    eligibleSurfaces: ["resources_directory", "provider_details"],
+    safetyPolicy: {
+      recoveryPriority: {
+        label: "Recovery Priority",
+        canAffect: false,
+      },
+      pushNotifications: {
+        eligible: false,
+      },
+    },
+    ...overrides,
+  };
+}

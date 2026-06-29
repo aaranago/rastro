@@ -10,10 +10,12 @@ interface ResourceProviderCardProps {
   categoryLabel: string;
   description: string;
   locationLabel: string;
+  serviceAreaLabel?: string;
   distanceLabel?: string;
   isVerified: boolean;
   isSponsored: boolean;
   sponsorLabel?: string;
+  sponsorDisclosure?: string;
   sponsorLogoUrl?: string;
   sponsorImageUrl?: string;
   availabilityLabel?: string;
@@ -30,10 +32,12 @@ export const ResourceProviderCard = memo(function ResourceProviderCard({
   categoryLabel,
   description,
   locationLabel,
+  serviceAreaLabel,
   distanceLabel,
   isVerified,
   isSponsored,
   sponsorLabel,
+  sponsorDisclosure,
   sponsorLogoUrl,
   sponsorImageUrl,
   availabilityLabel,
@@ -56,29 +60,9 @@ export const ResourceProviderCard = memo(function ResourceProviderCard({
       accessibilityRole="button"
       accessibilityLabel={`Abrir ${name}`}
       onPress={handleOpenProvider}
-      style={({ pressed }) => [
-        styles.card,
-        isSponsored ? styles.sponsoredCard : null,
-        pressed ? styles.cardPressed : null,
-      ]}
+      style={({ pressed }) => getCardStyle({ isSponsored, pressed })}
     >
-      <View style={styles.media}>
-        {imageUrl ? (
-          <Image
-            source={{ uri: imageUrl }}
-            style={styles.mediaImage}
-            contentFit="cover"
-            recyclingKey={id}
-          />
-        ) : (
-          <Image
-            source="sf:pawprint.fill"
-            style={styles.mediaIcon}
-            tintColor={resourcesColors.primary}
-            contentFit="contain"
-          />
-        )}
-      </View>
+      <ProviderMedia id={id} imageUrl={imageUrl} />
 
       <View style={styles.content}>
         <ProviderCardHeader
@@ -90,6 +74,7 @@ export const ResourceProviderCard = memo(function ResourceProviderCard({
         <Text selectable numberOfLines={1} style={styles.location}>
           {locationLabel}
         </Text>
+        <ProviderServiceArea label={serviceAreaLabel} />
 
         <ProviderBadgeRow
           availabilityLabel={availabilityLabel}
@@ -98,6 +83,11 @@ export const ResourceProviderCard = memo(function ResourceProviderCard({
           isSponsored={isSponsored}
           isVerified={isVerified}
           sponsorLabel={sponsorLabel}
+        />
+
+        <SponsorDisclosureText
+          disclosure={sponsorDisclosure}
+          isSponsored={isSponsored}
         />
 
         <SponsorMediaRow
@@ -117,6 +107,72 @@ export const ResourceProviderCard = memo(function ResourceProviderCard({
     </Pressable>
   );
 });
+
+function getCardStyle({
+  isSponsored,
+  pressed,
+}: {
+  isSponsored: boolean;
+  pressed: boolean;
+}) {
+  return [
+    styles.card,
+    isSponsored ? styles.sponsoredCard : null,
+    pressed ? styles.cardPressed : null,
+  ];
+}
+
+function ProviderMedia({ id, imageUrl }: { id: string; imageUrl?: string }) {
+  return (
+    <View style={styles.media}>
+      {imageUrl ? (
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.mediaImage}
+          contentFit="cover"
+          recyclingKey={id}
+        />
+      ) : (
+        <Image
+          source="sf:pawprint.fill"
+          style={styles.mediaIcon}
+          tintColor={resourcesColors.primary}
+          contentFit="contain"
+        />
+      )}
+    </View>
+  );
+}
+
+function ProviderServiceArea({ label }: { label?: string }) {
+  if (!label) {
+    return null;
+  }
+
+  return (
+    <Text selectable numberOfLines={2} style={styles.serviceArea}>
+      Cobertura: {label}
+    </Text>
+  );
+}
+
+function SponsorDisclosureText({
+  disclosure,
+  isSponsored,
+}: {
+  disclosure?: string;
+  isSponsored: boolean;
+}) {
+  if (!isSponsored || !disclosure) {
+    return null;
+  }
+
+  return (
+    <Text selectable numberOfLines={3} style={styles.sponsorDisclosure}>
+      {disclosure}
+    </Text>
+  );
+}
 
 function ProviderCardHeader({
   description,
@@ -222,7 +278,9 @@ function ProviderBadgeRow({
       ) : null}
       {isVerified ? <VerificationBadge /> : null}
       {emergencyLabel ? <Badge label={emergencyLabel} tone="blue" /> : null}
-      {availabilityLabel ? <Badge label={availabilityLabel} tone="green" /> : null}
+      {availabilityLabel ? (
+        <Badge label={availabilityLabel} tone="green" />
+      ) : null}
     </View>
   );
 }
@@ -236,15 +294,28 @@ function ProviderActionsRow({
   name: string;
   onReportProvider?: () => void;
 }) {
+  const visibleContactLabels = contactLabels.slice(0, 2);
+  const remainingContactCount = Math.max(
+    0,
+    contactLabels.length - visibleContactLabels.length,
+  );
+
   return (
     <View style={styles.actionsRow}>
-      {contactLabels.slice(0, 2).map((label) => (
+      {visibleContactLabels.map((label) => (
         <View key={label} style={styles.contactPill}>
-          <Text selectable style={styles.contactText}>
+          <Text selectable numberOfLines={1} style={styles.contactText}>
             {label}
           </Text>
         </View>
       ))}
+      {remainingContactCount > 0 ? (
+        <View style={styles.contactPill}>
+          <Text selectable numberOfLines={1} style={styles.contactText}>
+            +{remainingContactCount} más
+          </Text>
+        </View>
+      ) : null}
       {onReportProvider ? (
         <Pressable
           accessibilityRole="button"
@@ -253,7 +324,7 @@ function ProviderActionsRow({
           onPress={onReportProvider}
           style={styles.reportButton}
         >
-          <Text selectable style={styles.reportText}>
+          <Text selectable numberOfLines={1} style={styles.reportText}>
             Reportar
           </Text>
         </Pressable>
@@ -389,6 +460,18 @@ const styles = StyleSheet.create({
     color: resourcesColors.muted,
     fontSize: 13,
     lineHeight: 18,
+  },
+  serviceArea: {
+    color: resourcesColors.text,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "600",
+  },
+  sponsorDisclosure: {
+    color: resourcesColors.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "600",
   },
   distancePill: {
     flexDirection: "row",

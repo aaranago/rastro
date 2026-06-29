@@ -130,7 +130,7 @@ export function ResourceProviderProfile({
             style={styles.actionIcon}
             tintColor={resourcesColors.error}
           />
-          <Text selectable style={styles.reportActionText}>
+          <Text selectable numberOfLines={1} style={styles.reportActionText}>
             {viewModel.reportAction.label}
           </Text>
         </Pressable>
@@ -295,7 +295,7 @@ function ProfileActionButton({
         style={styles.actionIcon}
         tintColor={resourcesColors.surface}
       />
-      <Text selectable style={styles.primaryActionText}>
+      <Text selectable numberOfLines={1} style={styles.primaryActionText}>
         {label}
       </Text>
     </Pressable>

@@ -15,11 +15,11 @@ import type {
   ResourceProviderProfile as ResourceProviderProfileData,
 } from "./resource-types";
 import type { ResourcesAdapter } from "./static-resources-adapter";
-import { defaultCachedResourcesAdapter } from "./default-resources-adapter";
 import { ResourceProviderProfile } from "./resource-provider-profile";
+import { defaultApiResourcesAdapter } from "./resources-default-api-adapter";
 import { resourcesColors, resourcesShadow } from "./resources-theme";
 
-const defaultResourcesAdapter = defaultCachedResourcesAdapter;
+const defaultResourcesAdapter = defaultApiResourcesAdapter;
 const bottomInset = 36;
 
 type ProfileLoadState =

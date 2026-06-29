@@ -149,7 +149,7 @@ export type ResourceProviderProfile = Omit<
   "serviceAreaLabel"
 > & {
   serviceAreaLabel: string;
-  hoursLabel: string;
+  hoursLabel?: string;
   shortDescription: string;
   websiteUrl?: string;
   socialLinks?: {

@@ -1,19 +1,19 @@
 import type { RouterInputs, RouterOutputs } from "@acme/api";
 
 import type {
-  ResourceProviderDirectoryResult,
-  ResourceProviderProfileResult,
-  ResourceProviderReportInput,
-  ResourceProviderReportReceipt,
-  ResourceSearchQuery,
-  ResourcesAdapter,
-} from "./static-resources-adapter";
-import { toResolvedResourceProviderSearchLocation } from "./static-resources-adapter";
-import type {
   ResourceCategoryId,
   ResourceProviderProfile,
   ResourceProviderSummary,
 } from "./resource-types";
+import type {
+  ResourceProviderDirectoryResult,
+  ResourceProviderProfileResult,
+  ResourceProviderReportInput,
+  ResourceProviderReportReceipt,
+  ResourcesAdapter,
+  ResourceSearchQuery,
+} from "./static-resources-adapter";
+import { toResolvedResourceProviderSearchLocation } from "./static-resources-adapter";
 
 export type ResourceNearbyInput = RouterInputs["resources"]["nearby"];
 export type ResourceNearbyOutput = RouterOutputs["resources"]["nearby"];
@@ -134,7 +134,11 @@ function toResourceProviderSummary(
     serviceAreaLabel: provider.serviceAreaLabel,
     sponsorPlacement: provider.sponsorPlacement
       ? {
-          ...provider.sponsorPlacement,
+          kind: provider.sponsorPlacement.kind,
+          label: provider.sponsorPlacement.label,
+          disclosure: provider.sponsorPlacement.disclosure,
+          logoUrl: provider.sponsorPlacement.logoUrl,
+          imageUrl: provider.sponsorPlacement.imageUrl,
           eligibleSurfaces: [...provider.sponsorPlacement.eligibleSurfaces],
           safetyPolicy: {
             recoveryPriority: {

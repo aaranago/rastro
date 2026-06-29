@@ -20,12 +20,28 @@ const reactState = vi.hoisted(() => ({
   values: [] as unknown[],
 }));
 
+const api = vi.hoisted(() => ({
+  trpcClient: {
+    resources: {
+      detail: {
+        query: vi.fn(),
+      },
+      nearby: {
+        query: vi.fn(),
+      },
+      reportProvider: {
+        mutate: vi.fn(),
+      },
+    },
+  },
+}));
+
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof React>("react");
 
   return {
     ...actual,
-    useCallback: <TCallback,>(callback: TCallback) => callback,
+    useCallback: <TCallback>(callback: TCallback) => callback,
     useEffect: (
       effect: () => void | (() => void),
       dependencies?: readonly unknown[],
@@ -53,8 +69,8 @@ vi.mock("react", async () => {
         effect();
       });
     },
-    useMemo: <TValue,>(factory: () => TValue) => factory(),
-    useState: <TValue,>(initialValue: TValue | (() => TValue)) => {
+    useMemo: <TValue>(factory: () => TValue) => factory(),
+    useState: <TValue>(initialValue: TValue | (() => TValue)) => {
       const index = reactState.cursor;
       reactState.cursor += 1;
 
@@ -96,6 +112,10 @@ vi.mock("react-native", () => ({
   },
   Text: "Text",
   View: "View",
+}));
+
+vi.mock("../../utils/api", () => ({
+  trpcClient: api.trpcClient,
 }));
 
 describe("Resource Provider profile screen", () => {
@@ -142,7 +162,9 @@ describe("Resource Provider profile screen", () => {
 
   it("waits for backend confirmation before showing provider report success", async () => {
     let resolveReport:
-      | ((receipt: Awaited<ReturnType<ResourcesAdapter["reportProvider"]>>) => void)
+      | ((
+          receipt: Awaited<ReturnType<ResourcesAdapter["reportProvider"]>>,
+        ) => void)
       | undefined;
     const reportProvider = vi.fn(
       () =>
@@ -244,8 +266,7 @@ const profile: ResourceProviderProfileData = {
   sponsorPlacement: {
     kind: "Local Sponsor Placement",
     label: "Patrocinado",
-    disclosure:
-      "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+    disclosure: "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
     logoUrl: "https://example.com/sponsor-logo.png",
     imageUrl: "https://example.com/sponsor-banner.png",
     eligibleSurfaces: ["provider_details"],

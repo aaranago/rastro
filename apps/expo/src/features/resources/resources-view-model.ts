@@ -8,6 +8,7 @@ import type {
   ResourcesDirectoryStatus,
   ResourceSearchLocation,
 } from "./resource-types";
+import { getLocalSponsorPlacementForSurface } from "./sponsor-surface-policy";
 
 export interface ResourceCategoryOption {
   id: ResourceCategoryId;
@@ -215,6 +216,10 @@ export function buildResourcesDirectoryViewModel(
 export function buildResourceProviderProfileViewModel(
   profile: ResourceProviderProfile,
 ): ResourceProviderProfileViewModel {
+  const sponsorPlacement = getLocalSponsorPlacementForSurface(
+    profile.sponsorPlacement,
+    "provider_details",
+  );
   const badges: ResourceProviderProfileViewModel["badges"] = [
     {
       label: getCategoryLabel(profile.categoryId),
@@ -229,9 +234,9 @@ export function buildResourceProviderProfileViewModel(
     });
   }
 
-  if (profile.sponsorPlacement !== undefined) {
+  if (sponsorPlacement !== undefined) {
     badges.push({
-      label: profile.sponsorPlacement.label,
+      label: sponsorPlacement.label,
       tone: "sponsor",
     });
   }
@@ -250,17 +255,19 @@ export function buildResourceProviderProfileViewModel(
     heroImageUrl: profile.photoUrl,
     logoUrl: profile.logoUrl,
     badges,
-    primaryActions: profile.contactOptions.map((contact) => ({
-      kind: contact.kind,
-      label: contact.label,
-      value: contact.value,
-    })),
+    primaryActions: getVisibleContactOptions(profile.contactOptions).map(
+      (contact) => ({
+        kind: contact.kind,
+        label: contact.label,
+        value: contact.value,
+      }),
+    ),
     sections: buildProfileSections(profile),
     optionalLinks: buildProfileLinks(profile),
-    sponsorPlacement: cloneLocalSponsorPlacement(profile.sponsorPlacement),
-    sponsorDisclosure: profile.sponsorPlacement?.disclosure,
-    sponsorLogoUrl: profile.sponsorPlacement?.logoUrl,
-    sponsorImageUrl: profile.sponsorPlacement?.imageUrl,
+    sponsorPlacement: cloneLocalSponsorPlacement(sponsorPlacement),
+    sponsorDisclosure: sponsorPlacement?.disclosure,
+    sponsorLogoUrl: sponsorPlacement?.logoUrl,
+    sponsorImageUrl: sponsorPlacement?.imageUrl,
     reportAction: {
       label: "Reportar",
       providerId: profile.id,
@@ -297,6 +304,11 @@ function buildPresentationViewModel() {
 function buildProviderSummaryViewModel(
   provider: ResourceProviderSummary,
 ): ResourceProviderSummaryViewModel {
+  const sponsorPlacement = getLocalSponsorPlacementForSurface(
+    provider.sponsorPlacement,
+    "resources_directory",
+  );
+
   return {
     id: provider.id,
     name: provider.name,
@@ -309,18 +321,20 @@ function buildProviderSummaryViewModel(
         ? undefined
         : formatDistance(provider.distanceMeters),
     isVerified: provider.isVerified === true,
-    isSponsored: provider.sponsorPlacement !== undefined,
-    sponsorLabel: provider.sponsorPlacement?.label,
-    sponsorDisclosure: provider.sponsorPlacement?.disclosure,
-    sponsorPlacement: cloneLocalSponsorPlacement(provider.sponsorPlacement),
-    sponsorLogoUrl: provider.sponsorPlacement?.logoUrl,
-    sponsorImageUrl: provider.sponsorPlacement?.imageUrl,
+    isSponsored: sponsorPlacement !== undefined,
+    sponsorLabel: sponsorPlacement?.label,
+    sponsorDisclosure: sponsorPlacement?.disclosure,
+    sponsorPlacement: cloneLocalSponsorPlacement(sponsorPlacement),
+    sponsorLogoUrl: sponsorPlacement?.logoUrl,
+    sponsorImageUrl: sponsorPlacement?.imageUrl,
     availabilityLabel: provider.isOpenNow === true ? "Abierto" : undefined,
     emergencyLabel:
       provider.emergencyAvailable === true ? "Urgencias" : undefined,
     logoUrl: provider.logoUrl,
     photoUrl: provider.photoUrl,
-    contactLabels: provider.contactOptions.map((contact) => contact.label),
+    contactLabels: getVisibleContactOptions(provider.contactOptions).map(
+      (contact) => contact.label,
+    ),
   };
 }
 
@@ -332,7 +346,11 @@ function cloneLocalSponsorPlacement(
   }
 
   return {
-    ...placement,
+    kind: placement.kind,
+    label: placement.label,
+    disclosure: placement.disclosure,
+    logoUrl: placement.logoUrl,
+    imageUrl: placement.imageUrl,
     eligibleSurfaces: [...placement.eligibleSurfaces],
     safetyPolicy: {
       recoveryPriority: { ...placement.safetyPolicy.recoveryPriority },
@@ -357,16 +375,22 @@ function buildProfileSections(profile: ResourceProviderProfile) {
   }
 
   const locationRows: ResourceProviderProfileViewModel["sections"][number]["rows"] =
-    [
-      {
-        label: "Horario",
-        value: profile.hoursLabel,
-      },
-      {
-        label: "Ubicación",
-        value: profile.approximateLocationLabel,
-      },
-    ];
+    [];
+
+  if (
+    profile.hoursLabel !== undefined &&
+    profile.hoursLabel.trim().length > 0
+  ) {
+    locationRows.push({
+      label: "Horario",
+      value: profile.hoursLabel,
+    });
+  }
+
+  locationRows.push({
+    label: "Ubicación",
+    value: profile.approximateLocationLabel,
+  });
 
   locationRows.push({
     label: "Cobertura",
@@ -404,6 +428,15 @@ function buildProfileLinks(profile: ResourceProviderProfile) {
   }
 
   return links;
+}
+
+function getVisibleContactOptions(
+  contactOptions: readonly ResourceContactOption[],
+) {
+  return contactOptions.filter(
+    (contact) =>
+      contact.label.trim().length > 0 && contact.value.trim().length > 0,
+  );
 }
 
 function buildLocationViewModel(location: ResourceSearchLocation) {

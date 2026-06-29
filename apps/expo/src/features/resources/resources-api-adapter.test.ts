@@ -33,8 +33,7 @@ const apiProvider = {
   sponsorPlacement: {
     kind: "Local Sponsor Placement" as const,
     label: "Patrocinado",
-    disclosure:
-      "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+    disclosure: "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
     logoUrl: "https://example.com/sponsor-logo.png",
     imageUrl: "https://example.com/sponsor-banner.png",
     eligibleSurfaces: ["resources_directory" as const],
@@ -52,6 +51,11 @@ const apiProvider = {
 
 describe("createApiResourcesAdapter", () => {
   it("maps resolved Bolivia searches to the resources nearby API", async () => {
+    const sponsorPlacementWithAdminIds = {
+      ...apiProvider.sponsorPlacement,
+      imageAssetId: "33333333-3333-4333-8333-333333333333",
+      logoAssetId: "22222222-2222-4222-8222-222222222222",
+    } as unknown as typeof apiProvider.sponsorPlacement;
     const nearby = vi.fn().mockResolvedValue({
       generatedAt: "2026-07-15T12:00:00.000Z",
       query: {
@@ -65,6 +69,7 @@ describe("createApiResourcesAdapter", () => {
         {
           ...apiProvider,
           distanceMeters: 800,
+          sponsorPlacement: sponsorPlacementWithAdminIds,
         },
       ],
       searchBoundary: {
@@ -128,6 +133,8 @@ describe("createApiResourcesAdapter", () => {
       ],
     });
     expect(JSON.stringify(result)).not.toContain("exactLatitude");
+    expect(JSON.stringify(result)).not.toContain("logoAssetId");
+    expect(JSON.stringify(result)).not.toContain("imageAssetId");
   });
 
   it("does not call the API until the search location is resolved", async () => {
