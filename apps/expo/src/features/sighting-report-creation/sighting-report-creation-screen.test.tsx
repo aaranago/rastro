@@ -489,6 +489,22 @@ describe("SightingReportCreationScreen", () => {
 
     await getPressableOnPress(publishButton)();
 
+    expect(publishSightingReport).not.toHaveBeenCalled();
+
+    const confirmationScreen = renderScreen(
+      <SightingReportCreationScreen
+        onPublishSightingReport={publishSightingReport}
+      />,
+    );
+    const confirmPublishButton = findElement(
+      confirmationScreen,
+      (element) =>
+        element.type === "Pressable" &&
+        findText(element, "Confirmar y publicar"),
+    );
+
+    await getPressableOnPress(confirmPublishButton)();
+
     const publishedInput = publishSightingReport.mock.calls[0]?.[0] as
       | { idempotencyKey?: string }
       | undefined;
@@ -560,8 +576,30 @@ describe("SightingReportCreationScreen", () => {
         findText(element, "Publicar avistamiento"),
     );
 
+    await getPressableOnPress(publishButton)();
+
+    expect(publishSightingReport).not.toHaveBeenCalled();
+
+    const confirmationScreen = renderScreen(
+      <SightingReportCreationScreen
+        onDraftPublished={draftPublished}
+        onOpenPublishedReport={openPublishedReport}
+        onPublishSightingReport={publishSightingReport}
+        onSharePublishedReport={sharePublishedReport}
+      />,
+    );
+    const confirmPublishButton = findElement(
+      confirmationScreen,
+      (element) =>
+        element.type === "Pressable" &&
+        findText(element, "Confirmar y publicar"),
+    );
+
+    expect(findText(confirmationScreen, "Reporte de avistamiento")).toBe(true);
+    expect(findText(confirmationScreen, "Contacto")).toBe(true);
+
     const publishAttempt = getPressableOnPress(
-      publishButton,
+      confirmPublishButton,
     )() as Promise<void>;
     const pendingScreen = renderScreen(
       <SightingReportCreationScreen
@@ -662,9 +700,22 @@ describe("SightingReportCreationScreen", () => {
         findText(element, "Publicar avistamiento"),
     );
 
-    const pressPublish = getPressableOnPress(publishButton);
-    const firstAttempt = pressPublish() as Promise<void>;
-    const duplicateAttempt = pressPublish() as Promise<void>;
+    await getPressableOnPress(publishButton)();
+
+    const confirmationScreen = renderScreen(
+      <SightingReportCreationScreen
+        onPublishSightingReport={publishSightingReport}
+      />,
+    );
+    const confirmPublishButton = findElement(
+      confirmationScreen,
+      (element) =>
+        element.type === "Pressable" &&
+        findText(element, "Confirmar y publicar"),
+    );
+    const pressConfirm = getPressableOnPress(confirmPublishButton);
+    const firstAttempt = pressConfirm() as Promise<void>;
+    const duplicateAttempt = pressConfirm() as Promise<void>;
 
     await duplicateAttempt;
     expect(publishSightingReport).toHaveBeenCalledTimes(1);
@@ -750,6 +801,20 @@ describe("SightingReportCreationScreen", () => {
     );
 
     await getPressableOnPress(publishButton)();
+
+    const confirmationScreen = renderScreen(
+      <SightingReportCreationScreen
+        onPublishSightingReport={publishSightingReport}
+      />,
+    );
+    const confirmPublishButton = findElement(
+      confirmationScreen,
+      (element) =>
+        element.type === "Pressable" &&
+        findText(element, "Confirmar y publicar"),
+    );
+
+    await getPressableOnPress(confirmPublishButton)();
 
     const retryScreen = renderScreen(
       <SightingReportCreationScreen

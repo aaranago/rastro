@@ -6,7 +6,11 @@ import type { NearbyLocationAdapter } from "../nearby/nearby-location-adapter";
 import type { ReportMediaDraftSnapshot } from "../report-media";
 import type { LostReportDraft } from "./lost-report-creation-types";
 import { lostReportCreationFixtures } from "./lost-report-creation-fixtures";
-import { LostReportCreationScreen } from "./lost-report-creation-screen";
+import {
+  getSponsorPlacementReportFailureMessage,
+  getSponsorPlacementReportReceiptMessage,
+  LostReportCreationScreen,
+} from "./lost-report-creation-screen";
 import {
   createInitialLostReportDraft,
   createLostReportDraft,
@@ -197,6 +201,54 @@ vi.mock("../resilience/use-durable-creation-draft", () => ({
 vi.mock("../report-location-picker", () => ({
   ReportLocationPickerScreen: "ReportLocationPickerScreen",
 }));
+
+describe("lost report success sponsor reporting copy", () => {
+  it.each([
+    [
+      "created",
+      "Reporte enviado. Moderacion revisara este proveedor con la informacion recibida.",
+    ],
+    [
+      "already_reported",
+      "Ya recibimos tu reporte sobre este proveedor. Moderacion lo mantiene en revision.",
+    ],
+  ] as const)(
+    "maps %s receipts to backend-confirmed copy",
+    (status, message) => {
+      const receipt = {
+        moderationItem: {},
+        status,
+      } as Parameters<typeof getSponsorPlacementReportReceiptMessage>[0];
+
+      expect(getSponsorPlacementReportReceiptMessage(receipt)).toBe(message);
+    },
+  );
+
+  it.each([
+    [
+      { data: { code: "UNAUTHORIZED" } },
+      "Inicia sesion para reportar este proveedor.",
+    ],
+    [
+      { data: { code: "PRECONDITION_FAILED" }, message: "member suspended" },
+      "Tu cuenta esta suspendida y no puede reportar proveedores.",
+    ],
+    [
+      { data: { code: "BAD_REQUEST" } },
+      "No pudimos enviar el reporte porque el proveedor o el detalle no paso validacion.",
+    ],
+    [
+      { data: { code: "NOT_FOUND" } },
+      "No encontramos este proveedor para reportarlo.",
+    ],
+    [
+      new Error("backend unavailable"),
+      "No pudimos enviar el reporte del proveedor. Intenta de nuevo.",
+    ],
+  ])("maps backend failure %j to sponsor-report copy", (error, message) => {
+    expect(getSponsorPlacementReportFailureMessage(error)).toBe(message);
+  });
+});
 
 describe("LostReportCreationScreen", () => {
   beforeEach(() => {
@@ -647,6 +699,10 @@ describe("LostReportCreationScreen", () => {
     });
     const draftPublished = vi.fn();
     const openPublishedReport = vi.fn();
+    const reportSponsorPlacement = vi.fn().mockResolvedValue({
+      moderationItem: {},
+      status: "created",
+    });
     const sharePublishedReport = vi.fn();
 
     const screen = renderScreen(
@@ -654,6 +710,7 @@ describe("LostReportCreationScreen", () => {
         onDraftPublished={draftPublished}
         onOpenPublishedReport={openPublishedReport}
         onPublishLostReport={publishLostReport}
+        onReportSponsorPlacement={reportSponsorPlacement}
         onSharePublishedReport={sharePublishedReport}
         petProfiles={lostReportCreationFixtures.petProfiles}
       />,
@@ -666,11 +723,39 @@ describe("LostReportCreationScreen", () => {
 
     await getPressableOnPress(publishButton)();
 
+    expect(publishLostReport).not.toHaveBeenCalled();
+
+    const confirmationScreen = renderScreen(
+      <LostReportCreationScreen
+        onDraftPublished={draftPublished}
+        onOpenPublishedReport={openPublishedReport}
+        onPublishLostReport={publishLostReport}
+        onReportSponsorPlacement={reportSponsorPlacement}
+        onSharePublishedReport={sharePublishedReport}
+        petProfiles={lostReportCreationFixtures.petProfiles}
+      />,
+    );
+    const confirmPublishButton = findElement(
+      confirmationScreen,
+      (element) =>
+        element.type === "Pressable" &&
+        findText(element, "Confirmar y publicar"),
+    );
+
+    expect(findText(confirmationScreen, "Confirmar publicacion")).toBe(true);
+    expect(findText(confirmationScreen, "Reporte de mascota perdida")).toBe(
+      true,
+    );
+    expect(findText(confirmationScreen, "Ultima vez vista")).toBe(true);
+
+    await getPressableOnPress(confirmPublishButton)();
+
     const successScreen = renderScreen(
       <LostReportCreationScreen
         onDraftPublished={draftPublished}
         onOpenPublishedReport={openPublishedReport}
         onPublishLostReport={publishLostReport}
+        onReportSponsorPlacement={reportSponsorPlacement}
         onSharePublishedReport={sharePublishedReport}
         petProfiles={lostReportCreationFixtures.petProfiles}
       />,
@@ -685,9 +770,15 @@ describe("LostReportCreationScreen", () => {
       (element) =>
         element.type === "Pressable" && findText(element, "Ver reporte"),
     );
+    const sponsorReportButton = findElement(
+      successScreen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Reportar"),
+    );
 
     void getPressableOnPress(shareButton)();
     void getPressableOnPress(viewReportButton)();
+    await getPressableOnPress(sponsorReportButton)();
 
     expect(publishLostReport).toHaveBeenCalledTimes(1);
     expect(durableDraft.clearDraft).toHaveBeenCalledTimes(1);
@@ -700,6 +791,9 @@ describe("LostReportCreationScreen", () => {
       id: "report-lost-backend-1",
       status: "active",
     });
+    expect(reportSponsorPlacement).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+    );
     expect(findText(successScreen, "report-lost-backend-1")).toBe(false);
     expect(findText(successScreen, "active")).toBe(false);
   });

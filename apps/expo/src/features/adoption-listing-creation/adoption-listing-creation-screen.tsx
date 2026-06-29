@@ -47,6 +47,7 @@ import {
   ReportCreationLocationPreview,
   ReportCreationPhotoSection,
   ReportCreationProgressSteps,
+  ReportCreationPublishConfirmationModal,
   ReportCreationReviewPublishSection,
   ReportCreationScreenFrame,
   ReportCreationSection,
@@ -82,7 +83,7 @@ const editableStepIds = [
   "review",
 ] as const satisfies readonly ReportCreationJourneyStepId[];
 
-type PublishState = "editing" | "publishing" | "success";
+type PublishState = "confirming" | "editing" | "publishing" | "success";
 export interface AdoptionListingPublishConfirmation {
   id: string;
   status: string;
@@ -325,7 +326,24 @@ export function AdoptionListingCreationScreen({
     setDraft,
   });
 
-  const publish = React.useCallback(async () => {
+  const requestPublishConfirmation = React.useCallback(() => {
+    if (!viewModel.canPublish || publishState === "publishing") {
+      return;
+    }
+
+    setSubmitError(null);
+    setPublishState("confirming");
+  }, [publishState, viewModel.canPublish]);
+
+  const cancelPublishConfirmation = React.useCallback(() => {
+    if (publishState === "publishing") {
+      return;
+    }
+
+    setPublishState("editing");
+  }, [publishState]);
+
+  const confirmPublish = React.useCallback(async () => {
     if (!viewModel.canPublish || publishState === "publishing") {
       return;
     }
@@ -391,6 +409,21 @@ export function AdoptionListingCreationScreen({
   return (
     <AdoptionListingCreationEditor
       addPhoto={addPhoto}
+      confirmationOverlay={
+        publishState === "confirming" || publishState === "publishing" ? (
+          <ReportCreationPublishConfirmationModal
+            activityIndicatorColor={shellColors.white}
+            body="Al confirmar, Rastro enviara esta adopcion al backend. Si Review Mode esta activo quedara pendiente de revision; si no, se publicara."
+            canConfirm={viewModel.canPublish}
+            Icon={AdoptionListingCreationIcon}
+            onCancel={cancelPublishConfirmation}
+            onConfirm={confirmPublish}
+            publishState={toReportCreationPublishState(publishState)}
+            rows={buildAdoptionListingPublishConfirmationRows(viewModel)}
+            title="Confirmar publicacion"
+          />
+        ) : null
+      }
       draft={draft}
       draftPersistence={draftPersistence}
       draftRecovery={draftRecovery}
@@ -403,7 +436,7 @@ export function AdoptionListingCreationScreen({
       }}
       onPrevious={returnToPreviousStep}
       onResumeRecoveredDraft={resumeDraft}
-      publish={publish}
+      publish={requestPublishConfirmation}
       publishState={publishState}
       renderReportMediaManager={renderReportMediaManager}
       setDraft={setDraft}
@@ -438,6 +471,11 @@ function AdoptionListingCreationSuccess({
       onSharePublishedResult: onSharePublishedListing,
       publishedResult: publishedListing,
     });
+  const successCopy = getAdoptionListingSuccessCopy({
+    publishedListing,
+    viewModel,
+  });
+  const canShare = canSharePublishedResult && successCopy.canShare;
 
   return (
     <ReportCreationScreenFrame
@@ -453,19 +491,19 @@ function AdoptionListingCreationSuccess({
           />
         </View>
         <Text maxFontSizeMultiplier={1.2} style={styles.title}>
-          {viewModel.success.title}
+          {successCopy.title}
         </Text>
         <Text maxFontSizeMultiplier={1.25} style={styles.bodyText}>
-          {viewModel.success.body}
+          {successCopy.body}
         </Text>
       </View>
       <View style={styles.buttonRow}>
         <ReportCreationActionButton
           accentColor={adoptionAccent}
-          disabled={!canSharePublishedResult}
+          disabled={!canShare}
           Icon={AdoptionListingCreationIcon}
           icon="square.and.arrow.up"
-          label={viewModel.success.shareActionLabel}
+          label={successCopy.shareActionLabel}
           onPress={sharePublishedResult}
           primaryTextColor={shellColors.white}
           styles={styles}
@@ -475,7 +513,7 @@ function AdoptionListingCreationSuccess({
           accentColor={adoptionAccent}
           Icon={AdoptionListingCreationIcon}
           icon="heart.text.square.fill"
-          label={viewModel.success.primaryActionLabel}
+          label={successCopy.primaryActionLabel}
           onPress={openPublishedResult}
           primaryTextColor={shellColors.white}
           styles={styles}
@@ -485,8 +523,63 @@ function AdoptionListingCreationSuccess({
   );
 }
 
+function getAdoptionListingSuccessCopy({
+  publishedListing,
+  viewModel,
+}: {
+  publishedListing: AdoptionListingPublishConfirmation | null;
+  viewModel: AdoptionListingCreationViewModel;
+}) {
+  if (publishedListing?.status === "pending_review") {
+    return {
+      body: "Tu adopcion fue recibida y queda en Review Mode. El equipo la revisara antes de mostrarla publicamente.",
+      canShare: false,
+      primaryActionLabel: "Ver estado",
+      shareActionLabel: "Compartir",
+      title: "Adopcion enviada a revision",
+    };
+  }
+
+  return {
+    body: viewModel.success.body,
+    canShare: true,
+    primaryActionLabel: viewModel.success.primaryActionLabel,
+    shareActionLabel: viewModel.success.shareActionLabel,
+    title: viewModel.success.title,
+  };
+}
+
+function buildAdoptionListingPublishConfirmationRows(
+  viewModel: AdoptionListingCreationViewModel,
+) {
+  return [
+    {
+      label: "Tipo",
+      value: "Adopcion",
+    },
+    {
+      label: "Estado",
+      value: "Publica o pendiente de revision por Review Mode",
+    },
+    {
+      label: "Hora",
+      value: "Se registrara al confirmar",
+    },
+    ...viewModel.review.rows,
+  ];
+}
+
+function toReportCreationPublishState(
+  publishState: PublishState,
+): "editing" | "publishing" | "success" {
+  return publishState === "publishing" || publishState === "success"
+    ? publishState
+    : "editing";
+}
+
 function AdoptionListingCreationEditor({
   addPhoto,
+  confirmationOverlay,
   draft,
   draftPersistence,
   draftRecovery,
@@ -506,6 +599,7 @@ function AdoptionListingCreationEditor({
   viewModel,
 }: {
   addPhoto: () => void;
+  confirmationOverlay?: React.ReactNode;
   draft: AdoptionListingDraft;
   draftPersistence: DurableCreationDraftPersistence;
   draftRecovery: DurableCreationDraftRecovery<"adoption-listing">;
@@ -554,6 +648,7 @@ function AdoptionListingCreationEditor({
           />
         ) : undefined
       }
+      overlay={confirmationOverlay}
       scrollViewRef={scrollViewRef}
       style={styles.screen}
     >
@@ -743,7 +838,7 @@ function CurrentStepContent({
           Icon={AdoptionListingCreationIcon}
           onPublish={publish}
           publishActionLabel={viewModel.review.publishActionLabel}
-          publishState={publishState}
+          publishState={toReportCreationPublishState(publishState)}
           rows={viewModel.review.rows}
           styles={styles}
           submitError={submitError}

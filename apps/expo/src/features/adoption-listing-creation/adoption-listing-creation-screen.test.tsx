@@ -500,6 +500,35 @@ describe("AdoptionListingCreationScreen", () => {
 
     await getPressableOnPress(publishButton)();
 
+    expect(publishAdoptionListing).not.toHaveBeenCalled();
+
+    const confirmationScreen = renderScreen(
+      <AdoptionListingCreationScreen
+        onDraftPublished={draftPublished}
+        onOpenPublishedListing={openPublishedListing}
+        onPublishAdoptionListing={publishAdoptionListing}
+        onSharePublishedListing={sharePublishedListing}
+        petProfiles={adoptionListingCreationFixtures.petProfiles}
+      />,
+    );
+    const confirmPublishButton = findElement(
+      confirmationScreen,
+      (element) =>
+        element.type === "Pressable" &&
+        findText(element, "Confirmar y publicar"),
+    );
+
+    expect(findText(confirmationScreen, "Confirmar publicacion")).toBe(true);
+    expect(findText(confirmationScreen, "Adopcion")).toBe(true);
+    expect(
+      findText(
+        confirmationScreen,
+        "Publica o pendiente de revision por Review Mode",
+      ),
+    ).toBe(true);
+
+    await getPressableOnPress(confirmPublishButton)();
+
     const successScreen = renderScreen(
       <AdoptionListingCreationScreen
         onDraftPublished={draftPublished}
@@ -536,6 +565,86 @@ describe("AdoptionListingCreationScreen", () => {
     });
     expect(findText(successScreen, "report-adoption-backend-1")).toBe(false);
     expect(findText(successScreen, "active")).toBe(false);
+  });
+
+  it("shows Review Mode copy and disables sharing when adoption publish returns pending review", async () => {
+    durableDraft.draft = createReadyDraft();
+    const publishAdoptionListing = vi.fn().mockResolvedValue({
+      id: "report-adoption-backend-2",
+      status: "pending_review",
+    });
+    const draftPublished = vi.fn();
+    const openPublishedListing = vi.fn();
+    const sharePublishedListing = vi.fn();
+
+    const screen = renderScreen(
+      <AdoptionListingCreationScreen
+        onDraftPublished={draftPublished}
+        onOpenPublishedListing={openPublishedListing}
+        onPublishAdoptionListing={publishAdoptionListing}
+        onSharePublishedListing={sharePublishedListing}
+        petProfiles={adoptionListingCreationFixtures.petProfiles}
+      />,
+    );
+    const publishButton = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Publicar adopcion"),
+    );
+
+    await getPressableOnPress(publishButton)();
+
+    const confirmationScreen = renderScreen(
+      <AdoptionListingCreationScreen
+        onDraftPublished={draftPublished}
+        onOpenPublishedListing={openPublishedListing}
+        onPublishAdoptionListing={publishAdoptionListing}
+        onSharePublishedListing={sharePublishedListing}
+        petProfiles={adoptionListingCreationFixtures.petProfiles}
+      />,
+    );
+    const confirmPublishButton = findElement(
+      confirmationScreen,
+      (element) =>
+        element.type === "Pressable" &&
+        findText(element, "Confirmar y publicar"),
+    );
+
+    await getPressableOnPress(confirmPublishButton)();
+
+    const successScreen = renderScreen(
+      <AdoptionListingCreationScreen
+        onDraftPublished={draftPublished}
+        onOpenPublishedListing={openPublishedListing}
+        onPublishAdoptionListing={publishAdoptionListing}
+        onSharePublishedListing={sharePublishedListing}
+        petProfiles={adoptionListingCreationFixtures.petProfiles}
+      />,
+    );
+    const shareButton = findElement(
+      successScreen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Compartir"),
+    );
+    const statusButton = findElement(
+      successScreen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Ver estado"),
+    );
+
+    void getPressableOnPress(statusButton)();
+
+    expect(publishAdoptionListing).toHaveBeenCalledTimes(1);
+    expect(durableDraft.clearDraft).toHaveBeenCalledTimes(1);
+    expect(draftPublished).toHaveBeenCalledTimes(1);
+    expect(findText(successScreen, "Adopcion enviada a revision")).toBe(true);
+    expect(findText(successScreen, "Review Mode")).toBe(true);
+    expect(shareButton?.props.disabled).toBe(true);
+    expect(sharePublishedListing).not.toHaveBeenCalled();
+    expect(openPublishedListing).toHaveBeenCalledWith({
+      id: "report-adoption-backend-2",
+      status: "pending_review",
+    });
   });
 
   it("lets people go back from review before publishing", () => {

@@ -19,6 +19,7 @@ import type {
   DurableCreationDraftPersistence,
   DurableCreationDraftRecovery,
 } from "../resilience/use-durable-creation-draft";
+import type { ResourceProviderReportReceipt } from "../resources";
 import type {
   LostReportDraft,
   LostReportPetProfileOption,
@@ -46,6 +47,7 @@ import {
   ReportCreationInlinePetTypeRow,
   ReportCreationLocationPreview,
   ReportCreationProgressSteps,
+  ReportCreationPublishConfirmationModal,
   ReportCreationReviewPublishSection,
   ReportCreationScreenFrame,
   ReportCreationSection,
@@ -97,7 +99,12 @@ export interface LostReportCreationScreenProps {
     | LostReportPublishConfirmation
     | Promise<LostReportPublishConfirmation | void>
     | void;
-  onReportSponsorPlacement?: (sponsorPlacementId: string) => void;
+  onReportSponsorPlacement?: (
+    sponsorPlacementId: string,
+  ) =>
+    | Promise<ResourceProviderReportReceipt | void>
+    | ResourceProviderReportReceipt
+    | void;
   onSharePublishedReport?: (
     confirmation: LostReportPublishConfirmation,
   ) => Promise<void> | void;
@@ -114,7 +121,7 @@ export interface LostReportCreationScreenProps {
   }) => React.ReactNode;
 }
 
-type PublishState = "editing" | "publishing" | "success";
+type PublishState = "confirming" | "editing" | "publishing" | "success";
 export interface LostReportPublishConfirmation {
   id: string;
   status: string;
@@ -257,7 +264,24 @@ export function LostReportCreationScreen({
     setDraft,
   });
 
-  const publish = React.useCallback(async () => {
+  const requestPublishConfirmation = React.useCallback(() => {
+    if (!viewModel.canPublish || publishState === "publishing") {
+      return;
+    }
+
+    setSubmitError(null);
+    setPublishState("confirming");
+  }, [publishState, viewModel.canPublish]);
+
+  const cancelPublishConfirmation = React.useCallback(() => {
+    if (publishState === "publishing") {
+      return;
+    }
+
+    setPublishState("editing");
+  }, [publishState]);
+
+  const confirmPublish = React.useCallback(async () => {
     if (!viewModel.canPublish || publishState === "publishing") {
       return;
     }
@@ -296,7 +320,7 @@ export function LostReportCreationScreen({
     onPublishLostReport,
     petProfiles,
     publishState,
-    viewModel,
+    viewModel.canPublish,
   ]);
 
   if (isLocationPickerVisible && locationAdapter) {
@@ -328,6 +352,21 @@ export function LostReportCreationScreen({
   return (
     <LostReportCreationEditor
       addPhoto={addPhoto}
+      confirmationOverlay={
+        publishState === "confirming" || publishState === "publishing" ? (
+          <ReportCreationPublishConfirmationModal
+            activityIndicatorColor={shellColors.white}
+            body="Al confirmar, Rastro creara un reporte publico de mascota perdida con la zona y contacto que revisaste."
+            canConfirm={viewModel.canPublish}
+            Icon={ReportCreationIcon}
+            onCancel={cancelPublishConfirmation}
+            onConfirm={confirmPublish}
+            publishState={toReportCreationPublishState(publishState)}
+            rows={buildLostReportPublishConfirmationRows(viewModel)}
+            title="Confirmar publicacion"
+          />
+        ) : null
+      }
       draft={draft}
       draftPersistence={draftPersistence}
       draftRecovery={draftRecovery}
@@ -336,7 +375,7 @@ export function LostReportCreationScreen({
       onClose={onClose}
       onResumeRecoveredDraft={resumeDraft}
       petProfiles={petProfiles}
-      publish={publish}
+      publish={requestPublishConfirmation}
       publishState={publishState}
       renderReportMediaManager={renderReportMediaManager}
       setDraft={setDraft}
@@ -361,7 +400,12 @@ function LostReportCreationSuccess({
   onClose?: () => void;
   onOpenPublishedReport?: (confirmation: LostReportPublishConfirmation) => void;
   onOpenSponsorPlacement?: (sponsorPlacementId: string) => void;
-  onReportSponsorPlacement?: (sponsorPlacementId: string) => void;
+  onReportSponsorPlacement?: (
+    sponsorPlacementId: string,
+  ) =>
+    | Promise<ResourceProviderReportReceipt | void>
+    | ResourceProviderReportReceipt
+    | void;
   onSharePublishedReport?: (
     confirmation: LostReportPublishConfirmation,
   ) => Promise<void> | void;
@@ -428,17 +472,63 @@ function SuccessSponsorPlacement({
   placement,
 }: {
   onOpen?: (sponsorPlacementId: string) => void;
-  onReport?: (sponsorPlacementId: string) => void;
+  onReport?: (
+    sponsorPlacementId: string,
+  ) =>
+    | Promise<ResourceProviderReportReceipt | void>
+    | ResourceProviderReportReceipt
+    | void;
   placement: NonNullable<
     LostReportCreationViewModel["success"]["localSponsorPlacement"]
   >;
 }) {
+  const [reportState, setReportState] =
+    React.useState<SponsorPlacementReportState>({ kind: "idle" });
   const openPlacement = React.useCallback(() => {
     onOpen?.(placement.id);
   }, [onOpen, placement.id]);
-  const reportPlacement = React.useCallback(() => {
-    onReport?.(placement.id);
-  }, [onReport, placement.id]);
+  const reportPlacement = React.useCallback(async () => {
+    if (reportState.kind === "reporting") {
+      return;
+    }
+
+    if (!onReport) {
+      setReportState({
+        kind: "error",
+        message:
+          "No pudimos confirmar el reporte del proveedor. Intenta de nuevo.",
+      });
+      return;
+    }
+
+    setReportState({
+      kind: "reporting",
+      message: "Enviando reporte a moderacion.",
+    });
+
+    try {
+      const receipt = await onReport(placement.id);
+
+      if (!receipt) {
+        setReportState({
+          kind: "error",
+          message:
+            "No pudimos confirmar el reporte del proveedor. Intenta de nuevo.",
+        });
+        return;
+      }
+
+      setReportState({
+        kind: "reported",
+        message: getSponsorPlacementReportReceiptMessage(receipt),
+      });
+    } catch (error) {
+      setReportState({
+        kind: "error",
+        message: getSponsorPlacementReportFailureMessage(error),
+      });
+    }
+  }, [onReport, placement.id, reportState.kind]);
 
   return (
     <View style={styles.sponsorPlacement}>
@@ -467,6 +557,26 @@ function SuccessSponsorPlacement({
         </View>
       </View>
       <View style={styles.sponsorCopy}>
+        {placement.logoUrl || placement.imageUrl ? (
+          <View style={styles.sponsorMediaRow}>
+            {placement.logoUrl ? (
+              <Image
+                accessibilityLabel={`Logo de ${placement.name}`}
+                contentFit="cover"
+                source={{ uri: placement.logoUrl }}
+                style={styles.sponsorLogoImage}
+              />
+            ) : null}
+            {placement.imageUrl ? (
+              <Image
+                accessibilityLabel={`Imagen de ${placement.name}`}
+                contentFit="cover"
+                source={{ uri: placement.imageUrl }}
+                style={styles.sponsorBannerImage}
+              />
+            ) : null}
+          </View>
+        ) : null}
         <Text maxFontSizeMultiplier={1.15} style={styles.sponsorName}>
           {placement.name}
         </Text>
@@ -506,20 +616,151 @@ function SuccessSponsorPlacement({
         <Pressable
           accessibilityLabel={`${placement.reportActionLabel} ${placement.name}`}
           accessibilityRole="button"
+          accessibilityState={{
+            busy: reportState.kind === "reporting",
+            disabled: reportState.kind === "reporting",
+          }}
+          disabled={reportState.kind === "reporting"}
           onPress={reportPlacement}
           style={styles.sponsorReportAction}
         >
           <Text maxFontSizeMultiplier={1.1} style={styles.sponsorReportText}>
-            {placement.reportActionLabel}
+            {reportState.kind === "reporting"
+              ? "Enviando"
+              : placement.reportActionLabel}
           </Text>
         </Pressable>
       </View>
+      {reportState.kind === "idle" ? null : (
+        <View
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+          style={[
+            styles.sponsorReportFeedback,
+            reportState.kind === "error"
+              ? styles.sponsorReportFeedbackError
+              : null,
+          ]}
+        >
+          <Text
+            maxFontSizeMultiplier={1.1}
+            style={styles.sponsorReportFeedbackText}
+          >
+            {reportState.message}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
 
+type SponsorPlacementReportState =
+  | { kind: "idle" }
+  | { kind: "reporting"; message: string }
+  | { kind: "reported"; message: string }
+  | { kind: "error"; message: string };
+
+export function getSponsorPlacementReportReceiptMessage(
+  receipt: ResourceProviderReportReceipt,
+) {
+  if (receipt.status === "already_reported") {
+    return "Ya recibimos tu reporte sobre este proveedor. Moderacion lo mantiene en revision.";
+  }
+
+  return "Reporte enviado. Moderacion revisara este proveedor con la informacion recibida.";
+}
+
+export function getSponsorPlacementReportFailureMessage(error: unknown) {
+  const code = getSponsorPlacementReportErrorCode(error);
+  const message = getSponsorPlacementReportErrorMessage(error).toLowerCase();
+
+  if (code === "UNAUTHORIZED") {
+    return "Inicia sesion para reportar este proveedor.";
+  }
+
+  if (
+    code === "PRECONDITION_FAILED" &&
+    (message.includes("suspend") || message.includes("suspendido"))
+  ) {
+    return "Tu cuenta esta suspendida y no puede reportar proveedores.";
+  }
+
+  if (code === "BAD_REQUEST") {
+    return "No pudimos enviar el reporte porque el proveedor o el detalle no paso validacion.";
+  }
+
+  if (code === "NOT_FOUND") {
+    return "No encontramos este proveedor para reportarlo.";
+  }
+
+  return "No pudimos enviar el reporte del proveedor. Intenta de nuevo.";
+}
+
+function getSponsorPlacementReportErrorCode(
+  error: unknown,
+): string | undefined {
+  if (!isRecord(error)) {
+    return undefined;
+  }
+
+  if (typeof error.code === "string") {
+    return error.code;
+  }
+
+  if (isRecord(error.data) && typeof error.data.code === "string") {
+    return error.data.code;
+  }
+
+  return getSponsorPlacementReportErrorCode(error.cause);
+}
+
+function getSponsorPlacementReportErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  if (isRecord(error) && typeof error.message === "string") {
+    return error.message;
+  }
+
+  return "";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function buildLostReportPublishConfirmationRows(
+  viewModel: LostReportCreationViewModel,
+) {
+  return [
+    {
+      label: "Tipo",
+      value: "Reporte de mascota perdida",
+    },
+    {
+      label: "Estado",
+      value: "Publico activo despues de confirmar",
+    },
+    ...viewModel.review.rows,
+  ];
+}
+
+function toReportCreationPublishState(
+  publishState: PublishState,
+): "editing" | "publishing" | "success" {
+  return publishState === "publishing" || publishState === "success"
+    ? publishState
+    : "editing";
+}
+
 function LostReportCreationEditor({
   addPhoto,
+  confirmationOverlay,
   draft,
   draftPersistence,
   draftRecovery,
@@ -539,6 +780,7 @@ function LostReportCreationEditor({
   viewModel,
 }: {
   addPhoto: () => void;
+  confirmationOverlay?: React.ReactNode;
   draft: LostReportDraft;
   draftPersistence: DurableCreationDraftPersistence;
   draftRecovery: DurableCreationDraftRecovery<"lost-report">;
@@ -659,6 +901,7 @@ function LostReportCreationEditor({
           />
         ) : undefined
       }
+      overlay={confirmationOverlay}
       scrollViewRef={scrollViewRef}
       style={styles.screen}
     >
@@ -1204,7 +1447,7 @@ function ReviewPublishSection({
       Icon={ReportCreationIcon}
       onPublish={publish}
       publishActionLabel={viewModel.review.publishActionLabel}
-      publishState={publishState}
+      publishState={toReportCreationPublishState(publishState)}
       rows={viewModel.review.rows}
       styles={styles}
       submitError={submitError}
@@ -1862,6 +2105,12 @@ const styles = StyleSheet.create({
   sponsorCopy: {
     gap: 4,
   },
+  sponsorBannerImage: {
+    backgroundColor: shellColors.surfaceMuted,
+    borderRadius: 8,
+    flex: 1,
+    height: 64,
+  },
   sponsorDisclosure: {
     color: shellColors.muted,
     fontSize: 12,
@@ -1886,6 +2135,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 6,
+  },
+  sponsorLogoImage: {
+    backgroundColor: shellColors.surfaceMuted,
+    borderRadius: 8,
+    height: 64,
+    width: 64,
+  },
+  sponsorMediaRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 6,
   },
   sponsorName: {
     color: shellColors.text,
@@ -1915,9 +2175,27 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   sponsorReportAction: {
-    minHeight: 36,
     justifyContent: "center",
+    minHeight: 36,
     paddingHorizontal: 6,
+  },
+  sponsorReportFeedback: {
+    backgroundColor: "#EEF8F3",
+    borderColor: "#8EC9A8",
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  sponsorReportFeedbackError: {
+    backgroundColor: "#FFF2F1",
+    borderColor: "#E3A19C",
+  },
+  sponsorReportFeedbackText: {
+    color: shellColors.primaryDark,
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 17,
   },
   sponsorReportText: {
     color: shellColors.muted,

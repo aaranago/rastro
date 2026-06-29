@@ -47,6 +47,7 @@ import {
   ReportCreationPetSnapshotSection,
   ReportCreationPhotoSection,
   ReportCreationProgressSteps,
+  ReportCreationPublishConfirmationModal,
   ReportCreationReviewPublishSection,
   ReportCreationScreenFrame,
   ReportCreationSection,
@@ -75,7 +76,7 @@ const errorAccent = "#D6453D";
 const sightingAccent = shellColors.sighting;
 const sightingAccentSoft = "#E6F0F7";
 
-type PublishState = "editing" | "publishing" | "success";
+type PublishState = "confirming" | "editing" | "publishing" | "success";
 type SightingReportCreationViewModel = ReturnType<
   typeof buildSightingReportCreationViewModel
 >;
@@ -284,7 +285,24 @@ export function SightingReportCreationScreen({
     [setDraft],
   );
 
-  const publish = React.useCallback(async () => {
+  const requestPublishConfirmation = React.useCallback(() => {
+    if (!viewModel.canPublish || publishState === "publishing") {
+      return;
+    }
+
+    setSubmitError(null);
+    setPublishState("confirming");
+  }, [publishState, viewModel.canPublish]);
+
+  const cancelPublishConfirmation = React.useCallback(() => {
+    if (publishState === "publishing") {
+      return;
+    }
+
+    setPublishState("editing");
+  }, [publishState]);
+
+  const confirmPublish = React.useCallback(async () => {
     if (!viewModel.canPublish || publishState === "publishing") {
       return;
     }
@@ -375,6 +393,21 @@ export function SightingReportCreationScreen({
   return (
     <SightingReportCreationEditor
       addPhoto={addPhoto}
+      confirmationOverlay={
+        publishState === "confirming" || publishState === "publishing" ? (
+          <ReportCreationPublishConfirmationModal
+            activityIndicatorColor={shellColors.white}
+            body="Al confirmar, Rastro creara un reporte publico de avistamiento con la zona, hora y contacto que revisaste."
+            canConfirm={viewModel.canPublish}
+            Icon={SightingReportCreationIcon}
+            onCancel={cancelPublishConfirmation}
+            onConfirm={confirmPublish}
+            publishState={toReportCreationPublishState(publishState)}
+            rows={buildSightingReportPublishConfirmationRows(viewModel)}
+            title="Confirmar publicacion"
+          />
+        ) : null
+      }
       draft={draft}
       draftPersistence={draftPersistence}
       draftRecovery={draftRecovery}
@@ -383,7 +416,7 @@ export function SightingReportCreationScreen({
       onClose={onClose}
       onDiscardRecoveredDraft={discardDraft}
       onResumeRecoveredDraft={resumeDraft}
-      publish={publish}
+      publish={requestPublishConfirmation}
       publishState={publishState}
       renderReportMediaManager={renderReportMediaManager}
       setDraft={setDraft}
@@ -394,6 +427,30 @@ export function SightingReportCreationScreen({
       viewModel={viewModel}
     />
   );
+}
+
+function buildSightingReportPublishConfirmationRows(
+  viewModel: SightingReportCreationViewModel,
+) {
+  return [
+    {
+      label: "Tipo",
+      value: "Reporte de avistamiento",
+    },
+    {
+      label: "Estado",
+      value: "Publico activo despues de confirmar",
+    },
+    ...viewModel.review.rows,
+  ];
+}
+
+function toReportCreationPublishState(
+  publishState: PublishState,
+): "editing" | "publishing" | "success" {
+  return publishState === "publishing" || publishState === "success"
+    ? publishState
+    : "editing";
 }
 
 function SightingReportVisitorHandoff({
@@ -524,6 +581,7 @@ function SightingReportCreationSuccess({
 
 function SightingReportCreationEditor({
   addPhoto,
+  confirmationOverlay,
   draft,
   draftPersistence,
   draftRecovery,
@@ -543,6 +601,7 @@ function SightingReportCreationEditor({
   viewModel,
 }: {
   addPhoto: () => void;
+  confirmationOverlay?: React.ReactNode;
   draft: SightingReportDraft;
   draftPersistence: DurableCreationDraftPersistence;
   draftRecovery: DurableCreationDraftRecovery<"sighting-report">;
@@ -660,6 +719,7 @@ function SightingReportCreationEditor({
           />
         ) : undefined
       }
+      overlay={confirmationOverlay}
       scrollViewRef={scrollViewRef}
       style={styles.screen}
     >
@@ -1110,7 +1170,7 @@ function ReviewPublishSection({
       Icon={SightingReportCreationIcon}
       onPublish={publish}
       publishActionLabel={viewModel.review.publishActionLabel}
-      publishState={publishState}
+      publishState={toReportCreationPublishState(publishState)}
       rows={viewModel.review.rows}
       styles={styles}
       submitError={submitError}

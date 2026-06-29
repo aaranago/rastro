@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { PetProfileSummary } from "../pet-profiles/pet-profile-types";
+import type { LostReportSuccessLocalSponsorPlacement } from "./lost-report-creation-view-model";
 import {
   buildLostReportCreationViewModel,
   createInitialLostReportDraft,
@@ -582,6 +583,10 @@ describe("Lost Pet Report creation view model", () => {
     expect(viewModel.success.localSponsorPlacement).toMatchObject({
       actionLabel: "Ver recurso",
       categoryLabel: "Veterinaria",
+      eligibleSurfaces: ["report_success", "contextual_care_resources"],
+      id: "11111111-1111-4111-8111-111111111111",
+      imageUrl: "https://example.com/sponsor-san-roque-banner.png",
+      logoUrl: "https://example.com/sponsor-san-roque-logo.png",
       paidDisclosure: "Colocacion pagada",
       reportActionLabel: "Reportar",
       sponsorLabel: "Patrocinado",
@@ -606,8 +611,41 @@ describe("Lost Pet Report creation view model", () => {
       "push",
       "ranking",
       "urgente",
+      "admin",
+      "objectkey",
+      "private",
     ]) {
       expect(renderedCopy).not.toContain(forbiddenCopy);
     }
+  });
+
+  it("hides success sponsor placements that are not eligible for report success", () => {
+    const draft = createInitialLostReportDraft({ petProfiles: profiles });
+    const placement = {
+      actionLabel: "Ver recurso",
+      adminMediaAssetId: "admin-only-media",
+      body: "Atencion local para primeros cuidados.",
+      categoryLabel: "Veterinaria",
+      eligibleSurfaces: ["resources_directory"],
+      id: "22222222-2222-4222-8222-222222222222",
+      imageObjectKey: "private/banner.jpg",
+      name: "Clinica de prueba",
+      paidDisclosure: "Colocacion pagada",
+      recoveryPriorityDisclosure:
+        "No cambia la prioridad de tu reporte ni donde aparece.",
+      reportActionLabel: "Reportar",
+      sponsorLabel: "Patrocinado",
+      title: "Recurso local cercano",
+    } as unknown as LostReportSuccessLocalSponsorPlacement;
+
+    const viewModel = buildLostReportCreationViewModel({
+      draft,
+      petProfiles: profiles,
+      session: { kind: "member", memberId: "member-camila" },
+      successSponsorPlacement: placement,
+      successSponsorSurface: "report_success",
+    });
+
+    expect(viewModel.success.localSponsorPlacement).toBeUndefined();
   });
 });

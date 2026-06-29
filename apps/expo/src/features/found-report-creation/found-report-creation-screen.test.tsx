@@ -574,6 +574,31 @@ describe("FoundReportCreationScreen", () => {
 
     await getPressableOnPress(publishButton)();
 
+    expect(publishFoundReport).not.toHaveBeenCalled();
+
+    const confirmationScreen = renderScreen(
+      <FoundReportCreationScreen
+        onDraftPublished={draftPublished}
+        onOpenPublishedReport={openPublishedReport}
+        onPublishFoundReport={publishFoundReport}
+        onSharePublishedReport={sharePublishedReport}
+      />,
+    );
+    const confirmPublishButton = findElement(
+      confirmationScreen,
+      (element) =>
+        element.type === "Pressable" &&
+        findText(element, "Confirmar y publicar"),
+    );
+
+    expect(findText(confirmationScreen, "Confirmar publicacion")).toBe(true);
+    expect(findText(confirmationScreen, "Reporte de mascota encontrada")).toBe(
+      true,
+    );
+    expect(findText(confirmationScreen, "Contacto")).toBe(true);
+
+    await getPressableOnPress(confirmPublishButton)();
+
     const successScreen = renderScreen(
       <FoundReportCreationScreen
         onDraftPublished={draftPublished}
@@ -722,7 +747,7 @@ function createReadyDraft() {
     foundDetails: {
       condition: "Tranquila y con collar rojo.",
       description: "Gata joven encontrada esperando junto al jardin.",
-      foundAtLabel: "Hoy, hace 20 min",
+      foundAtLabel: "2026-06-18T10:15:00.000Z",
     },
     pet: {
       breed: "Mestiza",
@@ -744,7 +769,7 @@ function createLocationReadyDraftWithoutLocation() {
     foundDetails: {
       condition: "Tranquila y con collar rojo.",
       description: "Gata joven encontrada esperando junto al jardin.",
-      foundAtLabel: "Hoy, hace 20 min",
+      foundAtLabel: "2026-06-18T10:15:00.000Z",
     },
     pet: {
       breed: "Mestiza",

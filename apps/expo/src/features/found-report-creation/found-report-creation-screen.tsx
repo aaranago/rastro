@@ -38,6 +38,7 @@ import {
   ReportCreationPetSnapshotSection,
   ReportCreationPhotoSection,
   ReportCreationProgressSteps,
+  ReportCreationPublishConfirmationModal,
   ReportCreationReviewPublishSection,
   ReportCreationScreenFrame,
   ReportCreationSection,
@@ -72,7 +73,7 @@ const foundReportEditorStepIds = [
   "review",
 ] as const satisfies readonly ReportCreationJourneyStepId[];
 
-type PublishState = "editing" | "publishing" | "success";
+type PublishState = "confirming" | "editing" | "publishing" | "success";
 export interface FoundReportPublishConfirmation {
   id: string;
   status: string;
@@ -236,7 +237,24 @@ export function FoundReportCreationScreen({
     [setDraft],
   );
 
-  const publish = React.useCallback(async () => {
+  const requestPublishConfirmation = React.useCallback(() => {
+    if (!quietViewModel.canPublish || publishState === "publishing") {
+      return;
+    }
+
+    setSubmitError(null);
+    setPublishState("confirming");
+  }, [publishState, quietViewModel.canPublish]);
+
+  const cancelPublishConfirmation = React.useCallback(() => {
+    if (publishState === "publishing") {
+      return;
+    }
+
+    setPublishState("editing");
+  }, [publishState]);
+
+  const confirmPublish = React.useCallback(async () => {
     if (!quietViewModel.canPublish || publishState === "publishing") {
       return;
     }
@@ -311,6 +329,21 @@ export function FoundReportCreationScreen({
   return (
     <FoundReportCreationEditor
       addPhoto={addPhoto}
+      confirmationOverlay={
+        publishState === "confirming" || publishState === "publishing" ? (
+          <ReportCreationPublishConfirmationModal
+            activityIndicatorColor={shellColors.white}
+            body="Al confirmar, Rastro creara un reporte publico de mascota encontrada con la zona y contacto que revisaste."
+            canConfirm={quietViewModel.canPublish}
+            Icon={FoundReportCreationIcon}
+            onCancel={cancelPublishConfirmation}
+            onConfirm={confirmPublish}
+            publishState={toReportCreationPublishState(publishState)}
+            rows={buildFoundReportPublishConfirmationRows(quietViewModel)}
+            title="Confirmar publicacion"
+          />
+        ) : null
+      }
       draft={draft}
       draftPersistence={draftPersistence}
       draftRecovery={draftRecovery}
@@ -318,7 +351,7 @@ export function FoundReportCreationScreen({
       onClose={onClose}
       onDiscardRecoveredDraft={discardDraft}
       onResumeRecoveredDraft={resumeDraft}
-      publish={publish}
+      publish={requestPublishConfirmation}
       publishState={publishState}
       renderReportMediaManager={renderReportMediaManager}
       restoredDraftResetToken={
@@ -331,6 +364,30 @@ export function FoundReportCreationScreen({
       submitError={submitError}
     />
   );
+}
+
+function buildFoundReportPublishConfirmationRows(
+  viewModel: FoundReportCreationViewModel,
+) {
+  return [
+    {
+      label: "Tipo",
+      value: "Reporte de mascota encontrada",
+    },
+    {
+      label: "Estado",
+      value: "Publico activo despues de confirmar",
+    },
+    ...viewModel.review.rows,
+  ];
+}
+
+function toReportCreationPublishState(
+  publishState: PublishState,
+): "editing" | "publishing" | "success" {
+  return publishState === "publishing" || publishState === "success"
+    ? publishState
+    : "editing";
 }
 
 function FoundReportVisitorHandoff({
@@ -461,6 +518,7 @@ function FoundReportCreationSuccess({
 
 function FoundReportCreationEditor({
   addPhoto,
+  confirmationOverlay,
   draft,
   draftPersistence,
   draftRecovery,
@@ -477,6 +535,7 @@ function FoundReportCreationEditor({
   submitError,
 }: {
   addPhoto: () => void;
+  confirmationOverlay?: React.ReactNode;
   draft: FoundReportDraft;
   draftPersistence: DurableCreationDraftPersistence;
   draftRecovery: DurableCreationDraftRecovery<"found-report">;
@@ -607,6 +666,7 @@ function FoundReportCreationEditor({
           />
         ) : undefined
       }
+      overlay={confirmationOverlay}
       scrollViewRef={scrollRef}
       style={styles.screen}
     >
@@ -1034,7 +1094,7 @@ function ReviewPublishSection({
       Icon={FoundReportCreationIcon}
       onPublish={publish}
       publishActionLabel={viewModel.review.publishActionLabel}
-      publishState={publishState}
+      publishState={toReportCreationPublishState(publishState)}
       rows={viewModel.review.rows}
       styles={styles}
       submitError={submitError}

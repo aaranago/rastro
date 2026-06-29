@@ -118,12 +118,14 @@ export function ReportCreationScreenFrame({
   children,
   contentContainerStyle,
   footer,
+  overlay,
   scrollViewRef,
   style,
 }: {
   children: ReactNode;
   contentContainerStyle: StyleProp<ViewStyle>;
   footer?: ReactNode;
+  overlay?: ReactNode;
   scrollViewRef?: React.Ref<React.ComponentRef<typeof ScrollView>>;
   style: StyleProp<ViewStyle>;
 }) {
@@ -169,6 +171,7 @@ export function ReportCreationScreenFrame({
           {footer}
         </View>
       ) : null}
+      {overlay}
     </KeyboardAvoidingView>
   );
 }
@@ -1855,6 +1858,137 @@ export function ReportCreationReviewPublishSection({
   );
 }
 
+export function ReportCreationPublishConfirmationModal({
+  activityIndicatorColor,
+  body,
+  canConfirm,
+  confirmActionLabel = "Confirmar y publicar",
+  Icon,
+  onCancel,
+  onConfirm,
+  publishState,
+  rows,
+  title,
+}: {
+  activityIndicatorColor: string;
+  body: string;
+  canConfirm: boolean;
+  confirmActionLabel?: string;
+  Icon: ReportCreationIconComponent;
+  onCancel: () => void;
+  onConfirm: () => void;
+  publishState: ReportCreationPublishState;
+  rows: ReportCreationReviewRow[];
+  title: string;
+}) {
+  const isPublishing = publishState === "publishing";
+  const isConfirmDisabled = !canConfirm || isPublishing;
+
+  return (
+    <View
+      accessibilityLabel={title}
+      accessibilityRole="alert"
+      style={publishConfirmationStyles.backdrop}
+      testID="report-publish-confirmation"
+    >
+      <View style={publishConfirmationStyles.panel}>
+        <Text
+          maxFontSizeMultiplier={1.15}
+          style={publishConfirmationStyles.title}
+        >
+          {title}
+        </Text>
+        <Text
+          maxFontSizeMultiplier={1.15}
+          style={publishConfirmationStyles.body}
+        >
+          {body}
+        </Text>
+        <View style={publishConfirmationStyles.summary}>
+          {rows.map((row) => (
+            <View
+              key={`${row.label}:${row.value}`}
+              style={publishConfirmationStyles.row}
+            >
+              <Text
+                maxFontSizeMultiplier={1.1}
+                style={publishConfirmationStyles.label}
+              >
+                {row.label}
+              </Text>
+              <Text
+                maxFontSizeMultiplier={1.1}
+                style={publishConfirmationStyles.value}
+              >
+                {row.value}
+              </Text>
+            </View>
+          ))}
+        </View>
+        <View style={publishConfirmationStyles.actions}>
+          <Pressable
+            accessibilityLabel="Volver a editar"
+            accessibilityRole="button"
+            disabled={isPublishing}
+            onPress={onCancel}
+            style={({ pressed }) => [
+              publishConfirmationStyles.button,
+              publishConfirmationStyles.secondaryButton,
+              isPublishing ? publishConfirmationStyles.disabledButton : null,
+              pressed ? publishConfirmationStyles.pressed : null,
+            ]}
+          >
+            <Text
+              maxFontSizeMultiplier={1.1}
+              style={publishConfirmationStyles.secondaryButtonText}
+            >
+              Volver a editar
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityLabel={
+              isPublishing ? "Publicando reporte" : confirmActionLabel
+            }
+            accessibilityRole="button"
+            accessibilityState={{
+              busy: isPublishing,
+              disabled: isConfirmDisabled,
+            }}
+            disabled={isConfirmDisabled}
+            onPress={onConfirm}
+            style={({ pressed }) => [
+              publishConfirmationStyles.button,
+              publishConfirmationStyles.primaryButton,
+              isConfirmDisabled
+                ? publishConfirmationStyles.disabledButton
+                : null,
+              pressed ? publishConfirmationStyles.pressed : null,
+            ]}
+          >
+            {isPublishing ? (
+              <ActivityIndicator color={activityIndicatorColor} />
+            ) : (
+              <>
+                <Icon
+                  color={activityIndicatorColor}
+                  name="paperplane.fill"
+                  size={18}
+                />
+                <Text
+                  maxFontSizeMultiplier={1.1}
+                  style={publishConfirmationStyles.primaryButtonText}
+                >
+                  {confirmActionLabel}
+                </Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 function getReportCreationPublishAccessibilityLabel({
   publishActionLabel,
   publishState,
@@ -1876,3 +2010,105 @@ function getReportCreationPublishAccessibilityLabel({
 
   return `Publicando. ${publishActionLabel}`;
 }
+
+const publishConfirmationStyles = StyleSheet.create({
+  actions: {
+    gap: 10,
+  },
+  backdrop: {
+    backgroundColor: "rgba(23, 32, 28, 0.46)",
+    bottom: 0,
+    justifyContent: "flex-end",
+    left: 0,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  body: {
+    color: "#365146",
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 14,
+  },
+  button: {
+    alignItems: "center",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 48,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+  },
+  disabledButton: {
+    opacity: 0.64,
+  },
+  label: {
+    color: "#52645B",
+    flex: 0.42,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
+  panel: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#DDE8E1",
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 18,
+  },
+  pressed: {
+    opacity: 0.76,
+  },
+  primaryButton: {
+    backgroundColor: "#1F7A4D",
+    borderColor: "#1F7A4D",
+  },
+  primaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "900",
+    lineHeight: 20,
+  },
+  row: {
+    borderBottomColor: "#E5EEE9",
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    paddingVertical: 9,
+  },
+  secondaryButton: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#A8BBB1",
+  },
+  secondaryButtonText: {
+    color: "#1F7A4D",
+    fontSize: 15,
+    fontWeight: "900",
+    lineHeight: 20,
+  },
+  summary: {
+    borderColor: "#E5EEE9",
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 14,
+    paddingHorizontal: 12,
+  },
+  title: {
+    color: "#183F2B",
+    fontSize: 18,
+    fontWeight: "900",
+    lineHeight: 24,
+    marginBottom: 8,
+  },
+  value: {
+    color: "#1E2A24",
+    flex: 0.58,
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 19,
+  },
+});

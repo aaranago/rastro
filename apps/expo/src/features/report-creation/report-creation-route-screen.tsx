@@ -46,10 +46,8 @@ import {
 } from "../report-media";
 import { createCreationDraftStore } from "../resilience/creation-drafts";
 import { createExpoSecureStoreKeyValueStorage } from "../resilience/storage";
-import {
-  buildResourceProviderProfileHref,
-  createStaticResourcesAdapter,
-} from "../resources";
+import { buildResourceProviderProfileHref } from "../resources";
+import { createApiResourcesAdapter } from "../resources/resources-api-adapter";
 import { toShellMemberCreationSession } from "../shell/shell-model";
 import { useRastroShell } from "../shell/shell-provider";
 import { shellColors } from "../shell/shell-theme";
@@ -155,7 +153,7 @@ export function ReportCreationRouteScreen({
   const creationSession =
     memberCreationSession ?? ({ kind: "visitor" } as const);
   const sponsorResourcesAdapter = React.useMemo(
-    () => createStaticResourcesAdapter(),
+    () => createApiResourcesAdapter({ client: trpcClient }),
     [],
   );
   const publishSightingReport = React.useMemo(
@@ -219,7 +217,7 @@ export function ReportCreationRouteScreen({
   );
   const handleReportSponsorPlacement = React.useCallback(
     (sponsorPlacementId: string) => {
-      void sponsorResourcesAdapter.reportProvider({
+      return sponsorResourcesAdapter.reportProvider({
         detail: "Reporte enviado desde una colocacion patrocinada.",
         providerId: sponsorPlacementId,
         reason: "other",

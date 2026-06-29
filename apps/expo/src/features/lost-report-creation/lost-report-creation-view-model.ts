@@ -8,6 +8,7 @@ import type {
   ReportCreationJourney,
   ReportCreationJourneyStepId,
 } from "../report-creation/report-creation-journey";
+import type { LocalSponsorPlacementSurface } from "../resources/resource-types";
 import type {
   LostReportContactDraft,
   LostReportContactOption,
@@ -156,7 +157,10 @@ export interface LostReportSuccessLocalSponsorPlacement {
   actionLabel: string;
   body: string;
   categoryLabel: string;
+  eligibleSurfaces: readonly LocalSponsorPlacementSurface[];
   id: string;
+  imageUrl?: string;
+  logoUrl?: string;
   name: string;
   paidDisclosure: string;
   recoveryPriorityDisclosure: string;
@@ -259,12 +263,16 @@ export function buildLostReportCreationViewModel({
   journey,
   petProfiles,
   session: _session,
+  successSponsorPlacement = lostReportSuccessLocalSponsorPlacement,
+  successSponsorSurface = "report_success",
   validationDisplay,
 }: {
   draft: LostReportDraft;
   journey?: LostReportCreationJourneyInput;
   petProfiles: readonly (LostReportPetProfileOption | PetProfileSummary)[];
   session?: unknown;
+  successSponsorPlacement?: LostReportSuccessLocalSponsorPlacement | null;
+  successSponsorSurface?: LocalSponsorPlacementSurface;
   validationDisplay?: LostReportCreationValidationDisplayInput;
 }): LostReportCreationViewModel {
   const profileOptions = petProfiles.map(toLostReportPetProfileOption);
@@ -387,7 +395,10 @@ export function buildLostReportCreationViewModel({
     steps: buildSteps({ canPublish, draft, readyPhotos, selectedPet }),
     success: {
       body: "Tu reporte de mascota perdida ya puede mostrarse cerca de la zona aproximada y compartirse con la comunidad.",
-      localSponsorPlacement: lostReportSuccessLocalSponsorPlacement,
+      localSponsorPlacement: toLostReportSuccessLocalSponsorPlacement({
+        placement: successSponsorPlacement,
+        surface: successSponsorSurface,
+      }),
       primaryActionLabel: "Ver reporte",
       shareActionLabel: "Compartir",
       title: "Reporte publicado",
@@ -406,7 +417,10 @@ const lostReportSuccessLocalSponsorPlacement: LostReportSuccessLocalSponsorPlace
     actionLabel: "Ver recurso",
     body: "Atencion veterinaria y orientacion local para primeros cuidados mientras compartes el reporte.",
     categoryLabel: "Veterinaria",
-    id: "clinic-san-roque",
+    eligibleSurfaces: ["report_success", "contextual_care_resources"],
+    id: "11111111-1111-4111-8111-111111111111",
+    imageUrl: "https://example.com/sponsor-san-roque-banner.png",
+    logoUrl: "https://example.com/sponsor-san-roque-logo.png",
     name: "Clinica Veterinaria San Roque",
     paidDisclosure: "Colocacion pagada",
     recoveryPriorityDisclosure:
@@ -415,6 +429,34 @@ const lostReportSuccessLocalSponsorPlacement: LostReportSuccessLocalSponsorPlace
     sponsorLabel: "Patrocinado",
     title: "Recurso local cercano",
   };
+
+function toLostReportSuccessLocalSponsorPlacement({
+  placement,
+  surface,
+}: {
+  placement?: LostReportSuccessLocalSponsorPlacement | null;
+  surface: LocalSponsorPlacementSurface;
+}): LostReportSuccessLocalSponsorPlacement | undefined {
+  if (!placement?.eligibleSurfaces.includes(surface)) {
+    return undefined;
+  }
+
+  return {
+    actionLabel: placement.actionLabel,
+    body: placement.body,
+    categoryLabel: placement.categoryLabel,
+    eligibleSurfaces: [...placement.eligibleSurfaces],
+    id: placement.id,
+    ...(placement.imageUrl ? { imageUrl: placement.imageUrl } : {}),
+    ...(placement.logoUrl ? { logoUrl: placement.logoUrl } : {}),
+    name: placement.name,
+    paidDisclosure: placement.paidDisclosure,
+    recoveryPriorityDisclosure: placement.recoveryPriorityDisclosure,
+    reportActionLabel: placement.reportActionLabel,
+    sponsorLabel: placement.sponsorLabel,
+    title: placement.title,
+  };
+}
 
 export function toPublishLostPetReportInput({
   draft,
@@ -749,6 +791,10 @@ function buildReviewRows({
     {
       label: "Fotos",
       value: formatPhotoCount(photos.length),
+    },
+    {
+      label: "Ultima vez vista",
+      value: draft.lostDetails.lastSeenAtLabel || "Pendiente",
     },
     {
       label: "Ubicacion interna",

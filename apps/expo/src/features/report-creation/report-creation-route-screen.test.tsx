@@ -60,6 +60,10 @@ const nearby = vi.hoisted(() => ({
     resolveForegroundLocation: vi.fn(),
   },
 }));
+const resourcesAdapter = vi.hoisted(() => ({
+  createApiResourcesAdapter: vi.fn(),
+  reportProvider: vi.fn(),
+}));
 const publishAdapters = vi.hoisted(() => ({
   adoptionHandler: vi.fn(),
   createApiAdoptionListingPublishHandler: vi.fn(),
@@ -294,9 +298,10 @@ vi.mock("../resilience/storage", () => ({
 vi.mock("../resources", () => ({
   buildResourceProviderProfileHref: (providerId: string) =>
     `/proveedores/${providerId}`,
-  createStaticResourcesAdapter: () => ({
-    reportProvider: vi.fn(),
-  }),
+}));
+
+vi.mock("../resources/resources-api-adapter", () => ({
+  createApiResourcesAdapter: resourcesAdapter.createApiResourcesAdapter,
 }));
 
 vi.mock("../sighting-report-creation/sighting-report-creation-screen", () => ({
@@ -336,6 +341,13 @@ beforeEach(() => {
     reportMedia.uploadTransport,
   );
   reportMedia.createReportMediaDraft.mockReturnValue(reportMedia.draft);
+  resourcesAdapter.createApiResourcesAdapter.mockReturnValue({
+    reportProvider: resourcesAdapter.reportProvider,
+  });
+  resourcesAdapter.reportProvider.mockResolvedValue({
+    moderationItem: {},
+    status: "created",
+  });
   publishAdapters.createApiLostReportPublishHandler.mockReturnValue(
     publishAdapters.lostHandler,
   );
@@ -355,7 +367,7 @@ beforeEach(() => {
 });
 
 describe("ReportCreationRouteScreen", () => {
-  it("renders the selected member creation screen with scoped durable drafts", () => {
+  it("renders the selected member creation screen with scoped durable drafts and backend sponsor reporting", async () => {
     const screen = renderScreen(<ReportCreationRouteScreen intent="lost" />);
     const lostScreen = findElement(
       screen,
@@ -370,6 +382,31 @@ describe("ReportCreationRouteScreen", () => {
     expect(lostScreen?.props.onReportSponsorPlacement).toEqual(
       expect.any(Function),
     );
+    expect(resourcesAdapter.createApiResourcesAdapter).toHaveBeenCalledWith({
+      client: api.trpcClient,
+    });
+
+    const reportSponsorPlacement: unknown =
+      lostScreen?.props.onReportSponsorPlacement;
+
+    if (typeof reportSponsorPlacement !== "function") {
+      throw new Error("Expected sponsor placement report callback.");
+    }
+
+    const reportSponsorPlacementCallback = reportSponsorPlacement as (
+      sponsorPlacementId: string,
+    ) => Promise<unknown>;
+
+    await expect(
+      reportSponsorPlacementCallback("11111111-1111-4111-8111-111111111111"),
+    ).resolves.toMatchObject({
+      status: "created",
+    });
+    expect(resourcesAdapter.reportProvider).toHaveBeenCalledWith({
+      detail: "Reporte enviado desde una colocacion patrocinada.",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      reason: "other",
+    });
   });
 
   it.each([

@@ -16,6 +16,7 @@ import {
   ReportCreationInlinePetTypeRow,
   ReportCreationLocationPreview,
   ReportCreationProgressSteps,
+  ReportCreationPublishConfirmationModal,
   ReportCreationReviewPublishSection,
   ReportCreationScreenFrame,
 } from "./report-creation-ui";
@@ -130,6 +131,88 @@ describe("ReportCreationScreenFrame", () => {
       expect.anything(),
       { paddingBottom: 34 },
     ]);
+  });
+});
+
+describe("ReportCreationPublishConfirmationModal", () => {
+  it("shows a final backend publish confirmation with summary rows and explicit actions", () => {
+    const onCancel = vi.fn();
+    const onConfirm = vi.fn();
+    const screen = renderFunctionElement(
+      <ReportCreationPublishConfirmationModal
+        activityIndicatorColor="#FFFFFF"
+        body="Rastro publicara este reporte despues de confirmar."
+        canConfirm
+        Icon={TestIcon}
+        onCancel={onCancel}
+        onConfirm={onConfirm}
+        publishState="editing"
+        rows={[
+          { label: "Tipo", value: "Reporte de avistamiento" },
+          { label: "Ubicacion", value: "Sopocachi, La Paz" },
+          { label: "Contacto", value: "Chat en Rastro" },
+        ]}
+        title="Confirmar publicacion"
+      />,
+    );
+    const cancelButton = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Volver a editar"),
+    );
+    const confirmButton = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        findText(element, "Confirmar y publicar"),
+    );
+
+    expect(
+      findElement(
+        screen,
+        (element) => element.props.testID === "report-publish-confirmation",
+      ),
+    ).toBeDefined();
+    expect(findText(screen, "Tipo")).toBe(true);
+    expect(findText(screen, "Reporte de avistamiento")).toBe(true);
+    expect(findText(screen, "Sopocachi, La Paz")).toBe(true);
+
+    void getPressableOnPress(cancelButton)();
+    void getPressableOnPress(confirmButton)();
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it("locks the confirmation buttons while publishing", () => {
+    const screen = renderFunctionElement(
+      <ReportCreationPublishConfirmationModal
+        activityIndicatorColor="#FFFFFF"
+        body="Rastro publicara este reporte despues de confirmar."
+        canConfirm
+        Icon={TestIcon}
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+        publishState="publishing"
+        rows={[{ label: "Tipo", value: "Reporte de mascota perdida" }]}
+        title="Confirmar publicacion"
+      />,
+    );
+    const confirmButton = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel === "Publicando reporte",
+    );
+
+    expect(confirmButton?.props.disabled).toBe(true);
+    expect(confirmButton?.props.accessibilityState).toMatchObject({
+      busy: true,
+      disabled: true,
+    });
+    expect(
+      findElement(screen, (element) => element.type === "ActivityIndicator"),
+    ).toBeDefined();
   });
 });
 
