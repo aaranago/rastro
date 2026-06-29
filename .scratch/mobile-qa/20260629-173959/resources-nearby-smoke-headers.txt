@@ -1,0 +1,12 @@
+HTTP/1.1 200 OK
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+vary: trpc-accept
+access-control-allow-headers: *
+access-control-allow-methods: OPTIONS, GET, POST
+access-control-allow-origin: *
+access-control-request-method: *
+content-type: application/json
+Date: Mon, 29 Jun 2026 21:42:03 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked

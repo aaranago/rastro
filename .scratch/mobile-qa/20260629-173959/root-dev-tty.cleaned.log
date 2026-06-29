@@ -1,0 +1,163 @@
+Script started on 2026-06-29 17:40:20-04:00 [COMMAND="env TURBO_UI=true pnpm dev" TERM="xterm-256color" TTY="/dev/pts/11" COLUMNS="80" LINES="24"]
+ WARN  Unsupported engine: wanted: {"node":"^22.21.0"} (current: {"node":"v24.11.1","pnpm":"10.19.0"})
+
+> create-t3-turbo@1.0.0 dev /home/z/Personal/ai/rastro
+> turbo watch dev --continue
+
+turbo 2.5.8
+
+• Packages in scope: @acme/api, @acme/auth, @acme/db, @acme/eslint-config, @acme/expo, @acme/github, @acme/nextjs, @acme/prettier-config, @acme/tailwind-config, @acme/tanstack-start, @acme/tsconfig, @acme/ui, @acme/validators
+• Running dev in 13 packages
+• Remote caching disabled
+Tasks              │ @acme/expo#dev > @acme/api#dev│█@acme/db#dev│@acme/expo#dev      │@acme/nextjs#dev│@acme/tanstack-star│@acme/validators#de││││││││││││││││↑ ↓ - Select       │m - More binds     │   u/d - Scroll logs   U/D - Page logs   t/b - Jump to top/tanstack-star»api#dev@acme/db#dev        @acme/expo#dev      nextjs#dev   @acme/expo#dev     »api#dev@acme/db#dev        cache bypass, force executing 9483923f144nextjs#dev»api#devdb#dev    i -Inteact  u/d- Scroll logs   U/D - Page logs  t/bdb#dev »validators#de»api#ev       >@acme/expo@dev/home/z/Personal/ai/rastro/apps/expo>EXPO_UNSTABLE_MCP_SERVER=1expostart█Starting project at /home/z/Personal/ai/rastro/apps/expo█api#ev       valiators#de✓Using src/app as the root directory for Expo Router.█api#dev valiators#de✓db#dev       »Experimental Expo Autolinking module resolver is enabled.█React Compiler enabled█StartingMetroBundler█▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█▄▄▄▄▄█▀█▀█▄█▄▀███▄▄█▀▄██▄▄▄▄▄█████▀▀▀█▄▀▄█▄▀▄▀█▄▀█▀██████▄▄▄██▀█▄▀▀███▄▄███▄▄▄███▄▄▄▄▄▄▄█▄▀██▄█▄██▀▄█▄█▄▄▄▄▄▄▄██▄█▄▄▄▄▀▀▀▄▄▄█▄██▄▀▄█▄▀▀███▀█▀▄▄▄█▄███▄██▀███▀▀▀▀██▀▀▀█▄▀▄▀▀██▄▄▀▀▄▀█▄▀█▄█▀█████▄▄▄▀▄█▄▄▄██▀█▀▀▀███████▀▄▄▄█▀▄▀▄▄▄▀▄▀▄▄▄▄▀█▄▄█▀▄▄▄▀▀▀██▀▄▄▄█▀▄▄▄█▀█▀██▄▀▄▄█▄█▄▄█▀▄██React Compiler enabledStarting Metro Bundler                                ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄    █▄▄▄▄▄█▀█▀█▄█▄▀███▄▄█▀▄██▄▄▄▄▄██ █   █ █▀▀▀█▄▀▄█▄▀▄▀█▄▀█▀█ █   █ █                     █ █▄▄▄█ █▀ █▄ ▀ ▀███▄   ▄██ █▄▄▄█ █                 █▄▄▄▄▄▄▄█▄▀ █ █▄█▄█ █ ▀▄█▄█▄▄▄▄▄▄▄█                      █ ▄   █▄▄▄▄▀ ▀ ▀▄▄▄█ ▄██▄▀▄█▄▀▀███▀█▀▄ ▄▄█▄█ ██ ▄█ █▀███▀▀▀▀██ ▀▀▀ █ ▀ ▀▀ ██  ▀▀▀█▀██▀█ █ ██ ▄▄ ▀▄ ▄ ▄▀█▀▀ ██  ██▀▄▄▄█▀▄▀▄▄▄ ▀▄▀▄▄ █▄ ▄▀▄▄▄▀▀▀▀▄█▀▄▄▄█▀█▀██▄▀▄▄█▄█▄ ▄  ▀▄█▀ █ ▀ ▄▀▄ █ ▀▀▀█ ▄▀  ▀▀ ██▄▄   ▀▄▄██▄▀  ▀██▄██ ▀ █▄█▄▄██▀▀▀▀▄▀▄▄ ▄▀▄▄▄▄ ▄▄▄▄▄▄▄ █▄ ███▀  ██▀     █▄ ▀ ▀█   █ ██▀▀▀▄█▄▄ █▄█▄▄  ▀█▄ █▄█ █ ███ █▀ █▀▀▀▄ ▀▄█▄▄▄█▄▄▄█▄███▄█▄▄█▄▄▄███nt                    build. Learn more: https://expo.fyi/start                                   ›Web is waiting on http://localhost:8081                         ›Usingdevelopment build        › Press s │switch toExpo Go                               › Press a │ openAndroid        ›Press w │ open web                                      › Press j │ open debugger          › Press r │ reload app         › Press m│ toggle menu        ›shift+m│ more tools         › Press o │ open project codein youreditor                      ›Press?│ show allcommands                                 Logs for your project will appear below.PressCtrl+Ctoexit.valiators#de✓db#dev       api#dev› Webiswaitingonhttp://localhost:8081                                      ›Usingdevelopment buildPress s │ switch to Expo Go            Pressa │ open Android wopen web       jdebuggerrreload app›Pressm│togglemenushift+mmoretools   oopen projectcodeinyoureditor                  Press ?showall commands                                   Logsforyourprojectwillappearbelow.PressCtrl+Ctoexit.                     |[baseline-browser-mapping]Thedatainthismoduleisover two months old.  Toensure accurate Baselinedata, please update:`npmibaseline-browser-mapping@latest-D`    ...Finishing writing to cache...
+>   ...Finishing writing to cache...                                                ...Finishing writing to cache...                                            ┌─ @acme/validators#dev > cache bypass, force executing 1d02d6cbe17fd1a3
+    ...Finishing writing to cache...
+
+> @acme/validators@ dev /home/z/Personal/ai/rastro/packages
+/validators
+
+>   ...Finishing writing to cache...                                            > tsc
+└─ @acme/validators#dev ──
+┌─ @acme/db#dev > cache bypass, force executing 2d0c8b970020362e
+
+
+> @acme/db@ dev /home/z/Personal/ai/rastro/packages/db
+> tsc
+└─ @acme/db#dev ──
+┌─ @acme/api#dev > cache bypass, force executing 467b2728b8016d24
+
+
+> @acme/api@ dev /home/z/Personal/ai/rastro/packages/api
+> tsc
+└─ @acme/api#dev ──
+┌─ @acme/tanstack-start#dev > cache bypass, force executing 0b7872a536c204b4
+
+> @acme/tanstack-start@ dev /home/z/Personal/ai/rastro/apps
+/tanstack-start
+> pnpm with-env vite dev
+
+../..                                    |  WARN  Unsupport
+ed engine: wanted: {"node":"^22.21.0"} (current: {"node":"v
+24.11.1","pnpm":"10.19.0"})
+
+> @acme/tanstack-start@ with-env /home/z/Personal/ai/rastro
+/apps/tanstack-start
+
+
+> dotenv -e ../../.env -- vite dev
+
+Port 3000 is in use, trying another one...
+
+  VITE v7.1.12  ready in 2315 ms
+
+  ➜  Local:   http://localhost:3001/
+  ➜  Network: use --host to expose
+  ➜  press h + enter to show help
+└─ @acme/tanstack-start#dev ──
+┌─ @acme/expo#dev > cache bypass, force executing 9483923f14408809
+
+> @acme/expo@ dev /home/z/Personal/ai/rastro/apps/expo
+> EXPO_UNSTABLE_MCP_SERVER=1 expo start
+
+Starting project at /home/z/Personal/ai/rastro/apps/expo
+Using src/app as the root directory for Expo Router.
+Experimental Expo Autolinking module resolver is enabled.
+React Compiler enabled
+Starting Metro Bundler
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+█ ▄▄▄▄▄ █▀█▀█▄█▄▀███▄▄█▀▄██ ▄▄▄▄▄ █
+█ █   █ █▀▀▀█▄▀▄█▄▀▄▀█▄▀█▀█ █   █ █
+█ █▄▄▄█ █▀ █▄ ▀ ▀███▄   ▄██ █▄▄▄█ █
+█▄▄▄▄▄▄▄█▄▀ █ █▄█▄█ █ ▀▄█▄█▄▄▄▄▄▄▄█
+█ ▄   █▄▄▄▄▀ ▀ ▀▄▄▄█ ▄██ ▄ ▀▄█▄▀ ▀█
+██▀█▀▄ ▄ ▄█▄█ ██ ▄█ █▀  █ ██ ▀▀▀ ▀█
+█ ▀▀▀ █▄ ▀ ▄▀▀ ██▄▄  ▀▀▄▀█▄▀█▄█▀█ █
+█  ██▄ ▄▄ ▀▄█ ▄▄ ▄██▀█▀▀▀█  ██  ███
+█▀▄▄▄█▀▄▀▄▄▄ ▀▄▀▄▄▄▄▀ █▄ ▄█▀▄▄▄▀▀▀█
+█▀▄▄▄█▀▄▄▄█▀█▀██▄▀▄▄█  ▄█▄ ▄█  ▀▄██
+█▀ ▄▄█ ▄▀ ▄▀█▄ █ ▀█▀▀ █▄ ▄▄▀ ▄ ▀▀ █
+█ ██▄▄█▄   ▀▀▀▄▄▄██▄▀  ▀██▄██ ▀  ██
+█▄█▄▄▄█▄█▀▀▄▀▀▄▀▄▄▄  ▄▀▄█ ▄▄▄ ▄▀▄▀█
+█ ▄▄▄▄▄ █▄  ███▀  ██▀     █▄█ ▀▀ ▀█
+█ █   █ █ █▀▀ ▄▀▄█▄▄ ██▄█▄ ▄  ▀██▄█
+█ █▄▄▄█ █ ███ ▄█▄▀▄ █▀▀▄ ▄▀▄ ▀▄▀▄██
+█▄▄▄▄▄▄▄█▄▄▄▄█▄█▄████▄█▄▄▄▄█▄▄▄█▄██
+
+› Metro waiting on
+exp+rastro://expo-development-client/?url=http%3A%2F%2F192.
+168.0.128%3A8081
+› Scan the QR code above to open the project in a developme
+nt
+build. Learn more: https://expo.fyi/start
+
+› Web is waiting on http://localhost:8081
+
+› Using development build
+› Press s │ switch to Expo Go
+
+› Press a │ open Android
+› Press w │ open web
+
+› Press j │ open debugger
+ WARNING  could not start shutdown, exiting
+
+› Press r │ reload app
+› Press m │ toggle menu
+› shift+m │ more tools
+› Press o │ open project code in your editor
+
+› Press ? │ show all commands
+
+Logs for your project will appear below. Press Ctrl+C to ex
+it.
+| [baseline-browser-mapping] The data in this module is ove
+r two months old.  To ensure accurate Baseline data, please
+ update: `npm i baseline-browser-mapping@latest -D`
+└─ @acme/expo#dev ──
+┌─ @acme/nextjs#dev > cache bypass, force executing f39874260e6f8d5f
+
+> @acme/nextjs@ dev /home/z/Personal/ai/rastro/apps/nextjs
+> pnpm with-env next dev
+
+../..                                    |  WARN  Unsupport
+ed engine: wanted: {"node":"^22.21.0"} (current: {"node":"v
+24.11.1","pnpm":"10.19.0"})
+
+> @acme/nextjs@ with-env /home/z/Personal/ai/rastro/apps/ne
+xtjs
+> dotenv -e ../../.env -- next dev
+
+   ▲ Next.js 16.0.10 (Turbopack)
+   - Local:         http://localhost:3000
+   - Network:       http://192.168.0.128:3000
+
+ ✓ Starting...
+[baseline-browser-mapping] The data in this module is over
+two months old.  To ensure accurate Baseline data, please u
+pdate: `npm i baseline-browser-mapping@latest -D`
+ ✓ Ready in 1268ms
+ ○ Compiling /api/auth/[...all] ...
+ GET /api/auth/get-session 200 in 5.0s
+ ○ Compiling / ...
+[TRPC] post.all took 1322ms to execute
+ GET / 200 in 8.0s (compile: 5.5s, render: 2.5s)
+[TRPC] resources.nearby took 2379ms to execute
+ GET /api/trpc/resources.nearby?input=%7B%22json%22%3A%7B%2
+2latitude%22%3A-16.5%2C%22longitude%22%3A-68.12%2C%22radius
+Meters%22%3A5000%2C%22categoryIds%22%3A%5B%22veterinary%22%
+5D%2C%22strategy%22%3A%22postgis_radius%22%7D%7D 200 in 4.6
+s (compile: 2.1s, render: 2.4s)
+[TRPC] resources.nearby took 1578ms to execute
+ GET /api/trpc/resources.nearby?batch=1&input=%7B%220%22%3A
+%7B%22json%22%3A%7B%22categoryIds%22%3Anull%2C%22latitude%2
+2%3A-16.510231%2C%22longitude%22%3A-68.123881%2C%22radiusMe
+ters%22%3A5000%2C%22strategy%22%3A%22postgis_radius%22%7D%2
+C%22meta%22%3A%7B%22values%22%3A%7B%22categoryIds%22%3A%5B%
+22undefined%22%5D%7D%2C%22v%22%3A1%7D%7D%7D 200 in 2.6s (co
+mpile: 90ms, render: 2.5s)
+└─ @acme/nextjs#dev ──
+  × Watch interrupted due to signal.
+
+ ELIFECYCLE  Command failed with exit code 1.
+
+Script done on 2026-06-29 17:45:20-04:00 [COMMAND_EXIT_CODE="1"]

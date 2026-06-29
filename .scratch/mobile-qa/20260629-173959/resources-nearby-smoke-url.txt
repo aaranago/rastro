@@ -1,0 +1,1 @@
+http://localhost:3000/api/trpc/resources.nearby?input=%7B%22json%22%3A%7B%22latitude%22%3A-16.5%2C%22longitude%22%3A-68.12%2C%22radiusMeters%22%3A5000%2C%22categoryIds%22%3A%5B%22veterinary%22%5D%2C%22strategy%22%3A%22postgis_radius%22%7D%7D

@@ -31,6 +31,15 @@ Correction - Implementation Worker B, 2026-06-29:
 - Automated reverification in `.scratch/mobile-qa/20260629-173220/` covers the base URL resolver, Expo env-source tagging, and existing Recursos `resources.nearby` adapter/router contracts.
 - Runtime emulator proof was not rerun by Implementation Worker B. This correction closes the code-level stale-ngrok Recursos defect pending a delegated root `pnpm dev` emulator smoke, and it does not rerun or overclaim the full manual parity matrix.
 
+Runtime verification - Runtime Verification Worker, 2026-06-29:
+
+- Evidence path: `.scratch/mobile-qa/20260629-173959/`.
+- Root `TURBO_UI=true pnpm dev` was run in a recorded TTY and reached Expo Metro on `:8081` and Next.js on `:3000`.
+- Raw host smoke against `/api/trpc/resources.nearby` returned `HTTP/1.1 200 OK`, `content-type: application/json`, and a JSON-parseable body.
+- MCP launched `bo.rastro.app` on Android emulator `emulator-5554`, navigated to Recursos, and captured `android-recursos.png` plus UI hierarchy/logcat.
+- Recursos rendered backend provider data (`Veterinaria QA Recursos Actualizada`). Logcat showed `resources.nearby` using `http://10.0.2.2:3000/api/trpc/resources.nearby?...` with `status: 200` and `content-type: application/json`.
+- Negative scan found no `JSON Parse error`, `Unexpected character: T`, `TRPCClientError`, `ERR_NGROK`, `The endpoint`, `ngrok`, or `text/plain` match. A separate `ExpoImage/Glide` invalid `sf` URL-scheme error was observed and documented as unrelated.
+
 This README is for the coordination agent running the mobile backend parity wave. The local issues live under `.scratch/mobile-backend-parity/issues/` and should be implemented in dependency order unless the coordinator explicitly assigns disjoint paths.
 
 ## Non-negotiable verification

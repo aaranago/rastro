@@ -1,0 +1,163 @@
+Script started on 2026-06-29 17:40:20-04:00 [COMMAND="env TURBO_UI=true pnpm dev" TERM="xterm-256color" TTY="/dev/pts/11" COLUMNS="80" LINES="24"]
+[43m[30m WARN [39m[49m Unsupported engine: wanted: {"node":"^22.21.0"} (current: {"node":"v24.11.1","pnpm":"10.19.0"})
+
+> create-t3-turbo@1.0.0 dev /home/z/Personal/ai/rastro
+> turbo watch dev --continue
+
+turbo 2.5.8
+
+[2m• Packages in scope: @acme/api, @acme/auth, @acme/db, @acme/eslint-config, @acme/expo, @acme/github, @acme/nextjs, @acme/prettier-config, @acme/tailwind-config, @acme/tanstack-start, @acme/tsconfig, @acme/ui, @acme/validators[0m
+[2m• Running [0m[1m[2mdev[0m[2m in 13 packages
+[0m[2m• Remote caching disabled[0m
+[?1000h[?1002h[?1003h[?1015h[?1006h[?1049h[?25l[1;1H[2mTasks              [1;21H[22m│[2m @acme/expo#dev > [2;1H[22m@acme/api#dev[2;21H│[m█[3;1H[m@acme/db#dev[3;21H│[4;1H[m@acme/expo#dev      [m│[5;1H@acme/nextjs#dev[5;21H│[6;1H@acme/tanstack-star[6;21H│[7;1H@acme/validators#de[7;21H│[8;21H│[9;21H│[10;21H│[11;21H│[12;21H│[13;21H│[14;21H│[15;21H│[16;21H│[17;21H│[18;21H│[19;21H│[20;21H│[21;21H│[22;21H│[23;1H[2m↑ ↓ - Select       [23;21H[22m│[24;1H[2mm - More binds     [24;21H[22m│[2m   u/d - Scroll logs   U/D - Page logs   t/b - Jump to top/[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[2;7Htanstack-star»[3;7Hapi#dev[4;1H@acme/db#dev        [5;1H[m@acme/expo#dev      [6;7H[mnextjs#dev   [m[m[m[0m[?25l[3;1H[m@acme/expo#dev     »[4;7H[mapi#dev[5;1H@acme/db#dev        [m[m[m[0m[?25l[1;40H[2mcache bypass, force executing 9483923f144[4;7H[22mnextjs#dev[4;20H»[5;7Hapi#dev[6;7Hdb#dev    [24;25H[2mi -[24;29HInte[24;34Hact[24;38H  u/d[24;44H- Scroll logs   U/D - Page logs [24;77H t/b[m[m[m[0m[?25l[5;7Hdb#dev [5;20H»[6;7Hvalidators#de»[7;7Hapi#[7;12Hev      [m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[2;22H [3;22H>[3;24H@acme/expo@[3;36Hdev[3;40H/home/z/Personal/ai/rastro/apps/expo[4;22H>[4;24HEXPO_UNSTABLE_MCP_SERVER=1[4;51Hexpo[4;56Hstart[6;22H[m█[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[6;22H[mStarting project at /home/z/Personal/ai/rastro/apps/expo[7;22H[m█[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[6;7Hapi#[6;12Hev       [7;7Hvali[7;12Hators#de[1m[m✓[m[m[m[0m[?25l[7;22H[mUsing src/app as the root directory for Expo Router.[8;22H[m█[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[5;7Hapi#dev[5;20H [6;7Hvali[6;12Hators#de[1m[m✓[7;7H[22m[mdb#dev       [m[m[m[0m[?25l[5;20H»[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[8;22H[mExperimental Expo Autolinking module resolver is enabled.[9;22H[m█[m[m[m[0m[?25l[9;22H[mReact Compiler enabled[10;22H[m█[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[10;22HStarting[10;31HMetro[10;37HBundler[11;22H[m█[m[m[m[0m[?25l[11;22H▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄[12;22H█[12;24H▄▄▄▄▄[12;30H█▀█▀█▄█▄▀███▄▄█▀▄██[12;50H▄▄▄▄▄[12;56H█[13;22H█[13;24H█[13;28H█[13;30H█▀▀▀█▄▀▄█▄▀▄▀█▄▀█▀█[13;50H█[13;54H█[13;56H█[14;22H█[14;24H█▄▄▄█[14;30H█▀[14;33H█▄[14;36H▀[14;38H▀███▄[14;46H▄██[14;50H█▄▄▄█[14;56H█[15;22H█▄▄▄▄▄▄▄█▄▀[15;34H█[15;36H█▄█▄█[15;42H█[15;44H▀▄█▄█▄▄▄▄▄▄▄█[16;22H█[16;24H▄[16;28H█▄▄▄▄▀[16;35H▀[16;37H▀▄▄▄█[16;43H▄██[16;47H▄[16;49H▀▄█▄▀[16;55H▀█[17;22H██▀█▀▄[17;29H▄[17;31H▄█▄█[17;36H██[17;39H▄█[17;42H█▀[17;46H█[17;48H██[17;51H▀▀▀[17;55H▀█[18;22H█[18;24H▀▀▀[18;28H█▄[18;31H▀[18;33H▄▀▀[18;37H██▄▄[18;43H▀▀▄▀█▄▀█▄█▀█[18;56H█[19;22H█[19;25H██▄[19;29H▄▄[19;32H▀▄█[19;36H▄▄[19;39H▄██▀█▀▀▀█[19;50H██[19;54H███[20;22H█▀▄▄▄█▀▄▀▄▄▄[20;35H▀▄▀▄▄▄▄▀[20;44H█▄[20;47H▄█▀▄▄▄▀▀▀█[21;22H█▀▄▄▄█▀▄▄▄█▀█▀██▄▀▄▄█[21;45H▄█▄[21;49H▄█[21;53H▀▄█[m█[m[m[m[0m[?25l[2;22H[mReact Compiler enabled[3;22H[mStarting Metro Bundler                                [4;22H▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄    [5;22H█[5;24H▄▄▄▄▄[5;30H█▀█▀█▄█▄▀███▄▄█▀▄██[5;50H▄▄▄▄▄[5;56H█[6;22H█ █   █ █▀▀▀█▄▀▄█▄▀▄▀█▄▀█▀█ █   █ █                     [7;22H█ █▄▄▄█ █▀ █▄ ▀ ▀███▄   ▄██ █▄▄▄█ █                 [8;22H█▄▄▄▄▄▄▄█▄▀ █ █▄█▄█ █ ▀▄█▄█▄▄▄▄▄▄▄█                      [9;22H█ ▄   █▄▄▄▄▀ ▀ ▀▄▄▄█ ▄██[9;47H▄[9;49H▀▄█▄▀[9;55H▀█[10;22H██▀█▀▄ ▄[10;31H▄█▄█ ██ ▄█ █▀[10;46H█[10;48H██[10;51H▀▀▀[10;55H▀█[11;22H█ ▀▀▀ █[11;30H ▀ [11;34H▀▀ ██[11;41H  ▀▀[11;46H▀█[11;49H▀█[11;52H█▀█ █[12;24H ██[12;28H ▄▄ ▀▄[12;35H ▄[12;38H ▄[12;42H▀█▀[12;46H▀[12;48H [12;50H██  ██[13;23H▀▄▄▄█▀▄▀▄▄▄ ▀▄▀▄[13;40H▄[13;43H █▄ ▄[13;49H▀▄▄▄▀▀▀[14;23H▀▄[14;27H█▀▄▄▄█▀█▀██▄▀▄▄█[14;45H▄█▄ ▄[14;51H  ▀▄█[15;23H▀ [15;27H█ [15;30H▀ ▄▀[15;35H▄ █ ▀[15;41H▀▀[15;44H█[15;46H [15;48H▄▀ [15;52H ▀▀ [16;24H██▄▄[16;30H   [16;34H▀[16;36H▄▄[16;39H██▄▀  ▀██▄██ ▀ [16;55H█[17;23H▄█▄▄[17;28H█[17;30H█▀▀[17;34H▀▀▄▀▄[17;40H▄[17;42H ▄▀▄[17;48H▄▄▄ ▄[17;54H▄[18;24H▄▄▄▄▄ █▄[18;33H ███▀  ██▀     █▄[18;51H ▀[18;54H ▀[19;24H█   █ █[19;32H█▀▀[19;37H▀▄█▄▄ [19;44H█▄█▄[19;49H▄  ▀█[19;55H▄[20;23H █[20;27H▄█ █ ███ [20;37H█[20;39H▀[20;41H █▀▀[20;48H▀▄ ▀[20;54H▄█[21;23H▄[21;27H▄▄[21;30H█[21;32H▄▄▄█▄[21;39H███[21;43H▄█[21;46H▄[21;48H▄█▄▄▄█[21;56H█[23;22H[m█[m[m[m[0m[?25l[2;22Hnt                    [3;22Hbuild. Learn more: [4mhttps://expo.fyi/start[4;22H[24m                                   [5;22H›[5;24HWeb is waiting on [4mhttp://localhost:8081[6;22H[24m [6;24H [6;28H [6;30H                   [6;50H [6;54H [6;56H [7;22H›[7;24HUsing[7;30H[mdevelopment build[m  [7;50H     [7;56H [8;22H› Press [1ms[22m │[8;34Hswitch to[8;44HExpo Go      [9;22H [9;24H [9;28H      [9;35H [9;37H     [9;43H   [9;47H [9;49H     [9;55H  [10;22H› Press [1ma[22m │ open[10;39HAndroid [10;48H  [10;51H   [10;55H  [11;22H›[11;24HPress [1mw[22m │ open web[11;43H            [11;56H [12;22H [12;25H   [12;29H  [12;32H   [12;36H  [12;39H         [12;50H  [12;54H   [13;22H› Press [1mj[22m │ open debugger          [14;22H› Press [1mr[22m │ reload app[14;45H   [14;49H  [14;53H    [15;22H› Press [1mm[15;32H[22m│ toggle menu [15;47H   [15;51H [15;53H  [15;56H [16;22H›[16;24H[1mshift+m[16;32H[22m│ more tools[16;45H      [16;52H [16;55H  [17;22H› Press [1mo[22m │ open project code[17;52Hin your[17;60Heditor[18;22H [18;24H     [18;30H  [18;34H    [18;40H   [18;48H   [18;52H  [18;55H  [19;22H›[19;24HPress[19;30H[1m?[19;32H[22m│ show all[19;43Hcommands[19;52H     [20;22H [20;24H     [20;30H [20;32H   [20;36H     [20;42H    [20;47H   [20;51H      [21;22HLogs for your project will appear below.[21;63HPress[21;69HCtrl+C[21;76Hto[21;79Hex[22;22Hit.[m[m[m[0m[?25l[5;7Hvali[5;12Hators#de[1m[m✓[6;7H[22m[mdb#dev       [7;7Hapi#dev[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[2;22H› Web[2;28His[2;31Hwaiting[2;39Hon[2;42H[4mhttp://localhost:8081[3;22H[24m      [3;29H     [3;35H     [3;41H                      [4;22H›[4;24HUsing[4;30H[mdevelopment build[5;24H[mPress [1ms[22m │ switch to Expo Go            [7;24HPress[7;30H[1ma[22m │ open Android [8;30H[1mw[8;34H[22mopen web [8;44H    [8;49H  [10;30H[1mj[10;39H[22mdebugger[11;30H[1mr[11;34H[22mreload app[12;22H›[12;24HPress[12;30H[1mm[12;32H[22m│[12;34Htoggle[12;41Hmenu[13;24H[1mshift+m[13;34H[22mmore[13;39Htools   [14;30H[1mo[14;34H[22mopen project[14;47Hcode[14;52Hin[14;55Hyour[14;60Heditor[15;22H [15;24H     [15;30H [15;32H [15;34H      [15;41H    [16;24HPress [1m?[16;34H[22mshow[16;39Hall commands[17;22H [17;24H     [17;30H [17;32H [17;34H    [17;39H       [17;47H    [17;52H  [17;55H    [17;60H      [18;22HLogs[18;27Hfor[18;31Hyour[18;36Hproject[18;44Hwill[18;49Happear[18;56Hbelow.[18;63HPress[18;69HCtrl+C[18;76Hto[18;79Hex[19;22Hit.    [19;30H [19;32H [19;34H    [19;39H   [19;43H        [20;22H[m|[20;24H[m[baseline-browser-mapping][20;51HThe[20;55Hdata[20;60Hin[20;63Hthis[20;68Hmodule[20;75His[20;78Hove[21;22Hr two months old.  To[21;44Hensure accurate Baseline[21;69Hdata, please[22;22H update:[22;31H`npm[22;36Hi[22;38Hbaseline-browser-mapping@latest[22;70H-D`[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[m[m[m[0m[?25l[2J[?1006l[?1015l[?1003l[?1002l[?1000l[?1049l    ...Finishing writing to cache...
+[2K>   ...Finishing writing to cache...                                                ...Finishing writing to cache...                                            ┌─ @acme/validators#dev > cache bypass, force executing 1d02d6cbe17fd1a3
+    ...Finishing writing to cache...
+
+> @acme/validators@ dev /home/z/Personal/ai/rastro/packages
+/validators
+
+[2K>   ...Finishing writing to cache...                                            > tsc
+└─ @acme/validators#dev ──
+┌─ @acme/db#dev > cache bypass, force executing 2d0c8b970020362e
+
+
+> @acme/db@ dev /home/z/Personal/ai/rastro/packages/db
+> tsc
+└─ @acme/db#dev ──
+┌─ @acme/api#dev > cache bypass, force executing 467b2728b8016d24
+
+
+> @acme/api@ dev /home/z/Personal/ai/rastro/packages/api
+> tsc
+└─ @acme/api#dev ──
+┌─ @acme/tanstack-start#dev > cache bypass, force executing 0b7872a536c204b4
+
+> @acme/tanstack-start@ dev /home/z/Personal/ai/rastro/apps
+/tanstack-start
+> pnpm with-env vite dev
+
+../..                                    | [30;43m WARN [m Unsupport
+ed engine: wanted: {"node":"^22.21.0"} (current: {"node":"v
+24.11.1","pnpm":"10.19.0"})
+
+> @acme/tanstack-start@ with-env /home/z/Personal/ai/rastro
+/apps/tanstack-start
+
+[2K
+[2K> dotenv -e ../../.env -- vite dev
+
+Port 3000 is in use, trying another one...
+
+  [32;1mVITE[22m v7.1.12[m  ready in [1m2315[m ms
+
+  [32m➜[m  [1mLocal[m:   [36mhttp://localhost:[1m3001[22m/[m
+  [32m➜[m  [1mNetwork[m: use [1m--host[m to expose
+[32m  ➜[m  press [1mh + enter[m to show help
+└─ @acme/tanstack-start#dev ──
+┌─ @acme/expo#dev > cache bypass, force executing 9483923f14408809
+
+> @acme/expo@ dev /home/z/Personal/ai/rastro/apps/expo
+> EXPO_UNSTABLE_MCP_SERVER=1 expo start
+
+[90mStarting project at /home/z/Personal/ai/rastro/apps/expo[m
+[90mUsing src/app as the root directory for Expo Router.[m
+[33mExperimental Expo Autolinking module resolver is enabled.[m
+[90mReact Compiler enabled[m
+Starting Metro Bundler
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+█ ▄▄▄▄▄ █▀█▀█▄█▄▀███▄▄█▀▄██ ▄▄▄▄▄ █
+█ █   █ █▀▀▀█▄▀▄█▄▀▄▀█▄▀█▀█ █   █ █
+█ █▄▄▄█ █▀ █▄ ▀ ▀███▄   ▄██ █▄▄▄█ █
+█▄▄▄▄▄▄▄█▄▀ █ █▄█▄█ █ ▀▄█▄█▄▄▄▄▄▄▄█
+█ ▄   █▄▄▄▄▀ ▀ ▀▄▄▄█ ▄██ ▄ ▀▄█▄▀ ▀█
+██▀█▀▄ ▄ ▄█▄█ ██ ▄█ █▀  █ ██ ▀▀▀ ▀█
+█ ▀▀▀ █▄ ▀ ▄▀▀ ██▄▄  ▀▀▄▀█▄▀█▄█▀█ █
+█  ██▄ ▄▄ ▀▄█ ▄▄ ▄██▀█▀▀▀█  ██  ███
+█▀▄▄▄█▀▄▀▄▄▄ ▀▄▀▄▄▄▄▀ █▄ ▄█▀▄▄▄▀▀▀█
+█▀▄▄▄█▀▄▄▄█▀█▀██▄▀▄▄█  ▄█▄ ▄█  ▀▄██
+█▀ ▄▄█ ▄▀ ▄▀█▄ █ ▀█▀▀ █▄ ▄▄▀ ▄ ▀▀ █
+█ ██▄▄█▄   ▀▀▀▄▄▄██▄▀  ▀██▄██ ▀  ██
+█▄█▄▄▄█▄█▀▀▄▀▀▄▀▄▄▄  ▄▀▄█ ▄▄▄ ▄▀▄▀█
+█ ▄▄▄▄▄ █▄  ███▀  ██▀     █▄█ ▀▀ ▀█
+█ █   █ █ █▀▀ ▄▀▄█▄▄ ██▄█▄ ▄  ▀██▄█
+█ █▄▄▄█ █ ███ ▄█▄▀▄ █▀▀▄ ▄▀▄ ▀▄▀▄██
+█▄▄▄▄▄▄▄█▄▄▄▄█▄█▄████▄█▄▄▄▄█▄▄▄█▄██
+
+› Metro waiting on
+[4mexp+rastro://expo-development-client/?url=http%3A%2F%2F192.[m
+[4m168.0.128%3A8081[m
+› Scan the QR code above to open the project in a developme
+nt
+build. Learn more: [4mhttps://expo.fyi/start[m
+
+› Web is waiting on [4mhttp://localhost:8081[m
+
+› Using [36mdevelopment build[m
+› Press [1ms[m │ switch to Expo Go
+
+› Press [1ma[m │ open Android
+› Press [1mw[m │ open web
+
+› Press [1mj[m │ open debugger
+[33;40m WARNING [0m [33;49mcould not start shutdown, exiting[0m
+
+[2K› Press [1mr[m │ reload app
+› Press [1mm[m │ toggle menu
+› [1mshift+m[m │ more tools
+› Press [1mo[m │ open project code in your editor
+
+› Press [1m?[m │ show all commands
+
+Logs for your project will appear below. Press Ctrl+C to ex
+it.
+[33m|[m [baseline-browser-mapping] The data in this module is ove
+r two months old.  To ensure accurate Baseline data, please
+ update: `npm i baseline-browser-mapping@latest -D`
+└─ @acme/expo#dev ──
+┌─ @acme/nextjs#dev > cache bypass, force executing f39874260e6f8d5f
+
+> @acme/nextjs@ dev /home/z/Personal/ai/rastro/apps/nextjs
+> pnpm with-env next dev
+
+../..                                    | [30;43m WARN [m Unsupport
+ed engine: wanted: {"node":"^22.21.0"} (current: {"node":"v
+24.11.1","pnpm":"10.19.0"})
+
+> @acme/nextjs@ with-env /home/z/Personal/ai/rastro/apps/ne
+xtjs
+> dotenv -e ../../.env -- next dev
+
+   [38;2;173;127;168;1m▲ Next.js 16.0.10[m (Turbopack)
+   - Local:         http://localhost:3000
+   - Network:       http://192.168.0.128:3000
+
+ [32;1m✓[m Starting...
+[baseline-browser-mapping] The data in this module is over
+two months old.  To ensure accurate Baseline data, please u
+pdate: `npm i baseline-browser-mapping@latest -D`
+ [32;1m✓[m Ready in 1268ms
+ [37;1m○[m Compiling /api/auth/[...all] ...
+ GET /api/auth/get-session [32m200[m in 5.0s
+ [37;1m○[m Compiling / ...
+[TRPC] post.all took 1322ms to execute
+ GET / [32m200[m in 8.0s (compile: 5.5s, render: 2.5s)
+[TRPC] resources.nearby took 2379ms to execute
+ GET /api/trpc/resources.nearby?input=%7B%22json%22%3A%7B%2
+2latitude%22%3A-16.5%2C%22longitude%22%3A-68.12%2C%22radius
+Meters%22%3A5000%2C%22categoryIds%22%3A%5B%22veterinary%22%
+5D%2C%22strategy%22%3A%22postgis_radius%22%7D%7D [32m200[m in 4.6
+s (compile: 2.1s, render: 2.4s)
+[TRPC] resources.nearby took 1578ms to execute
+ GET /api/trpc/resources.nearby?batch=1&input=%7B%220%22%3A
+%7B%22json%22%3A%7B%22categoryIds%22%3Anull%2C%22latitude%2
+2%3A-16.510231%2C%22longitude%22%3A-68.123881%2C%22radiusMe
+ters%22%3A5000%2C%22strategy%22%3A%22postgis_radius%22%7D%2
+C%22meta%22%3A%7B%22values%22%3A%7B%22categoryIds%22%3A%5B%
+22undefined%22%5D%7D%2C%22v%22%3A1%7D%7D%7D [32m200[m in 2.6s (co
+mpile: 90ms, render: 2.5s)
+└─ @acme/nextjs#dev ──
+[?25h  × Watch interrupted due to signal.
+
+[41m[30m ELIFECYCLE [39m[49m [31mCommand failed with exit code 1.[39m
+
+Script done on 2026-06-29 17:45:20-04:00 [COMMAND_EXIT_CODE="1"]
