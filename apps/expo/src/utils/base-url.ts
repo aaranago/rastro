@@ -1,29 +1,42 @@
 import Constants from "expo-constants";
+import { Platform } from "react-native";
+
+interface ExplicitBaseUrl {
+  source: "env-file" | "process" | "unknown";
+  url: string;
+}
 
 /**
  * Resolve the API origin used by the Expo tRPC and Better Auth clients.
- * Release-like builds should set EXPO_PUBLIC_API_BASE_URL through app config;
- * local Expo development can fall back to the Metro host.
+ * Local Expo development follows the Metro host so Android reaches the
+ * same root dev stack. Release-like builds should set
+ * EXPO_PUBLIC_API_BASE_URL through app config.
  */
 export const getBaseUrl = () => {
   const explicitBaseUrl = getExplicitBaseUrl();
+  const localDevelopmentBaseUrl = getLocalDevelopmentBaseUrl();
+
+  if (
+    localDevelopmentBaseUrl &&
+    shouldUseLocalDevelopmentBaseUrl(explicitBaseUrl)
+  ) {
+    return localDevelopmentBaseUrl;
+  }
 
   if (explicitBaseUrl) {
-    return explicitBaseUrl;
+    return explicitBaseUrl.url;
   }
 
-  const debuggerHost = Constants.expoConfig?.hostUri;
-  const localhost = debuggerHost?.split(":")[0];
-
-  if (!localhost) {
-    throw new Error(
-      "Missing Expo API base URL. Set EXPO_PUBLIC_API_BASE_URL for release-like builds or run Expo with a development host URI.",
-    );
+  if (localDevelopmentBaseUrl) {
+    return localDevelopmentBaseUrl;
   }
-  return `http://${localhost}:3000`;
+
+  throw new Error(
+    "Missing Expo API base URL. Set EXPO_PUBLIC_API_BASE_URL for release-like builds or run Expo with a development host URI.",
+  );
 };
 
-function getExplicitBaseUrl(): string | undefined {
+function getExplicitBaseUrl(): ExplicitBaseUrl | undefined {
   const extra = Constants.expoConfig?.extra;
 
   if (!isRecord(extra)) {
@@ -36,7 +49,61 @@ function getExplicitBaseUrl(): string | undefined {
     return undefined;
   }
 
-  return apiBaseUrl;
+  const apiBaseUrlSource = extra.apiBaseUrlSource;
+
+  return {
+    source:
+      apiBaseUrlSource === "env-file" || apiBaseUrlSource === "process"
+        ? apiBaseUrlSource
+        : "unknown",
+    url: apiBaseUrl,
+  };
+}
+
+function getLocalDevelopmentBaseUrl(): string | undefined {
+  const host = getHostFromHostUri(Constants.expoConfig?.hostUri);
+
+  return host ? `http://${getDeviceReachableHost(host)}:3000` : undefined;
+}
+
+function shouldUseLocalDevelopmentBaseUrl(
+  explicitBaseUrl: ExplicitBaseUrl | undefined,
+) {
+  return !explicitBaseUrl || explicitBaseUrl.source === "env-file";
+}
+
+function getHostFromHostUri(hostUri: unknown): string | undefined {
+  if (typeof hostUri !== "string" || hostUri.trim() === "") {
+    return undefined;
+  }
+
+  const trimmedHostUri = hostUri.trim();
+  const hostUriWithProtocol = trimmedHostUri.includes("://")
+    ? trimmedHostUri
+    : `http://${trimmedHostUri}`;
+
+  try {
+    return new URL(hostUriWithProtocol).hostname;
+  } catch {
+    return trimmedHostUri.split(":")[0] ?? undefined;
+  }
+}
+
+function getDeviceReachableHost(host: string): string {
+  const normalizedHost = host.toLowerCase();
+
+  if (
+    Platform.OS === "android" &&
+    (normalizedHost === "localhost" ||
+      normalizedHost === "127.0.0.1" ||
+      normalizedHost === "0.0.0.0" ||
+      normalizedHost === "::1" ||
+      normalizedHost === "[::1]")
+  ) {
+    return "10.0.2.2";
+  }
+
+  return host;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

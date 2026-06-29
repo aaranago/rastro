@@ -11,6 +11,7 @@ const defaultPhotosPermission =
 const defaultCameraPermission =
   "Rastro usa la camara para tomar fotos de reportes de mascotas.";
 const defaultSocialAuthProviders = "google,facebook";
+const expoEnvFileValues = new Map<string, string>();
 
 loadExpoEnvFilesFromRepoRoot();
 
@@ -103,7 +104,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         ...authConfig,
         socialProviders: socialAuthProviders,
       },
-      ...(apiBaseUrl ? { apiBaseUrl } : {}),
+      ...(apiBaseUrl
+        ? {
+            apiBaseUrl,
+            // The mobile runtime lets local Metro hosts override repo env-file
+            // API defaults, while shell/EAS-provided values stay explicit.
+            apiBaseUrlSource: getExpoEnvSource("EXPO_PUBLIC_API_BASE_URL"),
+          }
+        : {}),
       maps: {
         ...(isRecord(config.extra?.maps) ? config.extra.maps : {}),
         androidGoogleMapsConfigured: Boolean(androidGoogleMapsApiKey),
@@ -162,11 +170,16 @@ export function loadExpoEnvFilesFromRepoRoot(
       const env = parseEnv(readFileSync(envPath, "utf8"));
 
       for (const [name, value] of Object.entries(env)) {
-        if (!name.startsWith("EXPO_") || process.env[name] !== undefined) {
+        if (
+          !name.startsWith("EXPO_") ||
+          process.env[name] !== undefined ||
+          typeof value !== "string"
+        ) {
           continue;
         }
 
         process.env[name] = value;
+        expoEnvFileValues.set(name, value);
       }
     }
   }
@@ -196,6 +209,12 @@ function readOptionalUrlEnv(name: string): string | undefined {
   }
 
   return value.replace(/\/+$/, "");
+}
+
+function getExpoEnvSource(name: string): "env-file" | "process" {
+  return expoEnvFileValues.get(name) === process.env[name]
+    ? "env-file"
+    : "process";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

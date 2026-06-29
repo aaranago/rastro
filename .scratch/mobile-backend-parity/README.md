@@ -14,6 +14,8 @@ Implemented commits:
 
 Final evidence path: `.scratch/mobile-qa/20260629-145920/`.
 
+Correction evidence path: `.scratch/mobile-qa/20260629-173220/`.
+
 Closure summary:
 
 - MBP-001 through MBP-008 are implemented in the commits above with their issue comments preserved.
@@ -21,6 +23,13 @@ Closure summary:
 - Root `TURBO_UI=true pnpm dev` was run in a recorded TTY and reached Next.js, TanStack/Vite, Expo Metro, API, DB, and validators startup.
 - MCP/mobile evidence launched `bo.rastro.app` on `emulator-5554`, captured app screenshots, and documented a local `resources.nearby` `TRPCClientError` LogBox that blocked the full manual device regression.
 - Do not overclaim full manual e2e coverage from this pass; the remaining risk is the local device/backend data path captured in `.scratch/mobile-qa/20260629-145920/mcp-notes.md`.
+
+Correction - Implementation Worker B, 2026-06-29:
+
+- The Android Recursos blocker from the closeout pass was traced to local dev API base selection, not a broken `resources.nearby` route. The Expo app was using a stale `.env` ngrok origin (`https://untransiently-nongerundive-roxanne.ngrok-free.dev`) that returned plain text `ERR_NGROK_3200`, which surfaced in tRPC as `JSON Parse error: Unexpected character: T`.
+- The fix records whether `EXPO_PUBLIC_API_BASE_URL` came from a repo env file or from explicit process/EAS config. During local Metro dev, env-file API bases are treated as defaults and the app derives a device-reachable local backend origin from the Expo dev host; shell/EAS explicit API bases still win.
+- Automated reverification in `.scratch/mobile-qa/20260629-173220/` covers the base URL resolver, Expo env-source tagging, and existing Recursos `resources.nearby` adapter/router contracts.
+- Runtime emulator proof was not rerun by Implementation Worker B. This correction closes the code-level stale-ngrok Recursos defect pending a delegated root `pnpm dev` emulator smoke, and it does not rerun or overclaim the full manual parity matrix.
 
 This README is for the coordination agent running the mobile backend parity wave. The local issues live under `.scratch/mobile-backend-parity/issues/` and should be implemented in dependency order unless the coordinator explicitly assigns disjoint paths.
 

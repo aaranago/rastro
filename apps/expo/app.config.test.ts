@@ -117,6 +117,9 @@ describe("Expo app config", () => {
         process.env.EXPO_PUBLIC_EAS_PROJECT_ID = "from-shell";
 
         loadExpoEnvFilesFromRepoRoot(repoRoot);
+        const config = createExpoConfig({
+          config: {} as ExpoConfig,
+        } as ConfigContext);
 
         expect(process.env.CI).toBeUndefined();
         expect(process.env.PORT).toBeUndefined();
@@ -124,11 +127,26 @@ describe("Expo app config", () => {
           "http://127.0.0.1:3000",
         );
         expect(process.env.EXPO_PUBLIC_EAS_PROJECT_ID).toBe("from-shell");
+        expect(config.extra?.apiBaseUrl).toBe("http://127.0.0.1:3000");
+        expect(config.extra?.apiBaseUrlSource).toBe("env-file");
       },
       () => {
         rmSync(repoRoot, { force: true, recursive: true });
       },
     );
+  });
+
+  it("marks shell-provided API base URLs as explicit process config", () => {
+    withEnvSnapshot(["EXPO_PUBLIC_API_BASE_URL"], () => {
+      process.env.EXPO_PUBLIC_API_BASE_URL = "https://api.rastro.bo";
+
+      const config = createExpoConfig({
+        config: {} as ExpoConfig,
+      } as ConfigContext);
+
+      expect(config.extra?.apiBaseUrl).toBe("https://api.rastro.bo");
+      expect(config.extra?.apiBaseUrlSource).toBe("process");
+    });
   });
 });
 
