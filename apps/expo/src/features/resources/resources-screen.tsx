@@ -219,6 +219,8 @@ export function ResourcesScreen({
         isVerified={item.isVerified}
         isSponsored={item.isSponsored}
         sponsorLabel={item.sponsorLabel}
+        sponsorLogoUrl={item.sponsorLogoUrl}
+        sponsorImageUrl={item.sponsorImageUrl}
         availabilityLabel={item.availabilityLabel}
         emergencyLabel={item.emergencyLabel}
         imageUrl={item.logoUrl ?? item.photoUrl}

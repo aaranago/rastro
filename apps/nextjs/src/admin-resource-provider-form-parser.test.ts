@@ -26,22 +26,24 @@ describe("admin resource provider form parser", () => {
         addressLabel: "Plaza Abaroa, La Paz",
         serviceAreaLabel: "Atiende La Paz y El Alto",
         hoursLabel: "Lun - Dom: 24 horas",
-        contactKind0: "phone",
-        contactLabel0: "Llamar",
-        contactValue0: "+591 2 222 1111",
-        contactKind1: "whatsapp",
-        contactLabel1: "WhatsApp",
-        contactValue1: "+591 70000001",
-        contactKind2: "email",
-        contactLabel2: "Correo",
-        contactValue2: "contacto@sanroque.example",
+        "contactOptions.0.kind": "phone",
+        "contactOptions.0.label": "Llamar",
+        "contactOptions.0.value": "+591 2 222 1111",
+        "contactOptions.1.kind": "whatsapp",
+        "contactOptions.1.label": "WhatsApp",
+        "contactOptions.1.value": "+591 70000001",
+        "contactOptions.2.kind": "email",
+        "contactOptions.2.label": "Correo",
+        "contactOptions.2.value": "contacto@sanroque.example",
         websiteUrl: "https://sanroque.example.com",
+        logoAssetId: "11111111-1111-4111-8111-111111111111",
         logoUrl: "https://example.com/logo.png",
+        photoAssetId: "22222222-2222-4222-8222-222222222222",
         photoUrl: "https://example.com/photo.png",
-        socialLinkLabel0: "Instagram",
-        socialLinkUrl0: "https://instagram.example.com/sanroque",
-        externalLinkLabel0: "Ficha municipal",
-        externalLinkUrl0: "https://municipio.example.com/sanroque",
+        "socialLinks.0.label": "Instagram",
+        "socialLinks.0.url": "https://instagram.example.com/sanroque",
+        "externalLinks.0.label": "Ficha municipal",
+        "externalLinks.0.url": "https://municipio.example.com/sanroque",
         emergencyAvailable: "on",
       }),
     );
@@ -69,7 +71,9 @@ describe("admin resource provider form parser", () => {
           exactLatitude: -16.510231,
           exactLongitude: -68.123881,
         },
+        logoAssetId: "11111111-1111-4111-8111-111111111111",
         logoUrl: "https://example.com/logo.png",
+        photoAssetId: "22222222-2222-4222-8222-222222222222",
         photoUrl: "https://example.com/photo.png",
         socialLinks: [
           {
@@ -103,18 +107,18 @@ describe("admin resource provider form parser", () => {
         locationCell: "bo-lpb-sopocachi",
         serviceAreaLabel: "Atiende La Paz y El Alto",
         hoursLabel: "Lun - Dom: 24 horas",
-        contactKind0: "phone",
-        contactLabel0: "Llamar",
-        contactValue0: "+591 2 222 1111",
-        contactKind1: "whatsapp",
-        contactLabel1: "WhatsApp",
-        contactValue1: "+591 70000001",
-        contactKind2: "email",
-        contactLabel2: "Correo",
-        contactValue2: "contacto@sanroque.example",
+        "contactOptions.0.kind": "phone",
+        "contactOptions.0.label": "Llamar",
+        "contactOptions.0.value": "+591 2 222 1111",
+        "contactOptions.1.kind": "whatsapp",
+        "contactOptions.1.label": "WhatsApp",
+        "contactOptions.1.value": "+591 70000001",
+        "contactOptions.2.kind": "email",
+        "contactOptions.2.label": "Correo",
+        "contactOptions.2.value": "contacto@sanroque.example",
         websiteUrl: "https://sanroque.example.com",
-        socialLinkLabel0: "Instagram",
-        socialLinkUrl0: "https://instagram.example.com/sanroque",
+        "socialLinks.0.label": "Instagram",
+        "socialLinks.0.url": "https://instagram.example.com/sanroque",
       }),
     );
 
@@ -148,6 +152,56 @@ describe("admin resource provider form parser", () => {
     });
   });
 
+  it("parses field-array contact and link order after reorder and remove", () => {
+    const result = parseUpdateProviderInput(
+      formData({
+        providerId: "11111111-1111-4111-8111-111111111111",
+        name: "Clinica Veterinaria San Roque",
+        category: "veterinary",
+        description:
+          "Veterinaria local con atencion general, urgencias y orientacion.",
+        shortDescription:
+          "Atencion veterinaria general y orientacion para familias cuidadoras.",
+        department: "La Paz",
+        city: "La Paz",
+        approximateLocationLabel: "Sopocachi, La Paz",
+        locationCell: "bo-lpb-sopocachi",
+        serviceAreaLabel: "Atiende La Paz y El Alto",
+        hoursLabel: "Lun - Dom: 24 horas",
+        "contactOptions.0.kind": "email",
+        "contactOptions.0.label": "Correo",
+        "contactOptions.0.value": "contacto@sanroque.example",
+        "contactOptions.1.kind": "phone",
+        "contactOptions.1.label": "Llamar",
+        "contactOptions.1.value": "+591 2 222 1111",
+        "externalLinks.0.label": "Ficha municipal",
+        "externalLinks.0.url": "https://municipio.example.com/sanroque",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      input: {
+        contactOptions: [
+          {
+            kind: "email",
+            label: "Correo",
+          },
+          {
+            kind: "phone",
+            label: "Llamar",
+          },
+        ],
+        externalLinks: [
+          {
+            label: "Ficha municipal",
+          },
+        ],
+        socialLinks: null,
+      },
+    });
+  });
+
   it("reports field-level errors for incomplete contact and link rows", () => {
     const result = parseCreateProviderInput(
       formData({
@@ -164,9 +218,9 @@ describe("admin resource provider form parser", () => {
         locationCell: "bo-lpb-sopocachi",
         serviceAreaLabel: "Atiende La Paz y El Alto",
         hoursLabel: "Lun - Dom: 24 horas",
-        contactKind0: "whatsapp",
-        contactLabel0: "WhatsApp",
-        socialLinkUrl0: "https://instagram.example.com/sanroque",
+        "contactOptions.0.kind": "whatsapp",
+        "contactOptions.0.label": "WhatsApp",
+        "socialLinks.0.url": "https://instagram.example.com/sanroque",
       }),
     );
 
@@ -174,7 +228,7 @@ describe("admin resource provider form parser", () => {
       ok: false,
       fieldErrors: [
         {
-          field: "contactValue0",
+          field: "contactOptions.0.value",
           message: "Este campo es obligatorio.",
         },
         {
@@ -182,7 +236,7 @@ describe("admin resource provider form parser", () => {
           message: "Registra al menos una opcion de contacto.",
         },
         {
-          field: "socialLinkLabel0",
+          field: "socialLinks.0.label",
           message: "Este campo es obligatorio.",
         },
       ],
@@ -225,6 +279,54 @@ describe("admin resource provider form parser", () => {
           field: "endsOn",
           message:
             "La fecha final debe ser posterior o igual a la fecha inicial.",
+        },
+      ],
+    });
+  });
+
+  it("parses sponsor media URL fallbacks and reports invalid URLs", () => {
+    expect(
+      parseAttachSponsorInput(
+        formData({
+          providerId: "11111111-1111-4111-8111-111111111111",
+          sponsorSurface: "resources_directory",
+          sponsorLabel: "Patrocinado",
+          sponsorDisclosure:
+            "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+          logoAssetId: "11111111-1111-4111-8111-111111111111",
+          logoUrl: "https://example.com/sponsor-logo.png",
+          imageAssetId: "22222222-2222-4222-8222-222222222222",
+          imageUrl: "https://example.com/sponsor-banner.png",
+          startsOn: "2026-07-01",
+          endsOn: "2026-07-31",
+        }),
+      ),
+    ).toMatchObject({
+      ok: true,
+      input: {
+        logoAssetId: "11111111-1111-4111-8111-111111111111",
+        logoUrl: "https://example.com/sponsor-logo.png",
+        imageAssetId: "22222222-2222-4222-8222-222222222222",
+        imageUrl: "https://example.com/sponsor-banner.png",
+      },
+    });
+
+    expect(
+      parseAttachSponsorInput(
+        formData({
+          providerId: "11111111-1111-4111-8111-111111111111",
+          sponsorSurface: "resources_directory",
+          imageUrl: "nota-url",
+          startsOn: "2026-07-01",
+          endsOn: "2026-07-31",
+        }),
+      ),
+    ).toEqual({
+      ok: false,
+      fieldErrors: [
+        {
+          field: "imageUrl",
+          message: "Ingresa una URL válida.",
         },
       ],
     });

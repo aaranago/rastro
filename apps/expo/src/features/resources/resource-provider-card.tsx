@@ -14,6 +14,8 @@ interface ResourceProviderCardProps {
   isVerified: boolean;
   isSponsored: boolean;
   sponsorLabel?: string;
+  sponsorLogoUrl?: string;
+  sponsorImageUrl?: string;
   availabilityLabel?: string;
   emergencyLabel?: string;
   imageUrl?: string;
@@ -32,6 +34,8 @@ export const ResourceProviderCard = memo(function ResourceProviderCard({
   isVerified,
   isSponsored,
   sponsorLabel,
+  sponsorLogoUrl,
+  sponsorImageUrl,
   availabilityLabel,
   emergencyLabel,
   imageUrl,
@@ -96,6 +100,14 @@ export const ResourceProviderCard = memo(function ResourceProviderCard({
           sponsorLabel={sponsorLabel}
         />
 
+        <SponsorMediaRow
+          id={id}
+          imageUrl={sponsorImageUrl}
+          isSponsored={isSponsored}
+          logoUrl={sponsorLogoUrl}
+          name={name}
+        />
+
         <ProviderActionsRow
           contactLabels={contactLabels}
           name={name}
@@ -126,6 +138,48 @@ function ProviderCardHeader({
         </Text>
       </View>
       {distanceLabel ? <DistancePill label={distanceLabel} /> : null}
+    </View>
+  );
+}
+
+function SponsorMediaRow({
+  id,
+  imageUrl,
+  isSponsored,
+  logoUrl,
+  name,
+}: {
+  id: string;
+  imageUrl?: string;
+  isSponsored: boolean;
+  logoUrl?: string;
+  name: string;
+}) {
+  if (!isSponsored || (!logoUrl && !imageUrl)) {
+    return null;
+  }
+
+  return (
+    <View
+      accessibilityLabel={`Medios de patrocinio de ${name}`}
+      style={styles.sponsorMediaRow}
+    >
+      {logoUrl ? (
+        <Image
+          source={{ uri: logoUrl }}
+          style={styles.sponsorLogo}
+          contentFit="cover"
+          recyclingKey={`${id}-sponsor-logo`}
+        />
+      ) : null}
+      {imageUrl ? (
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.sponsorImage}
+          contentFit="cover"
+          recyclingKey={`${id}-sponsor-image`}
+        />
+      ) : null}
     </View>
   );
 }
@@ -377,6 +431,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 15,
     fontWeight: "800",
+  },
+  sponsorMediaRow: {
+    minHeight: 46,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 14,
+    borderCurve: "continuous",
+    backgroundColor: resourcesColors.warningSoft,
+    padding: 6,
+  },
+  sponsorLogo: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderCurve: "continuous",
+  },
+  sponsorImage: {
+    flex: 1,
+    minWidth: 0,
+    height: 42,
+    borderRadius: 10,
+    borderCurve: "continuous",
   },
   actionsRow: {
     flexDirection: "row",

@@ -2,6 +2,9 @@ import { getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 
 import {
+  AdminMediaAsset,
+  adminMediaAssetPurpose,
+  adminMediaAssetStatus,
   LocalSponsorPlacement,
   moderationReportReason,
   localSponsorPlacementSurface,
@@ -14,6 +17,15 @@ import {
   ResourceProviderModerationReviewItem,
   resourceProviderModerationReviewStatus,
 } from "./schema";
+
+const postgresQueryConfig = {
+  casing: {
+    getColumnCasing: (column: { name: string }) => column.name,
+  },
+  escapeName: (name: string) => `"${name}"`,
+  escapeParam: (index: number) => `$${index + 1}`,
+  escapeString: (value: string) => `'${value.replaceAll("'", "''")}'`,
+};
 
 describe("resource provider schema", () => {
   it("aligns resource categories, contact kinds, and sponsor surfaces with Recursos contracts", () => {
@@ -54,6 +66,21 @@ describe("resource provider schema", () => {
     ]);
     expect(resourceProviderModerationReviewStatus.enumValues).toEqual([
       "pending",
+      "dismissed_false_report",
+      "resolved_action_taken",
+      "resolved_no_action",
+    ]);
+    expect(adminMediaAssetPurpose.enumValues).toEqual([
+      "provider_logo",
+      "provider_photo",
+      "sponsor_logo",
+      "sponsor_image",
+    ]);
+    expect(adminMediaAssetStatus.enumValues).toEqual([
+      "pending",
+      "ready",
+      "failed",
+      "removed",
     ]);
   });
 
@@ -72,6 +99,40 @@ describe("resource provider schema", () => {
     expect(ResourceProviderLocation.department).toBeDefined();
     expect(ResourceProviderLocation.approximateLocationLabel).toBeDefined();
     expect(ResourceProviderLocation.locationCell).toBeDefined();
+  });
+
+  it("keeps sponsor media as nullable URL fallback columns", () => {
+    expect(LocalSponsorPlacement.logoUrl).toBeDefined();
+    expect(LocalSponsorPlacement.imageUrl).toBeDefined();
+    expect(LocalSponsorPlacement.logoUrl.notNull).toBe(false);
+    expect(LocalSponsorPlacement.imageUrl.notNull).toBe(false);
+  });
+
+  it("stores admin-owned media assets separately from report media", () => {
+    const indexes = getTableConfig(AdminMediaAsset).indexes.map(
+      (index) => index.config,
+    );
+    const objectKeyIndex = indexes.find(
+      (index) => index.name === "admin_media_asset_object_key_idx",
+    );
+    const pendingExpiryIndex = indexes.find(
+      (index) => index.name === "admin_media_asset_pending_expiry_idx",
+    );
+
+    expect(AdminMediaAsset.createdByAdminId).toBeDefined();
+    expect(AdminMediaAsset.purpose).toBeDefined();
+    expect(AdminMediaAsset.status).toBeDefined();
+    expect(AdminMediaAsset.objectKey).toBeDefined();
+    expect(AdminMediaAsset.canonicalUrl).toBeDefined();
+    expect(AdminMediaAsset.expectedChecksumSha256).toBeDefined();
+    expect(AdminMediaAsset.expiresAt).toBeDefined();
+    expect(AdminMediaAsset.verifiedAt).toBeDefined();
+    expect(AdminMediaAsset.failedAt).toBeDefined();
+    expect(AdminMediaAsset.removedAt).toBeDefined();
+    expect(objectKeyIndex?.unique).toBe(true);
+    expect(
+      pendingExpiryIndex?.where?.toQuery(postgresQueryConfig as never).sql,
+    ).toBe(`"admin_media_asset"."status" = 'pending'`);
   });
 
   it("indexes exact PostGIS search, public location display, contacts, and sponsor windows", () => {
@@ -127,7 +188,10 @@ describe("resource provider schema", () => {
     expect(ResourceProviderModerationReport.detail).toBeDefined();
     expect(
       reviewUnique?.columns.map((column) => "name" in column && column.name),
-    ).toEqual(["providerId", "reason", "status"]);
+    ).toEqual(["providerId", "reason"]);
+    expect(reviewUnique?.where?.toQuery(postgresQueryConfig as never).sql).toBe(
+      `"resource_provider_moderation_review_item"."status" = 'pending'`,
+    );
     expect(
       reportUnique?.columns.map((column) => "name" in column && column.name),
     ).toEqual(["reporterId", "providerId", "reason"]);
@@ -145,5 +209,6 @@ describe("resource provider schema", () => {
     expect(
       ResourceProviderModerationReviewItem.updatedAt.onUpdateFn?.(),
     ).toBeInstanceOf(Date);
+    expect(AdminMediaAsset.updatedAt.onUpdateFn?.()).toBeInstanceOf(Date);
   });
 });

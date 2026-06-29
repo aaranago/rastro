@@ -1,4 +1,6 @@
-import type * as React from "react";
+"use client";
+
+import * as React from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Badge } from "@acme/ui/badge";
@@ -21,6 +23,7 @@ import {
 } from "@acme/ui/dialog";
 import {
   Field,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -38,16 +41,34 @@ import {
 import { Textarea } from "@acme/ui/textarea";
 
 import type {
+  AdminSponsorPlacementActionState,
   AdminSponsorPlacementFeedback,
+  AdminSponsorPlacementFormAction,
   AdminSponsorPlacementNotice,
 } from "./admin-sponsor-placement-actions";
 import type {
   AdminSponsorPlacementDashboardViewModel,
+  AdminSponsorPlacementListStateViewModel,
   AdminSponsorPlacementSurfaceOption,
   AdminSponsorPlacementViewModel,
   AdminSponsorProviderOption,
 } from "./admin-sponsor-placement-model";
+import type { AdminDataListColumn } from "./admin-ui/admin-data-list";
+import { AdminMediaUploadField } from "./admin-media-upload-field";
+import { AdminDataList } from "./admin-ui/admin-data-list";
+import {
+  AdminListFilterSubmitControls,
+  AdminExternalMediaUrlFallback as AdvancedExternalMediaUrlFallback,
+  getArrayFilterValue,
+  AdminNativeSelectField as NativeSelectField,
+  AdminTextField as TextField,
+} from "./admin-ui/admin-form-fields";
 import { AdminSubmitButton } from "./admin-ui/admin-submit-button";
+import {
+  buildAdminListActiveFilters,
+  buildAdminListPageHref,
+  buildAdminListSortHref,
+} from "./admin-url-form-parser";
 
 export type AdminSponsorPlacementViewerRole = "admin" | "member" | "visitor";
 
@@ -61,12 +82,15 @@ export interface AdminSponsorPlacementDashboardProps {
     body: string;
     title: string;
   };
-  formAction?: React.ComponentProps<"form">["action"];
+  formAction?: AdminSponsorPlacementFormAction;
   notice?: AdminSponsorPlacementNotice;
   viewModel: AdminSponsorPlacementDashboardViewModel;
   viewer: AdminSponsorPlacementViewer;
   workflowFeedback?: AdminSponsorPlacementFeedback;
 }
+
+const emptyAdminSponsorPlacementActionState: AdminSponsorPlacementActionState =
+  {};
 
 export function AdminSponsorPlacementDashboard(
   props: AdminSponsorPlacementDashboardProps,
@@ -102,7 +126,7 @@ export function AdminSponsorPlacementDashboard(
 }
 
 function SponsorHeader(props: {
-  formAction?: React.ComponentProps<"form">["action"];
+  formAction?: AdminSponsorPlacementFormAction;
   viewModel: AdminSponsorPlacementDashboardViewModel;
   workflowFeedback?: AdminSponsorPlacementFeedback;
 }) {
@@ -222,66 +246,85 @@ function PolicyValue(props: { label: string; value: string }) {
 }
 
 function SponsorPlacementTable(props: {
-  formAction?: React.ComponentProps<"form">["action"];
+  formAction?: AdminSponsorPlacementFormAction;
   viewModel: AdminSponsorPlacementDashboardViewModel;
   workflowFeedback?: AdminSponsorPlacementFeedback;
 }) {
-  return (
-    <Card className="rounded-lg">
-      <CardHeader>
-        <CardTitle className="tracking-normal">
-          Patrocinios por proveedor
-        </CardTitle>
-        <CardDescription>
-          Lista operacional con superficie, vigencia, estado y acciones.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {props.viewModel.placements.length === 0 ? (
-          <SponsorEmptyState />
-        ) : (
-          <div className="grid gap-3">
-            {props.viewModel.placements.map((placement) => (
-              <SponsorPlacementCard
-                formAction={props.formAction}
-                key={placement.placementId}
-                placement={placement}
-                providerOptions={props.viewModel.providerOptions}
-                surfaceOptions={props.viewModel.surfaceOptions}
-                workflowFeedback={props.workflowFeedback}
-              />
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+  const columns = getSponsorPlacementColumns(props.viewModel.list);
+  const totalLabel =
+    props.viewModel.list.total === 1
+      ? "1 patrocinio"
+      : `${props.viewModel.list.total} patrocinios`;
 
-function SponsorEmptyState() {
   return (
-    <div className="border-border bg-muted/30 rounded-lg border p-5">
-      <p className="font-semibold">Todavía no hay patrocinios locales.</p>
-      <p className="text-muted-foreground mt-1 text-sm">
-        Crea el primer patrocinio cuando exista un proveedor de recursos
-        elegible y una ventana de fechas confirmada.
-      </p>
-    </div>
+    <AdminDataList
+      activeFilters={buildAdminListActiveFilters({
+        availableFilters: props.viewModel.list.availableFilters,
+        basePath: "/admin/patrocinios",
+        listInput: props.viewModel.list.input,
+      })}
+      columns={columns}
+      description="Lista operacional con proveedor, superficie, vigencia, estado, medios y acciones."
+      emptyState={{
+        description:
+          "Crea el primer patrocinio cuando exista un proveedor de recursos elegible y una ventana de fechas confirmada.",
+        title: "Todavía no hay patrocinios locales.",
+      }}
+      filterBar={<SponsorPlacementFilterBar list={props.viewModel.list} />}
+      filteredEmptyState={{
+        description:
+          "Ajusta la búsqueda o retira filtros para ver otros patrocinios locales.",
+        title: "No hay patrocinios para estos filtros.",
+      }}
+      getRowKey={(placement) => placement.placementId}
+      id="sponsor-placement-list"
+      pagination={{
+        hrefForPage: (page) =>
+          buildAdminListPageHref({
+            basePath: "/admin/patrocinios",
+            listInput: props.viewModel.list.input,
+            page,
+          }),
+        page: props.viewModel.list.page,
+        pageSize: props.viewModel.list.pageSize,
+        totalItems: props.viewModel.list.total,
+      }}
+      renderMobileCard={(placement) => (
+        <SponsorPlacementCard
+          formAction={props.formAction}
+          placement={placement}
+          providerOptions={props.viewModel.providerOptions}
+          surfaceOptions={props.viewModel.surfaceOptions}
+          workflowFeedback={props.workflowFeedback}
+        />
+      )}
+      rowActions={{
+        className: "w-[160px]",
+        render: (placement) => (
+          <SponsorPlacementActions
+            formAction={props.formAction}
+            placement={placement}
+            providerOptions={props.viewModel.providerOptions}
+            surfaceOptions={props.viewModel.surfaceOptions}
+            workflowFeedback={props.workflowFeedback}
+          />
+        ),
+      }}
+      rows={props.viewModel.placements}
+      tableCaption="Patrocinios locales por proveedor"
+      title="Patrocinios por proveedor"
+      totalLabel={totalLabel}
+    />
   );
 }
 
 function SponsorPlacementCard(props: {
-  formAction?: React.ComponentProps<"form">["action"];
+  formAction?: AdminSponsorPlacementFormAction;
   placement: AdminSponsorPlacementViewModel;
   providerOptions: readonly AdminSponsorProviderOption[];
   surfaceOptions: readonly AdminSponsorPlacementSurfaceOption[];
   workflowFeedback?: AdminSponsorPlacementFeedback;
 }) {
-  const feedback =
-    props.workflowFeedback?.placementId === props.placement.placementId
-      ? props.workflowFeedback
-      : undefined;
-
   return (
     <article
       className="border-border bg-background rounded-lg border p-4"
@@ -289,13 +332,18 @@ function SponsorPlacementCard(props: {
     >
       <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-start">
         <div className="min-w-0">
-          <p className="break-words font-medium">
+          <SponsorMediaPreview
+            imageUrl={props.placement.imageUrl}
+            logoUrl={props.placement.logoUrl}
+            providerName={props.placement.providerName}
+          />
+          <p className="font-medium break-words">
             {props.placement.providerName}
           </p>
           <p className="text-muted-foreground text-xs">
             {props.placement.providerCity}, {props.placement.providerDepartment}
           </p>
-          <p className="text-muted-foreground break-all text-xs">
+          <p className="text-muted-foreground text-xs break-all">
             ID: {props.placement.placementId}
           </p>
         </div>
@@ -325,30 +373,277 @@ function SponsorPlacementCard(props: {
           </p>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-2 sm:flex-row lg:justify-end">
-          <EditSponsorPlacementWorkflow
-            feedback={
-              feedback?.action === "update_sponsor_placement"
-                ? feedback
-                : undefined
-            }
-            formAction={props.formAction}
-            placement={props.placement}
-            providerOptions={props.providerOptions}
-            surfaceOptions={props.surfaceOptions}
-          />
-          <DetachSponsorPlacementWorkflow
-            feedback={
-              feedback?.action === "detach_sponsor_placement"
-                ? feedback
-                : undefined
-            }
-            formAction={props.formAction}
-            placement={props.placement}
-          />
-        </div>
+        <SponsorPlacementActions
+          formAction={props.formAction}
+          placement={props.placement}
+          providerOptions={props.providerOptions}
+          surfaceOptions={props.surfaceOptions}
+          workflowFeedback={props.workflowFeedback}
+        />
       </div>
     </article>
+  );
+}
+
+function getSponsorPlacementColumns(
+  list: AdminSponsorPlacementListStateViewModel,
+): readonly AdminDataListColumn<AdminSponsorPlacementViewModel>[] {
+  return [
+    {
+      cell: (placement) => <SponsorProviderCell placement={placement} />,
+      header: "Proveedor",
+      id: "provider",
+      rowHeader: true,
+      sort: getSponsorSort(list, "providerName"),
+    },
+    {
+      cell: (placement) => (
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">{placement.surfaceLabel}</Badge>
+          <PlacementStateBadge state={placement.state}>
+            {placement.stateLabel}
+          </PlacementStateBadge>
+        </div>
+      ),
+      header: "Superficie",
+      id: "surface",
+      sort: getSponsorSort(list, "surface"),
+    },
+    {
+      cell: (placement) => (
+        <span className="text-sm">{placement.dateWindowLabel}</span>
+      ),
+      header: "Vigencia",
+      id: "window",
+      sort: getSponsorSort(list, "startsOn"),
+    },
+    {
+      cell: (placement) => (
+        <div className="grid min-w-0 gap-1">
+          <p className="text-sm">
+            {placement.safetyPolicy.recoveryPriority.label}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            {placement.safetyPolicy.pushNotifications.label}
+          </p>
+        </div>
+      ),
+      header: "Política",
+      id: "policy",
+    },
+    {
+      cell: (placement) => (
+        <SponsorMediaPreview
+          imageUrl={placement.imageUrl}
+          logoUrl={placement.logoUrl}
+          providerName={placement.providerName}
+        />
+      ),
+      header: "Medios",
+      id: "media",
+      sort: getSponsorSort(list, "mediaState"),
+    },
+  ] satisfies readonly AdminDataListColumn<AdminSponsorPlacementViewModel>[];
+}
+
+function getSponsorSort(
+  list: AdminSponsorPlacementListStateViewModel,
+  sortBy: NonNullable<
+    AdminSponsorPlacementListStateViewModel["input"]["sortBy"]
+  >,
+) {
+  const sort = list.availableSorts.find((option) => option.value === sortBy);
+
+  return {
+    current:
+      list.input.sortBy === sortBy
+        ? list.input.sortDirection === "asc"
+          ? ("ascending" as const)
+          : ("descending" as const)
+        : undefined,
+    href: buildAdminListSortHref({
+      basePath: "/admin/patrocinios",
+      defaultDirection: sort?.defaultDirection ?? "asc",
+      listInput: list.input,
+      sortBy,
+    }),
+    label: sort?.label ?? sortBy,
+  };
+}
+
+function SponsorProviderCell(props: {
+  placement: AdminSponsorPlacementViewModel;
+}) {
+  return (
+    <div className="min-w-0">
+      <SponsorMediaPreview
+        imageUrl={props.placement.imageUrl}
+        logoUrl={props.placement.logoUrl}
+        providerName={props.placement.providerName}
+      />
+      <p className="font-medium break-words">{props.placement.providerName}</p>
+      <p className="text-muted-foreground text-xs">
+        {props.placement.providerCity}, {props.placement.providerDepartment}
+      </p>
+      <p className="text-muted-foreground text-xs break-all">
+        ID: {props.placement.placementId}
+      </p>
+    </div>
+  );
+}
+
+function SponsorPlacementFilterBar(props: {
+  list: AdminSponsorPlacementListStateViewModel;
+}) {
+  const filters = props.list.input.filters ?? {};
+
+  return (
+    <form action="/admin/patrocinios" className="grid min-w-0 gap-3">
+      <input name="pageSize" type="hidden" value={props.list.pageSize} />
+      <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(180px,1.4fr)_repeat(4,minmax(130px,1fr))]">
+        <Field>
+          <FieldLabel htmlFor="sponsor-search">Buscar patrocinio</FieldLabel>
+          <Input
+            defaultValue={props.list.input.search ?? ""}
+            id="sponsor-search"
+            maxLength={160}
+            name="search"
+            placeholder="San Roque, Sopocachi"
+            type="search"
+          />
+        </Field>
+        <NativeSelectField
+          id="sponsor-category"
+          label="Categoría"
+          name="category"
+          options={[
+            { id: "veterinary", label: "Clínica veterinaria" },
+            { id: "shelter", label: "Refugio o rescate" },
+            { id: "groomer", label: "Peluqueria para mascotas" },
+            { id: "pet_food", label: "Alimento para mascotas" },
+            { id: "trainer", label: "Entrenamiento" },
+            { id: "pet_store", label: "Tienda de mascotas" },
+            { id: "transport", label: "Transporte de mascotas" },
+            { id: "other", label: "Otro recurso local" },
+          ]}
+          value={getArrayFilterValue(filters.category)}
+        />
+        <TextField
+          id="sponsor-city-filter"
+          label="Ciudad"
+          name="city"
+          placeholder="La Paz"
+          type="text"
+          value={filters.city}
+        />
+        <TextField
+          id="sponsor-department-filter"
+          label="Departamento"
+          name="department"
+          placeholder="La Paz"
+          type="text"
+          value={filters.department}
+        />
+        <NativeSelectField
+          id="sponsor-verification"
+          label="Verificación"
+          name="verification"
+          options={[
+            { id: "verified", label: "Identidad verificada" },
+            { id: "unverified", label: "Sin insignia" },
+          ]}
+          value={getArrayFilterValue(filters.verification)}
+        />
+      </div>
+      <div className="grid min-w-0 gap-3 lg:grid-cols-[repeat(6,minmax(120px,1fr))_auto]">
+        <NativeSelectField
+          id="sponsor-state"
+          label="Estado"
+          name="state"
+          options={[
+            { id: "active", label: "Activo" },
+            { id: "scheduled", label: "Programado" },
+            { id: "expired", label: "Expirado" },
+          ]}
+          value={filters.state === "any" ? undefined : filters.state}
+        />
+        <NativeSelectField
+          id="sponsor-surface"
+          label="Superficie"
+          name="surface"
+          options={
+            props.list.availableFilters
+              .find((filter) => filter.key === "surface")
+              ?.options?.map((option) => ({
+                id: option.value,
+                label: option.label,
+              })) ?? []
+          }
+          value={getArrayFilterValue(filters.surface)}
+        />
+        <TextField
+          id="sponsor-active-on"
+          label="Activo en fecha"
+          name="activeOn"
+          type="date"
+          value={filters.activeOn}
+        />
+        <TextField
+          id="sponsor-starts-from"
+          label="Inicia desde"
+          name="startsFrom"
+          type="date"
+          value={filters.startsFrom}
+        />
+        <TextField
+          id="sponsor-ends-to"
+          label="Termina hasta"
+          name="endsTo"
+          type="date"
+          value={filters.endsTo}
+        />
+        <AdminListFilterSubmitControls
+          mediaState={filters.mediaState}
+          mediaStateId="sponsor-media-state"
+          sortBy={props.list.input.sortBy}
+          sortDirection={props.list.input.sortDirection}
+        />
+      </div>
+    </form>
+  );
+}
+
+function SponsorPlacementActions(props: {
+  formAction?: AdminSponsorPlacementFormAction;
+  placement: AdminSponsorPlacementViewModel;
+  providerOptions: readonly AdminSponsorProviderOption[];
+  surfaceOptions: readonly AdminSponsorPlacementSurfaceOption[];
+  workflowFeedback?: AdminSponsorPlacementFeedback;
+}) {
+  const feedback =
+    props.workflowFeedback?.placementId === props.placement.placementId
+      ? props.workflowFeedback
+      : undefined;
+
+  return (
+    <div className="flex min-w-0 flex-col gap-2 sm:flex-row md:flex-col">
+      <EditSponsorPlacementWorkflow
+        feedback={
+          feedback?.action === "update_sponsor_placement" ? feedback : undefined
+        }
+        formAction={props.formAction}
+        placement={props.placement}
+        providerOptions={props.providerOptions}
+        surfaceOptions={props.surfaceOptions}
+      />
+      <DetachSponsorPlacementWorkflow
+        feedback={
+          feedback?.action === "detach_sponsor_placement" ? feedback : undefined
+        }
+        formAction={props.formAction}
+        placement={props.placement}
+      />
+    </div>
   );
 }
 
@@ -363,7 +658,7 @@ function PlacementStateBadge(props: {
 
 function CreateSponsorPlacementWorkflow(props: {
   feedback?: AdminSponsorPlacementFeedback;
-  formAction?: React.ComponentProps<"form">["action"];
+  formAction?: AdminSponsorPlacementFormAction;
   providerOptions: readonly AdminSponsorProviderOption[];
   surfaceOptions: readonly AdminSponsorPlacementSurfaceOption[];
 }) {
@@ -397,7 +692,7 @@ function CreateSponsorPlacementWorkflow(props: {
 
 function EditSponsorPlacementWorkflow(props: {
   feedback?: AdminSponsorPlacementFeedback;
-  formAction?: React.ComponentProps<"form">["action"];
+  formAction?: AdminSponsorPlacementFormAction;
   placement: AdminSponsorPlacementViewModel;
   providerOptions: readonly AdminSponsorProviderOption[];
   surfaceOptions: readonly AdminSponsorPlacementSurfaceOption[];
@@ -439,11 +734,14 @@ function EditSponsorPlacementWorkflow(props: {
 
 function DetachSponsorPlacementWorkflow(props: {
   feedback?: AdminSponsorPlacementFeedback;
-  formAction?: React.ComponentProps<"form">["action"];
+  formAction?: AdminSponsorPlacementFormAction;
   placement: AdminSponsorPlacementViewModel;
 }) {
+  const [state, formAction] = useAdminSponsorPlacementAction(props.formAction);
+  const feedback = state.feedback ?? props.feedback;
+
   return (
-    <Dialog defaultOpen={Boolean(props.feedback)}>
+    <Dialog defaultOpen={Boolean(feedback)}>
       <DialogTrigger asChild>
         <Button
           aria-label={`Retirar patrocinio de ${props.placement.providerName}`}
@@ -463,12 +761,12 @@ function DetachSponsorPlacementWorkflow(props: {
           </DialogDescription>
         </DialogHeader>
         <form
-          action={props.formAction}
+          action={props.formAction ? formAction : undefined}
           className="grid gap-4"
           method={props.formAction ? undefined : "post"}
         >
           <HiddenSponsorIdentityFields placement={props.placement} />
-          <WorkflowErrorAlert feedback={props.feedback} />
+          <WorkflowErrorAlert feedback={feedback} />
           <Alert>
             <AlertTitle>Confirmación</AlertTitle>
             <AlertDescription>
@@ -496,25 +794,28 @@ function DetachSponsorPlacementWorkflow(props: {
 function SponsorPlacementForm(props: {
   action: "create_sponsor_placement" | "update_sponsor_placement";
   feedback?: AdminSponsorPlacementFeedback;
-  formAction?: React.ComponentProps<"form">["action"];
+  formAction?: AdminSponsorPlacementFormAction;
   idPrefix: string;
   placement?: AdminSponsorPlacementViewModel;
   providerOptions: readonly AdminSponsorProviderOption[];
   submitLabel: string;
   surfaceOptions: readonly AdminSponsorPlacementSurfaceOption[];
 }) {
+  const [state, formAction] = useAdminSponsorPlacementAction(props.formAction);
+  const feedback = state.feedback ?? props.feedback;
+
   return (
     <form
-      action={props.formAction}
+      action={props.formAction ? formAction : undefined}
       className="grid gap-5"
       method={props.formAction ? undefined : "post"}
     >
       {props.placement ? (
         <HiddenSponsorIdentityFields placement={props.placement} />
       ) : null}
-      <WorkflowErrorAlert feedback={props.feedback} />
+      <WorkflowErrorAlert feedback={feedback} />
       <SponsorPlacementFormFields
-        feedback={props.feedback}
+        feedback={feedback}
         idPrefix={props.idPrefix}
         placement={props.placement}
         providerOptions={props.providerOptions}
@@ -551,12 +852,17 @@ function SponsorPlacementFormFields(props: {
       <FieldGroup className="gap-4">
         <SponsorProviderField
           error={getFieldError(props.feedback, "providerId")}
+          feedback={props.feedback}
           id={`${props.idPrefix}-provider`}
           placement={props.placement}
           providerOptions={props.providerOptions}
         />
         <SelectField
-          defaultValue={props.placement?.surface ?? props.surfaceOptions[0]?.id}
+          defaultValue={getSubmittedValue(
+            props.feedback,
+            "surface",
+            props.placement?.surface ?? props.surfaceOptions[0]?.id,
+          )}
           error={getFieldError(props.feedback, "surface")}
           id={`${props.idPrefix}-surface`}
           label="Superficie"
@@ -575,11 +881,21 @@ function SponsorPlacementFormFields(props: {
           name="label"
           required
           type="text"
-          value={props.placement?.label ?? "Patrocinado"}
+          value={getSubmittedValue(
+            props.feedback,
+            "label",
+            props.placement?.label ?? "Patrocinado",
+          )}
         />
         <SponsorDisclosureField
           error={getFieldError(props.feedback, "disclosure")}
+          feedback={props.feedback}
           id={`${props.idPrefix}-disclosure`}
+          placement={props.placement}
+        />
+        <AdminSponsorPlacementMediaFields
+          feedback={props.feedback}
+          idPrefix={props.idPrefix}
           placement={props.placement}
         />
       </FieldGroup>
@@ -587,8 +903,133 @@ function SponsorPlacementFormFields(props: {
   );
 }
 
+export function AdminSponsorPlacementMediaFields(props: {
+  feedback?: AdminSponsorPlacementFeedback;
+  idPrefix: string;
+  placement?: AdminSponsorPlacementViewModel;
+}) {
+  const [imageRemoved, setImageRemoved] = React.useState(false);
+  const [logoRemoved, setLogoRemoved] = React.useState(false);
+
+  return (
+    <FieldSet className="gap-3">
+      <FieldLegend>Medios del patrocinio</FieldLegend>
+      <FieldDescription>
+        Carga medios administrados por Rastro. Usa URL externa solo como
+        fallback avanzado.
+      </FieldDescription>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <AdminMediaUploadField
+          assetFieldName="logoAssetId"
+          currentUrl={props.placement?.logoUrl}
+          description="Logo del patrocinio local."
+          id={`${props.idPrefix}-logo-upload`}
+          initialAssetId={getSubmittedValue(props.feedback, "logoAssetId")}
+          label="Logo administrado"
+          onRemovedChange={setLogoRemoved}
+          previewAlt={`Logo de patrocinio de ${
+            props.placement?.providerName ?? "patrocinio local"
+          }`}
+          purpose="sponsor_logo"
+        />
+        <AdminMediaUploadField
+          assetFieldName="imageAssetId"
+          currentUrl={props.placement?.imageUrl}
+          description="Imagen o banner del patrocinio local."
+          id={`${props.idPrefix}-image-upload`}
+          initialAssetId={getSubmittedValue(props.feedback, "imageAssetId")}
+          label="Imagen administrada"
+          onRemovedChange={setImageRemoved}
+          previewAlt={`Imagen de patrocinio de ${
+            props.placement?.providerName ?? "patrocinio local"
+          }`}
+          purpose="sponsor_image"
+        />
+      </div>
+      <AdvancedExternalMediaUrlFallback
+        fields={[
+          {
+            error: getFieldError(props.feedback, "logoUrl"),
+            hasSubmittedValue: hasSubmittedValue(props.feedback, "logoUrl"),
+            id: `${props.idPrefix}-logo-url`,
+            label: "Logo URL externa",
+            name: "logoUrl",
+            placeholder: "https://proveedor.example/logo-patrocinio.png",
+            value: getSubmittedValue(
+              props.feedback,
+              "logoUrl",
+              props.placement?.logoUrl,
+            ),
+          },
+          {
+            error: getFieldError(props.feedback, "imageUrl"),
+            hasSubmittedValue: hasSubmittedValue(props.feedback, "imageUrl"),
+            id: `${props.idPrefix}-image-url`,
+            label: "Imagen URL externa",
+            name: "imageUrl",
+            placeholder: "https://proveedor.example/banner-patrocinio.png",
+            value: getSubmittedValue(
+              props.feedback,
+              "imageUrl",
+              props.placement?.imageUrl,
+            ),
+          },
+        ]}
+        id={`${props.idPrefix}-external-url-fallback`}
+        removedFieldNames={[
+          ...(logoRemoved ? ["logoUrl"] : []),
+          ...(imageRemoved ? ["imageUrl"] : []),
+        ]}
+      />
+      <SponsorMediaPreview
+        imageUrl={getSubmittedValue(
+          props.feedback,
+          "imageUrl",
+          props.placement?.imageUrl,
+        )}
+        logoUrl={getSubmittedValue(
+          props.feedback,
+          "logoUrl",
+          props.placement?.logoUrl,
+        )}
+        providerName={props.placement?.providerName ?? "Patrocinio local"}
+      />
+    </FieldSet>
+  );
+}
+
+function SponsorMediaPreview(props: {
+  imageUrl?: string;
+  logoUrl?: string;
+  providerName: string;
+}) {
+  if (!props.logoUrl && !props.imageUrl) {
+    return null;
+  }
+
+  return (
+    <div className="mb-3 grid gap-2 sm:grid-cols-[72px_minmax(0,1fr)] sm:items-center">
+      {props.logoUrl ? (
+        <img
+          alt={`Logo de patrocinio de ${props.providerName}`}
+          className="border-border bg-muted h-16 w-16 rounded-md border object-cover"
+          src={props.logoUrl}
+        />
+      ) : null}
+      {props.imageUrl ? (
+        <img
+          alt={`Imagen de patrocinio de ${props.providerName}`}
+          className={`border-border bg-muted h-24 w-full rounded-md border object-cover ${props.logoUrl ? "" : "sm:col-span-2"}`}
+          src={props.imageUrl}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function SponsorProviderField(props: {
   error?: string;
+  feedback?: AdminSponsorPlacementFeedback;
   id: string;
   placement?: AdminSponsorPlacementViewModel;
   providerOptions: readonly AdminSponsorProviderOption[];
@@ -600,7 +1041,11 @@ function SponsorProviderField(props: {
       <Field data-invalid={Boolean(props.error)}>
         <FieldLabel htmlFor={props.id}>Proveedor</FieldLabel>
         <Select
-          defaultValue={props.placement?.providerId ?? props.providerOptions[0]?.id}
+          defaultValue={getSubmittedValue(
+            props.feedback,
+            "providerId",
+            props.placement?.providerId ?? props.providerOptions[0]?.id,
+          )}
           name="providerId"
         >
           <SelectTrigger
@@ -624,7 +1069,11 @@ function SponsorProviderField(props: {
       <input
         name="providerName"
         type="hidden"
-        value={props.placement?.providerName ?? ""}
+        value={getSubmittedValue(
+          props.feedback,
+          "providerName",
+          props.placement?.providerName ?? "",
+        )}
       />
     </>
   );
@@ -644,7 +1093,11 @@ function SponsorDateWindowFields(props: {
         name="startsOn"
         required
         type="date"
-        value={props.placement?.startsOn}
+        value={getSubmittedValue(
+          props.feedback,
+          "startsOn",
+          props.placement?.startsOn,
+        )}
       />
       <TextField
         error={getFieldError(props.feedback, "endsOn")}
@@ -653,7 +1106,11 @@ function SponsorDateWindowFields(props: {
         name="endsOn"
         required
         type="date"
-        value={props.placement?.endsOn}
+        value={getSubmittedValue(
+          props.feedback,
+          "endsOn",
+          props.placement?.endsOn,
+        )}
       />
     </div>
   );
@@ -661,6 +1118,7 @@ function SponsorDateWindowFields(props: {
 
 function SponsorDisclosureField(props: {
   error?: string;
+  feedback?: AdminSponsorPlacementFeedback;
   id: string;
   placement?: AdminSponsorPlacementViewModel;
 }) {
@@ -673,8 +1131,12 @@ function SponsorDisclosureField(props: {
         aria-describedby={props.error ? errorId : undefined}
         aria-invalid={Boolean(props.error)}
         defaultValue={
-          props.placement?.disclosure ??
-          "Patrocinado: apoyo local. No cambia la prioridad de reportes."
+          getSubmittedValue(
+            props.feedback,
+            "disclosure",
+            props.placement?.disclosure ??
+              "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+          ) ?? ""
         }
         id={props.id}
         name="disclosure"
@@ -706,34 +1168,6 @@ function HiddenSponsorIdentityFields(props: {
         value={props.placement.providerName}
       />
     </>
-  );
-}
-
-function TextField(props: {
-  error?: string;
-  id: string;
-  label: string;
-  name: string;
-  required?: boolean;
-  type: React.HTMLInputTypeAttribute;
-  value?: string;
-}) {
-  const errorId = `${props.id}-error`;
-
-  return (
-    <Field data-invalid={Boolean(props.error)}>
-      <FieldLabel htmlFor={props.id}>{props.label}</FieldLabel>
-      <Input
-        aria-describedby={props.error ? errorId : undefined}
-        aria-invalid={Boolean(props.error)}
-        defaultValue={props.value}
-        id={props.id}
-        name={props.name}
-        required={props.required}
-        type={props.type}
-      />
-      <FieldError id={errorId}>{props.error}</FieldError>
-    </Field>
   );
 }
 
@@ -795,6 +1229,43 @@ function getFieldError(
   field: string,
 ) {
   return feedback?.fieldErrors.find((error) => error.field === field)?.message;
+}
+
+function useAdminSponsorPlacementAction(
+  formAction: AdminSponsorPlacementFormAction | undefined,
+) {
+  const fallbackAction = React.useCallback<AdminSponsorPlacementFormAction>(
+    () => Promise.resolve(emptyAdminSponsorPlacementActionState),
+    [],
+  );
+
+  return React.useActionState(
+    formAction ?? fallbackAction,
+    emptyAdminSponsorPlacementActionState,
+  );
+}
+
+function getSubmittedValue(
+  feedback: AdminSponsorPlacementFeedback | undefined,
+  key: string,
+  fallback?: string,
+) {
+  if (!feedback?.submittedValues) {
+    return fallback;
+  }
+
+  return Object.hasOwn(feedback.submittedValues, key)
+    ? feedback.submittedValues[key]
+    : fallback;
+}
+
+function hasSubmittedValue(
+  feedback: AdminSponsorPlacementFeedback | undefined,
+  key: string,
+) {
+  return Boolean(
+    feedback?.submittedValues && Object.hasOwn(feedback.submittedValues, key),
+  );
 }
 
 function AdminSponsorAccessDenied(props: {

@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import type { AdminResourceProviderActionState } from "~/admin-resource-provider-actions";
 import { buildAdminModerationViewer } from "~/admin-moderation-access";
 import {
   applyAdminResourceProviderAction,
+  buildAdminResourceProviderActionState,
   buildAdminResourceProviderMutationNotice,
   buildAdminResourceProviderRedirectUrl,
   buildAdminResourceProviderWorkflowFeedback,
@@ -19,6 +21,7 @@ import {
   buildForbiddenAdminResourcesDashboardProps,
   toAdminResourcesDashboardProps,
 } from "~/admin-resources-dashboard-adapter";
+import { parseAdminResourceProviderListSearchParams } from "~/admin-url-form-parser";
 import { getSession } from "~/auth/server";
 import { env } from "~/env";
 
@@ -48,8 +51,10 @@ export default async function AdminResourcesPage(
     );
   }
 
+  const listInput = parseAdminResourceProviderListSearchParams(searchParams);
   const viewModel = buildAdminResourceProviderListViewModel(
-    await listAdminResourceProviderProfiles(),
+    await listAdminResourceProviderProfiles(listInput),
+    listInput,
   );
   const workflowFeedback =
     buildAdminResourceProviderWorkflowFeedback(searchParams);
@@ -68,21 +73,25 @@ export default async function AdminResourcesPage(
   );
 }
 
-async function applyAdminResourcesForm(formData: FormData) {
+async function applyAdminResourcesForm(
+  _state: AdminResourceProviderActionState,
+  formData: FormData,
+): Promise<AdminResourceProviderActionState> {
   "use server";
 
   const session = await getSession();
   const viewer = buildAdminModerationViewer(session, env.RASTRO_ADMIN_EMAILS);
 
   if (viewer.modelViewer.role !== "admin") {
-    return;
+    return {};
   }
 
   const result = await applyAdminResourceProviderAction(formData);
 
   if (result.ok) {
     revalidatePath("/admin/proveedores");
+    redirect(buildAdminResourceProviderRedirectUrl(result));
   }
 
-  redirect(buildAdminResourceProviderRedirectUrl(result));
+  return buildAdminResourceProviderActionState(result);
 }

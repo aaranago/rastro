@@ -80,6 +80,8 @@ export interface ResourceProviderSummaryViewModel {
   sponsorLabel?: string;
   sponsorDisclosure?: string;
   sponsorPlacement?: LocalSponsorPlacement;
+  sponsorLogoUrl?: string;
+  sponsorImageUrl?: string;
   availabilityLabel?: string;
   emergencyLabel?: string;
   logoUrl?: string;
@@ -159,6 +161,8 @@ export interface ResourceProviderProfileViewModel {
   }[];
   sponsorPlacement?: LocalSponsorPlacement;
   sponsorDisclosure?: string;
+  sponsorLogoUrl?: string;
+  sponsorImageUrl?: string;
   reportAction: {
     label: string;
     providerId: string;
@@ -255,6 +259,8 @@ export function buildResourceProviderProfileViewModel(
     optionalLinks: buildProfileLinks(profile),
     sponsorPlacement: cloneLocalSponsorPlacement(profile.sponsorPlacement),
     sponsorDisclosure: profile.sponsorPlacement?.disclosure,
+    sponsorLogoUrl: profile.sponsorPlacement?.logoUrl,
+    sponsorImageUrl: profile.sponsorPlacement?.imageUrl,
     reportAction: {
       label: "Reportar",
       providerId: profile.id,
@@ -307,6 +313,8 @@ function buildProviderSummaryViewModel(
     sponsorLabel: provider.sponsorPlacement?.label,
     sponsorDisclosure: provider.sponsorPlacement?.disclosure,
     sponsorPlacement: cloneLocalSponsorPlacement(provider.sponsorPlacement),
+    sponsorLogoUrl: provider.sponsorPlacement?.logoUrl,
+    sponsorImageUrl: provider.sponsorPlacement?.imageUrl,
     availabilityLabel: provider.isOpenNow === true ? "Abierto" : undefined,
     emergencyLabel:
       provider.emergencyAvailable === true ? "Urgencias" : undefined,

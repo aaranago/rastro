@@ -1,4 +1,11 @@
-import type * as React from "react";
+"use client";
+
+import type { Control, FieldPath, UseFormRegister } from "react-hook-form";
+import * as React from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowDownIcon, ArrowUpIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { Controller, useFieldArray, useForm } from "react-hook-form";
+import { z } from "zod/v4";
 
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
@@ -41,16 +48,24 @@ import {
 import { Textarea } from "@acme/ui/textarea";
 
 import type {
+  AdminResourceProviderActionState,
+  AdminResourceProviderFormAction,
   AdminResourceProviderMutationNotice,
   AdminResourceProviderWorkflow,
   AdminResourceProviderWorkflowFeedback,
 } from "./admin-resource-provider-actions";
 import type {
+  AdminLocalSponsorPlacementSurface,
   AdminResourceMetricsViewModel,
+  AdminResourceProviderCategory,
+  AdminResourceProviderContactKind,
+  AdminResourceProviderListStateViewModel,
   AdminResourceProviderVerificationStatus,
   AdminResourceProviderViewModel,
   LocalSponsorPlacementViewModel,
 } from "./admin-resource-provider-admin-model";
+import type { AdminDataListColumn } from "./admin-ui/admin-data-list";
+import { AdminMediaUploadField } from "./admin-media-upload-field";
 import {
   localSponsorPlacementSurfaceOptions,
   resourceProviderCategoryOptions,
@@ -60,7 +75,20 @@ import {
   adminResourceProviderMaxContactOptions,
   adminResourceProviderMaxLinks,
 } from "./admin-resource-provider-form-parser";
+import { AdminDataList } from "./admin-ui/admin-data-list";
+import {
+  AdminListFilterSubmitControls,
+  AdminExternalMediaUrlFallback as AdvancedExternalMediaUrlFallback,
+  getArrayFilterValue,
+  AdminNativeSelectField as NativeSelectField,
+  AdminTextField as TextField,
+} from "./admin-ui/admin-form-fields";
 import { AdminSubmitButton } from "./admin-ui/admin-submit-button";
+import {
+  buildAdminListActiveFilters,
+  buildAdminListPageHref,
+  buildAdminListSortHref,
+} from "./admin-url-form-parser";
 
 export type AdminResourcesViewerRole = "admin" | "member" | "visitor";
 
@@ -75,7 +103,8 @@ export interface AdminResourcesDashboardProps {
     title: string;
   };
   createActionLabel: string;
-  formAction?: React.ComponentProps<"form">["action"];
+  formAction?: AdminResourceProviderFormAction;
+  list: AdminResourceProviderListStateViewModel;
   metrics: AdminResourceMetricsViewModel;
   notice?: AdminResourceProviderMutationNotice;
   providers: readonly AdminResourceProviderViewModel[];
@@ -90,10 +119,67 @@ interface AdminResourcesSummaryStats {
   verifiedProviderCount: number;
 }
 
+interface ProviderContactArrayFormValues {
+  contactOptions: ProviderContactFormRow[];
+}
+
+interface ProviderContactFormRow {
+  kind: AdminResourceProviderContactKind;
+  label: string;
+  value: string;
+}
+
+interface ProviderLinksArrayFormValues {
+  externalLinks: ProviderLinkFormRow[];
+  socialLinks: ProviderLinkFormRow[];
+}
+
+interface ProviderLinkFormRow {
+  label: string;
+  url: string;
+}
+
+type ProviderLinkArrayName = keyof ProviderLinksArrayFormValues;
+
 const verificationStatusLabels = {
   unverified: "Sin insignia",
   verified: "Identidad verificada",
 } as const satisfies Record<AdminResourceProviderVerificationStatus, string>;
+
+const emptyAdminResourceProviderActionState: AdminResourceProviderActionState =
+  {};
+
+const providerContactArraySchema = z.object({
+  contactOptions: z.array(
+    z.object({
+      kind: z.enum([
+        "phone",
+        "whatsapp",
+        "website",
+        "email",
+        "directions",
+        "social",
+      ]),
+      label: z.string(),
+      value: z.string(),
+    }),
+  ),
+});
+
+const providerLinksArraySchema = z.object({
+  externalLinks: z.array(
+    z.object({
+      label: z.string(),
+      url: z.string(),
+    }),
+  ),
+  socialLinks: z.array(
+    z.object({
+      label: z.string(),
+      url: z.string(),
+    }),
+  ),
+});
 
 export function AdminResourcesDashboard(props: AdminResourcesDashboardProps) {
   if (props.viewer.role !== "admin") {
@@ -119,6 +205,7 @@ export function AdminResourcesDashboard(props: AdminResourcesDashboardProps) {
             <ProviderQueue
               createActionLabel={props.createActionLabel}
               formAction={props.formAction}
+              list={props.list}
               providers={props.providers}
               workflowFeedback={props.workflowFeedback}
             />
@@ -198,87 +285,254 @@ function AdminResourcesSummary(props: { stats: AdminResourcesSummaryStats }) {
 
 function ProviderQueue(props: {
   createActionLabel: string;
-  formAction?: React.ComponentProps<"form">["action"];
+  formAction?: AdminResourceProviderFormAction;
+  list: AdminResourceProviderListStateViewModel;
   providers: readonly AdminResourceProviderViewModel[];
   workflowFeedback?: AdminResourceProviderWorkflowFeedback;
 }) {
   const providerCountLabel =
-    props.providers.length === 1
-      ? "1 proveedor en cola"
-      : `${props.providers.length} proveedores en cola`;
+    props.list.total === 1 ? "1 proveedor" : `${props.list.total} proveedores`;
   const createFeedback = getWorkflowFeedback(props.workflowFeedback, "create");
+  const columns = getProviderColumns(props.list);
 
   return (
-    <section
-      aria-labelledby="provider-management-heading"
-      className="flex min-w-0 flex-col gap-4"
-      data-provider-queue
-    >
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h2
-            id="provider-management-heading"
-            className="text-xl font-semibold"
-          >
-            Cola de proveedores
-          </h2>
-          <p className="text-muted-foreground mt-1 max-w-3xl text-sm">
-            Revisa proveedor, categoría, ciudad, verificación, patrocinio,
-            operación y última actualización antes de abrir una acción.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <CreateProviderWorkflow
-            actionLabel={props.createActionLabel}
-            feedback={createFeedback}
+    <AdminDataList
+      actions={
+        <CreateProviderWorkflow
+          actionLabel={props.createActionLabel}
+          feedback={createFeedback}
+          formAction={props.formAction}
+        />
+      }
+      activeFilters={buildAdminListActiveFilters({
+        availableFilters: props.list.availableFilters,
+        basePath: "/admin/proveedores",
+        listInput: props.list.input,
+      })}
+      columns={columns}
+      description="Revisa proveedor, categoría, ciudad, verificación, patrocinio, operación y última actualización antes de abrir una acción."
+      emptyState={{
+        description:
+          "La cola está lista para el primer proveedor. Abre Registrar proveedor cuando tengas datos reales para publicar en el directorio.",
+        title: "Todavía no hay proveedores registrados.",
+      }}
+      filterBar={<ProviderFilterBar list={props.list} />}
+      filteredEmptyState={{
+        description:
+          "Ajusta la búsqueda o retira filtros para ver otros proveedores de Bolivia.",
+        title: "No hay proveedores para estos filtros.",
+      }}
+      getRowKey={(provider) => provider.providerId}
+      id="provider-queue"
+      pagination={{
+        hrefForPage: (page) =>
+          buildAdminListPageHref({
+            basePath: "/admin/proveedores",
+            listInput: props.list.input,
+            page,
+          }),
+        page: props.list.page,
+        pageSize: props.list.pageSize,
+        totalItems: props.list.total,
+      }}
+      renderMobileCard={(provider) => (
+        <ProviderQueueMobileCard
+          formAction={props.formAction}
+          provider={provider}
+          workflowFeedback={props.workflowFeedback}
+        />
+      )}
+      rowActions={{
+        className: "w-[176px]",
+        header: "Acciones",
+        render: (provider) => (
+          <ProviderActionWorkflowList
             formAction={props.formAction}
+            provider={provider}
+            workflowFeedback={props.workflowFeedback}
           />
-          <span className="bg-muted text-muted-foreground w-fit rounded-md px-3 py-2 text-sm font-semibold">
-            {providerCountLabel}
+        ),
+      }}
+      rows={props.providers}
+      tableCaption="Cola administrativa de proveedores de recursos"
+      title="Cola de proveedores"
+      totalLabel={providerCountLabel}
+    />
+  );
+}
+
+function getProviderColumns(
+  list: AdminResourceProviderListStateViewModel,
+): readonly AdminDataListColumn<AdminResourceProviderViewModel>[] {
+  return [
+    {
+      cell: (provider) => <ProviderIdentityCell provider={provider} />,
+      header: "Proveedor",
+      id: "provider",
+      mobileLabel: "Proveedor",
+      rowHeader: true,
+      sort: getProviderSort(list, "name"),
+    },
+    {
+      cell: (provider) => <ProviderLocationCell provider={provider} />,
+      header: "Ciudad",
+      id: "location",
+      mobileLabel: "Ciudad",
+      sort: getProviderSort(list, "city"),
+    },
+    {
+      cell: (provider) => (
+        <div className="flex flex-col gap-2">
+          <IdentityPill status={provider.verificationBadge.status} />
+          <span className="text-muted-foreground text-xs">
+            {provider.verificationBadge.note}
           </span>
         </div>
-      </div>
-      {props.providers.length === 0 ? (
-        <ProviderQueueEmptyState />
-      ) : (
-        <div className="grid min-w-0 gap-3">
-          {props.providers.map((provider) => (
-            <ProviderQueueItem
-              formAction={props.formAction}
-              key={provider.providerId}
-              provider={provider}
-              workflowFeedback={props.workflowFeedback}
-            />
-          ))}
-        </div>
-      )}
-    </section>
-  );
+      ),
+      header: "Verificación",
+      id: "verification",
+      mobileLabel: "Verificación",
+      sort: getProviderSort(list, "verification"),
+    },
+    {
+      cell: (provider) => <ProviderOperationsCell provider={provider} />,
+      header: "Operación",
+      id: "operations",
+      mobileLabel: "Operación",
+      sort: getProviderSort(list, "sponsorState"),
+    },
+    {
+      cell: (provider) => (
+        <span className="text-sm font-medium">{provider.lastUpdatedLabel}</span>
+      ),
+      header: "Actualización",
+      id: "updatedAt",
+      mobileLabel: "Actualización",
+      sort: getProviderSort(list, "updatedAt"),
+    },
+  ] satisfies readonly AdminDataListColumn<AdminResourceProviderViewModel>[];
 }
 
-function ProviderQueueEmptyState() {
+function getProviderSort(
+  list: AdminResourceProviderListStateViewModel,
+  sortBy: NonNullable<
+    AdminResourceProviderListStateViewModel["input"]["sortBy"]
+  >,
+) {
+  const sort = list.availableSorts.find((option) => option.value === sortBy);
+
+  return {
+    current:
+      list.input.sortBy === sortBy
+        ? list.input.sortDirection === "asc"
+          ? ("ascending" as const)
+          : ("descending" as const)
+        : undefined,
+    href: buildAdminListSortHref({
+      basePath: "/admin/proveedores",
+      defaultDirection: sort?.defaultDirection ?? "asc",
+      listInput: list.input,
+      sortBy,
+    }),
+    label: sort?.label ?? sortBy,
+  };
+}
+
+function ProviderFilterBar(props: {
+  list: AdminResourceProviderListStateViewModel;
+}) {
+  const filters = props.list.input.filters ?? {};
+
   return (
-    <div className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="font-semibold">
-            Todavía no hay proveedores registrados.
-          </p>
-          <p className="text-muted-foreground mt-1 max-w-xl text-sm">
-            La cola está lista para el primer proveedor. Abre Registrar
-            proveedor cuando tengas datos reales para publicar en el directorio.
-          </p>
-        </div>
-        <span className="bg-muted text-muted-foreground w-fit rounded-md px-2 py-1 text-xs font-semibold">
-          Cola vacía
-        </span>
+    <form action="/admin/proveedores" className="grid min-w-0 gap-3">
+      <input name="pageSize" type="hidden" value={props.list.pageSize} />
+      <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(180px,1.4fr)_repeat(4,minmax(130px,1fr))]">
+        <Field>
+          <FieldLabel htmlFor="provider-search">Buscar proveedor</FieldLabel>
+          <Input
+            defaultValue={props.list.input.search ?? ""}
+            id="provider-search"
+            maxLength={160}
+            name="search"
+            placeholder="San Roque, La Paz"
+            type="search"
+          />
+        </Field>
+        <NativeSelectField
+          id="provider-category"
+          label="Categoría"
+          name="category"
+          options={resourceProviderCategoryOptions}
+          value={getArrayFilterValue(filters.category)}
+        />
+        <TextField
+          id="provider-city-filter"
+          label="Ciudad"
+          name="city"
+          placeholder="La Paz"
+          type="text"
+          value={filters.city}
+        />
+        <TextField
+          id="provider-department-filter"
+          label="Departamento"
+          name="department"
+          placeholder="La Paz"
+          type="text"
+          value={filters.department}
+        />
+        <NativeSelectField
+          id="provider-verification"
+          label="Verificación"
+          name="verification"
+          options={[
+            { id: "verified", label: "Identidad verificada" },
+            { id: "unverified", label: "Sin insignia" },
+          ]}
+          value={getArrayFilterValue(filters.verification)}
+        />
       </div>
-    </div>
+      <div className="grid min-w-0 gap-3 lg:grid-cols-[repeat(5,minmax(130px,1fr))_auto]">
+        <NativeSelectField
+          id="provider-sponsor-state"
+          label="Patrocinio"
+          name="sponsorState"
+          options={[
+            { id: "active", label: "Activo" },
+            { id: "inactive", label: "Inactivo" },
+            { id: "none", label: "Sin patrocinio" },
+          ]}
+          value={
+            filters.sponsorState === "any" ? undefined : filters.sponsorState
+          }
+        />
+        <NativeSelectField
+          id="provider-sponsor-surface"
+          label="Superficie"
+          name="sponsorSurface"
+          options={localSponsorPlacementSurfaceOptions}
+          value={getArrayFilterValue(filters.sponsorSurface)}
+        />
+        <TextField
+          id="provider-active-on"
+          label="Activo en fecha"
+          name="activeOn"
+          type="date"
+          value={filters.activeOn}
+        />
+        <AdminListFilterSubmitControls
+          mediaState={filters.mediaState}
+          mediaStateId="provider-media-state"
+          sortBy={props.list.input.sortBy}
+          sortDirection={props.list.input.sortDirection}
+        />
+      </div>
+    </form>
   );
 }
 
-function ProviderQueueItem(props: {
-  formAction?: React.ComponentProps<"form">["action"];
+function ProviderQueueMobileCard(props: {
+  formAction?: AdminResourceProviderFormAction;
   provider: AdminResourceProviderViewModel;
   workflowFeedback?: AdminResourceProviderWorkflowFeedback;
 }) {
@@ -287,7 +541,7 @@ function ProviderQueueItem(props: {
 
   return (
     <article
-      className="border-border bg-card text-card-foreground rounded-lg border p-4 shadow-xs"
+      className="border-border bg-background rounded-lg border p-4"
       data-provider-queue-item={provider.providerId}
     >
       <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1fr)_176px] 2xl:items-start">
@@ -344,9 +598,7 @@ function ProviderQueueItem(props: {
                 tone={activeSponsorCount > 0 ? "primary" : "muted"}
               />
               <StatusChip
-                label={
-                  provider.isOpenNow ? "Abierto" : "Horario no confirmado"
-                }
+                label={provider.isOpenNow ? "Abierto" : "Horario no confirmado"}
                 tone={provider.isOpenNow ? "primary" : "muted"}
               />
               <StatusChip
@@ -376,6 +628,76 @@ function ProviderQueueItem(props: {
   );
 }
 
+function ProviderIdentityCell(props: {
+  provider: AdminResourceProviderViewModel;
+}) {
+  const provider = props.provider;
+
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <h3 className="text-base font-semibold break-words">{provider.name}</h3>
+      <span className="text-primary text-xs font-semibold">
+        {provider.categoryLabel}
+      </span>
+      <span className="text-muted-foreground text-xs break-words">
+        {provider.contactLabel}
+      </span>
+      <span className="text-muted-foreground text-xs break-all">
+        ID: {provider.providerId}
+      </span>
+    </div>
+  );
+}
+
+function ProviderLocationCell(props: {
+  provider: AdminResourceProviderViewModel;
+}) {
+  const provider = props.provider;
+
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="font-medium">{provider.city}</span>
+      <span className="text-muted-foreground text-xs">
+        {provider.department}
+      </span>
+      <span className="text-muted-foreground text-xs">
+        {provider.approximateLocationLabel}
+      </span>
+      <span className="text-muted-foreground text-xs">
+        {provider.serviceAreaLabel}
+      </span>
+    </div>
+  );
+}
+
+function ProviderOperationsCell(props: {
+  provider: AdminResourceProviderViewModel;
+}) {
+  const provider = props.provider;
+  const activeSponsorCount = provider.activeSponsorPlacement ? 1 : 0;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      <StatusChip
+        label={
+          activeSponsorCount === 1
+            ? "1 patrocinio activo"
+            : `${activeSponsorCount} patrocinios activos`
+        }
+        tone={activeSponsorCount > 0 ? "primary" : "muted"}
+      />
+      <StatusChip
+        label={provider.isOpenNow ? "Abierto" : "Horario no confirmado"}
+        tone={provider.isOpenNow ? "primary" : "muted"}
+      />
+      <StatusChip
+        label={provider.emergencyAvailable ? "Urgencias" : "Sin urgencias"}
+        tone={provider.emergencyAvailable ? "primary" : "muted"}
+      />
+    </div>
+  );
+}
+
 function ProviderQueueField(props: {
   children: React.ReactNode;
   label: string;
@@ -391,7 +713,7 @@ function ProviderQueueField(props: {
 }
 
 function ProviderActionWorkflowList(props: {
-  formAction?: React.ComponentProps<"form">["action"];
+  formAction?: AdminResourceProviderFormAction;
   provider: AdminResourceProviderViewModel;
   workflowFeedback?: AdminResourceProviderWorkflowFeedback;
 }) {
@@ -460,10 +782,13 @@ function StatusChip(props: { label: string; tone: "muted" | "primary" }) {
 function CreateProviderWorkflow(props: {
   actionLabel: string;
   feedback?: AdminResourceProviderWorkflowFeedback;
-  formAction?: React.ComponentProps<"form">["action"];
+  formAction?: AdminResourceProviderFormAction;
 }) {
+  const [state, formAction] = useAdminResourceProviderAction(props.formAction);
+  const feedback = state.feedback ?? props.feedback;
+
   return (
-    <Sheet defaultOpen={Boolean(props.feedback)}>
+    <Sheet defaultOpen={Boolean(feedback)}>
       <SheetTrigger asChild>
         <Button data-workflow-trigger="create" type="button">
           {props.actionLabel}
@@ -480,31 +805,31 @@ function CreateProviderWorkflow(props: {
           </SheetDescription>
         </SheetHeader>
         <form
-          action={props.formAction}
+          action={props.formAction ? formAction : undefined}
           className="flex flex-1 flex-col gap-6 px-4 pb-4"
           method={props.formAction ? undefined : "post"}
         >
-          <WorkflowErrorAlert feedback={props.feedback} />
+          <WorkflowErrorAlert feedback={feedback} />
           <ProviderProfileFields
-            feedback={props.feedback}
+            feedback={feedback}
             idPrefix="create-provider"
             mode="create"
           />
           <ProviderLocationFields
-            feedback={props.feedback}
+            feedback={feedback}
             idPrefix="create-provider"
             mode="create"
           />
           <ProviderContactFields
-            feedback={props.feedback}
+            feedback={feedback}
             idPrefix="create-provider"
             mode="create"
           />
-          <ProviderMediaFields
-            feedback={props.feedback}
+          <ProviderMediaFields feedback={feedback} idPrefix="create-provider" />
+          <ProviderBooleanFields
+            feedback={feedback}
             idPrefix="create-provider"
           />
-          <ProviderBooleanFields idPrefix="create-provider" />
           <SheetFooter className="px-0 pb-0">
             <AdminSubmitButton
               data-submit-action="create_provider"
@@ -523,11 +848,14 @@ function CreateProviderWorkflow(props: {
 
 function EditProviderWorkflow(props: {
   feedback?: AdminResourceProviderWorkflowFeedback;
-  formAction?: React.ComponentProps<"form">["action"];
+  formAction?: AdminResourceProviderFormAction;
   provider: AdminResourceProviderViewModel;
 }) {
+  const [state, formAction] = useAdminResourceProviderAction(props.formAction);
+  const feedback = state.feedback ?? props.feedback;
+
   return (
-    <Sheet defaultOpen={Boolean(props.feedback)}>
+    <Sheet defaultOpen={Boolean(feedback)}>
       <SheetTrigger asChild>
         <Button data-workflow-trigger="edit" type="button" variant="outline">
           Editar detalles
@@ -547,37 +875,38 @@ function EditProviderWorkflow(props: {
           </SheetDescription>
         </SheetHeader>
         <form
-          action={props.formAction}
+          action={props.formAction ? formAction : undefined}
           aria-label={`Editar detalles de ${props.provider.name}`}
           className="flex flex-1 flex-col gap-6 px-4 pb-4"
           method={props.formAction ? undefined : "post"}
         >
           <ProviderIdentityHiddenFields provider={props.provider} />
-          <WorkflowErrorAlert feedback={props.feedback} />
+          <WorkflowErrorAlert feedback={feedback} />
           <ProviderProfileFields
-            feedback={props.feedback}
+            feedback={feedback}
             idPrefix={`edit-provider-${props.provider.providerId}`}
             mode="edit"
             provider={props.provider}
           />
           <ProviderLocationFields
-            feedback={props.feedback}
+            feedback={feedback}
             idPrefix={`edit-provider-${props.provider.providerId}`}
             mode="edit"
             provider={props.provider}
           />
           <ProviderContactFields
-            feedback={props.feedback}
+            feedback={feedback}
             idPrefix={`edit-provider-${props.provider.providerId}`}
             mode="edit"
             provider={props.provider}
           />
           <ProviderMediaFields
-            feedback={props.feedback}
+            feedback={feedback}
             idPrefix={`edit-provider-${props.provider.providerId}`}
             provider={props.provider}
           />
           <ProviderBooleanFields
+            feedback={feedback}
             idPrefix={`edit-provider-${props.provider.providerId}`}
             provider={props.provider}
           />
@@ -616,10 +945,17 @@ function ProviderProfileFields(props: {
           placeholder="Veterinaria Alto Norte"
           required
           type="text"
-          value={props.provider?.name}
+          value={getSubmittedValue(
+            props.feedback,
+            "name",
+            props.provider?.name,
+          )}
         />
         <SelectField
-          defaultValue={props.provider?.category ?? "veterinary"}
+          defaultValue={parseResourceProviderCategory(
+            getSubmittedValue(props.feedback, "category"),
+            props.provider?.category ?? "veterinary",
+          )}
           error={getFieldError(props.feedback, "category")}
           id={`${props.idPrefix}-category`}
           label="Categoría"
@@ -633,7 +969,11 @@ function ProviderProfileFields(props: {
           name="description"
           placeholder="Atención veterinaria general, orientación y apoyo para familias cuidadoras."
           required
-          value={props.provider?.description}
+          value={getSubmittedValue(
+            props.feedback,
+            "description",
+            props.provider?.description,
+          )}
         />
         <TextAreaField
           error={getFieldError(props.feedback, "shortDescription")}
@@ -642,7 +982,11 @@ function ProviderProfileFields(props: {
           name="shortDescription"
           placeholder="Clínica local con atención general y urgencias."
           required
-          value={props.provider?.shortDescription}
+          value={getSubmittedValue(
+            props.feedback,
+            "shortDescription",
+            props.provider?.shortDescription,
+          )}
         />
         <TextField
           error={getFieldError(props.feedback, "serviceAreaLabel")}
@@ -652,7 +996,11 @@ function ProviderProfileFields(props: {
           placeholder="El Alto y La Paz"
           required
           type="text"
-          value={props.provider?.serviceAreaLabel}
+          value={getSubmittedValue(
+            props.feedback,
+            "serviceAreaLabel",
+            props.provider?.serviceAreaLabel,
+          )}
         />
         <TextField
           error={getFieldError(props.feedback, "hoursLabel")}
@@ -662,7 +1010,11 @@ function ProviderProfileFields(props: {
           placeholder="Lun - Sab: 08:00 a 18:00"
           required
           type="text"
-          value={props.provider?.hoursLabel}
+          value={getSubmittedValue(
+            props.feedback,
+            "hoursLabel",
+            props.provider?.hoursLabel,
+          )}
         />
       </FieldGroup>
     </FieldSet>
@@ -692,7 +1044,11 @@ function ProviderLocationFields(props: {
             placeholder="La Paz"
             required
             type="text"
-            value={props.provider?.department}
+            value={getSubmittedValue(
+              props.feedback,
+              "department",
+              props.provider?.department,
+            )}
           />
           <TextField
             error={getFieldError(props.feedback, "city")}
@@ -702,7 +1058,11 @@ function ProviderLocationFields(props: {
             placeholder="El Alto"
             required
             type="text"
-            value={props.provider?.city}
+            value={getSubmittedValue(
+              props.feedback,
+              "city",
+              props.provider?.city,
+            )}
           />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -715,6 +1075,7 @@ function ProviderLocationFields(props: {
             required={props.mode === "create"}
             step="0.000001"
             type="number"
+            value={getSubmittedValue(props.feedback, "exactLatitude")}
           />
           <TextField
             error={getFieldError(props.feedback, "exactLongitude")}
@@ -725,6 +1086,7 @@ function ProviderLocationFields(props: {
             required={props.mode === "create"}
             step="0.000001"
             type="number"
+            value={getSubmittedValue(props.feedback, "exactLongitude")}
           />
         </div>
         <TextField
@@ -735,7 +1097,11 @@ function ProviderLocationFields(props: {
           placeholder="Sopocachi, La Paz"
           required
           type="text"
-          value={props.provider?.approximateLocationLabel}
+          value={getSubmittedValue(
+            props.feedback,
+            "approximateLocationLabel",
+            props.provider?.approximateLocationLabel,
+          )}
         />
         <TextField
           error={getFieldError(props.feedback, "locationCell")}
@@ -745,7 +1111,11 @@ function ProviderLocationFields(props: {
           placeholder="bo-lpb-sopocachi"
           required
           type="text"
-          value={props.provider?.locationCell}
+          value={getSubmittedValue(
+            props.feedback,
+            "locationCell",
+            props.provider?.locationCell,
+          )}
         />
         <TextField
           error={getFieldError(props.feedback, "addressLabel")}
@@ -754,14 +1124,18 @@ function ProviderLocationFields(props: {
           name="addressLabel"
           placeholder="Zona Sopocachi, La Paz"
           type="text"
-          value={props.provider?.addressLabel}
+          value={getSubmittedValue(
+            props.feedback,
+            "addressLabel",
+            props.provider?.addressLabel,
+          )}
         />
       </FieldGroup>
     </FieldSet>
   );
 }
 
-function ProviderContactFields(props: {
+export function ProviderContactFields(props: {
   feedback?: AdminResourceProviderWorkflowFeedback;
   idPrefix: string;
   mode: "create" | "edit";
@@ -788,15 +1162,46 @@ function ProviderContactFields(props: {
   );
 }
 
-function ProviderMediaFields(props: {
+export function ProviderMediaFields(props: {
   feedback?: AdminResourceProviderWorkflowFeedback;
   idPrefix: string;
   provider?: AdminResourceProviderViewModel;
 }) {
+  const [logoRemoved, setLogoRemoved] = React.useState(false);
+  const [photoRemoved, setPhotoRemoved] = React.useState(false);
+
   return (
     <FieldSet className="gap-4">
       <FieldLegend>Medios opcionales</FieldLegend>
+      <FieldDescription>
+        Carga medios administrados por Rastro. Usa URL externa solo como
+        fallback avanzado.
+      </FieldDescription>
       <FieldGroup className="gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <AdminMediaUploadField
+            assetFieldName="logoAssetId"
+            currentUrl={props.provider?.logoUrl}
+            description="Logo cuadrado o compacto del proveedor."
+            id={`${props.idPrefix}-logo-upload`}
+            initialAssetId={getSubmittedValue(props.feedback, "logoAssetId")}
+            label="Logo administrado"
+            onRemovedChange={setLogoRemoved}
+            previewAlt={`Logo de ${props.provider?.name ?? "proveedor local"}`}
+            purpose="provider_logo"
+          />
+          <AdminMediaUploadField
+            assetFieldName="photoAssetId"
+            currentUrl={props.provider?.photoUrl}
+            description="Foto principal del local o equipo."
+            id={`${props.idPrefix}-photo-upload`}
+            initialAssetId={getSubmittedValue(props.feedback, "photoAssetId")}
+            label="Foto administrada"
+            onRemovedChange={setPhotoRemoved}
+            previewAlt={`Foto de ${props.provider?.name ?? "proveedor local"}`}
+            purpose="provider_photo"
+          />
+        </div>
         <TextField
           error={getFieldError(props.feedback, "websiteUrl")}
           id={`${props.idPrefix}-website`}
@@ -804,25 +1209,46 @@ function ProviderMediaFields(props: {
           name="websiteUrl"
           placeholder="https://proveedor.example"
           type="url"
-          value={props.provider?.websiteUrl}
+          value={getSubmittedValue(
+            props.feedback,
+            "websiteUrl",
+            props.provider?.websiteUrl,
+          )}
         />
-        <TextField
-          error={getFieldError(props.feedback, "logoUrl")}
-          id={`${props.idPrefix}-logo`}
-          label="Logo URL"
-          name="logoUrl"
-          placeholder="https://proveedor.example/logo.png"
-          type="url"
-          value={props.provider?.logoUrl}
-        />
-        <TextField
-          error={getFieldError(props.feedback, "photoUrl")}
-          id={`${props.idPrefix}-photo`}
-          label="Foto URL"
-          name="photoUrl"
-          placeholder="https://proveedor.example/foto.png"
-          type="url"
-          value={props.provider?.photoUrl}
+        <AdvancedExternalMediaUrlFallback
+          fields={[
+            {
+              error: getFieldError(props.feedback, "logoUrl"),
+              hasSubmittedValue: hasSubmittedValue(props.feedback, "logoUrl"),
+              id: `${props.idPrefix}-logo`,
+              label: "Logo URL externa",
+              name: "logoUrl",
+              placeholder: "https://proveedor.example/logo.png",
+              value: getSubmittedValue(
+                props.feedback,
+                "logoUrl",
+                props.provider?.logoUrl,
+              ),
+            },
+            {
+              error: getFieldError(props.feedback, "photoUrl"),
+              hasSubmittedValue: hasSubmittedValue(props.feedback, "photoUrl"),
+              id: `${props.idPrefix}-photo`,
+              label: "Foto URL externa",
+              name: "photoUrl",
+              placeholder: "https://proveedor.example/foto.png",
+              value: getSubmittedValue(
+                props.feedback,
+                "photoUrl",
+                props.provider?.photoUrl,
+              ),
+            },
+          ]}
+          id={`${props.idPrefix}-external-url-fallback`}
+          removedFieldNames={[
+            ...(logoRemoved ? ["logoUrl"] : []),
+            ...(photoRemoved ? ["photoUrl"] : []),
+          ]}
         />
       </FieldGroup>
     </FieldSet>
@@ -830,6 +1256,7 @@ function ProviderMediaFields(props: {
 }
 
 function ProviderBooleanFields(props: {
+  feedback?: AdminResourceProviderWorkflowFeedback;
   idPrefix: string;
   provider?: AdminResourceProviderViewModel;
 }) {
@@ -838,13 +1265,21 @@ function ProviderBooleanFields(props: {
       <FieldLegend>Operación</FieldLegend>
       <FieldGroup className="gap-3">
         <CheckboxField
-          defaultChecked={props.provider?.emergencyAvailable}
+          defaultChecked={getSubmittedBooleanValue(
+            props.feedback,
+            "emergencyAvailable",
+            props.provider?.emergencyAvailable,
+          )}
           id={`${props.idPrefix}-emergency`}
           label="Atiende urgencias"
           name="emergencyAvailable"
         />
         <CheckboxField
-          defaultChecked={props.provider?.isOpenNow}
+          defaultChecked={getSubmittedBooleanValue(
+            props.feedback,
+            "isOpenNow",
+            props.provider?.isOpenNow,
+          )}
           id={`${props.idPrefix}-open-now`}
           label="Marcado abierto ahora"
           name="isOpenNow"
@@ -860,80 +1295,144 @@ function ContactOptionsFields(props: {
   firstRowRequired: boolean;
   idPrefix: string;
 }) {
-  const contactOptions = props.contactOptions ?? [];
+  const defaultValues = React.useMemo(
+    () => ({
+      contactOptions: getContactDefaultRows({
+        contactOptions: props.contactOptions,
+        feedback: props.feedback,
+        firstRowRequired: props.firstRowRequired,
+      }),
+    }),
+    [props.contactOptions, props.feedback, props.firstRowRequired],
+  );
+  const form = useForm<ProviderContactArrayFormValues>({
+    defaultValues,
+    resolver: zodResolver(providerContactArraySchema),
+    values: defaultValues,
+  });
+  const { append, fields, move, remove } = useFieldArray({
+    control: form.control,
+    name: "contactOptions",
+  });
   const groupError = getFieldError(props.feedback, "contactOptions");
 
   return (
     <FieldSet className="gap-3">
       <FieldLegend variant="label">Opciones de contacto</FieldLegend>
-      {Array.from({ length: adminResourceProviderMaxContactOptions }).map(
-        (_, index) => {
-          const contact = contactOptions[index];
+      <div className="grid gap-3" data-field-array="contactOptions">
+        {fields.map((field, index) => {
+          const rowNumber = index + 1;
           const rowIsRequired = props.firstRowRequired && index === 0;
 
           return (
             <div
-              className="grid gap-3 rounded-md border border-dashed p-3 sm:grid-cols-[minmax(130px,0.8fr)_minmax(0,1fr)_minmax(0,1fr)]"
-              key={index}
+              className="grid gap-3 rounded-md border border-dashed p-3 sm:grid-cols-[minmax(130px,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_auto]"
+              data-field-array-row="contactOptions"
+              key={field.id}
             >
-              <SelectField
-                defaultValue={contact?.kind ?? "whatsapp"}
-                error={getFieldError(props.feedback, `contactKind${index}`)}
+              <ContactKindField
+                control={form.control}
+                error={getContactRowError(props.feedback, index, "kind")}
                 id={`${props.idPrefix}-contact-kind-${index}`}
-                label="Tipo"
-                name={`contactKind${index}`}
-                options={resourceProviderContactKindOptions}
+                index={index}
               />
-              <TextField
-                error={getFieldError(props.feedback, `contactLabel${index}`)}
+              <ArrayTextField
+                error={getContactRowError(props.feedback, index, "label")}
                 id={`${props.idPrefix}-contact-label-${index}`}
                 label="Etiqueta"
-                name={`contactLabel${index}`}
+                name={`contactOptions.${index}.label`}
+                register={form.register}
                 required={rowIsRequired}
-                type="text"
-                value={
-                  contact?.label ??
-                  (rowIsRequired ? "WhatsApp institucional" : "")
-                }
+                value={field.label}
               />
-              <TextField
-                error={getFieldError(props.feedback, `contactValue${index}`)}
+              <ArrayTextField
+                error={getContactRowError(props.feedback, index, "value")}
                 id={`${props.idPrefix}-contact-value-${index}`}
                 label="Valor"
-                name={`contactValue${index}`}
+                name={`contactOptions.${index}.value`}
+                register={form.register}
                 required={rowIsRequired}
-                type="text"
-                value={contact?.value}
+                value={field.value}
+              />
+              <FieldArrayRowControls
+                canMoveDown={index < fields.length - 1}
+                canMoveUp={index > 0}
+                onMoveDown={() => move(index, index + 1)}
+                onMoveUp={() => move(index, index - 1)}
+                onRemove={() => remove(index)}
+                rowLabel={`contacto ${rowNumber}`}
               />
             </div>
           );
-        },
-      )}
+        })}
+      </div>
+      <Button
+        className="w-fit"
+        data-field-array-add="contactOptions"
+        disabled={fields.length >= adminResourceProviderMaxContactOptions}
+        onClick={() =>
+          append({
+            kind: "whatsapp",
+            label: fields.length === 0 ? "WhatsApp institucional" : "",
+            value: "",
+          })
+        }
+        type="button"
+        variant="outline"
+      >
+        <PlusIcon className="size-4" />
+        Añadir contacto
+      </Button>
       <FieldError>{groupError}</FieldError>
     </FieldSet>
   );
 }
 
-function LinkFields(props: {
+export function LinkFields(props: {
   externalLinks?: AdminResourceProviderViewModel["externalLinks"];
   feedback?: AdminResourceProviderWorkflowFeedback;
   idPrefix: string;
   socialLinks?: AdminResourceProviderViewModel["socialLinks"];
 }) {
+  const defaultValues = React.useMemo(
+    () => ({
+      externalLinks: getLinkDefaultRows({
+        feedback: props.feedback,
+        fieldArrayName: "externalLinks",
+        links: props.externalLinks,
+      }),
+      socialLinks: getLinkDefaultRows({
+        feedback: props.feedback,
+        fieldArrayName: "socialLinks",
+        links: props.socialLinks,
+      }),
+    }),
+    [props.externalLinks, props.feedback, props.socialLinks],
+  );
+  const form = useForm<ProviderLinksArrayFormValues>({
+    defaultValues,
+    resolver: zodResolver(providerLinksArraySchema),
+    values: defaultValues,
+  });
+
   return (
     <div className="grid gap-5">
       <LinkGroupFields
-        fieldPrefix="socialLink"
+        control={form.control}
         feedback={props.feedback}
+        fieldArrayName="socialLinks"
+        legacyFieldPrefix="socialLink"
         idPrefix={props.idPrefix}
-        links={props.socialLinks ?? []}
+        register={form.register}
         title="Redes sociales"
       />
       <LinkGroupFields
-        fieldPrefix="externalLink"
+        control={form.control}
         feedback={props.feedback}
+        fieldArrayName="externalLinks"
+        legacyFieldPrefix="externalLink"
         idPrefix={props.idPrefix}
-        links={props.externalLinks ?? []}
+        register={form.register}
         title="Enlaces externos"
       />
     </div>
@@ -941,58 +1440,226 @@ function LinkFields(props: {
 }
 
 function LinkGroupFields(props: {
+  control: Control<ProviderLinksArrayFormValues>;
   feedback?: AdminResourceProviderWorkflowFeedback;
-  fieldPrefix: "externalLink" | "socialLink";
+  fieldArrayName: ProviderLinkArrayName;
+  legacyFieldPrefix: "externalLink" | "socialLink";
   idPrefix: string;
-  links: AdminResourceProviderViewModel["externalLinks"];
+  register: UseFormRegister<ProviderLinksArrayFormValues>;
   title: string;
 }) {
+  const { append, fields, move, remove } = useFieldArray({
+    control: props.control,
+    name: props.fieldArrayName,
+  });
+  const addLabel =
+    props.fieldArrayName === "socialLinks"
+      ? "Añadir red social"
+      : "Añadir enlace externo";
+
   return (
     <FieldSet className="gap-3">
       <FieldLegend variant="label">{props.title}</FieldLegend>
-      {Array.from({ length: adminResourceProviderMaxLinks }).map((_, index) => {
-        const link = props.links[index];
+      <div className="grid gap-3" data-field-array={props.fieldArrayName}>
+        {fields.map((field, index) => {
+          const rowNumber = index + 1;
 
-        return (
-          <div className="grid gap-3 sm:grid-cols-2" key={index}>
-            <TextField
-              error={getFieldError(
-                props.feedback,
-                `${props.fieldPrefix}Label${index}`,
-              )}
-              id={`${props.idPrefix}-${props.fieldPrefix}-label-${index}`}
-              label="Etiqueta"
-              name={`${props.fieldPrefix}Label${index}`}
-              type="text"
-              value={link?.label}
-            />
-            <TextField
-              error={getFieldError(
-                props.feedback,
-                `${props.fieldPrefix}Url${index}`,
-              )}
-              id={`${props.idPrefix}-${props.fieldPrefix}-url-${index}`}
-              label="URL"
-              name={`${props.fieldPrefix}Url${index}`}
-              type="url"
-              value={link?.url}
-            />
-          </div>
-        );
-      })}
+          return (
+            <div
+              className="grid gap-3 rounded-md border border-dashed p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+              data-field-array-row={props.fieldArrayName}
+              key={field.id}
+            >
+              <ArrayTextField
+                error={getLinkRowError(
+                  props.feedback,
+                  props.fieldArrayName,
+                  props.legacyFieldPrefix,
+                  index,
+                  "label",
+                )}
+                id={`${props.idPrefix}-${props.fieldArrayName}-label-${index}`}
+                label="Etiqueta"
+                name={`${props.fieldArrayName}.${index}.label`}
+                register={props.register}
+                value={field.label}
+              />
+              <ArrayTextField
+                error={getLinkRowError(
+                  props.feedback,
+                  props.fieldArrayName,
+                  props.legacyFieldPrefix,
+                  index,
+                  "url",
+                )}
+                id={`${props.idPrefix}-${props.fieldArrayName}-url-${index}`}
+                label="URL"
+                name={`${props.fieldArrayName}.${index}.url`}
+                register={props.register}
+                type="url"
+                value={field.url}
+              />
+              <FieldArrayRowControls
+                canMoveDown={index < fields.length - 1}
+                canMoveUp={index > 0}
+                onMoveDown={() => move(index, index + 1)}
+                onMoveUp={() => move(index, index - 1)}
+                onRemove={() => remove(index)}
+                rowLabel={`${props.title.toLowerCase()} ${rowNumber}`}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <Button
+        className="w-fit"
+        data-field-array-add={props.fieldArrayName}
+        disabled={fields.length >= adminResourceProviderMaxLinks}
+        onClick={() => append({ label: "", url: "" })}
+        type="button"
+        variant="outline"
+      >
+        <PlusIcon className="size-4" />
+        {addLabel}
+      </Button>
     </FieldSet>
+  );
+}
+
+function ContactKindField(props: {
+  control: Control<ProviderContactArrayFormValues>;
+  error?: string;
+  id: string;
+  index: number;
+}) {
+  const errorId = `${props.id}-error`;
+
+  return (
+    <Field data-invalid={Boolean(props.error)}>
+      <FieldLabel htmlFor={props.id}>Tipo</FieldLabel>
+      <Controller
+        control={props.control}
+        name={`contactOptions.${props.index}.kind`}
+        render={({ field }) => (
+          <Select
+            name={field.name}
+            onValueChange={field.onChange}
+            value={field.value}
+          >
+            <SelectTrigger
+              aria-describedby={props.error ? errorId : undefined}
+              aria-invalid={Boolean(props.error)}
+              className="w-full"
+              id={props.id}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {resourceProviderContactKindOptions.map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      />
+      <FieldError id={errorId}>{props.error}</FieldError>
+    </Field>
+  );
+}
+
+function ArrayTextField<
+  TValues extends ProviderContactArrayFormValues | ProviderLinksArrayFormValues,
+>(props: {
+  error?: string;
+  id: string;
+  label: string;
+  name: FieldPath<TValues>;
+  register: UseFormRegister<TValues>;
+  required?: boolean;
+  type?: React.HTMLInputTypeAttribute;
+  value?: string;
+}) {
+  const errorId = `${props.id}-error`;
+
+  return (
+    <Field data-invalid={Boolean(props.error)}>
+      <FieldLabel htmlFor={props.id}>{props.label}</FieldLabel>
+      <Input
+        {...props.register(props.name)}
+        aria-describedby={props.error ? errorId : undefined}
+        aria-invalid={Boolean(props.error)}
+        defaultValue={props.value ?? ""}
+        id={props.id}
+        required={props.required}
+        type={props.type ?? "text"}
+      />
+      <FieldError id={errorId}>{props.error}</FieldError>
+    </Field>
+  );
+}
+
+function FieldArrayRowControls(props: {
+  canMoveDown: boolean;
+  canMoveUp: boolean;
+  onMoveDown: () => void;
+  onMoveUp: () => void;
+  onRemove: () => void;
+  rowLabel: string;
+}) {
+  return (
+    <div className="flex items-end gap-2 sm:justify-end">
+      <Button
+        aria-label={`Subir ${props.rowLabel}`}
+        data-field-array-move="up"
+        disabled={!props.canMoveUp}
+        onClick={props.onMoveUp}
+        size="icon"
+        title={`Subir ${props.rowLabel}`}
+        type="button"
+        variant="outline"
+      >
+        <ArrowUpIcon className="size-4" />
+      </Button>
+      <Button
+        aria-label={`Bajar ${props.rowLabel}`}
+        data-field-array-move="down"
+        disabled={!props.canMoveDown}
+        onClick={props.onMoveDown}
+        size="icon"
+        title={`Bajar ${props.rowLabel}`}
+        type="button"
+        variant="outline"
+      >
+        <ArrowDownIcon className="size-4" />
+      </Button>
+      <Button
+        aria-label={`Quitar ${props.rowLabel}`}
+        data-field-array-remove
+        onClick={props.onRemove}
+        size="icon"
+        title={`Quitar ${props.rowLabel}`}
+        type="button"
+        variant="outline"
+      >
+        <Trash2Icon className="size-4" />
+      </Button>
+    </div>
   );
 }
 
 function VerificationProviderWorkflow(props: {
   feedback?: AdminResourceProviderWorkflowFeedback;
-  formAction?: React.ComponentProps<"form">["action"];
+  formAction?: AdminResourceProviderFormAction;
   provider: AdminResourceProviderViewModel;
 }) {
   const provider = props.provider;
+  const [state, formAction] = useAdminResourceProviderAction(props.formAction);
+  const feedback = state.feedback ?? props.feedback;
 
   return (
-    <Dialog defaultOpen={Boolean(props.feedback)}>
+    <Dialog defaultOpen={Boolean(feedback)}>
       <DialogTrigger asChild>
         <Button
           data-workflow-trigger="verification"
@@ -1014,13 +1681,13 @@ function VerificationProviderWorkflow(props: {
           </DialogDescription>
         </DialogHeader>
         <form
-          action={props.formAction}
+          action={props.formAction ? formAction : undefined}
           aria-label={`Gestionar identidad de ${provider.name}`}
           className="grid gap-4"
           method={props.formAction ? undefined : "post"}
         >
           <ProviderIdentityHiddenFields provider={provider} />
-          <WorkflowErrorAlert feedback={props.feedback} />
+          <WorkflowErrorAlert feedback={feedback} />
           <div className="flex items-center gap-2">
             <IdentityPill status={provider.verificationBadge.status} />
             <span className="text-muted-foreground text-xs">
@@ -1028,8 +1695,11 @@ function VerificationProviderWorkflow(props: {
             </span>
           </div>
           <SelectField
-            defaultValue={provider.verificationBadge.status}
-            error={getFieldError(props.feedback, "verificationStatus")}
+            defaultValue={parseVerificationStatus(
+              getSubmittedValue(feedback, "verificationStatus"),
+              provider.verificationBadge.status,
+            )}
+            error={getFieldError(feedback, "verificationStatus")}
             id={`verification-status-${provider.providerId}`}
             label="Estado"
             name="verificationStatus"
@@ -1040,11 +1710,15 @@ function VerificationProviderWorkflow(props: {
           />
           <TextAreaField
             autoFocus
-            error={getFieldError(props.feedback, "verificationNote")}
+            error={getFieldError(feedback, "verificationNote")}
             id={`verification-note-${provider.providerId}`}
             label="Nota interna"
             name="verificationNote"
-            value={provider.verificationBadge.note}
+            value={getSubmittedValue(
+              feedback,
+              "verificationNote",
+              provider.verificationBadge.note,
+            )}
           />
           <DialogFooter>
             <AdminSubmitButton
@@ -1064,7 +1738,7 @@ function VerificationProviderWorkflow(props: {
 
 function SponsorProviderWorkflow(props: {
   feedback?: AdminResourceProviderWorkflowFeedback;
-  formAction?: React.ComponentProps<"form">["action"];
+  formAction?: AdminResourceProviderFormAction;
   provider: AdminResourceProviderViewModel;
 }) {
   return (
@@ -1119,7 +1793,7 @@ function SponsorPolicyNotice() {
 }
 
 function SponsorPlacementList(props: {
-  formAction?: React.ComponentProps<"form">["action"];
+  formAction?: AdminResourceProviderFormAction;
   placements: readonly LocalSponsorPlacementViewModel[];
   provider: AdminResourceProviderViewModel;
 }) {
@@ -1141,75 +1815,100 @@ function SponsorPlacementList(props: {
       </h3>
       <ul className="flex flex-col gap-2">
         {props.placements.map((placement) => (
-          <li
-            className="border-border rounded-md border p-3"
+          <SponsorPlacementListItem
+            formAction={props.formAction}
             key={placement.placementId}
-          >
-            <div className="flex flex-col gap-1">
-              <span className="text-primary text-xs font-semibold">
-                {placement.disclosureLabel}
-              </span>
-              <span className="font-medium">{placement.surfaceLabel}</span>
-              <span className="text-muted-foreground text-xs">
-                {placement.startsOn ?? "Inicio no expuesto"} a{" "}
-                {placement.endsOn ?? "fin no expuesto"}
-              </span>
-              <span className="text-muted-foreground text-xs">
-                {placement.safetyPolicy.recoveryPriority.note}
-              </span>
-              <span className="text-muted-foreground text-xs">
-                {placement.safetyPolicy.pushNotifications.note}
-              </span>
-            </div>
-            {placement.placementId ? (
-              <form
-                action={props.formAction}
-                aria-label={`Retirar patrocinio local de ${props.provider.name}`}
-                className="mt-3"
-                method={props.formAction ? undefined : "post"}
-              >
-                <ProviderIdentityHiddenFields provider={props.provider} />
-                <input
-                  name="placementId"
-                  type="hidden"
-                  value={placement.placementId}
-                />
-                <AdminSubmitButton
-                  data-submit-action="detach_sponsor"
-                  name="resourceAction"
-                  pendingLabel="Retirando patrocinio"
-                  value="detach_sponsor"
-                  variant="outline"
-                >
-                  Retirar este patrocinio
-                </AdminSubmitButton>
-              </form>
-            ) : (
-              <p className="text-muted-foreground mt-3 text-xs">
-                Este patrocinio no expone un identificador para retiro desde el
-                panel.
-              </p>
-            )}
-          </li>
+            placement={placement}
+            provider={props.provider}
+          />
         ))}
       </ul>
     </section>
   );
 }
 
-function AttachSponsorForm(props: {
-  feedback?: AdminResourceProviderWorkflowFeedback;
-  formAction?: React.ComponentProps<"form">["action"];
+function SponsorPlacementListItem(props: {
+  formAction?: AdminResourceProviderFormAction;
+  placement: LocalSponsorPlacementViewModel;
   provider: AdminResourceProviderViewModel;
 }) {
+  const [state, formAction] = useAdminResourceProviderAction(props.formAction);
+
+  return (
+    <li className="border-border rounded-md border p-3">
+      <div className="flex flex-col gap-1">
+        <span className="text-primary text-xs font-semibold">
+          {props.placement.disclosureLabel}
+        </span>
+        <span className="font-medium">{props.placement.surfaceLabel}</span>
+        <SponsorMediaPreview
+          imageUrl={props.placement.imageUrl}
+          logoUrl={props.placement.logoUrl}
+          providerName={props.provider.name}
+        />
+        <span className="text-muted-foreground text-xs">
+          {props.placement.startsOn ?? "Inicio no expuesto"} a{" "}
+          {props.placement.endsOn ?? "fin no expuesto"}
+        </span>
+        <span className="text-muted-foreground text-xs">
+          {props.placement.safetyPolicy.recoveryPriority.note}
+        </span>
+        <span className="text-muted-foreground text-xs">
+          {props.placement.safetyPolicy.pushNotifications.note}
+        </span>
+      </div>
+      {props.placement.placementId ? (
+        <form
+          action={props.formAction ? formAction : undefined}
+          aria-label={`Retirar patrocinio local de ${props.provider.name}`}
+          className="mt-3 grid gap-3"
+          method={props.formAction ? undefined : "post"}
+        >
+          <ProviderIdentityHiddenFields provider={props.provider} />
+          <WorkflowErrorAlert feedback={state.feedback} />
+          <input
+            name="placementId"
+            type="hidden"
+            value={props.placement.placementId}
+          />
+          <AdminSubmitButton
+            data-submit-action="detach_sponsor"
+            name="resourceAction"
+            pendingLabel="Retirando patrocinio"
+            value="detach_sponsor"
+            variant="outline"
+          >
+            Retirar este patrocinio
+          </AdminSubmitButton>
+        </form>
+      ) : (
+        <p className="text-muted-foreground mt-3 text-xs">
+          Este patrocinio no expone un identificador para retiro desde el panel.
+        </p>
+      )}
+    </li>
+  );
+}
+
+function AttachSponsorForm(props: {
+  feedback?: AdminResourceProviderWorkflowFeedback;
+  formAction?: AdminResourceProviderFormAction;
+  provider: AdminResourceProviderViewModel;
+}) {
+  const [state, formAction] = useAdminResourceProviderAction(props.formAction);
+  const [imageRemoved, setImageRemoved] = React.useState(false);
+  const [logoRemoved, setLogoRemoved] = React.useState(false);
+  const feedback = state.feedback ?? props.feedback;
+
   return (
     <form
-      action={props.formAction}
+      action={props.formAction ? formAction : undefined}
       aria-label={`Adjuntar patrocinio local a ${props.provider.name}`}
       className="grid gap-4"
       method={props.formAction ? undefined : "post"}
     >
       <ProviderIdentityHiddenFields provider={props.provider} />
+      <WorkflowErrorAlert feedback={feedback} />
       {props.provider.activeSponsorPlacement ? (
         <div className="border-border rounded-md border p-3 text-sm">
           <p className="text-primary font-semibold">
@@ -1229,51 +1928,119 @@ function AttachSponsorForm(props: {
                 .recoveryPriority.note
             }
           </p>
+          <SponsorMediaPreview
+            imageUrl={props.provider.activeSponsorPlacement.imageUrl}
+            logoUrl={props.provider.activeSponsorPlacement.logoUrl}
+            providerName={props.provider.name}
+          />
         </div>
       ) : null}
       <FieldSet className="gap-4">
         <FieldLegend>Adjuntar patrocinio local</FieldLegend>
         <SelectField
-          defaultValue="resources_directory"
-          error={getFieldError(props.feedback, "sponsorSurface")}
+          defaultValue={parseLocalSponsorPlacementSurface(
+            getSubmittedValue(feedback, "sponsorSurface"),
+            "resources_directory",
+          )}
+          error={getFieldError(feedback, "sponsorSurface")}
           id={`sponsor-surface-${props.provider.providerId}`}
           label="Superficie"
           name="sponsorSurface"
           options={localSponsorPlacementSurfaceOptions}
         />
         <TextField
-          error={getFieldError(props.feedback, "sponsorLabel")}
+          error={getFieldError(feedback, "sponsorLabel")}
           id={`sponsor-label-${props.provider.providerId}`}
           label="Etiqueta"
           name="sponsorLabel"
           placeholder="Patrocinado"
           type="text"
+          value={getSubmittedValue(feedback, "sponsorLabel")}
         />
         <TextAreaField
-          error={getFieldError(props.feedback, "sponsorDisclosure")}
+          error={getFieldError(feedback, "sponsorDisclosure")}
           id={`sponsor-disclosure-${props.provider.providerId}`}
           label="Divulgación pública"
           name="sponsorDisclosure"
           placeholder="Patrocinado: apoyo local. No cambia la prioridad de reportes."
+          value={getSubmittedValue(feedback, "sponsorDisclosure")}
         />
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
-            error={getFieldError(props.feedback, "startsOn")}
+            error={getFieldError(feedback, "startsOn")}
             id={`sponsor-starts-${props.provider.providerId}`}
             label="Inicio"
             name="startsOn"
             required
             type="date"
+            value={getSubmittedValue(feedback, "startsOn")}
           />
           <TextField
-            error={getFieldError(props.feedback, "endsOn")}
+            error={getFieldError(feedback, "endsOn")}
             id={`sponsor-ends-${props.provider.providerId}`}
             label="Fin"
             name="endsOn"
             required
             type="date"
+            value={getSubmittedValue(feedback, "endsOn")}
           />
         </div>
+        <FieldSet className="gap-3">
+          <FieldLegend>Medios del patrocinio</FieldLegend>
+          <FieldDescription>
+            Carga medios administrados por Rastro. Usa URL externa solo como
+            fallback avanzado.
+          </FieldDescription>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <AdminMediaUploadField
+              assetFieldName="logoAssetId"
+              description="Logo del patrocinio local."
+              id={`sponsor-logo-upload-${props.provider.providerId}`}
+              initialAssetId={getSubmittedValue(feedback, "logoAssetId")}
+              label="Logo administrado"
+              onRemovedChange={setLogoRemoved}
+              previewAlt={`Logo de patrocinio de ${props.provider.name}`}
+              purpose="sponsor_logo"
+            />
+            <AdminMediaUploadField
+              assetFieldName="imageAssetId"
+              description="Imagen o banner del patrocinio local."
+              id={`sponsor-image-upload-${props.provider.providerId}`}
+              initialAssetId={getSubmittedValue(feedback, "imageAssetId")}
+              label="Imagen administrada"
+              onRemovedChange={setImageRemoved}
+              previewAlt={`Imagen de patrocinio de ${props.provider.name}`}
+              purpose="sponsor_image"
+            />
+          </div>
+          <AdvancedExternalMediaUrlFallback
+            fields={[
+              {
+                error: getFieldError(feedback, "logoUrl"),
+                hasSubmittedValue: hasSubmittedValue(feedback, "logoUrl"),
+                id: `sponsor-logo-${props.provider.providerId}`,
+                label: "Logo URL externa",
+                name: "logoUrl",
+                placeholder: "https://proveedor.example/logo-patrocinio.png",
+                value: getSubmittedValue(feedback, "logoUrl"),
+              },
+              {
+                error: getFieldError(feedback, "imageUrl"),
+                hasSubmittedValue: hasSubmittedValue(feedback, "imageUrl"),
+                id: `sponsor-image-${props.provider.providerId}`,
+                label: "Imagen URL externa",
+                name: "imageUrl",
+                placeholder: "https://proveedor.example/banner-patrocinio.png",
+                value: getSubmittedValue(feedback, "imageUrl"),
+              },
+            ]}
+            id={`sponsor-external-url-fallback-${props.provider.providerId}`}
+            removedFieldNames={[
+              ...(logoRemoved ? ["logoUrl"] : []),
+              ...(imageRemoved ? ["imageUrl"] : []),
+            ]}
+          />
+        </FieldSet>
       </FieldSet>
       <SheetFooter className="px-0 pb-0">
         <AdminSubmitButton
@@ -1289,18 +2056,46 @@ function AttachSponsorForm(props: {
   );
 }
 
-function ArchiveProviderWorkflow(props: {
-  feedback?: AdminResourceProviderWorkflowFeedback;
-  formAction?: React.ComponentProps<"form">["action"];
-  provider: AdminResourceProviderViewModel;
+function SponsorMediaPreview(props: {
+  imageUrl?: string;
+  logoUrl?: string;
+  providerName: string;
 }) {
-  const confirmationError = getFieldError(
-    props.feedback,
-    "archiveConfirmation",
-  );
+  if (!props.logoUrl && !props.imageUrl) {
+    return null;
+  }
 
   return (
-    <Dialog defaultOpen={Boolean(props.feedback)}>
+    <div className="mt-2 grid gap-2 sm:grid-cols-[64px_minmax(0,1fr)] sm:items-center">
+      {props.logoUrl ? (
+        <img
+          alt={`Logo de patrocinio de ${props.providerName}`}
+          className="border-border bg-muted h-14 w-14 rounded-md border object-cover"
+          src={props.logoUrl}
+        />
+      ) : null}
+      {props.imageUrl ? (
+        <img
+          alt={`Imagen de patrocinio de ${props.providerName}`}
+          className={`border-border bg-muted h-20 w-full rounded-md border object-cover ${props.logoUrl ? "" : "sm:col-span-2"}`}
+          src={props.imageUrl}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ArchiveProviderWorkflow(props: {
+  feedback?: AdminResourceProviderWorkflowFeedback;
+  formAction?: AdminResourceProviderFormAction;
+  provider: AdminResourceProviderViewModel;
+}) {
+  const [state, formAction] = useAdminResourceProviderAction(props.formAction);
+  const feedback = state.feedback ?? props.feedback;
+  const confirmationError = getFieldError(feedback, "archiveConfirmation");
+
+  return (
+    <Dialog defaultOpen={Boolean(feedback)}>
       <DialogTrigger asChild>
         <Button data-workflow-trigger="archive" type="button" variant="outline">
           Archivar
@@ -1319,13 +2114,13 @@ function ArchiveProviderWorkflow(props: {
           </DialogDescription>
         </DialogHeader>
         <form
-          action={props.formAction}
+          action={props.formAction ? formAction : undefined}
           aria-label={`Archivar proveedor ${props.provider.name}`}
           className="grid gap-4"
           method={props.formAction ? undefined : "post"}
         >
           <ProviderIdentityHiddenFields provider={props.provider} />
-          <WorkflowErrorAlert feedback={props.feedback} />
+          <WorkflowErrorAlert feedback={feedback} />
           <Field
             data-invalid={Boolean(confirmationError)}
             orientation="horizontal"
@@ -1369,40 +2164,6 @@ function ArchiveProviderWorkflow(props: {
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function TextField(props: {
-  autoFocus?: boolean;
-  error?: string;
-  id: string;
-  label: string;
-  name: string;
-  placeholder?: string;
-  required?: boolean;
-  step?: string;
-  type: React.HTMLInputTypeAttribute;
-  value?: string;
-}) {
-  const errorId = `${props.id}-error`;
-
-  return (
-    <Field data-invalid={Boolean(props.error)}>
-      <FieldLabel htmlFor={props.id}>{props.label}</FieldLabel>
-      <Input
-        aria-describedby={props.error ? errorId : undefined}
-        aria-invalid={Boolean(props.error)}
-        autoFocus={props.autoFocus}
-        defaultValue={props.value ?? ""}
-        id={props.id}
-        name={props.name}
-        placeholder={props.placeholder}
-        required={props.required}
-        step={props.step}
-        type={props.type}
-      />
-      <FieldError id={errorId}>{props.error}</FieldError>
-    </Field>
   );
 }
 
@@ -1516,6 +2277,233 @@ function ProviderIdentityHiddenFields(props: {
       />
       <input name="providerName" type="hidden" value={props.provider.name} />
     </>
+  );
+}
+
+function useAdminResourceProviderAction(
+  formAction: AdminResourceProviderFormAction | undefined,
+) {
+  const fallbackAction = React.useCallback<AdminResourceProviderFormAction>(
+    () => Promise.resolve(emptyAdminResourceProviderActionState),
+    [],
+  );
+
+  return React.useActionState(
+    formAction ?? fallbackAction,
+    emptyAdminResourceProviderActionState,
+  );
+}
+
+function getSubmittedValue(
+  feedback: AdminResourceProviderWorkflowFeedback | undefined,
+  key: string,
+  fallback?: string,
+) {
+  if (!feedback?.submittedValues) {
+    return fallback;
+  }
+
+  return Object.hasOwn(feedback.submittedValues, key)
+    ? feedback.submittedValues[key]
+    : fallback;
+}
+
+function hasSubmittedValue(
+  feedback: AdminResourceProviderWorkflowFeedback | undefined,
+  key: string,
+) {
+  return Boolean(
+    feedback?.submittedValues && Object.hasOwn(feedback.submittedValues, key),
+  );
+}
+
+function getSubmittedBooleanValue(
+  feedback: AdminResourceProviderWorkflowFeedback | undefined,
+  key: string,
+  fallback?: boolean,
+) {
+  if (!feedback?.submittedValues) {
+    return fallback;
+  }
+
+  return feedback.submittedValues[key] === "on";
+}
+
+function getContactDefaultRows(input: {
+  contactOptions?: AdminResourceProviderViewModel["contactOptions"];
+  feedback?: AdminResourceProviderWorkflowFeedback;
+  firstRowRequired: boolean;
+}): ProviderContactFormRow[] {
+  const submittedRows = getSubmittedContactRows(input.feedback);
+
+  if (submittedRows) {
+    return submittedRows;
+  }
+
+  if (input.contactOptions && input.contactOptions.length > 0) {
+    return input.contactOptions.map((contact) => ({
+      kind: contact.kind,
+      label: contact.label,
+      value: contact.value,
+    }));
+  }
+
+  return input.firstRowRequired
+    ? [{ kind: "whatsapp", label: "WhatsApp institucional", value: "" }]
+    : [];
+}
+
+function getSubmittedContactRows(
+  feedback: AdminResourceProviderWorkflowFeedback | undefined,
+) {
+  const values = feedback?.submittedValues;
+
+  if (!values) {
+    return undefined;
+  }
+
+  return getSubmittedFieldArrayIndices(values, "contactOptions").map(
+    (index) => ({
+      kind: parseContactKind(values[`contactOptions.${index}.kind`]),
+      label: values[`contactOptions.${index}.label`] ?? "",
+      value: values[`contactOptions.${index}.value`] ?? "",
+    }),
+  );
+}
+
+function getLinkDefaultRows(input: {
+  feedback?: AdminResourceProviderWorkflowFeedback;
+  fieldArrayName: ProviderLinkArrayName;
+  links?: AdminResourceProviderViewModel["externalLinks"];
+}): ProviderLinkFormRow[] {
+  const submittedRows = getSubmittedLinkRows(
+    input.feedback,
+    input.fieldArrayName,
+  );
+
+  if (submittedRows) {
+    return submittedRows;
+  }
+
+  return (input.links ?? []).map((link) => ({
+    label: link.label,
+    url: link.url,
+  }));
+}
+
+function getSubmittedLinkRows(
+  feedback: AdminResourceProviderWorkflowFeedback | undefined,
+  fieldArrayName: ProviderLinkArrayName,
+) {
+  const values = feedback?.submittedValues;
+
+  if (!values) {
+    return undefined;
+  }
+
+  return getSubmittedFieldArrayIndices(values, fieldArrayName).map((index) => ({
+    label: values[`${fieldArrayName}.${index}.label`] ?? "",
+    url: values[`${fieldArrayName}.${index}.url`] ?? "",
+  }));
+}
+
+function getSubmittedFieldArrayIndices(
+  values: AdminResourceProviderWorkflowFeedback["submittedValues"],
+  fieldArrayName: string,
+) {
+  if (!values) {
+    return [];
+  }
+
+  const indices = new Set<number>();
+  const prefix = `${fieldArrayName}.`;
+
+  for (const key of Object.keys(values)) {
+    if (!key.startsWith(prefix)) {
+      continue;
+    }
+
+    const [rawIndex] = key.slice(prefix.length).split(".");
+    const index = Number(rawIndex);
+
+    if (Number.isInteger(index) && index >= 0) {
+      indices.add(index);
+    }
+  }
+
+  return [...indices].sort((left, right) => left - right);
+}
+
+function parseContactKind(
+  value: string | undefined,
+): AdminResourceProviderContactKind {
+  return resourceProviderContactKindOptions.some(
+    (option) => option.id === value,
+  )
+    ? (value as AdminResourceProviderContactKind)
+    : "whatsapp";
+}
+
+function parseResourceProviderCategory(
+  value: string | undefined,
+  fallback: AdminResourceProviderCategory,
+): AdminResourceProviderCategory {
+  return resourceProviderCategoryOptions.some((option) => option.id === value)
+    ? (value as AdminResourceProviderCategory)
+    : fallback;
+}
+
+function parseVerificationStatus(
+  value: string | undefined,
+  fallback: AdminResourceProviderVerificationStatus,
+): AdminResourceProviderVerificationStatus {
+  return value === "verified" || value === "unverified" ? value : fallback;
+}
+
+function parseLocalSponsorPlacementSurface(
+  value: string | undefined,
+  fallback: AdminLocalSponsorPlacementSurface,
+): AdminLocalSponsorPlacementSurface {
+  return localSponsorPlacementSurfaceOptions.some(
+    (option) => option.id === value,
+  )
+    ? (value as AdminLocalSponsorPlacementSurface)
+    : fallback;
+}
+
+function getContactRowError(
+  feedback: AdminResourceProviderWorkflowFeedback | undefined,
+  index: number,
+  field: keyof ProviderContactFormRow,
+) {
+  const legacyField =
+    field === "kind"
+      ? `contactKind${index}`
+      : field === "label"
+        ? `contactLabel${index}`
+        : `contactValue${index}`;
+
+  return (
+    getFieldError(feedback, `contactOptions.${index}.${field}`) ??
+    getFieldError(feedback, legacyField)
+  );
+}
+
+function getLinkRowError(
+  feedback: AdminResourceProviderWorkflowFeedback | undefined,
+  fieldArrayName: ProviderLinkArrayName,
+  legacyFieldPrefix: "externalLink" | "socialLink",
+  index: number,
+  field: keyof ProviderLinkFormRow,
+) {
+  const legacyField =
+    field === "label"
+      ? `${legacyFieldPrefix}Label${index}`
+      : `${legacyFieldPrefix}Url${index}`;
+
+  return (
+    getFieldError(feedback, `${fieldArrayName}.${index}.${field}`) ??
+    getFieldError(feedback, legacyField)
   );
 }
 

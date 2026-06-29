@@ -99,6 +99,11 @@ export function ResourceProviderProfile({
             {viewModel.sponsorDisclosure}
           </Text>
         ) : null}
+        <SponsorMediaPanel
+          imageUrl={viewModel.sponsorImageUrl}
+          logoUrl={viewModel.sponsorLogoUrl}
+          providerName={viewModel.name}
+        />
       </View>
 
       <View style={styles.actionGrid}>
@@ -214,6 +219,42 @@ function ProfileBadge({
       >
         {badge.label}
       </Text>
+    </View>
+  );
+}
+
+function SponsorMediaPanel({
+  imageUrl,
+  logoUrl,
+  providerName,
+}: {
+  imageUrl?: string;
+  logoUrl?: string;
+  providerName: string;
+}) {
+  if (!logoUrl && !imageUrl) {
+    return null;
+  }
+
+  return (
+    <View
+      accessibilityLabel={`Medios de patrocinio de ${providerName}`}
+      style={styles.sponsorMediaPanel}
+    >
+      {logoUrl ? (
+        <Image
+          source={{ uri: logoUrl }}
+          style={styles.sponsorLogoImage}
+          contentFit="cover"
+        />
+      ) : null}
+      {imageUrl ? (
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.sponsorBannerImage}
+          contentFit="cover"
+        />
+      ) : null}
     </View>
   );
 }
@@ -457,6 +498,29 @@ const styles = StyleSheet.create({
     color: resourcesColors.muted,
     fontSize: 13,
     lineHeight: 18,
+  },
+  sponsorMediaPanel: {
+    minHeight: 88,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 18,
+    borderCurve: "continuous",
+    backgroundColor: resourcesColors.warningSoft,
+    padding: 8,
+  },
+  sponsorLogoImage: {
+    width: 62,
+    height: 62,
+    borderRadius: 16,
+    borderCurve: "continuous",
+  },
+  sponsorBannerImage: {
+    flex: 1,
+    minWidth: 0,
+    height: 72,
+    borderRadius: 14,
+    borderCurve: "continuous",
   },
   actionGrid: {
     flexDirection: "row",

@@ -10,6 +10,10 @@ import {
   updateAdminSponsorPlacement,
 } from "./admin-sponsor-placement-api-adapter";
 import { adminSponsorPlacementSurfaceOptions } from "./admin-sponsor-placement-model";
+import {
+  getSponsorPlacementMediaFormValues,
+  validateDateOnlyRange,
+} from "./admin-url-form-parser";
 
 export type AdminSponsorPlacementAction =
   | "create_sponsor_placement"
@@ -28,12 +32,24 @@ export interface AdminSponsorPlacementActionResult {
   placementId?: string;
   providerId?: string;
   providerName?: string;
+  submittedValues?: AdminSponsorPlacementSubmittedValues;
 }
 
 export interface AdminSponsorPlacementFeedback
   extends AdminSponsorPlacementActionResult {
   formError?: string;
 }
+
+export type AdminSponsorPlacementSubmittedValues = Record<string, string>;
+
+export interface AdminSponsorPlacementActionState {
+  feedback?: AdminSponsorPlacementFeedback;
+}
+
+export type AdminSponsorPlacementFormAction = (
+  state: AdminSponsorPlacementActionState,
+  formData: FormData,
+) => Promise<AdminSponsorPlacementActionState>;
 
 export interface AdminSponsorPlacementNotice {
   body: string;
@@ -130,11 +146,15 @@ export function buildAdminSponsorPlacementRedirectUrl(
     params.set("placementId", result.placementId);
   }
 
-  if (result.fieldErrors.length > 0) {
-    params.set("campos", JSON.stringify(result.fieldErrors));
-  }
-
   return `/admin/patrocinios?${params.toString()}`;
+}
+
+export function buildAdminSponsorPlacementActionState(
+  result: AdminSponsorPlacementActionResult,
+): AdminSponsorPlacementActionState {
+  return {
+    feedback: toSponsorPlacementFeedback(result),
+  };
 }
 
 export function buildAdminSponsorPlacementFeedback(
@@ -147,19 +167,16 @@ export function buildAdminSponsorPlacementFeedback(
     return undefined;
   }
 
-  const fieldErrors = getFieldErrorsSearchParam(
-    getSingleSearchParam(searchParams, "campos"),
-  );
   const feedback: AdminSponsorPlacementFeedback = {
     action,
-    fieldErrors,
+    fieldErrors: [],
     ok: status === "ok",
     placementId: getSingleSearchParam(searchParams, "placementId"),
     providerId: getSingleSearchParam(searchParams, "providerId"),
     providerName: getSingleSearchParam(searchParams, "providerName"),
   };
 
-  if (!feedback.ok && fieldErrors.length === 0) {
+  if (!feedback.ok) {
     feedback.formError =
       "No pudimos guardar la acción de patrocinio. Revisa los datos o intenta nuevamente.";
   }
@@ -336,18 +353,13 @@ function parseSponsorPlacementFields(
     fieldErrors,
   );
   const endsOn = getRequiredDateOnlyFormValue(formData, "endsOn", fieldErrors);
+  const media = getSponsorPlacementMediaFormValues({
+    fieldErrors,
+    formData,
+    getOptionalStringFormValue,
+  });
 
-  if (
-    startsOn &&
-    endsOn &&
-    Date.parse(`${endsOn}T00:00:00.000Z`) <
-      Date.parse(`${startsOn}T00:00:00.000Z`)
-  ) {
-    fieldErrors.push({
-      field: "endsOn",
-      message: "La fecha final debe ser posterior o igual a la fecha inicial.",
-    });
-  }
+  validateDateOnlyRange({ endsOn, fieldErrors, startsOn });
 
   if (fieldErrors.length > 0 || !surface) {
     return {
@@ -362,7 +374,11 @@ function parseSponsorPlacementFields(
   const input = {
     disclosure: getRequiredStringFormValue(formData, "disclosure", fieldErrors),
     endsOn,
+    imageAssetId: media.imageAssetId,
+    imageUrl: media.imageUrl,
     label: getRequiredStringFormValue(formData, "label", fieldErrors),
+    logoAssetId: media.logoAssetId,
+    logoUrl: media.logoUrl,
     providerId,
     startsOn,
     surface,
@@ -406,7 +422,23 @@ function buildActionError(input: {
     providerName:
       input.providerName ??
       getOptionalStringFormValue(input.formData, "providerName"),
+    submittedValues: collectSubmittedValues(input.formData),
   };
+}
+
+function toSponsorPlacementFeedback(
+  result: AdminSponsorPlacementActionResult,
+): AdminSponsorPlacementFeedback {
+  const feedback: AdminSponsorPlacementFeedback = {
+    ...result,
+  };
+
+  if (!feedback.ok && feedback.fieldErrors.length === 0) {
+    feedback.formError =
+      "No pudimos guardar la acción de patrocinio. Revisa los datos o intenta nuevamente.";
+  }
+
+  return feedback;
 }
 
 function getSuccessTitle(action: AdminSponsorPlacementAction) {
@@ -462,35 +494,6 @@ function getSingleSearchParam(
   return typeof value === "string" ? value : undefined;
 }
 
-function getFieldErrorsSearchParam(
-  value: string | undefined,
-): AdminSponsorPlacementFieldError[] {
-  if (!value) {
-    return [];
-  }
-
-  try {
-    const parsed: unknown = JSON.parse(value);
-
-    return Array.isArray(parsed)
-      ? parsed.filter(isAdminSponsorPlacementFieldError)
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function isAdminSponsorPlacementFieldError(
-  value: unknown,
-): value is AdminSponsorPlacementFieldError {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { field?: unknown }).field === "string" &&
-    typeof (value as { message?: unknown }).message === "string"
-  );
-}
-
 function getRequiredStringFormValue(
   formData: FormData,
   key: string,
@@ -504,6 +507,18 @@ function getRequiredStringFormValue(
   }
 
   return value;
+}
+
+function collectSubmittedValues(formData: FormData) {
+  const values: AdminSponsorPlacementSubmittedValues = {};
+
+  for (const [key, value] of formData.entries()) {
+    if (typeof value === "string") {
+      values[key] = value;
+    }
+  }
+
+  return values;
 }
 
 function getRequiredDateOnlyFormValue(

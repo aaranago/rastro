@@ -1,9 +1,20 @@
 import type { RouterInputs, RouterOutputs } from "@acme/api";
+import type { AdminResourceProviderListInput } from "@acme/validators";
 
 import { buildAdminResourceMetricGroup } from "./admin-resource-metrics";
 
+export type { AdminResourceProviderListInput };
+
 export type AdminResourceProviderProfileBase =
-  RouterOutputs["resources"]["admin"]["listProviders"][number];
+  RouterOutputs["resources"]["admin"]["listProviders"] extends readonly (infer TItem)[]
+    ? TItem
+    : RouterOutputs["resources"]["admin"]["listProviders"] extends {
+          items: readonly (infer TItem)[];
+        }
+      ? TItem
+      : never;
+export type AdminResourceProviderListResult =
+  RouterOutputs["resources"]["admin"]["listProviders"];
 export type AdminResourceProviderProfile = AdminResourceProviderProfileBase & {
   updatedAt?: Date;
 };
@@ -36,10 +47,23 @@ export interface AdminResourceForbiddenViewModel {
 
 export interface AdminResourceProviderListViewModel {
   createActionLabel: string;
+  list: AdminResourceProviderListStateViewModel;
   locale: "es-BO";
   metrics: AdminResourceMetricsViewModel;
   providers: AdminResourceProviderViewModel[];
   title: string;
+}
+
+export interface AdminResourceProviderListStateViewModel {
+  availableFilters: AdminResourceProviderListResult["availableFilters"];
+  availableSorts: AdminResourceProviderListResult["availableSorts"];
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  input: AdminResourceProviderListInput;
+  page: number;
+  pageCount: number;
+  pageSize: number;
+  total: number;
 }
 
 export interface AdminResourceProviderViewModel {
@@ -74,6 +98,8 @@ export interface AdminResourceProviderViewModel {
 export interface AdminResourceProviderActiveSponsorPlacementViewModel {
   disclosureLabel: "Patrocinado local";
   eligibleSurfaceLabels: string[];
+  imageUrl?: string;
+  logoUrl?: string;
   safetyPolicy: SponsorSafetyPolicy;
   sponsorLabel: string;
 }
@@ -87,6 +113,8 @@ export interface VerificationBadgeViewModel {
 export interface LocalSponsorPlacementViewModel {
   disclosureLabel: "Patrocinado local";
   endsOn?: string;
+  imageUrl?: string;
+  logoUrl?: string;
   placementId?: string;
   safetyPolicy: SponsorSafetyPolicy;
   startsOn?: string;
@@ -230,16 +258,58 @@ const surfaceLabels = Object.fromEntries(
 ) as Record<AdminLocalSponsorPlacementSurface, string>;
 
 export function buildAdminResourceProviderListViewModel(
-  profiles: readonly AdminResourceProviderProfile[],
+  listResult:
+    | readonly AdminResourceProviderProfile[]
+    | AdminResourceProviderListResult,
+  input?: AdminResourceProviderListInput,
 ): AdminResourceProviderListViewModel {
-  const providers = profiles.map(toAdminResourceProviderViewModel);
+  const normalizedListResult = normalizeAdminResourceProviderList(listResult);
+  const providers = normalizedListResult.items.map(
+    toAdminResourceProviderViewModel,
+  );
 
   return {
     createActionLabel: "Registrar proveedor",
+    list: {
+      availableFilters: normalizedListResult.availableFilters,
+      availableSorts: normalizedListResult.availableSorts,
+      hasNextPage: normalizedListResult.hasNextPage,
+      hasPreviousPage: normalizedListResult.hasPreviousPage,
+      input: input ?? {
+        page: normalizedListResult.page,
+        pageSize: normalizedListResult.pageSize,
+      },
+      page: normalizedListResult.page,
+      pageCount: normalizedListResult.pageCount,
+      pageSize: normalizedListResult.pageSize,
+      total: normalizedListResult.total,
+    },
     locale: "es-BO",
     metrics: buildMetricsViewModel(providers),
     providers,
     title: "Gestión de proveedores de recursos",
+  };
+}
+
+function normalizeAdminResourceProviderList(
+  listResult:
+    | readonly AdminResourceProviderProfile[]
+    | AdminResourceProviderListResult,
+): AdminResourceProviderListResult {
+  if ("items" in listResult) {
+    return listResult;
+  }
+
+  return {
+    availableFilters: [],
+    availableSorts: [],
+    hasNextPage: false,
+    hasPreviousPage: false,
+    items: [...listResult],
+    page: 1,
+    pageCount: listResult.length > 0 ? 1 : 0,
+    pageSize: Math.max(listResult.length, 1),
+    total: listResult.length,
   };
 }
 
@@ -333,6 +403,8 @@ function toLocalSponsorPlacementViewModel(
   return {
     disclosureLabel: "Patrocinado local",
     endsOn: placement.endsOn,
+    imageUrl: placement.imageUrl,
+    logoUrl: placement.logoUrl,
     placementId: placement.placementId,
     safetyPolicy: buildSponsorSafetyPolicy([placement.surface]),
     startsOn: placement.startsOn,
@@ -351,6 +423,8 @@ function toActiveSponsorPlacementViewModel(
     eligibleSurfaceLabels: eligibleSurfaces.map(
       (surface) => surfaceLabels[surface],
     ),
+    imageUrl: placement.imageUrl,
+    logoUrl: placement.logoUrl,
     safetyPolicy: buildSponsorSafetyPolicy(eligibleSurfaces),
     sponsorLabel: placement.label,
   };

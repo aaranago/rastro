@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   applyAdminResourceProviderAction,
+  buildAdminResourceProviderActionState,
   buildAdminResourceProviderMutationNotice,
   buildAdminResourceProviderRedirectUrl,
   buildAdminResourceProviderWorkflowFeedback,
@@ -70,7 +71,12 @@ describe("admin resource provider actions", () => {
       ok: false,
       providerId: "11111111-1111-4111-8111-111111111111",
       providerName: "Clinica Veterinaria San Roque",
+      submittedValues: result.submittedValues,
       workflow: "edit",
+    });
+    expect(result.submittedValues).toMatchObject({
+      description:
+        "Veterinaria local con atencion general, urgencias y orientacion.",
     });
     expect(api.updateAdminResourceProvider).toHaveBeenCalledTimes(1);
   });
@@ -99,6 +105,47 @@ describe("admin resource provider actions", () => {
       },
     ]);
     expect(api.updateAdminResourceProviderVerification).not.toHaveBeenCalled();
+  });
+
+  it("forwards sponsor media URL fallbacks when attaching a placement", async () => {
+    api.attachAdminResourceProviderSponsor.mockResolvedValueOnce({});
+
+    const result = await applyAdminResourceProviderAction(
+      formData({
+        providerId: "11111111-1111-4111-8111-111111111111",
+        providerName: "Clinica Veterinaria San Roque",
+        resourceAction: "attach_sponsor",
+        sponsorSurface: "resources_directory",
+        sponsorLabel: "Patrocinado",
+        sponsorDisclosure:
+          "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+        logoAssetId: "11111111-1111-4111-8111-111111111111",
+        logoUrl: "https://example.com/sponsor-logo.png",
+        imageAssetId: "22222222-2222-4222-8222-222222222222",
+        imageUrl: "https://example.com/sponsor-banner.png",
+        startsOn: "2026-07-01",
+        endsOn: "2026-07-31",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      action: "attach_sponsor",
+      ok: true,
+      workflow: "sponsor",
+    });
+    expect(api.attachAdminResourceProviderSponsor).toHaveBeenCalledWith({
+      disclosure:
+        "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+      endsOn: "2026-07-31",
+      imageAssetId: "22222222-2222-4222-8222-222222222222",
+      imageUrl: "https://example.com/sponsor-banner.png",
+      label: "Patrocinado",
+      logoAssetId: "11111111-1111-4111-8111-111111111111",
+      logoUrl: "https://example.com/sponsor-logo.png",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      startsOn: "2026-07-01",
+      surface: "resources_directory",
+    });
   });
 
   it("returns sponsor attach field errors without calling the API", async () => {
@@ -210,6 +257,54 @@ describe("admin resource provider actions", () => {
       tone: "success",
     });
   });
+
+  it("keeps failed-submit values in action state without query-param field errors", async () => {
+    const result = await applyAdminResourceProviderAction(
+      formData({
+        resourceAction: "create_provider",
+        name: "Clinica incompleta",
+        category: "veterinary",
+        logoAssetId: "11111111-1111-4111-8111-111111111111",
+        photoAssetId: "22222222-2222-4222-8222-222222222222",
+        "contactOptions.0.kind": "whatsapp",
+        "contactOptions.0.label": "WhatsApp",
+        "socialLinks.0.url": "https://instagram.example.com/incompleta",
+      }),
+    );
+
+    const state = buildAdminResourceProviderActionState(result);
+    const url = buildAdminResourceProviderRedirectUrl(result);
+
+    expect(result.ok).toBe(false);
+    expect(url).not.toContain("campos=");
+    expect(url).not.toContain("contactOptions");
+    expect(state.feedback).toMatchObject({
+      action: "create_provider",
+      ok: false,
+      submittedValues: {
+        "contactOptions.0.kind": "whatsapp",
+        "contactOptions.0.label": "WhatsApp",
+        logoAssetId: "11111111-1111-4111-8111-111111111111",
+        "socialLinks.0.url": "https://instagram.example.com/incompleta",
+        name: "Clinica incompleta",
+        photoAssetId: "22222222-2222-4222-8222-222222222222",
+      },
+      workflow: "create",
+    });
+    expect(state.feedback?.fieldErrors).toEqual(
+      expect.arrayContaining([
+        {
+          field: "contactOptions.0.value",
+          message: "Este campo es obligatorio.",
+        },
+        {
+          field: "socialLinks.0.label",
+          message: "Este campo es obligatorio.",
+        },
+      ]),
+    );
+    expect(api.createAdminResourceProvider).not.toHaveBeenCalled();
+  });
 });
 
 function validUpdateFormData(overrides: Record<string, string>) {
@@ -227,9 +322,9 @@ function validUpdateFormData(overrides: Record<string, string>) {
     locationCell: "bo-lpb-sopocachi",
     serviceAreaLabel: "Atiende La Paz y El Alto",
     hoursLabel: "Lun - Dom: 24 horas",
-    contactKind0: "phone",
-    contactLabel0: "Llamar",
-    contactValue0: "+591 2 222 1111",
+    "contactOptions.0.kind": "phone",
+    "contactOptions.0.label": "Llamar",
+    "contactOptions.0.value": "+591 2 222 1111",
     ...overrides,
   });
 }

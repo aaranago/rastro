@@ -7,14 +7,25 @@ import type {
   AdminResourceProviderCreateInput,
   AdminResourceProviderDeleteInput,
   AdminResourceProviderDetachSponsorInput,
+  AdminResourceProviderListInput,
+  AdminResourceProviderListResult,
   AdminResourceProviderUpdateInput,
   AdminResourceProviderUpdateVerificationInput,
 } from "~/admin-resource-provider-admin-model";
 import { auth } from "~/auth/server";
 import { env } from "~/env";
 
-export async function listAdminResourceProviderProfiles() {
-  return (await createAdminResourcesCaller()).resources.admin.listProviders();
+const defaultAdminResourceProviderListInput = {
+  page: 1,
+  pageSize: 10,
+} satisfies AdminResourceProviderListInput;
+
+export async function listAdminResourceProviderProfiles(
+  input: AdminResourceProviderListInput = defaultAdminResourceProviderListInput,
+): Promise<AdminResourceProviderListResult> {
+  return (await createAdminResourcesCaller()).resources.admin.listProviders(
+    input,
+  );
 }
 
 export async function createAdminResourceProvider(

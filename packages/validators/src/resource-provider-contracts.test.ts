@@ -2,8 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { CreateResourceProviderInput } from "./index";
 import {
+  adminMediaAssetPurposeSchema,
+  adminMediaAssetStatusSchema,
+  adminResourceProviderListInputSchema,
+  adminSponsorPlacementListInputSchema,
   attachLocalSponsorPlacementInputSchema,
   buildApproximatePublicResourceProviderLocation,
+  createAdminMediaUploadSessionInputSchema,
   createResourceProviderInputSchema,
   createResourceProviderReportInputSchema,
   deleteResourceProviderInputSchema,
@@ -86,6 +91,18 @@ describe("resource provider validation contracts", () => {
       "report_success",
       "contextual_care_resources",
     ]);
+    expect(adminMediaAssetPurposeSchema.options).toEqual([
+      "provider_logo",
+      "provider_photo",
+      "sponsor_logo",
+      "sponsor_image",
+    ]);
+    expect(adminMediaAssetStatusSchema.options).toEqual([
+      "pending",
+      "ready",
+      "failed",
+      "removed",
+    ]);
     expect(moderationReportReasonSchema.options).toEqual([
       "spam",
       "scam",
@@ -112,6 +129,30 @@ describe("resource provider validation contracts", () => {
     });
   });
 
+  it("accepts admin provider media asset IDs without exposing them publicly", () => {
+    const result = createResourceProviderInputSchema.safeParse({
+      ...createProviderInput,
+      logoAssetId: "11111111-1111-4111-8111-111111111111",
+      photoAssetId: "22222222-2222-4222-8222-222222222222",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data).toMatchObject({
+      logoAssetId: "11111111-1111-4111-8111-111111111111",
+      photoAssetId: "22222222-2222-4222-8222-222222222222",
+    });
+    const publicResult = publicResourceProviderProfileSchema.parse({
+      ...createProviderInput,
+      id: "11111111-1111-4111-8111-111111111111",
+      categoryId: createProviderInput.category,
+      approximateLocationLabel: "Sopocachi, La Paz",
+      contactOptions: createProviderInput.contactOptions,
+      logoAssetId: "11111111-1111-4111-8111-111111111111",
+    });
+
+    expect(JSON.stringify(publicResult)).not.toContain("logoAssetId");
+  });
+
   it("rejects caller-supplied public coordinates for provider locations", () => {
     const result = createResourceProviderInputSchema.safeParse({
       ...createProviderInput,
@@ -130,6 +171,7 @@ describe("resource provider validation contracts", () => {
     const result = updateResourceProviderInputSchema.safeParse({
       providerId: "11111111-1111-4111-8111-111111111111",
       name: "Clinica Veterinaria San Roque Norte",
+      logoAssetId: "22222222-2222-4222-8222-222222222222",
       logoUrl: null,
       location: {
         city: "El Alto",
@@ -301,6 +343,8 @@ describe("resource provider validation contracts", () => {
         label: "Patrocinado",
         disclosure:
           "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+        logoUrl: "https://example.com/sponsor-logo.png",
+        imageUrl: "https://example.com/sponsor-banner.png",
         eligibleSurfaces: ["resources_directory", "provider_details"],
         safetyPolicy: {
           recoveryPriority: {
@@ -321,7 +365,101 @@ describe("resource provider validation contracts", () => {
           eligible: false,
         },
       },
+      logoUrl: "https://example.com/sponsor-logo.png",
+      imageUrl: "https://example.com/sponsor-banner.png",
     });
+  });
+
+  it("accepts sponsor placement media URLs without requiring managed uploads yet", () => {
+    const result = attachLocalSponsorPlacementInputSchema.safeParse({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      surface: "resources_directory",
+      label: "Patrocinado",
+      disclosure:
+        "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+      logoUrl: "https://example.com/sponsor-logo.png",
+      imageUrl: "https://example.com/sponsor-banner.png",
+      startsOn: "2026-07-01",
+      endsOn: "2026-07-31",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data).toMatchObject({
+      logoUrl: "https://example.com/sponsor-logo.png",
+      imageUrl: "https://example.com/sponsor-banner.png",
+    });
+    expect(
+      updateLocalSponsorPlacementInputSchema.safeParse({
+        providerId: "11111111-1111-4111-8111-111111111111",
+        placementId: "22222222-2222-4222-8222-222222222222",
+        surface: "resources_directory",
+        label: "Patrocinado",
+        disclosure:
+          "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+        logoUrl: null,
+        imageUrl: "not-a-url",
+        startsOn: "2026-07-01",
+        endsOn: "2026-07-31",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts admin sponsor media asset IDs while keeping manual URL fallback explicit", () => {
+    const result = attachLocalSponsorPlacementInputSchema.safeParse({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      surface: "resources_directory",
+      label: "Patrocinado",
+      disclosure:
+        "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+      logoAssetId: "11111111-1111-4111-8111-111111111111",
+      imageAssetId: "22222222-2222-4222-8222-222222222222",
+      startsOn: "2026-07-01",
+      endsOn: "2026-07-31",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data).toMatchObject({
+      logoAssetId: "11111111-1111-4111-8111-111111111111",
+      imageAssetId: "22222222-2222-4222-8222-222222222222",
+    });
+    expect(
+      updateLocalSponsorPlacementInputSchema.safeParse({
+        providerId: "11111111-1111-4111-8111-111111111111",
+        placementId: "22222222-2222-4222-8222-222222222222",
+        surface: "resources_directory",
+        label: "Patrocinado",
+        disclosure:
+          "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+        logoAssetId: null,
+        imageAssetId: "33333333-3333-4333-8333-333333333333",
+        startsOn: "2026-07-01",
+        endsOn: "2026-07-31",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("validates admin media upload metadata before presigning object storage", () => {
+    expect(
+      createAdminMediaUploadSessionInputSchema.parse({
+        height: 900,
+        mimeType: "image/webp",
+        purpose: "provider_logo",
+        sizeBytes: 300_000,
+        width: 1200,
+      }),
+    ).toMatchObject({
+      purpose: "provider_logo",
+      mimeType: "image/webp",
+    });
+    expect(
+      createAdminMediaUploadSessionInputSchema.safeParse({
+        height: 900,
+        mimeType: "application/pdf",
+        purpose: "provider_logo",
+        sizeBytes: 300_000,
+        width: 1200,
+      }).success,
+    ).toBe(false);
   });
 
   it("rejects sponsor placements whose end date is before their start date", () => {
@@ -355,6 +493,68 @@ describe("resource provider validation contracts", () => {
         surface: "provider_details",
         startsOn: "2026-08-01",
         endsOn: "2026-07-31",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("validates typed admin provider and sponsor placement list inputs", () => {
+    expect(
+      adminResourceProviderListInputSchema.parse({
+        page: 2,
+        pageSize: 10,
+        search: "La Paz",
+        sortBy: "sponsorState",
+        sortDirection: "desc",
+        filters: {
+          activeOn: "2026-07-15",
+          category: ["veterinary"],
+          city: "La Paz",
+          department: "La Paz",
+          mediaState: "has_media",
+          sponsorState: "active",
+          sponsorSurface: ["resources_directory"],
+          verification: ["verified"],
+        },
+      }),
+    ).toMatchObject({
+      filters: {
+        sponsorState: "active",
+      },
+      sortBy: "sponsorState",
+    });
+    expect(
+      adminSponsorPlacementListInputSchema.parse({
+        page: 1,
+        pageSize: 10,
+        sortBy: "state",
+        sortDirection: "asc",
+        filters: {
+          activeOn: "2026-07-15",
+          category: ["shelter"],
+          endsTo: "2026-08-31",
+          mediaState: "missing_media",
+          startsFrom: "2026-07-01",
+          state: "scheduled",
+          surface: ["provider_details"],
+          verification: ["unverified"],
+        },
+      }),
+    ).toMatchObject({
+      filters: {
+        state: "scheduled",
+      },
+      sortBy: "state",
+    });
+    expect(
+      adminResourceProviderListInputSchema.safeParse({
+        sortBy: "unsupported",
+      }).success,
+    ).toBe(false);
+    expect(
+      adminSponsorPlacementListInputSchema.safeParse({
+        filters: {
+          activeOn: "07/15/2026",
+        },
       }).success,
     ).toBe(false);
   });

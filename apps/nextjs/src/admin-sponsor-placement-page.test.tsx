@@ -44,12 +44,12 @@ describe("admin sponsor placement page", () => {
         name: "Admin Rastro",
       },
     });
-    sponsorApi.listAdminSponsorPlacements.mockResolvedValue([
-      sponsorPlacement(),
-    ]);
-    resourceProviderApi.listAdminResourceProviderProfiles.mockResolvedValue([
-      providerProfile(),
-    ]);
+    sponsorApi.listAdminSponsorPlacements.mockResolvedValue(
+      adminSponsorListResult([sponsorPlacement()], { total: 20 }),
+    );
+    resourceProviderApi.listAdminResourceProviderProfiles.mockResolvedValue(
+      adminProviderListResult([providerProfile()]),
+    );
     const { default: AdminSponsorPlacementsPage, metadata } = await import(
       "./app/admin/patrocinios/page"
     );
@@ -62,10 +62,95 @@ describe("admin sponsor placement page", () => {
     expect(html).toContain("Gestión de patrocinios locales");
     expect(html).toContain("Clinica Veterinaria San Roque");
     expect(html).toContain("Política de seguridad respaldada por datos");
+    expect(html).toContain("<table");
+    expect(html).toContain("/admin/patrocinios?pageSize=10&amp;sortBy=");
+    expect(html).toContain("/admin/patrocinios?page=2&amp;pageSize=10");
     expect(sponsorApi.listAdminSponsorPlacements).toHaveBeenCalledTimes(1);
+    expect(sponsorApi.listAdminSponsorPlacements).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 10,
+    });
     expect(
       resourceProviderApi.listAdminResourceProviderProfiles,
     ).toHaveBeenCalledTimes(1);
+    expect(
+      resourceProviderApi.listAdminResourceProviderProfiles,
+    ).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 10,
+    });
+  });
+
+  it("passes URL-derived sponsor list state to the backend", async () => {
+    authServer.getSession.mockResolvedValue({
+      user: {
+        email: "admin@rastro.bo",
+        id: "member-admin-la-paz",
+        name: "Admin Rastro",
+      },
+    });
+    sponsorApi.listAdminSponsorPlacements.mockResolvedValue(
+      adminSponsorListResult([sponsorPlacement()], {
+        page: 2,
+        pageSize: 25,
+        total: 40,
+      }),
+    );
+    resourceProviderApi.listAdminResourceProviderProfiles.mockResolvedValue(
+      adminProviderListResult([providerProfile()]),
+    );
+    const { default: AdminSponsorPlacementsPage } = await import(
+      "./app/admin/patrocinios/page"
+    );
+
+    const html = renderToStaticMarkup(
+      await AdminSponsorPlacementsPage({
+        searchParams: Promise.resolve({
+          activeOn: "2026-07-15",
+          category: "veterinary",
+          city: "La Paz",
+          department: "La Paz",
+          endsTo: "2026-08-31",
+          mediaState: "has_media",
+          page: "2",
+          pageSize: "25",
+          search: "San Roque",
+          sortBy: "startsOn",
+          sortDirection: "asc",
+          state: "active",
+          surface: "resources_directory",
+          verification: "verified",
+        }),
+      }),
+    );
+
+    expect(sponsorApi.listAdminSponsorPlacements).toHaveBeenCalledWith({
+      filters: {
+        activeOn: "2026-07-15",
+        category: ["veterinary"],
+        city: "La Paz",
+        department: "La Paz",
+        endsTo: "2026-08-31",
+        mediaState: "has_media",
+        state: "active",
+        surface: ["resources_directory"],
+        verification: ["verified"],
+      },
+      page: 2,
+      pageSize: 25,
+      search: "San Roque",
+      sortBy: "startsOn",
+      sortDirection: "asc",
+    });
+    expect(
+      resourceProviderApi.listAdminResourceProviderProfiles,
+    ).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 10,
+    });
+    expect(html).toContain("Búsqueda: San Roque");
+    expect(html).toContain("Estado: Activo");
+    expect(html).toContain("Mostrando 26-40 de 40");
   });
 
   it("renders access denied without fetching placements for non-admin members", async () => {
@@ -104,6 +189,7 @@ function sponsorPlacement(): AdminSponsorPlacementRecord {
     placementId: "22222222-2222-4222-8222-222222222222",
     providerId: "11111111-1111-4111-8111-111111111111",
     providerName: "Clinica Veterinaria San Roque",
+    providerVerificationStatus: "verified",
     safetyPolicy: {
       eligibleSurfaces: ["resources_directory"],
       recoveryPriority: {
@@ -144,5 +230,104 @@ function providerProfile(): AdminResourceProviderProfile {
       },
     ],
     sponsorPlacements: [],
+  };
+}
+
+function adminSponsorListResult(
+  items: AdminSponsorPlacementRecord[],
+  overrides: Partial<{
+    page: number;
+    pageSize: number;
+    total: number;
+  }> = {},
+) {
+  const page = overrides.page ?? 1;
+  const pageSize = overrides.pageSize ?? 10;
+  const total = overrides.total ?? items.length;
+
+  return {
+    availableFilters: [
+      {
+        key: "category",
+        label: "Categoría",
+        options: [{ label: "Clínica veterinaria", value: "veterinary" }],
+        type: "enum" as const,
+      },
+      {
+        key: "city",
+        label: "Ciudad",
+        type: "text" as const,
+      },
+      {
+        key: "department",
+        label: "Departamento",
+        type: "text" as const,
+      },
+      {
+        key: "verification",
+        label: "Verificación",
+        options: [{ label: "Verificado", value: "verified" }],
+        type: "enum" as const,
+      },
+      {
+        key: "state",
+        label: "Estado",
+        options: [{ label: "Activo", value: "active" }],
+        type: "enum" as const,
+      },
+      {
+        key: "surface",
+        label: "Superficie",
+        options: [
+          { label: "Directorio de recursos", value: "resources_directory" },
+        ],
+        type: "enum" as const,
+      },
+      {
+        key: "activeOn",
+        label: "Activo en fecha",
+        type: "date" as const,
+      },
+      {
+        key: "endsTo",
+        label: "Termina hasta",
+        type: "date" as const,
+      },
+      {
+        key: "mediaState",
+        label: "Medios",
+        options: [{ label: "Con medios", value: "has_media" }],
+        type: "enum" as const,
+      },
+    ],
+    availableSorts: [
+      { defaultDirection: "asc" as const, label: "Inicio", value: "startsOn" },
+      {
+        defaultDirection: "asc" as const,
+        label: "Proveedor",
+        value: "providerName",
+      },
+    ],
+    hasNextPage: page * pageSize < total,
+    hasPreviousPage: page > 1,
+    items,
+    page,
+    pageCount: Math.ceil(total / pageSize),
+    pageSize,
+    total,
+  };
+}
+
+function adminProviderListResult(items: AdminResourceProviderProfile[]) {
+  return {
+    availableFilters: [],
+    availableSorts: [],
+    hasNextPage: false,
+    hasPreviousPage: false,
+    items,
+    page: 1,
+    pageCount: items.length > 0 ? 1 : 0,
+    pageSize: 10,
+    total: items.length,
   };
 }

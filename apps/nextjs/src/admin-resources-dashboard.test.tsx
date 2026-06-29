@@ -4,7 +4,12 @@ import { describe, expect, it } from "vitest";
 
 import type { AdminResourceProviderProfile } from "./admin-resource-provider-admin-model";
 import { buildAdminResourceProviderListViewModel } from "./admin-resource-provider-admin-model";
-import { AdminResourcesDashboard } from "./admin-resources-dashboard";
+import {
+  AdminResourcesDashboard,
+  LinkFields,
+  ProviderContactFields,
+  ProviderMediaFields,
+} from "./admin-resources-dashboard";
 import {
   buildForbiddenAdminResourcesDashboardProps,
   toAdminResourcesDashboardProps,
@@ -24,9 +29,8 @@ describe("AdminResourcesDashboard", () => {
     const html = renderDashboard([]);
 
     expect(html).toContain("Cola de proveedores");
-    expect(html).toContain("0 proveedores en cola");
+    expect(html).toContain("0 proveedores");
     expect(html).toContain("Todavía no hay proveedores registrados.");
-    expect(html).toContain("Cola vacía");
     expect(html).toContain("Registrar proveedor");
     expect(html).toContain(
       "Sin métricas disponibles hasta registrar proveedores.",
@@ -43,7 +47,7 @@ describe("AdminResourcesDashboard", () => {
     expect(html).toContain("Gestión de proveedores de recursos");
     expect(html).toContain("Administración de recursos");
     expect(html).toContain("Cola de proveedores");
-    expect(html).toContain("1 proveedor en cola");
+    expect(html).toContain("1 proveedor");
     expect(html).not.toContain("modelo administrativo temporal");
     expect(html).not.toContain("no confirma publicacion");
     expect(html).toContain("Clinica Veterinaria San Roque");
@@ -77,6 +81,11 @@ describe("AdminResourcesDashboard", () => {
     expect(html).not.toContain("Falta contrato API para archivar o eliminar");
     expect(html).toContain("Métricas por departamento");
     expect(html).toContain("Métricas por ciudad");
+    expect(html).toContain("<table");
+    expect(html).toContain("<thead");
+    expect(html).toContain("<tbody");
+    expect(html).toContain('class="grid gap-3 p-4 md:hidden"');
+    expect(html).toContain("/admin/proveedores?pageSize=1&amp;sortBy=name");
     expect(html).not.toContain("No cambia la prioridad de recuperación");
     expect(html).not.toContain("No activa notificaciones push");
     expect(getProviderQueueItemCount(html)).toBe(1);
@@ -159,7 +168,7 @@ describe("AdminResourcesDashboard", () => {
       }),
     ]);
 
-    expect(html).toContain("3 proveedores en cola");
+    expect(html).toContain("3 proveedores");
     expect(html).toContain("Clinica Veterinaria San Roque");
     expect(html).toContain("Patitas Cochabamba");
     expect(html).toContain("Apoyo Animal Santa Cruz");
@@ -198,6 +207,184 @@ describe("AdminResourcesDashboard", () => {
     expect(html).not.toContain("Adjuntar patrocinio local");
     expect(html).not.toMatch(forbiddenTerms);
     expect(html).not.toMatch(marketplaceTerms);
+  });
+
+  it("renders provider contact field arrays with row errors and submitted values", () => {
+    const html = renderToStaticMarkup(
+      <form>
+        <ProviderContactFields
+          feedback={{
+            action: "create_provider",
+            fieldErrors: [
+              {
+                field: "contactOptions.1.value",
+                message: "Este campo es obligatorio.",
+              },
+            ],
+            ok: false,
+            submittedValues: {
+              "contactOptions.0.kind": "phone",
+              "contactOptions.0.label": "Llamar",
+              "contactOptions.0.value": "+591 2 222 1111",
+              "contactOptions.1.kind": "whatsapp",
+              "contactOptions.1.label": "WhatsApp",
+              "contactOptions.1.value": "",
+              name: "Clinica con contactos",
+              resourceAction: "create_provider",
+            },
+            workflow: "create",
+          }}
+          idPrefix="test-provider"
+          mode="create"
+        />
+      </form>,
+    );
+
+    expect(html.match(/data-field-array-row="contactOptions"/g)).toHaveLength(
+      2,
+    );
+    expect(html).toContain('name="contactOptions.0.label"');
+    expect(html).toContain('value="Llamar"');
+    expect(html).toContain('name="contactOptions.1.value"');
+    expect(html).toContain("Este campo es obligatorio.");
+    expect(html).toContain('data-field-array-add="contactOptions"');
+    expect(html).toContain('data-field-array-move="up"');
+    expect(html).toContain('data-field-array-move="down"');
+    expect(html).toContain("data-field-array-remove");
+  });
+
+  it("renders provider link field arrays with remove and reorder controls", () => {
+    const html = renderToStaticMarkup(
+      <form>
+        <LinkFields
+          feedback={{
+            action: "create_provider",
+            fieldErrors: [
+              {
+                field: "socialLinks.0.label",
+                message: "Este campo es obligatorio.",
+              },
+            ],
+            ok: false,
+            submittedValues: {
+              "externalLinks.0.label": "Ficha municipal",
+              "externalLinks.0.url": "https://municipio.example/sanroque",
+              "socialLinks.0.label": "",
+              "socialLinks.0.url": "https://instagram.example/sanroque",
+              resourceAction: "create_provider",
+            },
+            workflow: "create",
+          }}
+          idPrefix="test-provider"
+        />
+      </form>,
+    );
+
+    expect(html).toContain('data-field-array="socialLinks"');
+    expect(html).toContain('data-field-array="externalLinks"');
+    expect(html).toContain('name="socialLinks.0.url"');
+    expect(html).toContain("https://instagram.example/sanroque");
+    expect(html).toContain('name="externalLinks.0.label"');
+    expect(html).toContain("Ficha municipal");
+    expect(html).toContain("Este campo es obligatorio.");
+    expect(html).toContain('data-field-array-add="socialLinks"');
+    expect(html).toContain('data-field-array-add="externalLinks"');
+    expect(html).toContain("data-field-array-remove");
+  });
+
+  it("hides provider external URL fallback fields until the advanced disclosure is opened", () => {
+    const viewModel = buildAdminResourceProviderListViewModel([
+      providerProfile({
+        logoUrl: "https://cdn.rastro.bo/provider-logo.webp",
+        photoUrl: "https://cdn.rastro.bo/provider-photo.webp",
+      }),
+    ]);
+    const provider = viewModel.providers[0];
+
+    if (!provider) {
+      throw new Error("Expected provider fixture");
+    }
+
+    const html = renderToStaticMarkup(
+      <form>
+        <ProviderMediaFields
+          idPrefix="test-provider-media"
+          provider={provider}
+        />
+      </form>,
+    );
+
+    expect(html).toContain("Medios opcionales");
+    expect(html).toContain("Carga medios administrados por Rastro");
+    expect(html).toContain("Logo administrado");
+    expect(html).toContain("Foto administrada");
+    expect(html).toContain("Fallback por URL externa (avanzado)");
+    expect(html).toContain("Mostrar fallback por URL externa");
+    expect(html).not.toContain("Logo URL externa");
+    expect(html).not.toContain("Foto URL externa");
+  });
+
+  it("reopens provider external URL fallback errors and restores submitted media asset IDs", () => {
+    const viewModel = buildAdminResourceProviderListViewModel([
+      providerProfile({
+        logoUrl: "https://cdn.rastro.bo/provider-logo.webp",
+        photoUrl: "https://cdn.rastro.bo/provider-photo.webp",
+      }),
+    ]);
+    const provider = viewModel.providers[0];
+
+    if (!provider) {
+      throw new Error("Expected provider fixture");
+    }
+
+    const html = renderToStaticMarkup(
+      <form>
+        <ProviderMediaFields
+          feedback={{
+            action: "update_provider_details",
+            fieldErrors: [
+              {
+                field: "photoUrl",
+                message: "Ingresa una URL válida.",
+              },
+            ],
+            ok: false,
+            providerId: provider.providerId,
+            providerName: provider.name,
+            submittedValues: {
+              logoAssetId: "11111111-1111-4111-8111-111111111111",
+              logoUrl: "https://manual.example/provider-logo.png",
+              photoAssetId: "22222222-2222-4222-8222-222222222222",
+              photoUrl: "nota-url",
+              resourceAction: "update_provider_details",
+            },
+            workflow: "edit",
+          }}
+          idPrefix="test-provider-media"
+          provider={provider}
+        />
+      </form>,
+    );
+
+    expect(html).toContain("Medios opcionales");
+    expect(html).toContain("Carga medios administrados por Rastro");
+    expect(html).toContain("Logo administrado");
+    expect(html).toContain("Foto administrada");
+    expect(html).toContain('name="logoAssetId"');
+    expect(html).toContain('name="photoAssetId"');
+    expect(html).toContain("Fallback por URL externa (avanzado)");
+    expect(html).toContain("Logo URL externa");
+    expect(html).toContain("Foto URL externa");
+    expect(html).toContain("Ingresa una URL válida.");
+    expect(html).toContain("https://manual.example/provider-logo.png");
+    expect(html).toContain("nota-url");
+    expect(html).toContain("Listo para guardar");
+    expect(html).toMatch(
+      /<input type="hidden" name="logoAssetId" value="11111111-1111-4111-8111-111111111111"\/>/,
+    );
+    expect(html).toMatch(
+      /<input type="hidden" name="photoAssetId" value="22222222-2222-4222-8222-222222222222"\/>/,
+    );
   });
 });
 

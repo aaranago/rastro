@@ -1,5 +1,14 @@
 import type { Database } from "@acme/db/client";
 import type {
+  AdminResourceProviderListFilters,
+  AdminResourceProviderListInput,
+  AdminResourceProviderMediaState,
+  AdminResourceProviderSortBy,
+  AdminResourceProviderSponsorState,
+  AdminSponsorPlacementListFilters,
+  AdminSponsorPlacementListInput,
+  AdminSponsorPlacementSortBy,
+  AdminSponsorPlacementState,
   AttachLocalSponsorPlacementInput,
   CreateResourceProviderInput,
   DeleteResourceProviderInput,
@@ -15,7 +24,18 @@ import type {
   UpdateResourceProviderInput,
   UpdateResourceProviderVerificationInput,
 } from "@acme/validators";
-import { and, asc, eq, inArray, isNull, sql } from "@acme/db";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lte,
+  or,
+  sql,
+} from "@acme/db";
 import {
   LocalSponsorPlacement,
   ResourceProvider,
@@ -23,6 +43,19 @@ import {
   ResourceProviderLocation,
 } from "@acme/db/schema";
 import { buildApproximatePublicResourceProviderLocation } from "@acme/validators";
+
+import type {
+  AdminListFilterOption,
+  AdminListResult,
+  AdminListSortOption,
+  AdminListSortSpec,
+  NormalizedAdminListInput,
+} from "./admin-list-contract";
+import {
+  buildAdminListResult,
+  compareAdminListItems,
+  normalizeAdminListInput,
+} from "./admin-list-contract";
 
 export interface PersistedResourceProviderContactOption {
   kind: ResourceProviderContactKind;
@@ -46,6 +79,8 @@ export interface PersistedLocalSponsorPlacement {
   surface: LocalSponsorPlacementSurface;
   label: string;
   disclosure: string;
+  logoUrl: string | null;
+  imageUrl: string | null;
   startsAt: Date;
   endsAt: Date;
 }
@@ -84,8 +119,10 @@ export interface ResourceProviderLink {
 export interface AdminResourceProviderSponsorPlacement {
   disclosure: string;
   endsOn: string;
+  imageUrl?: string;
   isActive: boolean;
   label: string;
+  logoUrl?: string;
   placementId: string;
   startsOn: string;
   surface: LocalSponsorPlacementSurface;
@@ -108,11 +145,14 @@ export interface AdminLocalSponsorPlacement {
   department: string;
   disclosure: string;
   endsOn: string;
+  imageUrl?: string;
   isActive: boolean;
   label: string;
+  logoUrl?: string;
   placementId: string;
   providerId: string;
   providerName: string;
+  providerVerificationStatus: ResourceProviderVerificationStatus;
   safetyPolicy: AdminLocalSponsorPlacementSafetyPolicy;
   startsOn: string;
   surface: LocalSponsorPlacementSurface;
@@ -127,6 +167,28 @@ export type AdminResourceProviderProfile = PublicResourceProviderProfile & {
   verificationNote?: string;
 };
 
+export type AdminResourceProviderAvailableFilters =
+  readonly AdminListFilterOption<
+    Extract<keyof AdminResourceProviderListFilters, string>
+  >[];
+
+export type AdminResourceProviderListResult = AdminListResult<
+  AdminResourceProviderProfile,
+  AdminResourceProviderAvailableFilters,
+  AdminResourceProviderSortBy
+>;
+
+export type AdminSponsorPlacementAvailableFilters =
+  readonly AdminListFilterOption<
+    Extract<keyof AdminSponsorPlacementListFilters, string>
+  >[];
+
+export type AdminSponsorPlacementListResult = AdminListResult<
+  AdminLocalSponsorPlacement,
+  AdminSponsorPlacementAvailableFilters,
+  AdminSponsorPlacementSortBy
+>;
+
 export interface ResourceProviderRepository {
   nearby(
     input: NearbyResourceProvidersInput,
@@ -134,8 +196,12 @@ export interface ResourceProviderRepository {
   findProfile(
     providerId: string,
   ): Promise<PublicResourceProviderProfile | null>;
-  listProviders(): Promise<AdminResourceProviderProfile[]>;
-  listSponsorPlacements(): Promise<AdminLocalSponsorPlacement[]>;
+  listProviders(
+    input?: AdminResourceProviderListInput,
+  ): Promise<AdminResourceProviderListResult>;
+  listSponsorPlacements(
+    input?: AdminSponsorPlacementListInput,
+  ): Promise<AdminSponsorPlacementListResult>;
   createProvider(input: {
     adminId: string;
     provider: CreateResourceProviderInput;
@@ -198,12 +264,15 @@ export function buildLocalSponsorPlacementPolicy(
   placement: Pick<
     PersistedLocalSponsorPlacement,
     "disclosure" | "label" | "surface"
-  >,
+  > &
+    Partial<Pick<PersistedLocalSponsorPlacement, "imageUrl" | "logoUrl">>,
 ) {
   return {
     kind: "Local Sponsor Placement",
     label: placement.label,
     disclosure: placement.disclosure,
+    ...(placement.logoUrl ? { logoUrl: placement.logoUrl } : {}),
+    ...(placement.imageUrl ? { imageUrl: placement.imageUrl } : {}),
     eligibleSurfaces: [placement.surface],
     safetyPolicy: {
       recoveryPriority: {
@@ -287,8 +356,10 @@ export function toAdminResourceProviderProfile(
     sponsorPlacements: provider.sponsorPlacements.map((placement) => ({
       disclosure: placement.disclosure,
       endsOn: toDateOnly(placement.endsAt),
+      imageUrl: placement.imageUrl ?? undefined,
       isActive: isSponsorPlacementActive(placement, now),
       label: placement.label,
+      logoUrl: placement.logoUrl ?? undefined,
       placementId: placement.id,
       startsOn: toDateOnly(placement.startsAt),
       surface: placement.surface,
@@ -300,6 +371,24 @@ export function toAdminResourceProviderProfile(
 
 export interface DrizzleResourceProviderRepositoryOptions {
   now?: () => Date;
+}
+
+export class SponsorPlacementOverlapError extends Error {
+  readonly fieldErrors: Partial<
+    Record<"endsOn" | "providerId" | "startsOn" | "surface", string[]>
+  >;
+
+  constructor() {
+    super(
+      "Ya existe un Local Sponsor Placement activo para este proveedor y superficie en esa ventana.",
+    );
+    this.name = "SponsorPlacementOverlapError";
+    this.fieldErrors = {
+      endsOn: ["La ventana se cruza con otro patrocinio local activo."],
+      startsOn: ["La ventana se cruza con otro patrocinio local activo."],
+      surface: ["La superficie ya tiene un patrocinio local en esa ventana."],
+    };
+  }
 }
 
 export function createDrizzleResourceProviderRepository(
@@ -376,30 +465,111 @@ export function createDrizzleResourceProviderRepository(
         ? toPublicResourceProviderProfile(provider, { now: now() })
         : null;
     },
-    listProviders: async () => {
-      const rows = await db.query.ResourceProvider.findMany({
-        where: isNull(ResourceProvider.deletedAt),
-        with: {
-          location: true,
-        },
-        orderBy: [asc(ResourceProvider.name)],
+    listProviders: async (input) => {
+      const currentNow = now();
+      const normalized = normalizeAdminResourceProviderListInput(input);
+      const filters = buildAdminResourceProviderQueryFilters(
+        normalized,
+        currentNow,
+      );
+      const whereClause = filters.length > 0 ? and(...filters) : sql`true`;
+      const [countRow] = await db
+        .select({
+          total: sql<number>`count(*)::int`,
+        })
+        .from(ResourceProvider)
+        .innerJoin(
+          ResourceProviderLocation,
+          eq(ResourceProviderLocation.providerId, ResourceProvider.id),
+        )
+        .where(whereClause);
+      const rows = await db
+        .select({
+          id: ResourceProvider.id,
+        })
+        .from(ResourceProvider)
+        .innerJoin(
+          ResourceProviderLocation,
+          eq(ResourceProviderLocation.providerId, ResourceProvider.id),
+        )
+        .where(whereClause)
+        .orderBy(
+          ...buildAdminResourceProviderQueryOrderBy(normalized, currentNow),
+        )
+        .limit(normalized.pageSize)
+        .offset(normalized.offset);
+      const orderedIds = rows.map((row) => row.id);
+      const providers = await listAdminResourceProviderProfilesById(db, {
+        now: currentNow,
+        providerIds: orderedIds,
       });
-      const providers = await Promise.all(
-        rows.map(async (row) =>
-          toPersistedResourceProvider(
-            row,
-            await loadContactOptions(db, row.id),
-            await loadSponsorPlacements(db, row.id),
-          ),
-        ),
+      const providerById = new Map(
+        providers.map((provider) => [provider.id, provider]),
       );
 
-      return providers.map((provider) =>
-        toAdminResourceProviderProfile(provider, { now: now() }),
-      );
+      return buildAdminListResult({
+        availableFilters: adminResourceProviderAvailableFilters,
+        availableSorts: adminResourceProviderAvailableSorts,
+        items: orderedIds
+          .map((id) => providerById.get(id))
+          .filter((provider) => provider !== undefined),
+        page: normalized.page,
+        pageSize: normalized.pageSize,
+        total: Number(countRow?.total ?? 0),
+      });
     },
-    listSponsorPlacements: async () => {
-      return toAdminLocalSponsorPlacements(await repository.listProviders());
+    listSponsorPlacements: async (input) => {
+      const currentNow = now();
+      const normalized = normalizeAdminSponsorPlacementListInput(input);
+      const filters = buildAdminSponsorPlacementQueryFilters(
+        normalized,
+        currentNow,
+      );
+      const whereClause = filters.length > 0 ? and(...filters) : sql`true`;
+      const [countRow] = await db
+        .select({
+          total: sql<number>`count(*)::int`,
+        })
+        .from(LocalSponsorPlacement)
+        .innerJoin(
+          ResourceProvider,
+          eq(ResourceProvider.id, LocalSponsorPlacement.providerId),
+        )
+        .innerJoin(
+          ResourceProviderLocation,
+          eq(ResourceProviderLocation.providerId, ResourceProvider.id),
+        )
+        .where(whereClause);
+      const rows = await db
+        .select(adminSponsorPlacementSelectFields)
+        .from(LocalSponsorPlacement)
+        .innerJoin(
+          ResourceProvider,
+          eq(ResourceProvider.id, LocalSponsorPlacement.providerId),
+        )
+        .innerJoin(
+          ResourceProviderLocation,
+          eq(ResourceProviderLocation.providerId, ResourceProvider.id),
+        )
+        .where(whereClause)
+        .orderBy(
+          ...buildAdminSponsorPlacementQueryOrderBy(normalized, currentNow),
+        )
+        .limit(normalized.pageSize)
+        .offset(normalized.offset);
+
+      return buildAdminListResult({
+        availableFilters: adminSponsorPlacementAvailableFilters,
+        availableSorts: adminSponsorPlacementAvailableSorts,
+        items: rows.map((row) =>
+          toAdminLocalSponsorPlacementFromQueryRow(row, {
+            now: currentNow,
+          }),
+        ),
+        page: normalized.page,
+        pageSize: normalized.pageSize,
+        total: Number(countRow?.total ?? 0),
+      });
     },
     createProvider: async ({ adminId, provider }) => {
       const createdProviderId = await db.transaction(async (tx) => {
@@ -563,7 +733,9 @@ export function createDrizzleResourceProviderRepository(
         createdByAdminId: adminId,
         disclosure: sponsorPlacement.disclosure,
         endsAt: endOfDateOnlyUtc(sponsorPlacement.endsOn),
+        imageUrl: sponsorPlacement.imageUrl ?? null,
         label: sponsorPlacement.label,
+        logoUrl: sponsorPlacement.logoUrl ?? null,
         providerId: sponsorPlacement.providerId,
         startsAt: startOfDateOnlyUtc(sponsorPlacement.startsOn),
         surface: sponsorPlacement.surface,
@@ -572,6 +744,13 @@ export function createDrizzleResourceProviderRepository(
       if (sponsorPlacement.placementId) {
         insertValue.id = sponsorPlacement.placementId;
       }
+
+      await assertNoOverlappingSponsorPlacement(db, {
+        endsAt: insertValue.endsAt,
+        providerId: sponsorPlacement.providerId,
+        startsAt: insertValue.startsAt,
+        surface: sponsorPlacement.surface,
+      });
 
       const [created] = await db
         .insert(LocalSponsorPlacement)
@@ -584,15 +763,44 @@ export function createDrizzleResourceProviderRepository(
       );
     },
     updateSponsorPlacement: async ({ sponsorPlacement }) => {
+      const startsAt = startOfDateOnlyUtc(sponsorPlacement.startsOn);
+      const endsAt = endOfDateOnlyUtc(sponsorPlacement.endsOn);
+      const [existing] = await db
+        .select({ id: LocalSponsorPlacement.id })
+        .from(LocalSponsorPlacement)
+        .where(
+          and(
+            eq(LocalSponsorPlacement.id, sponsorPlacement.placementId),
+            eq(LocalSponsorPlacement.providerId, sponsorPlacement.providerId),
+          ),
+        )
+        .limit(1);
+
+      if (!existing) {
+        return null;
+      }
+
+      await assertNoOverlappingSponsorPlacement(db, {
+        endsAt,
+        excludingPlacementId: sponsorPlacement.placementId,
+        providerId: sponsorPlacement.providerId,
+        startsAt,
+        surface: sponsorPlacement.surface,
+      });
+
       const [updated] = await db
         .update(LocalSponsorPlacement)
         .set({
           disclosure: sponsorPlacement.disclosure,
-          endsAt: endOfDateOnlyUtc(sponsorPlacement.endsOn),
+          endsAt,
           label: sponsorPlacement.label,
-          startsAt: startOfDateOnlyUtc(sponsorPlacement.startsOn),
+          startsAt,
           surface: sponsorPlacement.surface,
           updatedAt: now(),
+          ...omitUndefinedProperties({
+            imageUrl: sponsorPlacement.imageUrl,
+            logoUrl: sponsorPlacement.logoUrl,
+          }),
         })
         .where(
           and(
@@ -628,18 +836,66 @@ export function createDrizzleResourceProviderRepository(
     providerId: string,
     placementId: string | null,
   ): Promise<AdminLocalSponsorPlacement | null> {
-    const placements = await repository.listSponsorPlacements();
+    if (!placementId) {
+      return null;
+    }
 
-    return (
-      placements.find(
-        (placement) =>
-          placement.providerId === providerId &&
-          (placementId === null || placement.placementId === placementId),
-      ) ?? null
-    );
+    const [row] = await db
+      .select(adminSponsorPlacementSelectFields)
+      .from(LocalSponsorPlacement)
+      .innerJoin(
+        ResourceProvider,
+        eq(ResourceProvider.id, LocalSponsorPlacement.providerId),
+      )
+      .innerJoin(
+        ResourceProviderLocation,
+        eq(ResourceProviderLocation.providerId, ResourceProvider.id),
+      )
+      .where(
+        and(
+          eq(LocalSponsorPlacement.id, placementId),
+          eq(LocalSponsorPlacement.providerId, providerId),
+          isNull(ResourceProvider.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    return row
+      ? toAdminLocalSponsorPlacementFromQueryRow(row, { now: now() })
+      : null;
   }
 
   return repository;
+}
+
+async function assertNoOverlappingSponsorPlacement(
+  db: Database,
+  input: {
+    endsAt: Date;
+    excludingPlacementId?: string;
+    providerId: string;
+    startsAt: Date;
+    surface: LocalSponsorPlacementSurface;
+  },
+) {
+  const filters = [
+    eq(LocalSponsorPlacement.providerId, input.providerId),
+    eq(LocalSponsorPlacement.surface, input.surface),
+    lte(LocalSponsorPlacement.startsAt, input.endsAt),
+    gte(LocalSponsorPlacement.endsAt, input.startsAt),
+    input.excludingPlacementId
+      ? sql`${LocalSponsorPlacement.id} <> ${input.excludingPlacementId}`
+      : undefined,
+  ].filter((filter) => filter !== undefined);
+  const [overlapping] = await db
+    .select({ id: LocalSponsorPlacement.id })
+    .from(LocalSponsorPlacement)
+    .where(and(...filters))
+    .limit(1);
+
+  if (overlapping) {
+    throw new SponsorPlacementOverlapError();
+  }
 }
 
 async function loadContactOptions(db: Database, providerId: string) {
@@ -655,6 +911,94 @@ async function loadSponsorPlacements(db: Database, providerId: string) {
     .select()
     .from(LocalSponsorPlacement)
     .where(eq(LocalSponsorPlacement.providerId, providerId));
+}
+
+async function listAdminResourceProviderProfilesById(
+  db: Database,
+  input: {
+    now: Date;
+    providerIds: readonly string[];
+  },
+): Promise<AdminResourceProviderProfile[]> {
+  const providerIds = [...new Set(input.providerIds)];
+
+  if (providerIds.length === 0) {
+    return [];
+  }
+
+  const rows = await db.query.ResourceProvider.findMany({
+    where: inArray(ResourceProvider.id, providerIds),
+    with: {
+      location: true,
+    },
+  });
+  const contactOptionsByProviderId = await loadContactOptionsForProviders(
+    db,
+    providerIds,
+  );
+  const sponsorPlacementsByProviderId = await loadSponsorPlacementsForProviders(
+    db,
+    providerIds,
+  );
+
+  return rows.map((row) =>
+    toAdminResourceProviderProfile(
+      toPersistedResourceProvider(
+        row,
+        contactOptionsByProviderId.get(row.id) ?? [],
+        sponsorPlacementsByProviderId.get(row.id) ?? [],
+      ),
+      { now: input.now },
+    ),
+  );
+}
+
+async function loadContactOptionsForProviders(
+  db: Database,
+  providerIds: readonly string[],
+) {
+  const rows = await db
+    .select()
+    .from(ResourceProviderContactOption)
+    .where(inArray(ResourceProviderContactOption.providerId, providerIds))
+    .orderBy(
+      asc(ResourceProviderContactOption.providerId),
+      asc(ResourceProviderContactOption.sortOrder),
+    );
+
+  return groupRowsByProviderId(rows);
+}
+
+async function loadSponsorPlacementsForProviders(
+  db: Database,
+  providerIds: readonly string[],
+) {
+  const rows = await db
+    .select()
+    .from(LocalSponsorPlacement)
+    .where(inArray(LocalSponsorPlacement.providerId, providerIds))
+    .orderBy(
+      asc(LocalSponsorPlacement.providerId),
+      asc(LocalSponsorPlacement.startsAt),
+      asc(LocalSponsorPlacement.id),
+    );
+
+  return groupRowsByProviderId(rows);
+}
+
+function groupRowsByProviderId<T extends { providerId: string }>(
+  rows: readonly T[],
+) {
+  const rowsByProviderId = new Map<string, T[]>();
+
+  for (const row of rows) {
+    rowsByProviderId.set(row.providerId, [
+      ...(rowsByProviderId.get(row.providerId) ?? []),
+      row,
+    ]);
+  }
+
+  return rowsByProviderId;
 }
 
 export function derivePublicResourceProviderLocation(
@@ -860,6 +1204,8 @@ function toPersistedResourceProvider(
       disclosure: placement.disclosure,
       startsAt: placement.startsAt,
       endsAt: placement.endsAt,
+      logoUrl: placement.logoUrl,
+      imageUrl: placement.imageUrl,
     })),
   };
 }
@@ -875,11 +1221,15 @@ export function toAdminLocalSponsorPlacements(
         department: provider.department,
         disclosure: placement.disclosure,
         endsOn: placement.endsOn,
+        imageUrl: placement.imageUrl,
         isActive: placement.isActive,
         label: placement.label,
+        logoUrl: placement.logoUrl,
         placementId: placement.placementId,
         providerId: provider.id,
         providerName: provider.name,
+        providerVerificationStatus:
+          getAdminProviderVerificationStatus(provider),
         safetyPolicy: {
           eligibleSurfaces:
             buildLocalSponsorPlacementPolicy(placement).eligibleSurfaces,
@@ -896,6 +1246,1274 @@ export function toAdminLocalSponsorPlacements(
         ? left.providerName.localeCompare(right.providerName)
         : dateComparison;
     });
+}
+
+const adminSponsorPlacementSelectFields = {
+  category: ResourceProvider.category,
+  city: ResourceProviderLocation.city,
+  department: ResourceProviderLocation.department,
+  disclosure: LocalSponsorPlacement.disclosure,
+  endsAt: LocalSponsorPlacement.endsAt,
+  imageUrl: LocalSponsorPlacement.imageUrl,
+  label: LocalSponsorPlacement.label,
+  logoUrl: LocalSponsorPlacement.logoUrl,
+  placementId: LocalSponsorPlacement.id,
+  providerId: ResourceProvider.id,
+  providerName: ResourceProvider.name,
+  providerVerificationStatus: ResourceProvider.verificationStatus,
+  startsAt: LocalSponsorPlacement.startsAt,
+  surface: LocalSponsorPlacement.surface,
+};
+
+interface AdminSponsorPlacementQueryRow {
+  category: ResourceProviderCategory;
+  city: string;
+  department: string;
+  disclosure: string;
+  endsAt: Date;
+  imageUrl: string | null;
+  label: string;
+  logoUrl: string | null;
+  placementId: string;
+  providerId: string;
+  providerName: string;
+  providerVerificationStatus: ResourceProviderVerificationStatus;
+  startsAt: Date;
+  surface: LocalSponsorPlacementSurface;
+}
+
+function toAdminLocalSponsorPlacementFromQueryRow(
+  row: AdminSponsorPlacementQueryRow,
+  options: { now?: Date } = {},
+): AdminLocalSponsorPlacement {
+  const persistedPlacement = {
+    disclosure: row.disclosure,
+    endsAt: row.endsAt,
+    id: row.placementId,
+    imageUrl: row.imageUrl,
+    label: row.label,
+    logoUrl: row.logoUrl,
+    startsAt: row.startsAt,
+    surface: row.surface,
+  } satisfies PersistedLocalSponsorPlacement;
+  const policy = buildLocalSponsorPlacementPolicy(persistedPlacement);
+
+  return {
+    category: row.category,
+    city: row.city,
+    department: row.department,
+    disclosure: row.disclosure,
+    endsOn: toDateOnly(row.endsAt),
+    imageUrl: row.imageUrl ?? undefined,
+    isActive: isSponsorPlacementActive(
+      persistedPlacement,
+      options.now ?? new Date(),
+    ),
+    label: row.label,
+    logoUrl: row.logoUrl ?? undefined,
+    placementId: row.placementId,
+    providerId: row.providerId,
+    providerName: row.providerName,
+    providerVerificationStatus: row.providerVerificationStatus,
+    safetyPolicy: {
+      eligibleSurfaces: policy.eligibleSurfaces,
+      ...policy.safetyPolicy,
+    },
+    startsOn: toDateOnly(row.startsAt),
+    surface: row.surface,
+  };
+}
+
+function getAdminProviderVerificationStatus(
+  provider: Pick<AdminResourceProviderProfile, "isVerified">,
+): ResourceProviderVerificationStatus {
+  return provider.isVerified ? "verified" : "unverified";
+}
+
+export function buildAdminResourceProviderListResult(
+  providers: readonly AdminResourceProviderProfile[],
+  input?: AdminResourceProviderListInput,
+  options: { now?: Date } = {},
+): AdminResourceProviderListResult {
+  const currentNow = options.now ?? new Date();
+  const normalized = normalizeAdminListInput<
+    AdminResourceProviderListFilters,
+    AdminResourceProviderSortBy
+  >(withDefaultAdminResourceListPageSize(input), {
+    defaultFilters: defaultAdminResourceProviderListFilters(),
+    defaultSortBy: "name",
+    defaultSortDirection: "asc",
+  });
+  const filteredProviders = providers
+    .filter((provider) =>
+      matchesAdminResourceProviderFilters(
+        provider,
+        normalized.filters,
+        currentNow,
+      ),
+    )
+    .filter((provider) =>
+      matchesAdminResourceProviderSearch(provider, normalized.search),
+    )
+    .sort((left, right) =>
+      compareAdminListItems(
+        left,
+        right,
+        buildAdminResourceProviderSortSpecs(
+          normalized.sortBy,
+          normalized.sortDirection,
+        ),
+      ),
+    );
+
+  return buildAdminListResult({
+    availableFilters: adminResourceProviderAvailableFilters,
+    availableSorts: adminResourceProviderAvailableSorts,
+    items: filteredProviders.slice(
+      normalized.offset,
+      normalized.offset + normalized.pageSize,
+    ),
+    page: normalized.page,
+    pageSize: normalized.pageSize,
+    total: filteredProviders.length,
+  });
+}
+
+export function buildAdminSponsorPlacementListResult(
+  placements: readonly AdminLocalSponsorPlacement[],
+  input?: AdminSponsorPlacementListInput,
+  options: { now?: Date } = {},
+): AdminSponsorPlacementListResult {
+  const currentNow = options.now ?? new Date();
+  const normalized = normalizeAdminListInput<
+    AdminSponsorPlacementListFilters,
+    AdminSponsorPlacementSortBy
+  >(withDefaultAdminSponsorListPageSize(input), {
+    defaultFilters: defaultAdminSponsorPlacementListFilters(),
+    defaultSortBy: "startsOn",
+    defaultSortDirection: "asc",
+  });
+  const filteredPlacements = placements
+    .filter((placement) =>
+      matchesAdminSponsorPlacementFilters(
+        placement,
+        normalized.filters,
+        currentNow,
+      ),
+    )
+    .filter((placement) =>
+      matchesAdminSponsorPlacementSearch(placement, normalized.search),
+    )
+    .sort((left, right) =>
+      compareAdminListItems(
+        left,
+        right,
+        buildAdminSponsorPlacementSortSpecs(
+          normalized.sortBy,
+          normalized.sortDirection,
+          currentNow,
+        ),
+      ),
+    );
+
+  return buildAdminListResult({
+    availableFilters: adminSponsorPlacementAvailableFilters,
+    availableSorts: adminSponsorPlacementAvailableSorts,
+    items: filteredPlacements.slice(
+      normalized.offset,
+      normalized.offset + normalized.pageSize,
+    ),
+    page: normalized.page,
+    pageSize: normalized.pageSize,
+    total: filteredPlacements.length,
+  });
+}
+
+const adminResourceListDefaultPageSize = 10;
+
+function withDefaultAdminResourceListPageSize(
+  input: AdminResourceProviderListInput | undefined,
+): AdminResourceProviderListInput {
+  return {
+    ...(input ?? {}),
+    pageSize: input?.pageSize ?? adminResourceListDefaultPageSize,
+  };
+}
+
+function withDefaultAdminSponsorListPageSize(
+  input: AdminSponsorPlacementListInput | undefined,
+): AdminSponsorPlacementListInput {
+  return {
+    ...(input ?? {}),
+    pageSize: input?.pageSize ?? adminResourceListDefaultPageSize,
+  };
+}
+
+function defaultAdminResourceProviderListFilters(): AdminResourceProviderListFilters {
+  return {
+    mediaState: "any",
+    sponsorState: "any",
+  };
+}
+
+function defaultAdminSponsorPlacementListFilters(): AdminSponsorPlacementListFilters {
+  return {
+    mediaState: "any",
+    state: "any",
+  };
+}
+
+function normalizeAdminResourceProviderListInput(
+  input: AdminResourceProviderListInput | undefined,
+): NormalizedAdminListInput<
+  AdminResourceProviderListFilters,
+  AdminResourceProviderSortBy
+> {
+  return normalizeAdminListInput<
+    AdminResourceProviderListFilters,
+    AdminResourceProviderSortBy
+  >(withDefaultAdminResourceListPageSize(input), {
+    defaultFilters: defaultAdminResourceProviderListFilters(),
+    defaultSortBy: "name",
+    defaultSortDirection: "asc",
+  });
+}
+
+function normalizeAdminSponsorPlacementListInput(
+  input: AdminSponsorPlacementListInput | undefined,
+): NormalizedAdminListInput<
+  AdminSponsorPlacementListFilters,
+  AdminSponsorPlacementSortBy
+> {
+  return normalizeAdminListInput<
+    AdminSponsorPlacementListFilters,
+    AdminSponsorPlacementSortBy
+  >(withDefaultAdminSponsorListPageSize(input), {
+    defaultFilters: defaultAdminSponsorPlacementListFilters(),
+    defaultSortBy: "startsOn",
+    defaultSortDirection: "asc",
+  });
+}
+
+function buildAdminResourceProviderQueryFilters(
+  input: NormalizedAdminListInput<
+    AdminResourceProviderListFilters,
+    AdminResourceProviderSortBy
+  >,
+  now: Date,
+) {
+  return [
+    isNull(ResourceProvider.deletedAt),
+    buildProviderCategoryQueryFilter(input.filters.category),
+    buildProviderCityQueryFilter(input.filters.city),
+    buildProviderDepartmentQueryFilter(input.filters.department),
+    buildProviderVerificationQueryFilter(input.filters.verification),
+    buildProviderSponsorStateQueryFilter(
+      input.filters.sponsorState,
+      input.filters.activeOn ?? toDateOnly(now),
+    ),
+    buildProviderSponsorSurfaceQueryFilter(input.filters.sponsorSurface),
+    buildProviderActiveOnQueryFilter(input.filters.activeOn),
+    buildProviderMediaStateQueryFilter(input.filters.mediaState),
+    buildProviderSearchQueryFilter(input.search),
+  ].filter((filter) => filter !== undefined);
+}
+
+function buildAdminSponsorPlacementQueryFilters(
+  input: NormalizedAdminListInput<
+    AdminSponsorPlacementListFilters,
+    AdminSponsorPlacementSortBy
+  >,
+  now: Date,
+) {
+  const referenceDate = input.filters.activeOn ?? toDateOnly(now);
+
+  return [
+    isNull(ResourceProvider.deletedAt),
+    buildProviderCategoryQueryFilter(input.filters.category),
+    buildProviderCityQueryFilter(input.filters.city),
+    buildProviderDepartmentQueryFilter(input.filters.department),
+    buildProviderVerificationQueryFilter(input.filters.verification),
+    buildSponsorPlacementStateQueryFilter(input.filters.state, referenceDate),
+    input.filters.surface && input.filters.surface.length > 0
+      ? inArray(LocalSponsorPlacement.surface, input.filters.surface)
+      : undefined,
+    buildSponsorPlacementActiveOnQueryFilter(input.filters.activeOn),
+    input.filters.startsFrom
+      ? gte(
+          LocalSponsorPlacement.startsAt,
+          startOfDateOnlyUtc(input.filters.startsFrom),
+        )
+      : undefined,
+    input.filters.startsTo
+      ? lte(
+          LocalSponsorPlacement.startsAt,
+          endOfDateOnlyUtc(input.filters.startsTo),
+        )
+      : undefined,
+    input.filters.endsFrom
+      ? gte(
+          LocalSponsorPlacement.endsAt,
+          startOfDateOnlyUtc(input.filters.endsFrom),
+        )
+      : undefined,
+    input.filters.endsTo
+      ? lte(
+          LocalSponsorPlacement.endsAt,
+          endOfDateOnlyUtc(input.filters.endsTo),
+        )
+      : undefined,
+    buildSponsorPlacementMediaStateQueryFilter(input.filters.mediaState),
+    buildSponsorPlacementSearchQueryFilter(input.search),
+  ].filter((filter) => filter !== undefined);
+}
+
+function buildProviderCategoryQueryFilter(
+  category: AdminResourceProviderListFilters["category"],
+) {
+  return category && category.length > 0
+    ? inArray(ResourceProvider.category, category)
+    : undefined;
+}
+
+function buildProviderCityQueryFilter(city: string | undefined) {
+  return city
+    ? sql`lower(${ResourceProviderLocation.city}) = ${city.toLowerCase()}`
+    : undefined;
+}
+
+function buildProviderDepartmentQueryFilter(department: string | undefined) {
+  return department
+    ? sql`lower(${ResourceProviderLocation.department}) = ${department.toLowerCase()}`
+    : undefined;
+}
+
+function buildProviderVerificationQueryFilter(
+  verification: readonly ResourceProviderVerificationStatus[] | undefined,
+) {
+  return verification && verification.length > 0
+    ? inArray(ResourceProvider.verificationStatus, verification)
+    : undefined;
+}
+
+function buildProviderSponsorStateQueryFilter(
+  sponsorState: AdminResourceProviderSponsorState | undefined,
+  activeOn: string,
+) {
+  if (!sponsorState || sponsorState === "any") {
+    return undefined;
+  }
+
+  const hasSponsorPlacement = providerSponsorPlacementExists();
+  const hasActiveSponsorPlacement =
+    providerSponsorPlacementActiveOnExists(activeOn);
+
+  if (sponsorState === "none") {
+    return sql`NOT ${hasSponsorPlacement}`;
+  }
+
+  if (sponsorState === "active") {
+    return hasActiveSponsorPlacement;
+  }
+
+  return sql`${hasSponsorPlacement} AND NOT ${hasActiveSponsorPlacement}`;
+}
+
+function buildProviderSponsorSurfaceQueryFilter(
+  surfaces: AdminResourceProviderListFilters["sponsorSurface"],
+) {
+  return surfaces && surfaces.length > 0
+    ? providerSponsorPlacementExists(
+        inArray(LocalSponsorPlacement.surface, surfaces),
+      )
+    : undefined;
+}
+
+function buildProviderActiveOnQueryFilter(
+  activeOn: AdminResourceProviderListFilters["activeOn"],
+) {
+  return activeOn
+    ? providerSponsorPlacementActiveOnExists(activeOn)
+    : undefined;
+}
+
+function buildProviderMediaStateQueryFilter(
+  mediaState: AdminResourceProviderListFilters["mediaState"],
+) {
+  if (!mediaState || mediaState === "any") {
+    return undefined;
+  }
+
+  const hasMedia = sql`(${ResourceProvider.logoUrl} IS NOT NULL OR ${ResourceProvider.photoUrl} IS NOT NULL)`;
+
+  return mediaState === "has_media" ? hasMedia : sql`NOT ${hasMedia}`;
+}
+
+function buildSponsorPlacementMediaStateQueryFilter(
+  mediaState: AdminSponsorPlacementListFilters["mediaState"],
+) {
+  if (!mediaState || mediaState === "any") {
+    return undefined;
+  }
+
+  const hasMedia = sql`(${LocalSponsorPlacement.logoUrl} IS NOT NULL OR ${LocalSponsorPlacement.imageUrl} IS NOT NULL)`;
+
+  return mediaState === "has_media" ? hasMedia : sql`NOT ${hasMedia}`;
+}
+
+function buildProviderSearchQueryFilter(search: string | null) {
+  const searchPattern = search ? `%${escapeLikePattern(search)}%` : null;
+
+  return searchPattern
+    ? or(
+        sql`${ResourceProvider.name} ILIKE ${searchPattern} ESCAPE '\\'`,
+        sql`${ResourceProvider.description} ILIKE ${searchPattern} ESCAPE '\\'`,
+        sql`${ResourceProvider.shortDescription} ILIKE ${searchPattern} ESCAPE '\\'`,
+        sql`${ResourceProviderLocation.city} ILIKE ${searchPattern} ESCAPE '\\'`,
+        sql`${ResourceProviderLocation.department} ILIKE ${searchPattern} ESCAPE '\\'`,
+        sql`${ResourceProviderLocation.approximateLocationLabel} ILIKE ${searchPattern} ESCAPE '\\'`,
+      )
+    : undefined;
+}
+
+function buildSponsorPlacementSearchQueryFilter(search: string | null) {
+  const searchPattern = search ? `%${escapeLikePattern(search)}%` : null;
+
+  return searchPattern
+    ? or(
+        sql`${ResourceProvider.name} ILIKE ${searchPattern} ESCAPE '\\'`,
+        sql`${LocalSponsorPlacement.label} ILIKE ${searchPattern} ESCAPE '\\'`,
+        sql`${LocalSponsorPlacement.disclosure} ILIKE ${searchPattern} ESCAPE '\\'`,
+        sql`${ResourceProviderLocation.city} ILIKE ${searchPattern} ESCAPE '\\'`,
+        sql`${ResourceProviderLocation.department} ILIKE ${searchPattern} ESCAPE '\\'`,
+        sql`${LocalSponsorPlacement.surface}::text ILIKE ${searchPattern} ESCAPE '\\'`,
+      )
+    : undefined;
+}
+
+function escapeLikePattern(value: string) {
+  return value
+    .replaceAll("\\", "\\\\")
+    .replaceAll("%", "\\%")
+    .replaceAll("_", "\\_");
+}
+
+function buildSponsorPlacementStateQueryFilter(
+  state: AdminSponsorPlacementState | undefined,
+  referenceDate: string,
+) {
+  if (!state || state === "any") {
+    return undefined;
+  }
+
+  if (state === "expired") {
+    return sql`${LocalSponsorPlacement.endsAt} < ${startOfDateOnlyUtc(referenceDate)}`;
+  }
+
+  if (state === "scheduled") {
+    return sql`${LocalSponsorPlacement.startsAt} > ${endOfDateOnlyUtc(referenceDate)}`;
+  }
+
+  return sponsorPlacementActiveOnCondition(referenceDate);
+}
+
+function buildSponsorPlacementActiveOnQueryFilter(
+  activeOn: string | undefined,
+) {
+  return activeOn ? sponsorPlacementActiveOnCondition(activeOn) : undefined;
+}
+
+function providerSponsorPlacementExists(extraCondition = sql`true`) {
+  return sql`EXISTS (
+    SELECT 1
+    FROM ${LocalSponsorPlacement}
+    WHERE ${LocalSponsorPlacement.providerId} = ${ResourceProvider.id}
+      AND ${extraCondition}
+  )`;
+}
+
+function providerSponsorPlacementActiveOnExists(activeOn: string) {
+  return providerSponsorPlacementExists(
+    sponsorPlacementActiveOnCondition(activeOn),
+  );
+}
+
+function providerSponsorPlacementActiveAtExists(activeAt: Date) {
+  return providerSponsorPlacementExists(
+    sql`${LocalSponsorPlacement.startsAt} <= ${activeAt}
+      AND ${LocalSponsorPlacement.endsAt} >= ${activeAt}`,
+  );
+}
+
+function sponsorPlacementActiveOnCondition(activeOn: string) {
+  return sql`${LocalSponsorPlacement.startsAt} <= ${endOfDateOnlyUtc(activeOn)}
+    AND ${LocalSponsorPlacement.endsAt} >= ${startOfDateOnlyUtc(activeOn)}`;
+}
+
+function buildAdminResourceProviderQueryOrderBy(
+  input: NormalizedAdminListInput<
+    AdminResourceProviderListFilters,
+    AdminResourceProviderSortBy
+  >,
+  now: Date,
+) {
+  const order = input.sortDirection === "asc" ? asc : desc;
+
+  switch (input.sortBy) {
+    case "category":
+      return [
+        order(ResourceProvider.category),
+        asc(ResourceProvider.name),
+        asc(ResourceProvider.id),
+      ];
+    case "city":
+      return [
+        order(ResourceProviderLocation.city),
+        asc(ResourceProvider.name),
+        asc(ResourceProvider.id),
+      ];
+    case "department":
+      return [
+        order(ResourceProviderLocation.department),
+        asc(ResourceProviderLocation.city),
+        asc(ResourceProvider.name),
+        asc(ResourceProvider.id),
+      ];
+    case "mediaState":
+      return [
+        order(
+          sql`${ResourceProvider.logoUrl} IS NOT NULL OR ${ResourceProvider.photoUrl} IS NOT NULL`,
+        ),
+        asc(ResourceProvider.name),
+        asc(ResourceProvider.id),
+      ];
+    case "name":
+      return [order(ResourceProvider.name), asc(ResourceProvider.id)];
+    case "sponsorState":
+      return [
+        order(providerSponsorSortRankExpression(now)),
+        asc(ResourceProvider.name),
+        asc(ResourceProvider.id),
+      ];
+    case "updatedAt":
+      return [order(ResourceProvider.updatedAt), asc(ResourceProvider.id)];
+    case "verification":
+      return [
+        order(sql`${ResourceProvider.verificationStatus} = 'verified'`),
+        asc(ResourceProvider.name),
+        asc(ResourceProvider.id),
+      ];
+  }
+}
+
+function providerSponsorSortRankExpression(now: Date) {
+  return sql`CASE
+    WHEN ${providerSponsorPlacementActiveAtExists(now)} THEN 2
+    WHEN ${providerSponsorPlacementExists()} THEN 1
+    ELSE 0
+  END`;
+}
+
+function buildAdminSponsorPlacementQueryOrderBy(
+  input: NormalizedAdminListInput<
+    AdminSponsorPlacementListFilters,
+    AdminSponsorPlacementSortBy
+  >,
+  now: Date,
+) {
+  const order = input.sortDirection === "asc" ? asc : desc;
+
+  switch (input.sortBy) {
+    case "city":
+      return [
+        order(ResourceProviderLocation.city),
+        asc(ResourceProvider.name),
+        asc(LocalSponsorPlacement.id),
+      ];
+    case "department":
+      return [
+        order(ResourceProviderLocation.department),
+        asc(ResourceProviderLocation.city),
+        asc(ResourceProvider.name),
+        asc(LocalSponsorPlacement.id),
+      ];
+    case "endsOn":
+      return [
+        order(LocalSponsorPlacement.endsAt),
+        asc(LocalSponsorPlacement.startsAt),
+        asc(LocalSponsorPlacement.id),
+      ];
+    case "mediaState":
+      return [
+        order(
+          sql`${LocalSponsorPlacement.logoUrl} IS NOT NULL OR ${LocalSponsorPlacement.imageUrl} IS NOT NULL`,
+        ),
+        asc(ResourceProvider.name),
+        asc(LocalSponsorPlacement.id),
+      ];
+    case "providerName":
+      return [order(ResourceProvider.name), asc(LocalSponsorPlacement.id)];
+    case "startsOn":
+      return [
+        order(LocalSponsorPlacement.startsAt),
+        asc(ResourceProvider.name),
+        asc(LocalSponsorPlacement.id),
+      ];
+    case "state":
+      return [
+        order(sponsorPlacementStateExpression(now)),
+        asc(LocalSponsorPlacement.startsAt),
+        asc(LocalSponsorPlacement.id),
+      ];
+    case "surface":
+      return [
+        order(LocalSponsorPlacement.surface),
+        asc(ResourceProvider.name),
+        asc(LocalSponsorPlacement.id),
+      ];
+  }
+}
+
+function sponsorPlacementStateExpression(now: Date) {
+  const referenceDate = toDateOnly(now);
+
+  return sql`CASE
+    WHEN ${LocalSponsorPlacement.endsAt} < ${startOfDateOnlyUtc(referenceDate)} THEN 'expired'
+    WHEN ${LocalSponsorPlacement.startsAt} > ${endOfDateOnlyUtc(referenceDate)} THEN 'scheduled'
+    ELSE 'active'
+  END`;
+}
+
+function matchesAdminResourceProviderFilters(
+  provider: AdminResourceProviderProfile,
+  filters: AdminResourceProviderListFilters,
+  now: Date,
+) {
+  return [
+    matchesArrayFilter(filters.category, provider.categoryId),
+    matchesTextFilter(filters.city, provider.city),
+    matchesTextFilter(filters.department, provider.department),
+    matchesArrayFilter(
+      filters.verification,
+      provider.isVerified ? "verified" : "unverified",
+    ),
+    matchesProviderSponsorStateFilter(
+      provider,
+      filters.sponsorState,
+      filters.activeOn ?? toDateOnly(now),
+    ),
+    matchesProviderSponsorSurfaceFilter(provider, filters.sponsorSurface),
+    matchesProviderActiveOnFilter(provider, filters.activeOn),
+    matchesMediaStateFilter(
+      filters.mediaState,
+      Boolean(provider.logoUrl ?? provider.photoUrl),
+    ),
+  ].every(Boolean);
+}
+
+function matchesAdminSponsorPlacementFilters(
+  placement: AdminLocalSponsorPlacement,
+  filters: AdminSponsorPlacementListFilters,
+  now: Date,
+) {
+  const referenceDate = filters.activeOn ?? toDateOnly(now);
+
+  return [
+    matchesArrayFilter(filters.category, placement.category),
+    matchesTextFilter(filters.city, placement.city),
+    matchesTextFilter(filters.department, placement.department),
+    matchesArrayFilter(
+      filters.verification,
+      placement.providerVerificationStatus,
+    ),
+    matchesSponsorPlacementStateFilter(placement, filters.state, referenceDate),
+    matchesArrayFilter(filters.surface, placement.surface),
+    matchesSponsorPlacementActiveOnFilter(placement, filters.activeOn),
+    matchesDateFromFilter(filters.startsFrom, placement.startsOn),
+    matchesDateToFilter(filters.startsTo, placement.startsOn),
+    matchesDateFromFilter(filters.endsFrom, placement.endsOn),
+    matchesDateToFilter(filters.endsTo, placement.endsOn),
+    matchesMediaStateFilter(
+      filters.mediaState,
+      Boolean(placement.logoUrl ?? placement.imageUrl),
+    ),
+  ].every(Boolean);
+}
+
+function matchesAdminResourceProviderSearch(
+  provider: AdminResourceProviderProfile,
+  search: string | null,
+) {
+  return matchesSearch(search, [
+    provider.name,
+    provider.description,
+    provider.shortDescription,
+    provider.city,
+    provider.department,
+    provider.approximateLocationLabel,
+  ]);
+}
+
+function matchesAdminSponsorPlacementSearch(
+  placement: AdminLocalSponsorPlacement,
+  search: string | null,
+) {
+  return matchesSearch(search, [
+    placement.providerName,
+    placement.label,
+    placement.disclosure,
+    placement.city,
+    placement.department,
+    placement.surface,
+  ]);
+}
+
+function matchesSearch(search: string | null, values: readonly string[]) {
+  if (!search) {
+    return true;
+  }
+
+  const normalizedSearch = search.toLowerCase();
+
+  return values.some((value) => value.toLowerCase().includes(normalizedSearch));
+}
+
+function matchesArrayFilter<T extends string>(
+  filterValues: readonly T[] | undefined,
+  value: T,
+) {
+  return !filterValues || filterValues.length === 0
+    ? true
+    : filterValues.includes(value);
+}
+
+function matchesTextFilter(filterValue: string | undefined, value: string) {
+  return filterValue ? value.toLowerCase() === filterValue.toLowerCase() : true;
+}
+
+function matchesProviderSponsorStateFilter(
+  provider: AdminResourceProviderProfile,
+  sponsorState: AdminResourceProviderSponsorState | undefined,
+  activeOn: string,
+) {
+  if (!sponsorState || sponsorState === "any") {
+    return true;
+  }
+
+  const hasSponsorPlacements = provider.sponsorPlacements.length > 0;
+  const hasActiveSponsorPlacement = provider.sponsorPlacements.some(
+    (placement) => isDateInSponsorPlacementWindow(placement, activeOn),
+  );
+
+  if (sponsorState === "none") {
+    return !hasSponsorPlacements;
+  }
+
+  if (sponsorState === "active") {
+    return hasActiveSponsorPlacement;
+  }
+
+  return hasSponsorPlacements && !hasActiveSponsorPlacement;
+}
+
+function matchesProviderSponsorSurfaceFilter(
+  provider: AdminResourceProviderProfile,
+  surfaces: readonly LocalSponsorPlacementSurface[] | undefined,
+) {
+  return !surfaces || surfaces.length === 0
+    ? true
+    : provider.sponsorPlacements.some((placement) =>
+        surfaces.includes(placement.surface),
+      );
+}
+
+function matchesProviderActiveOnFilter(
+  provider: AdminResourceProviderProfile,
+  activeOn: string | undefined,
+) {
+  return activeOn
+    ? provider.sponsorPlacements.some((placement) =>
+        isDateInSponsorPlacementWindow(placement, activeOn),
+      )
+    : true;
+}
+
+function matchesSponsorPlacementStateFilter(
+  placement: AdminLocalSponsorPlacement,
+  state: AdminSponsorPlacementState | undefined,
+  referenceDate: string,
+) {
+  return !state || state === "any"
+    ? true
+    : getSponsorPlacementState(placement, referenceDate) === state;
+}
+
+function matchesSponsorPlacementActiveOnFilter(
+  placement: AdminLocalSponsorPlacement,
+  activeOn: string | undefined,
+) {
+  return activeOn ? isDateInSponsorPlacementWindow(placement, activeOn) : true;
+}
+
+function matchesDateFromFilter(from: string | undefined, value: string) {
+  return from ? value >= from : true;
+}
+
+function matchesDateToFilter(to: string | undefined, value: string) {
+  return to ? value <= to : true;
+}
+
+function matchesMediaStateFilter(
+  mediaState: AdminResourceProviderMediaState | undefined,
+  hasMedia: boolean,
+) {
+  if (!mediaState || mediaState === "any") {
+    return true;
+  }
+
+  return mediaState === "has_media" ? hasMedia : !hasMedia;
+}
+
+function getProviderSponsorSortRank(provider: AdminResourceProviderProfile) {
+  const hasActiveSponsorPlacement = provider.sponsorPlacements.some(
+    (placement) => placement.isActive,
+  );
+
+  if (hasActiveSponsorPlacement) {
+    return 2;
+  }
+
+  return provider.sponsorPlacements.length > 0 ? 1 : 0;
+}
+
+function getSponsorPlacementState(
+  placement: Pick<AdminLocalSponsorPlacement, "endsOn" | "startsOn">,
+  referenceDate: string,
+): Exclude<AdminSponsorPlacementState, "any"> {
+  if (placement.endsOn < referenceDate) {
+    return "expired";
+  }
+
+  return placement.startsOn > referenceDate ? "scheduled" : "active";
+}
+
+function isDateInSponsorPlacementWindow(
+  placement: Pick<AdminLocalSponsorPlacement, "endsOn" | "startsOn">,
+  date: string,
+) {
+  return placement.startsOn <= date && placement.endsOn >= date;
+}
+
+const adminResourceProviderAvailableSorts = [
+  {
+    defaultDirection: "asc",
+    label: "Nombre",
+    value: "name",
+  },
+  {
+    defaultDirection: "asc",
+    label: "Categoria",
+    value: "category",
+  },
+  {
+    defaultDirection: "asc",
+    label: "Ciudad",
+    value: "city",
+  },
+  {
+    defaultDirection: "asc",
+    label: "Departamento",
+    value: "department",
+  },
+  {
+    defaultDirection: "desc",
+    label: "Verificacion",
+    value: "verification",
+  },
+  {
+    defaultDirection: "desc",
+    label: "Patrocinio",
+    value: "sponsorState",
+  },
+  {
+    defaultDirection: "desc",
+    label: "Medios",
+    value: "mediaState",
+  },
+  {
+    defaultDirection: "desc",
+    label: "Actualizado",
+    value: "updatedAt",
+  },
+] satisfies readonly AdminListSortOption<AdminResourceProviderSortBy>[];
+
+const adminSponsorPlacementAvailableSorts = [
+  {
+    defaultDirection: "asc",
+    label: "Inicio",
+    value: "startsOn",
+  },
+  {
+    defaultDirection: "asc",
+    label: "Fin",
+    value: "endsOn",
+  },
+  {
+    defaultDirection: "asc",
+    label: "Proveedor",
+    value: "providerName",
+  },
+  {
+    defaultDirection: "asc",
+    label: "Superficie",
+    value: "surface",
+  },
+  {
+    defaultDirection: "desc",
+    label: "Estado",
+    value: "state",
+  },
+  {
+    defaultDirection: "asc",
+    label: "Ciudad",
+    value: "city",
+  },
+  {
+    defaultDirection: "asc",
+    label: "Departamento",
+    value: "department",
+  },
+  {
+    defaultDirection: "desc",
+    label: "Medios",
+    value: "mediaState",
+  },
+] satisfies readonly AdminListSortOption<AdminSponsorPlacementSortBy>[];
+
+const resourceProviderCategoryFilterOptions = [
+  { label: "Veterinaria", value: "veterinary" },
+  { label: "Refugio", value: "shelter" },
+  { label: "Peluqueria", value: "groomer" },
+  { label: "Alimento", value: "pet_food" },
+  { label: "Entrenamiento", value: "trainer" },
+  { label: "Tienda", value: "pet_store" },
+  { label: "Transporte", value: "transport" },
+  { label: "Otro", value: "other" },
+] satisfies AdminListFilterOption["options"];
+
+const verificationFilterOptions = [
+  { label: "Verificado", value: "verified" },
+  { label: "Sin verificar", value: "unverified" },
+] satisfies AdminListFilterOption["options"];
+
+const sponsorStateFilterOptions = [
+  { label: "Todos", value: "any" },
+  { label: "Activo", value: "active" },
+  { label: "Inactivo", value: "inactive" },
+  { label: "Sin patrocinio", value: "none" },
+] satisfies AdminListFilterOption["options"];
+
+const sponsorPlacementStateFilterOptions = [
+  { label: "Todos", value: "any" },
+  { label: "Activo", value: "active" },
+  { label: "Programado", value: "scheduled" },
+  { label: "Expirado", value: "expired" },
+] satisfies AdminListFilterOption["options"];
+
+const sponsorSurfaceFilterOptions = [
+  { label: "Directorio de recursos", value: "resources_directory" },
+  { label: "Perfil del proveedor", value: "provider_details" },
+  { label: "Inicio de lanzamiento", value: "launch_home_banner" },
+  { label: "Confirmacion de reporte", value: "report_success" },
+  { label: "Cuidados contextuales", value: "contextual_care_resources" },
+] satisfies AdminListFilterOption["options"];
+
+const mediaStateFilterOptions = [
+  { label: "Todos", value: "any" },
+  { label: "Con medios", value: "has_media" },
+  { label: "Sin medios", value: "missing_media" },
+] satisfies AdminListFilterOption["options"];
+
+const adminResourceProviderAvailableFilters = [
+  {
+    key: "category",
+    label: "Categoria",
+    options: resourceProviderCategoryFilterOptions,
+    type: "enum",
+  },
+  {
+    key: "city",
+    label: "Ciudad",
+    type: "text",
+  },
+  {
+    key: "department",
+    label: "Departamento",
+    type: "text",
+  },
+  {
+    key: "verification",
+    label: "Verificacion",
+    options: verificationFilterOptions,
+    type: "enum",
+  },
+  {
+    key: "sponsorState",
+    label: "Patrocinio",
+    options: sponsorStateFilterOptions,
+    type: "enum",
+  },
+  {
+    key: "sponsorSurface",
+    label: "Superficie patrocinada",
+    options: sponsorSurfaceFilterOptions,
+    type: "enum",
+  },
+  {
+    key: "activeOn",
+    label: "Activo en fecha",
+    type: "date",
+  },
+  {
+    key: "mediaState",
+    label: "Medios",
+    options: mediaStateFilterOptions,
+    type: "enum",
+  },
+] satisfies AdminResourceProviderAvailableFilters;
+
+const adminSponsorPlacementAvailableFilters = [
+  {
+    key: "category",
+    label: "Categoria",
+    options: resourceProviderCategoryFilterOptions,
+    type: "enum",
+  },
+  {
+    key: "city",
+    label: "Ciudad",
+    type: "text",
+  },
+  {
+    key: "department",
+    label: "Departamento",
+    type: "text",
+  },
+  {
+    key: "verification",
+    label: "Verificacion",
+    options: verificationFilterOptions,
+    type: "enum",
+  },
+  {
+    key: "state",
+    label: "Estado",
+    options: sponsorPlacementStateFilterOptions,
+    type: "enum",
+  },
+  {
+    key: "surface",
+    label: "Superficie",
+    options: sponsorSurfaceFilterOptions,
+    type: "enum",
+  },
+  {
+    key: "activeOn",
+    label: "Activo en fecha",
+    type: "date",
+  },
+  {
+    key: "startsFrom",
+    label: "Inicia desde",
+    type: "date",
+  },
+  {
+    key: "startsTo",
+    label: "Inicia hasta",
+    type: "date",
+  },
+  {
+    key: "endsFrom",
+    label: "Termina desde",
+    type: "date",
+  },
+  {
+    key: "endsTo",
+    label: "Termina hasta",
+    type: "date",
+  },
+  {
+    key: "mediaState",
+    label: "Medios",
+    options: mediaStateFilterOptions,
+    type: "enum",
+  },
+] satisfies AdminSponsorPlacementAvailableFilters;
+
+function buildAdminResourceProviderSortSpecs(
+  sortBy: AdminResourceProviderSortBy,
+  sortDirection: "asc" | "desc",
+): readonly AdminListSortSpec<AdminResourceProviderProfile>[] {
+  const secondary = [
+    {
+      direction: "asc",
+      getValue: (provider: AdminResourceProviderProfile) => provider.id,
+    },
+  ] satisfies readonly AdminListSortSpec<AdminResourceProviderProfile>[];
+
+  switch (sortBy) {
+    case "category":
+      return [
+        {
+          direction: sortDirection,
+          getValue: (provider) => provider.categoryId,
+        },
+        { direction: "asc", getValue: (provider) => provider.name },
+        ...secondary,
+      ];
+    case "city":
+      return [
+        { direction: sortDirection, getValue: (provider) => provider.city },
+        { direction: "asc", getValue: (provider) => provider.name },
+        ...secondary,
+      ];
+    case "department":
+      return [
+        {
+          direction: sortDirection,
+          getValue: (provider) => provider.department,
+        },
+        { direction: "asc", getValue: (provider) => provider.city },
+        { direction: "asc", getValue: (provider) => provider.name },
+        ...secondary,
+      ];
+    case "mediaState":
+      return [
+        {
+          direction: sortDirection,
+          getValue: (provider) =>
+            Boolean(provider.logoUrl ?? provider.photoUrl),
+        },
+        { direction: "asc", getValue: (provider) => provider.name },
+        ...secondary,
+      ];
+    case "name":
+      return [
+        { direction: sortDirection, getValue: (provider) => provider.name },
+        ...secondary,
+      ];
+    case "sponsorState":
+      return [
+        {
+          direction: sortDirection,
+          getValue: (provider) => getProviderSponsorSortRank(provider),
+        },
+        { direction: "asc", getValue: (provider) => provider.name },
+        ...secondary,
+      ];
+    case "updatedAt":
+      return [
+        {
+          direction: sortDirection,
+          getValue: (provider) => provider.updatedAt,
+        },
+        ...secondary,
+      ];
+    case "verification":
+      return [
+        {
+          direction: sortDirection,
+          getValue: (provider) => provider.isVerified,
+        },
+        { direction: "asc", getValue: (provider) => provider.name },
+        ...secondary,
+      ];
+  }
+}
+
+function buildAdminSponsorPlacementSortSpecs(
+  sortBy: AdminSponsorPlacementSortBy,
+  sortDirection: "asc" | "desc",
+  now: Date,
+): readonly AdminListSortSpec<AdminLocalSponsorPlacement>[] {
+  const secondary = [
+    {
+      direction: "asc",
+      getValue: (placement: AdminLocalSponsorPlacement) =>
+        placement.placementId,
+    },
+  ] satisfies readonly AdminListSortSpec<AdminLocalSponsorPlacement>[];
+
+  switch (sortBy) {
+    case "city":
+      return [
+        { direction: sortDirection, getValue: (placement) => placement.city },
+        { direction: "asc", getValue: (placement) => placement.providerName },
+        ...secondary,
+      ];
+    case "department":
+      return [
+        {
+          direction: sortDirection,
+          getValue: (placement) => placement.department,
+        },
+        { direction: "asc", getValue: (placement) => placement.city },
+        { direction: "asc", getValue: (placement) => placement.providerName },
+        ...secondary,
+      ];
+    case "endsOn":
+      return [
+        { direction: sortDirection, getValue: (placement) => placement.endsOn },
+        { direction: "asc", getValue: (placement) => placement.startsOn },
+        ...secondary,
+      ];
+    case "mediaState":
+      return [
+        {
+          direction: sortDirection,
+          getValue: (placement) =>
+            Boolean(placement.logoUrl ?? placement.imageUrl),
+        },
+        { direction: "asc", getValue: (placement) => placement.providerName },
+        ...secondary,
+      ];
+    case "providerName":
+      return [
+        {
+          direction: sortDirection,
+          getValue: (placement) => placement.providerName,
+        },
+        ...secondary,
+      ];
+    case "startsOn":
+      return [
+        {
+          direction: sortDirection,
+          getValue: (placement) => placement.startsOn,
+        },
+        { direction: "asc", getValue: (placement) => placement.providerName },
+        ...secondary,
+      ];
+    case "state":
+      return [
+        {
+          direction: sortDirection,
+          getValue: (placement) =>
+            getSponsorPlacementState(placement, toDateOnly(now)),
+        },
+        { direction: "asc", getValue: (placement) => placement.startsOn },
+        ...secondary,
+      ];
+    case "surface":
+      return [
+        {
+          direction: sortDirection,
+          getValue: (placement) => placement.surface,
+        },
+        { direction: "asc", getValue: (placement) => placement.providerName },
+        ...secondary,
+      ];
+  }
 }
 
 function isSponsorPlacementActive(

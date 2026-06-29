@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   applyAdminSponsorPlacementAction,
+  buildAdminSponsorPlacementActionState,
   buildAdminSponsorPlacementFeedback,
   buildAdminSponsorPlacementNotice,
   buildAdminSponsorPlacementRedirectUrl,
@@ -27,6 +28,8 @@ describe("admin sponsor placement actions", () => {
 
     const result = await applyAdminSponsorPlacementAction(
       sponsorFormData({
+        imageAssetId: "22222222-2222-4222-8222-222222222222",
+        logoAssetId: "11111111-1111-4111-8111-111111111111",
         sponsorAction: "create_sponsor_placement",
       }),
     );
@@ -41,7 +44,11 @@ describe("admin sponsor placement actions", () => {
       disclosure:
         "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
       endsOn: "2026-07-31",
+      imageAssetId: "22222222-2222-4222-8222-222222222222",
+      imageUrl: "https://example.com/sponsor-banner.png",
       label: "Patrocinado",
+      logoAssetId: "11111111-1111-4111-8111-111111111111",
+      logoUrl: "https://example.com/sponsor-logo.png",
       providerId: "11111111-1111-4111-8111-111111111111",
       startsOn: "2026-07-01",
       surface: "resources_directory",
@@ -66,6 +73,8 @@ describe("admin sponsor placement actions", () => {
     });
     expect(api.updateAdminSponsorPlacement).toHaveBeenCalledWith(
       expect.objectContaining({
+        imageUrl: "https://example.com/sponsor-banner.png",
+        logoUrl: "https://example.com/sponsor-logo.png",
         placementId: "22222222-2222-4222-8222-222222222222",
         surface: "provider_details",
       }),
@@ -114,6 +123,27 @@ describe("admin sponsor placement actions", () => {
     expect(api.createAdminSponsorPlacement).not.toHaveBeenCalled();
   });
 
+  it("returns sponsor media URL errors without calling the API", async () => {
+    const result = await applyAdminSponsorPlacementAction(
+      sponsorFormData({
+        imageUrl: "nota-url",
+        sponsorAction: "create_sponsor_placement",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      action: "create_sponsor_placement",
+      ok: false,
+    });
+    expect(result.fieldErrors).toEqual([
+      {
+        field: "imageUrl",
+        message: "Ingresa una URL válida.",
+      },
+    ]);
+    expect(api.createAdminSponsorPlacement).not.toHaveBeenCalled();
+  });
+
   it("builds redirect feedback and notices for successful updates", () => {
     const result = {
       action: "update_sponsor_placement" as const,
@@ -139,13 +169,62 @@ describe("admin sponsor placement actions", () => {
       tone: "success",
     });
   });
+
+  it("keeps failed-submit values in action state without query-param field errors", async () => {
+    const result = await applyAdminSponsorPlacementAction(
+      sponsorFormData({
+        endsOn: "2026-07-01",
+        imageAssetId: "22222222-2222-4222-8222-222222222222",
+        imageUrl: "nota-url",
+        label: "Patrocinio manual",
+        logoAssetId: "11111111-1111-4111-8111-111111111111",
+        sponsorAction: "create_sponsor_placement",
+        startsOn: "2026-08-01",
+      }),
+    );
+
+    const state = buildAdminSponsorPlacementActionState(result);
+    const url = buildAdminSponsorPlacementRedirectUrl(result);
+
+    expect(result.ok).toBe(false);
+    expect(url).not.toContain("campos=");
+    expect(url).not.toContain("imageUrl");
+    expect(state.feedback).toMatchObject({
+      action: "create_sponsor_placement",
+      ok: false,
+    });
+    expect(state.feedback?.submittedValues).toMatchObject({
+      endsOn: "2026-07-01",
+      imageAssetId: "22222222-2222-4222-8222-222222222222",
+      imageUrl: "nota-url",
+      label: "Patrocinio manual",
+      logoAssetId: "11111111-1111-4111-8111-111111111111",
+      startsOn: "2026-08-01",
+    });
+    expect(state.feedback?.fieldErrors).toEqual(
+      expect.arrayContaining([
+        {
+          field: "imageUrl",
+          message: "Ingresa una URL válida.",
+        },
+        {
+          field: "endsOn",
+          message:
+            "La fecha final debe ser posterior o igual a la fecha inicial.",
+        },
+      ]),
+    );
+    expect(api.createAdminSponsorPlacement).not.toHaveBeenCalled();
+  });
 });
 
 function sponsorFormData(overrides: Record<string, string>) {
   return formData({
     disclosure: "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
     endsOn: "2026-07-31",
+    imageUrl: "https://example.com/sponsor-banner.png",
     label: "Patrocinado",
+    logoUrl: "https://example.com/sponsor-logo.png",
     providerId: "11111111-1111-4111-8111-111111111111",
     providerName: "Clinica Veterinaria San Roque",
     startsOn: "2026-07-01",

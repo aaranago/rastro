@@ -1,7 +1,18 @@
 import { TRPCError } from "@trpc/server";
 
+import type {
+  AdminMediaAssetPurpose,
+  AttachLocalSponsorPlacementInput,
+  CreateResourceProviderInput,
+  UpdateLocalSponsorPlacementInput,
+  UpdateResourceProviderInput,
+} from "@acme/validators";
 import {
+  adminMediaAssetIdInputSchema,
+  adminResourceProviderListInputSchema,
+  adminSponsorPlacementListInputSchema,
   attachLocalSponsorPlacementInputSchema,
+  createAdminMediaUploadSessionInputSchema,
   createResourceProviderInputSchema,
   createResourceProviderReportInputSchema,
   deleteResourceProviderInputSchema,
@@ -14,7 +25,16 @@ import {
 } from "@acme/validators";
 
 import type { RecordAdminAuditEventInput } from "../admin-audit-repository";
+import type { PersistedAdminMediaAsset } from "../admin-media-repository";
+import type { StoredObjectHead } from "../media-storage";
+import { AdminMediaAssetReferenceError } from "../admin-media-repository";
+import { SponsorPlacementOverlapError } from "../resource-provider-repository";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
+import {
+  normalizeUploadContentType,
+  readNumberUploadMetadata,
+  readStringUploadMetadata,
+} from "../upload-metadata";
 
 export function parseRastroAdminEmails(value: string | undefined) {
   return new Set(
@@ -46,12 +66,339 @@ function requireResourceProviderAdmin(ctx: {
   };
 }
 
+function adminUploadMetadataMatches(
+  storedObject: StoredObjectHead,
+  pendingAsset: PersistedAdminMediaAsset,
+) {
+  const storedAdminId = readStringUploadMetadata(
+    storedObject.metadata,
+    "adminId",
+  );
+  const storedAssetId = readStringUploadMetadata(
+    storedObject.metadata,
+    "adminMediaAssetId",
+  );
+  const storedHeight = readNumberUploadMetadata(
+    storedObject.metadata,
+    "height",
+  );
+  const storedPurpose = readStringUploadMetadata(
+    storedObject.metadata,
+    "purpose",
+  );
+  const storedSizeBytes = readNumberUploadMetadata(
+    storedObject.metadata,
+    "sizeBytes",
+  );
+  const storedWidth = readNumberUploadMetadata(storedObject.metadata, "width");
+  const requiredChecks = [
+    normalizeUploadContentType(storedObject.contentType) ===
+      pendingAsset.expectedMimeType,
+    storedObject.contentLength === pendingAsset.expectedSizeBytes,
+    storedAdminId === pendingAsset.createdByAdminId,
+    storedAssetId === pendingAsset.id,
+    storedHeight === pendingAsset.expectedHeight,
+    storedPurpose === pendingAsset.purpose,
+    storedSizeBytes === pendingAsset.expectedSizeBytes,
+    storedWidth === pendingAsset.expectedWidth,
+  ];
+
+  if (pendingAsset.expectedChecksumSha256) {
+    requiredChecks.push(
+      storedObject.checksumSha256 === pendingAsset.expectedChecksumSha256,
+    );
+  }
+
+  return requiredChecks.every(Boolean);
+}
+
+async function buildAdminMediaUploadSessionResponse(
+  ctx: {
+    mediaStorage: {
+      createPresignedPut: (input: {
+        checksumSha256?: string;
+        contentType: string;
+        expiresAt: Date;
+        metadata: Record<string, string>;
+        objectKey: string;
+        sizeBytes: number;
+      }) => Promise<{
+        expiresAt: Date;
+        headers: Record<string, string>;
+        method: "PUT";
+        url: string;
+      }>;
+    };
+  },
+  pendingAsset: PersistedAdminMediaAsset,
+) {
+  const upload = await ctx.mediaStorage.createPresignedPut({
+    checksumSha256: pendingAsset.expectedChecksumSha256 ?? undefined,
+    contentType: pendingAsset.expectedMimeType,
+    expiresAt: pendingAsset.expiresAt,
+    metadata: {
+      adminId: pendingAsset.createdByAdminId ?? "",
+      adminMediaAssetId: pendingAsset.id,
+      height: String(pendingAsset.expectedHeight),
+      purpose: pendingAsset.purpose,
+      sizeBytes: String(pendingAsset.expectedSizeBytes),
+      width: String(pendingAsset.expectedWidth),
+    },
+    objectKey: pendingAsset.objectKey,
+    sizeBytes: pendingAsset.expectedSizeBytes,
+  });
+
+  return {
+    asset: toAdminMediaAssetResponse(pendingAsset),
+    expiresAt: upload.expiresAt,
+    upload: {
+      headers: upload.headers,
+      method: upload.method,
+      url: upload.url,
+    },
+  };
+}
+
+function toAdminMediaAssetResponse(asset: PersistedAdminMediaAsset) {
+  return {
+    assetId: asset.id,
+    deliveryUrl: asset.deliveryUrl,
+    objectKey: asset.objectKey,
+    purpose: asset.purpose,
+    status: asset.status,
+  };
+}
+
+function requireConfiguredMediaStorage<TConfig>(ctx: {
+  mediaStorageConfig: TConfig | null | undefined;
+}) {
+  const mediaStorageConfig = ctx.mediaStorageConfig;
+
+  if (!mediaStorageConfig) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Media storage is not configured.",
+    });
+  }
+
+  return mediaStorageConfig;
+}
+
+function assertAdminMediaWithinConfiguredLimits(
+  ctx: {
+    mediaStorageConfig: {
+      allowedMimeTypes: string[];
+      maxImageBytes: number;
+    } | null;
+  },
+  input: { mimeType: string; sizeBytes: number },
+) {
+  const mediaStorageConfig = requireConfiguredMediaStorage(ctx);
+
+  if (
+    !mediaStorageConfig.allowedMimeTypes.includes(input.mimeType) ||
+    input.sizeBytes > mediaStorageConfig.maxImageBytes
+  ) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Upload metadata is outside configured storage limits.",
+    });
+  }
+}
+
+function requireOwnedAdminMediaAsset(
+  asset: PersistedAdminMediaAsset | null,
+  adminId: string,
+): PersistedAdminMediaAsset {
+  if (!asset) {
+    throw new TRPCError({ code: "NOT_FOUND" });
+  }
+
+  if (asset.createdByAdminId !== adminId) {
+    throw new TRPCError({ code: "FORBIDDEN" });
+  }
+
+  return asset;
+}
+
+function requireReadyAssetDeliveryUrl(asset: PersistedAdminMediaAsset) {
+  if (!asset.deliveryUrl) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Admin media delivery URL is not available.",
+    });
+  }
+
+  return asset.deliveryUrl;
+}
+
+async function resolveReadyAdminAssetUrl(
+  ctx: {
+    adminMediaRepository: {
+      assertReadyAssetForPurpose: (input: {
+        adminId: string;
+        assetId: string;
+        purpose: AdminMediaAssetPurpose;
+      }) => Promise<PersistedAdminMediaAsset>;
+    };
+  },
+  input: {
+    adminId: string;
+    assetId: string;
+    purpose: AdminMediaAssetPurpose;
+  },
+) {
+  try {
+    return requireReadyAssetDeliveryUrl(
+      await ctx.adminMediaRepository.assertReadyAssetForPurpose(input),
+    );
+  } catch (error) {
+    if (error instanceof AdminMediaAssetReferenceError) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: error.message,
+        cause: error,
+      });
+    }
+
+    throw error;
+  }
+}
+
+async function withResolvedCreateProviderMedia(
+  ctx: Parameters<typeof resolveReadyAdminAssetUrl>[0],
+  adminId: string,
+  input: CreateResourceProviderInput,
+): Promise<CreateResourceProviderInput> {
+  const { logoAssetId, photoAssetId, ...provider } = input;
+  const resolvedProvider: CreateResourceProviderInput = { ...provider };
+
+  if (logoAssetId) {
+    resolvedProvider.logoUrl = await resolveReadyAdminAssetUrl(ctx, {
+      adminId,
+      assetId: logoAssetId,
+      purpose: "provider_logo",
+    });
+  }
+
+  if (photoAssetId) {
+    resolvedProvider.photoUrl = await resolveReadyAdminAssetUrl(ctx, {
+      adminId,
+      assetId: photoAssetId,
+      purpose: "provider_photo",
+    });
+  }
+
+  return resolvedProvider;
+}
+
+async function withResolvedUpdateProviderMedia(
+  ctx: Parameters<typeof resolveReadyAdminAssetUrl>[0],
+  adminId: string,
+  input: UpdateResourceProviderInput,
+): Promise<UpdateResourceProviderInput> {
+  const { logoAssetId, photoAssetId, ...provider } = input;
+  const resolvedProvider: UpdateResourceProviderInput = { ...provider };
+
+  if (logoAssetId !== undefined) {
+    resolvedProvider.logoUrl =
+      logoAssetId === null
+        ? null
+        : await resolveReadyAdminAssetUrl(ctx, {
+            adminId,
+            assetId: logoAssetId,
+            purpose: "provider_logo",
+          });
+  }
+
+  if (photoAssetId !== undefined) {
+    resolvedProvider.photoUrl =
+      photoAssetId === null
+        ? null
+        : await resolveReadyAdminAssetUrl(ctx, {
+            adminId,
+            assetId: photoAssetId,
+            purpose: "provider_photo",
+          });
+  }
+
+  return resolvedProvider;
+}
+
+async function withResolvedAttachSponsorMedia(
+  ctx: Parameters<typeof resolveReadyAdminAssetUrl>[0],
+  adminId: string,
+  input: AttachLocalSponsorPlacementInput,
+): Promise<AttachLocalSponsorPlacementInput> {
+  const { imageAssetId, logoAssetId, ...sponsorPlacement } = input;
+  const resolvedSponsorPlacement: AttachLocalSponsorPlacementInput = {
+    ...sponsorPlacement,
+  };
+
+  if (logoAssetId !== undefined) {
+    resolvedSponsorPlacement.logoUrl =
+      logoAssetId === null
+        ? null
+        : await resolveReadyAdminAssetUrl(ctx, {
+            adminId,
+            assetId: logoAssetId,
+            purpose: "sponsor_logo",
+          });
+  }
+
+  if (imageAssetId !== undefined) {
+    resolvedSponsorPlacement.imageUrl =
+      imageAssetId === null
+        ? null
+        : await resolveReadyAdminAssetUrl(ctx, {
+            adminId,
+            assetId: imageAssetId,
+            purpose: "sponsor_image",
+          });
+  }
+
+  return resolvedSponsorPlacement;
+}
+
+async function withResolvedUpdateSponsorMedia(
+  ctx: Parameters<typeof resolveReadyAdminAssetUrl>[0],
+  adminId: string,
+  input: UpdateLocalSponsorPlacementInput,
+): Promise<UpdateLocalSponsorPlacementInput> {
+  const { imageAssetId, logoAssetId, ...sponsorPlacement } = input;
+  const resolvedSponsorPlacement: UpdateLocalSponsorPlacementInput = {
+    ...sponsorPlacement,
+  };
+
+  if (logoAssetId !== undefined) {
+    resolvedSponsorPlacement.logoUrl =
+      logoAssetId === null
+        ? null
+        : await resolveReadyAdminAssetUrl(ctx, {
+            adminId,
+            assetId: logoAssetId,
+            purpose: "sponsor_logo",
+          });
+  }
+
+  if (imageAssetId !== undefined) {
+    resolvedSponsorPlacement.imageUrl =
+      imageAssetId === null
+        ? null
+        : await resolveReadyAdminAssetUrl(ctx, {
+            adminId,
+            assetId: imageAssetId,
+            purpose: "sponsor_image",
+          });
+  }
+
+  return resolvedSponsorPlacement;
+}
+
 async function recordResourceAdminAuditEvent(
   ctx: {
     adminAuditRepository: {
-      record: (
-        input: RecordAdminAuditEventInput,
-      ) => Promise<unknown>;
+      record: (input: RecordAdminAuditEventInput) => Promise<unknown>;
     };
   },
   admin: { email: string; id: string },
@@ -84,6 +431,26 @@ async function assertMemberCanReportResourceProvider(ctx: {
       message:
         "El miembro esta suspendido y no puede reportar Resource Providers.",
     });
+  }
+}
+
+function rethrowSponsorPlacementWriteError(error: unknown): never {
+  if (error instanceof SponsorPlacementOverlapError) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: error.message,
+      cause: error,
+    });
+  }
+
+  throw error;
+}
+
+async function runSponsorPlacementWrite<T>(operation: () => Promise<T>) {
+  try {
+    return await operation();
+  } catch (error) {
+    rethrowSponsorPlacementWriteError(error);
   }
 }
 
@@ -144,32 +511,169 @@ export const resourcesRouter = createTRPCRouter({
       return result;
     }),
   admin: createTRPCRouter({
-    listProviders: protectedProcedure.query(async ({ ctx }) => {
-      requireResourceProviderAdmin(ctx);
+    createMediaUploadSession: protectedProcedure
+      .input(createAdminMediaUploadSessionInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const admin = requireResourceProviderAdmin(ctx);
 
-      return ctx.resourceProviderRepository.listProviders();
-    }),
-    listSponsorPlacements: protectedProcedure.query(async ({ ctx }) => {
-      requireResourceProviderAdmin(ctx);
+        assertAdminMediaWithinConfiguredLimits(ctx, input);
 
-      return ctx.resourceProviderRepository.listSponsorPlacements();
-    }),
+        const pendingAsset = await ctx.adminMediaRepository.createUploadSession(
+          {
+            adminId: admin.id,
+            metadata: input,
+          },
+        );
+
+        return buildAdminMediaUploadSessionResponse(ctx, pendingAsset);
+      }),
+    completeMediaUploadSession: protectedProcedure
+      .input(adminMediaAssetIdInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const admin = requireResourceProviderAdmin(ctx);
+
+        requireConfiguredMediaStorage(ctx);
+
+        const asset = requireOwnedAdminMediaAsset(
+          await ctx.adminMediaRepository.findAssetById(input.assetId),
+          admin.id,
+        );
+
+        if (asset.status === "ready") {
+          return {
+            asset: toAdminMediaAssetResponse(asset),
+          };
+        }
+
+        if (asset.status !== "pending") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Admin media upload session is not pending.",
+          });
+        }
+
+        const storedObject = await ctx.mediaStorage.headObject({
+          objectKey: asset.objectKey,
+        });
+
+        if (!adminUploadMetadataMatches(storedObject, asset)) {
+          await ctx.adminMediaRepository.markAssetFailed({
+            assetId: asset.id,
+            failedAt: new Date(),
+          });
+
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Uploaded admin media metadata did not match the session.",
+          });
+        }
+
+        const readyAsset = await ctx.adminMediaRepository.markAssetReady({
+          assetId: asset.id,
+          verifiedAt: new Date(),
+        });
+
+        return {
+          asset: {
+            ...toAdminMediaAssetResponse(readyAsset),
+            deliveryUrl: requireReadyAssetDeliveryUrl(readyAsset),
+          },
+        };
+      }),
+    refreshMediaUploadSession: protectedProcedure
+      .input(adminMediaAssetIdInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const admin = requireResourceProviderAdmin(ctx);
+
+        requireConfiguredMediaStorage(ctx);
+
+        const asset = requireOwnedAdminMediaAsset(
+          await ctx.adminMediaRepository.findAssetById(input.assetId),
+          admin.id,
+        );
+
+        if (asset.status !== "pending" && asset.status !== "failed") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Only pending or failed admin media upload sessions can be refreshed.",
+          });
+        }
+
+        const refreshedAsset =
+          await ctx.adminMediaRepository.refreshUploadSession({
+            assetId: asset.id,
+          });
+
+        return buildAdminMediaUploadSessionResponse(ctx, refreshedAsset);
+      }),
+    removeMediaAsset: protectedProcedure
+      .input(adminMediaAssetIdInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const admin = requireResourceProviderAdmin(ctx);
+        const asset = requireOwnedAdminMediaAsset(
+          await ctx.adminMediaRepository.findAssetById(input.assetId),
+          admin.id,
+        );
+
+        if (asset.status === "removed") {
+          return {
+            asset: toAdminMediaAssetResponse(asset),
+          };
+        }
+
+        const removedAsset = await ctx.adminMediaRepository.markAssetRemoved({
+          assetId: asset.id,
+          removedAt: new Date(),
+        });
+
+        if (ctx.mediaStorageConfig) {
+          try {
+            await ctx.mediaStorage.deleteObject({ objectKey: asset.objectKey });
+          } catch {
+            // The asset is no longer attachable; object cleanup can be retried later.
+          }
+        }
+
+        return {
+          asset: toAdminMediaAssetResponse(removedAsset),
+        };
+      }),
+    listProviders: protectedProcedure
+      .input(adminResourceProviderListInputSchema.optional())
+      .query(async ({ ctx, input }) => {
+        requireResourceProviderAdmin(ctx);
+
+        return ctx.resourceProviderRepository.listProviders(input);
+      }),
+    listSponsorPlacements: protectedProcedure
+      .input(adminSponsorPlacementListInputSchema.optional())
+      .query(async ({ ctx, input }) => {
+        requireResourceProviderAdmin(ctx);
+
+        return ctx.resourceProviderRepository.listSponsorPlacements(input);
+      }),
     createProvider: protectedProcedure
       .input(createResourceProviderInputSchema)
       .mutation(async ({ ctx, input }) => {
         const admin = requireResourceProviderAdmin(ctx);
+        const providerInput = await withResolvedCreateProviderMedia(
+          ctx,
+          admin.id,
+          input,
+        );
 
         const provider = await ctx.resourceProviderRepository.createProvider({
           adminId: admin.id,
-          provider: input,
+          provider: providerInput,
         });
 
         await recordResourceAdminAuditEvent(ctx, admin, {
           action: "resource_provider.create",
           metadata: {
-            category: input.category,
-            city: input.location.city,
-            department: input.location.department,
+            category: providerInput.category,
+            city: providerInput.location.city,
+            department: providerInput.location.department,
           },
           source: "resources.admin.createProvider",
           summary: `Creo Resource Provider ${provider.name}.`,
@@ -186,9 +690,14 @@ export const resourcesRouter = createTRPCRouter({
       .input(updateResourceProviderInputSchema)
       .mutation(async ({ ctx, input }) => {
         const admin = requireResourceProviderAdmin(ctx);
+        const providerInput = await withResolvedUpdateProviderMedia(
+          ctx,
+          admin.id,
+          input,
+        );
         const provider = await ctx.resourceProviderRepository.updateProvider({
           adminId: admin.id,
-          provider: input,
+          provider: providerInput,
         });
 
         if (!provider) {
@@ -285,10 +794,17 @@ export const resourcesRouter = createTRPCRouter({
       .input(attachLocalSponsorPlacementInputSchema)
       .mutation(async ({ ctx, input }) => {
         const admin = requireResourceProviderAdmin(ctx);
-        const provider = await ctx.resourceProviderRepository.attachSponsor({
-          adminId: admin.id,
-          sponsorPlacement: input,
-        });
+        const sponsorPlacement = await withResolvedAttachSponsorMedia(
+          ctx,
+          admin.id,
+          input,
+        );
+        const provider = await runSponsorPlacementWrite(() =>
+          ctx.resourceProviderRepository.attachSponsor({
+            adminId: admin.id,
+            sponsorPlacement,
+          }),
+        );
 
         if (!provider) {
           throw new TRPCError({ code: "NOT_FOUND" });
@@ -316,11 +832,17 @@ export const resourcesRouter = createTRPCRouter({
       .input(attachLocalSponsorPlacementInputSchema)
       .mutation(async ({ ctx, input }) => {
         const admin = requireResourceProviderAdmin(ctx);
-        const placement =
-          await ctx.resourceProviderRepository.createSponsorPlacement({
+        const sponsorPlacement = await withResolvedAttachSponsorMedia(
+          ctx,
+          admin.id,
+          input,
+        );
+        const placement = await runSponsorPlacementWrite(() =>
+          ctx.resourceProviderRepository.createSponsorPlacement({
             adminId: admin.id,
-            sponsorPlacement: input,
-          });
+            sponsorPlacement,
+          }),
+        );
 
         if (!placement) {
           throw new TRPCError({ code: "NOT_FOUND" });
@@ -348,11 +870,17 @@ export const resourcesRouter = createTRPCRouter({
       .input(updateLocalSponsorPlacementInputSchema)
       .mutation(async ({ ctx, input }) => {
         const admin = requireResourceProviderAdmin(ctx);
-        const placement =
-          await ctx.resourceProviderRepository.updateSponsorPlacement({
+        const sponsorPlacement = await withResolvedUpdateSponsorMedia(
+          ctx,
+          admin.id,
+          input,
+        );
+        const placement = await runSponsorPlacementWrite(() =>
+          ctx.resourceProviderRepository.updateSponsorPlacement({
             adminId: admin.id,
-            sponsorPlacement: input,
-          });
+            sponsorPlacement,
+          }),
+        );
 
         if (!placement) {
           throw new TRPCError({ code: "NOT_FOUND" });

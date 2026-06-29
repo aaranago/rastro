@@ -37,6 +37,7 @@ export interface AdminResourceProviderActionResult {
   ok: boolean;
   providerId?: string;
   providerName?: string;
+  submittedValues?: AdminResourceProviderSubmittedValues;
   workflow: AdminResourceProviderWorkflow;
 }
 
@@ -44,6 +45,17 @@ export interface AdminResourceProviderWorkflowFeedback
   extends AdminResourceProviderActionResult {
   formError?: string;
 }
+
+export type AdminResourceProviderSubmittedValues = Record<string, string>;
+
+export interface AdminResourceProviderActionState {
+  feedback?: AdminResourceProviderWorkflowFeedback;
+}
+
+export type AdminResourceProviderFormAction = (
+  state: AdminResourceProviderActionState,
+  formData: FormData,
+) => Promise<AdminResourceProviderActionState>;
 
 export interface AdminResourceProviderMutationNotice {
   body: string;
@@ -251,11 +263,15 @@ export function buildAdminResourceProviderRedirectUrl(
     params.set("providerName", result.providerName);
   }
 
-  if (result.fieldErrors.length > 0) {
-    params.set("campos", JSON.stringify(result.fieldErrors));
-  }
-
   return `/admin/proveedores?${params.toString()}`;
+}
+
+export function buildAdminResourceProviderActionState(
+  result: AdminResourceProviderActionResult,
+): AdminResourceProviderActionState {
+  return {
+    feedback: toWorkflowFeedback(result),
+  };
 }
 
 export function buildAdminResourceProviderWorkflowFeedback(
@@ -269,19 +285,16 @@ export function buildAdminResourceProviderWorkflowFeedback(
     return undefined;
   }
 
-  const fieldErrors = getFieldErrorsSearchParam(
-    getSingleSearchParam(searchParams, "campos"),
-  );
   const feedback: AdminResourceProviderWorkflowFeedback = {
     action,
-    fieldErrors,
+    fieldErrors: [],
     ok: status === "ok",
     providerId: getSingleSearchParam(searchParams, "providerId"),
     providerName: getSingleSearchParam(searchParams, "providerName"),
     workflow,
   };
 
-  if (!feedback.ok && fieldErrors.length === 0) {
+  if (!feedback.ok) {
     feedback.formError =
       "No pudimos guardar la acción en la base de datos. Revisa los datos o intenta nuevamente.";
   }
@@ -366,8 +379,24 @@ function buildActionError(input: {
       getOptionalStringFormValue(input.formData, "providerId"),
     providerName:
       input.providerName ?? getProviderNameFormValue(input.formData),
+    submittedValues: collectSubmittedValues(input.formData),
     workflow: actionWorkflows[input.action],
   };
+}
+
+function toWorkflowFeedback(
+  result: AdminResourceProviderActionResult,
+): AdminResourceProviderWorkflowFeedback {
+  const feedback: AdminResourceProviderWorkflowFeedback = {
+    ...result,
+  };
+
+  if (!feedback.ok && feedback.fieldErrors.length === 0) {
+    feedback.formError =
+      "No pudimos guardar la acción en la base de datos. Revisa los datos o intenta nuevamente.";
+  }
+
+  return feedback;
 }
 
 function buildParsedActionError(
@@ -438,49 +467,23 @@ function isAdminResourceProviderWorkflow(
   );
 }
 
-function getFieldErrorsSearchParam(
-  value: string | undefined,
-): AdminResourceProviderFormFieldError[] {
-  if (!value) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(value) as unknown;
-
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed.filter(isFormFieldError).map((error) => ({
-      field: error.field,
-      message: error.message,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-function isFormFieldError(
-  value: unknown,
-): value is AdminResourceProviderFormFieldError {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-
-  const maybeError = value as Partial<Record<"field" | "message", unknown>>;
-
-  return (
-    typeof maybeError.field === "string" &&
-    typeof maybeError.message === "string"
-  );
-}
-
 function getProviderNameFormValue(formData: FormData) {
   return (
     getOptionalStringFormValue(formData, "providerName") ??
     getOptionalStringFormValue(formData, "name")
   );
+}
+
+function collectSubmittedValues(formData: FormData) {
+  const values: AdminResourceProviderSubmittedValues = {};
+
+  for (const [key, value] of formData.entries()) {
+    if (typeof value === "string") {
+      values[key] = value;
+    }
+  }
+
+  return values;
 }
 
 function getOptionalStringFormValue(formData: FormData, key: string) {

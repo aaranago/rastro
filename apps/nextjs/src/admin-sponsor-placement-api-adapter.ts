@@ -5,15 +5,24 @@ import { appRouter, createTRPCContext } from "@acme/api";
 import type {
   AdminSponsorPlacementCreateInput,
   AdminSponsorPlacementDetachInput,
+  AdminSponsorPlacementListInput,
+  AdminSponsorPlacementListResult,
   AdminSponsorPlacementUpdateInput,
 } from "./admin-sponsor-placement-model";
 import { auth } from "~/auth/server";
 import { env } from "~/env";
 
-export async function listAdminSponsorPlacements() {
+const defaultAdminSponsorPlacementListInput = {
+  page: 1,
+  pageSize: 10,
+} satisfies AdminSponsorPlacementListInput;
+
+export async function listAdminSponsorPlacements(
+  input: AdminSponsorPlacementListInput = defaultAdminSponsorPlacementListInput,
+): Promise<AdminSponsorPlacementListResult> {
   return (
     await createAdminSponsorPlacementCaller()
-  ).resources.admin.listSponsorPlacements();
+  ).resources.admin.listSponsorPlacements(input);
 }
 
 export async function createAdminSponsorPlacement(

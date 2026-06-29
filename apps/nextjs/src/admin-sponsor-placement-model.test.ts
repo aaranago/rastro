@@ -35,6 +35,10 @@ describe("admin sponsor placement model", () => {
     expect(
       viewModel.placements.map((placement) => placement.stateLabel),
     ).toEqual(["Activo", "Expirado", "Programado"]);
+    expect(viewModel.placements[0]).toMatchObject({
+      logoUrl: "https://example.com/sponsor-logo.png",
+      imageUrl: "https://example.com/sponsor-banner.png",
+    });
     expect(viewModel.safetyPolicy).toMatchObject({
       eligibleSurfaceLabels: [
         "Directorio de recursos",
@@ -63,10 +67,13 @@ function sponsorPlacement(
     disclosure: "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
     endsOn: "2026-07-31",
     isActive: true,
+    imageUrl: "https://example.com/sponsor-banner.png",
     label: "Patrocinado",
+    logoUrl: "https://example.com/sponsor-logo.png",
     placementId: "22222222-2222-4222-8222-222222222222",
     providerId: "11111111-1111-4111-8111-111111111111",
     providerName: "Clinica Veterinaria San Roque",
+    providerVerificationStatus: "verified",
     safetyPolicy: {
       eligibleSurfaces: ["resources_directory"],
       recoveryPriority: {

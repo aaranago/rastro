@@ -19,6 +19,12 @@ type RouterInputs = inferRouterInputs<AppRouter>;
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 
 export { type AppRouter, appRouter } from "./root";
+export {
+  buildAdminMediaObjectKey,
+  createDrizzleAdminMediaRepository,
+  type AdminMediaRepository,
+  type PersistedAdminMediaAsset,
+} from "./admin-media-repository";
 export { cleanupAbandonedReportMediaUploads } from "./report-media-cleanup";
 export {
   createDrizzleReportMediaRepository,

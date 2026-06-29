@@ -37,6 +37,60 @@ describe("admin resource provider model", () => {
       "Zona norte visible",
     );
   });
+
+  it("maps active and listed sponsor media separately from provider media", () => {
+    const viewModel = buildAdminResourceProviderListViewModel([
+      providerProfile({
+        logoUrl: "https://example.com/provider-logo.png",
+        sponsorPlacement: {
+          kind: "Local Sponsor Placement",
+          label: "Patrocinado",
+          disclosure:
+            "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+          logoUrl: "https://example.com/sponsor-logo.png",
+          imageUrl: "https://example.com/sponsor-banner.png",
+          eligibleSurfaces: ["resources_directory"],
+          safetyPolicy: {
+            recoveryPriority: {
+              label: "Recovery Priority",
+              canAffect: false,
+            },
+            pushNotifications: {
+              eligible: false,
+            },
+          },
+        },
+        sponsorPlacements: [
+          {
+            disclosure:
+              "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+            endsOn: "2026-07-31",
+            imageUrl: "https://example.com/sponsor-banner.png",
+            isActive: true,
+            label: "Patrocinado",
+            logoUrl: "https://example.com/sponsor-logo.png",
+            placementId: "22222222-2222-4222-8222-222222222222",
+            startsOn: "2026-07-01",
+            surface: "resources_directory",
+          },
+        ],
+      }),
+    ]);
+
+    expect(viewModel.providers[0]).toMatchObject({
+      logoUrl: "https://example.com/provider-logo.png",
+      activeSponsorPlacement: {
+        logoUrl: "https://example.com/sponsor-logo.png",
+        imageUrl: "https://example.com/sponsor-banner.png",
+      },
+      sponsorPlacements: [
+        {
+          logoUrl: "https://example.com/sponsor-logo.png",
+          imageUrl: "https://example.com/sponsor-banner.png",
+        },
+      ],
+    });
+  });
 });
 
 function providerProfile(

@@ -101,6 +101,8 @@ export interface LocalSponsorPlacement {
   kind: "Local Sponsor Placement";
   label: string;
   disclosure: string;
+  logoUrl?: string;
+  imageUrl?: string;
   eligibleSurfaces: readonly LocalSponsorPlacementSurface[];
   safetyPolicy: {
     recoveryPriority: {

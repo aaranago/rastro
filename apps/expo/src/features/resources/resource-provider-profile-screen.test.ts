@@ -116,6 +116,30 @@ describe("Resource Provider profile screen", () => {
     );
   });
 
+  it("renders provider and sponsor images as separate profile media", async () => {
+    const adapter = createAdapter();
+
+    void renderScreen(createProfileScreen(adapter));
+    await flushEffects();
+    const readyScreen = renderScreen(createProfileScreen(adapter));
+    const imageUris = collectImageUris(readyScreen);
+
+    expect(imageUris).toEqual(
+      expect.arrayContaining([
+        "https://example.com/provider-photo.png",
+        "https://example.com/provider-logo.png",
+        "https://example.com/sponsor-logo.png",
+        "https://example.com/sponsor-banner.png",
+      ]),
+    );
+    expect(
+      findText(
+        readyScreen,
+        "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+      ),
+    ).toBe(true);
+  });
+
   it("waits for backend confirmation before showing provider report success", async () => {
     let resolveReport:
       | ((receipt: Awaited<ReturnType<ResourcesAdapter["reportProvider"]>>) => void)
@@ -215,6 +239,26 @@ const profile: ResourceProviderProfileData = {
   shortDescription:
     "Atencion veterinaria general y orientacion para familias cuidadoras.",
   isVerified: true,
+  logoUrl: "https://example.com/provider-logo.png",
+  photoUrl: "https://example.com/provider-photo.png",
+  sponsorPlacement: {
+    kind: "Local Sponsor Placement",
+    label: "Patrocinado",
+    disclosure:
+      "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+    logoUrl: "https://example.com/sponsor-logo.png",
+    imageUrl: "https://example.com/sponsor-banner.png",
+    eligibleSurfaces: ["provider_details"],
+    safetyPolicy: {
+      recoveryPriority: {
+        label: "Recovery Priority",
+        canAffect: false,
+      },
+      pushNotifications: {
+        eligible: false,
+      },
+    },
+  },
   contactOptions: [
     {
       kind: "phone",
@@ -354,4 +398,34 @@ function findElement(
   }
 
   return undefined;
+}
+
+function collectImageUris(node: React.ReactNode): string[] {
+  const rendered = renderFunctionElement(node);
+
+  if (!React.isValidElement<ElementProps>(rendered)) {
+    return [];
+  }
+
+  const currentUris =
+    rendered.type === "Image" ? getImageSourceUri(rendered.props.source) : [];
+
+  return [
+    ...currentUris,
+    ...React.Children.toArray(rendered.props.children).flatMap((child) =>
+      collectImageUris(child),
+    ),
+  ];
+}
+
+function getImageSourceUri(source: unknown): string[] {
+  if (
+    typeof source === "object" &&
+    source !== null &&
+    typeof (source as { uri?: unknown }).uri === "string"
+  ) {
+    return [(source as { uri: string }).uri];
+  }
+
+  return [];
 }

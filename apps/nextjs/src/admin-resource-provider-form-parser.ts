@@ -13,6 +13,10 @@ import {
   resourceProviderCategoryOptions,
   resourceProviderContactKindOptions,
 } from "./admin-resource-provider-admin-model";
+import {
+  getSponsorPlacementMediaFormValues,
+  validateDateOnlyRange,
+} from "./admin-url-form-parser";
 
 export const adminResourceProviderMaxContactOptions = 8;
 export const adminResourceProviderMaxLinks = 6;
@@ -45,9 +49,15 @@ export function parseCreateProviderInput(
   const fieldErrors: AdminResourceProviderFormFieldError[] = [];
   const category = getResourceCategoryFormValue(formData, fieldErrors);
   const contactOptions = getContactOptionsFormValue(formData, fieldErrors);
-  const socialLinks = getLinksFormValue(formData, "socialLink", fieldErrors);
+  const socialLinks = getLinksFormValue(
+    formData,
+    "socialLinks",
+    "socialLink",
+    fieldErrors,
+  );
   const externalLinks = getLinksFormValue(
     formData,
+    "externalLinks",
     "externalLink",
     fieldErrors,
   );
@@ -115,8 +125,10 @@ export function parseCreateProviderInput(
         exactLongitude: requiredFields.exactLongitude,
         locationCell: requiredFields.locationCell,
       },
+      logoAssetId: getOptionalStringFormValue(formData, "logoAssetId"),
       logoUrl: getOptionalStringFormValue(formData, "logoUrl"),
       name: requiredFields.name,
+      photoAssetId: getOptionalStringFormValue(formData, "photoAssetId"),
       photoUrl: getOptionalStringFormValue(formData, "photoUrl"),
       serviceAreaLabel: requiredFields.serviceAreaLabel,
       shortDescription: requiredFields.shortDescription,
@@ -138,9 +150,15 @@ export function parseUpdateProviderInput(
   );
   const category = getResourceCategoryFormValue(formData, fieldErrors);
   const contactOptions = getContactOptionsFormValue(formData, fieldErrors);
-  const socialLinks = getLinksFormValue(formData, "socialLink", fieldErrors);
+  const socialLinks = getLinksFormValue(
+    formData,
+    "socialLinks",
+    "socialLink",
+    fieldErrors,
+  );
   const externalLinks = getLinksFormValue(
     formData,
+    "externalLinks",
     "externalLink",
     fieldErrors,
   );
@@ -179,8 +197,10 @@ export function parseUpdateProviderInput(
       hoursLabel: requiredFields.hoursLabel,
       isOpenNow: getBooleanFormValue(formData, "isOpenNow"),
       location,
+      logoAssetId: getOptionalStringFormValue(formData, "logoAssetId"),
       logoUrl: getNullableOptionalStringFormValue(formData, "logoUrl"),
       name: requiredFields.name,
+      photoAssetId: getOptionalStringFormValue(formData, "photoAssetId"),
       photoUrl: getNullableOptionalStringFormValue(formData, "photoUrl"),
       providerId,
       serviceAreaLabel: requiredFields.serviceAreaLabel,
@@ -236,18 +256,13 @@ export function parseAttachSponsorInput(
   const endsOn = getRequiredDateOnlyFormValue(formData, "endsOn", fieldErrors);
   const label = getOptionalStringFormValue(formData, "sponsorLabel");
   const disclosure = getOptionalStringFormValue(formData, "sponsorDisclosure");
+  const media = getSponsorPlacementMediaFormValues({
+    fieldErrors,
+    formData,
+    getOptionalStringFormValue,
+  });
 
-  if (
-    startsOn &&
-    endsOn &&
-    Date.parse(`${endsOn}T00:00:00.000Z`) <
-      Date.parse(`${startsOn}T00:00:00.000Z`)
-  ) {
-    fieldErrors.push({
-      field: "endsOn",
-      message: "La fecha final debe ser posterior o igual a la fecha inicial.",
-    });
-  }
+  validateDateOnlyRange({ endsOn, fieldErrors, startsOn });
 
   if (fieldErrors.length > 0 || !surface) {
     return { fieldErrors, ok: false };
@@ -257,7 +272,11 @@ export function parseAttachSponsorInput(
     input: {
       disclosure,
       endsOn,
+      imageAssetId: media.imageAssetId,
+      imageUrl: media.imageUrl,
       label,
+      logoAssetId: media.logoAssetId,
+      logoUrl: media.logoUrl,
       providerId,
       startsOn,
       surface,
@@ -362,11 +381,34 @@ function getContactOptionsFormValue(
   fieldErrors: AdminResourceProviderFormFieldError[],
 ): ContactOptionInput {
   const contactOptions: ContactOptionInput = [];
+  const structuredIndices = getStructuredFieldArrayIndices(
+    formData,
+    "contactOptions",
+  );
+  const rowIndices =
+    structuredIndices.length > 0
+      ? structuredIndices.slice(0, adminResourceProviderMaxContactOptions)
+      : Array.from(
+          { length: adminResourceProviderMaxContactOptions },
+          (_, index) => index,
+        );
+  const isStructured = structuredIndices.length > 0;
 
-  for (let index = 0; index < adminResourceProviderMaxContactOptions; index++) {
-    const kind = getContactKindFormValue(formData, `contactKind${index}`);
-    const label = getOptionalStringFormValue(formData, `contactLabel${index}`);
-    const value = getOptionalStringFormValue(formData, `contactValue${index}`);
+  for (const index of rowIndices) {
+    const fields = isStructured
+      ? {
+          kind: `contactOptions.${index}.kind`,
+          label: `contactOptions.${index}.label`,
+          value: `contactOptions.${index}.value`,
+        }
+      : {
+          kind: `contactKind${index}`,
+          label: `contactLabel${index}`,
+          value: `contactValue${index}`,
+        };
+    const kind = getContactKindFormValue(formData, fields.kind);
+    const label = getOptionalStringFormValue(formData, fields.label);
+    const value = getOptionalStringFormValue(formData, fields.value);
 
     if (!label && !value) {
       continue;
@@ -374,7 +416,7 @@ function getContactOptionsFormValue(
 
     if (!kind) {
       fieldErrors.push({
-        field: `contactKind${index}`,
+        field: fields.kind,
         message: "Selecciona un tipo de contacto valido.",
       });
       continue;
@@ -382,7 +424,7 @@ function getContactOptionsFormValue(
 
     if (!label) {
       fieldErrors.push({
-        field: `contactLabel${index}`,
+        field: fields.label,
         message: requiredFieldMessage,
       });
       continue;
@@ -390,7 +432,7 @@ function getContactOptionsFormValue(
 
     if (!value) {
       fieldErrors.push({
-        field: `contactValue${index}`,
+        field: fields.value,
         message: requiredFieldMessage,
       });
       continue;
@@ -411,20 +453,33 @@ function getContactOptionsFormValue(
 
 function getLinksFormValue(
   formData: FormData,
-  fieldPrefix: "externalLink" | "socialLink",
+  fieldArrayName: "externalLinks" | "socialLinks",
+  legacyFieldPrefix: "externalLink" | "socialLink",
   fieldErrors: AdminResourceProviderFormFieldError[],
 ): ResourceProviderLinkInput {
   const links: ResourceProviderLinkInput = [];
+  const structuredIndices = getStructuredFieldArrayIndices(
+    formData,
+    fieldArrayName,
+  );
+  const rowIndices =
+    structuredIndices.length > 0
+      ? structuredIndices.slice(0, adminResourceProviderMaxLinks)
+      : Array.from({ length: adminResourceProviderMaxLinks }, (_, index) => index);
+  const isStructured = structuredIndices.length > 0;
 
-  for (let index = 0; index < adminResourceProviderMaxLinks; index++) {
-    const label = getOptionalStringFormValue(
-      formData,
-      `${fieldPrefix}Label${index}`,
-    );
-    const url = getOptionalStringFormValue(
-      formData,
-      `${fieldPrefix}Url${index}`,
-    );
+  for (const index of rowIndices) {
+    const fields = isStructured
+      ? {
+          label: `${fieldArrayName}.${index}.label`,
+          url: `${fieldArrayName}.${index}.url`,
+        }
+      : {
+          label: `${legacyFieldPrefix}Label${index}`,
+          url: `${legacyFieldPrefix}Url${index}`,
+        };
+    const label = getOptionalStringFormValue(formData, fields.label);
+    const url = getOptionalStringFormValue(formData, fields.url);
 
     if (!label && !url) {
       continue;
@@ -432,7 +487,7 @@ function getLinksFormValue(
 
     if (!label) {
       fieldErrors.push({
-        field: `${fieldPrefix}Label${index}`,
+        field: fields.label,
         message: requiredFieldMessage,
       });
       continue;
@@ -440,7 +495,7 @@ function getLinksFormValue(
 
     if (!url) {
       fieldErrors.push({
-        field: `${fieldPrefix}Url${index}`,
+        field: fields.url,
         message: requiredFieldMessage,
       });
       continue;
@@ -450,6 +505,26 @@ function getLinksFormValue(
   }
 
   return links;
+}
+
+function getStructuredFieldArrayIndices(formData: FormData, fieldArrayName: string) {
+  const indices = new Set<number>();
+  const fieldPrefix = `${fieldArrayName}.`;
+
+  for (const key of formData.keys()) {
+    if (!key.startsWith(fieldPrefix)) {
+      continue;
+    }
+
+    const [index] = key.slice(fieldPrefix.length).split(".");
+    const parsed = Number(index);
+
+    if (Number.isInteger(parsed) && parsed >= 0) {
+      indices.add(parsed);
+    }
+  }
+
+  return [...indices].sort((left, right) => left - right);
 }
 
 function getRequiredStringFormValue(

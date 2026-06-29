@@ -14,6 +14,7 @@ import type { Auth } from "@acme/auth";
 import type { Database } from "@acme/db/client";
 
 import type { AdminAuditRepository } from "./admin-audit-repository";
+import type { AdminMediaRepository } from "./admin-media-repository";
 import type { AdminMetricsRepository } from "./admin-metrics-repository";
 import type { AdminSettingsRepository } from "./admin-settings-repository";
 import type { MediaStorage, MediaStorageConfig } from "./media-storage";
@@ -24,6 +25,7 @@ import type { ReportRepository } from "./report-repository";
 import type { ResourceProviderModerationRepository } from "./resource-provider-moderation-repository";
 import type { ResourceProviderRepository } from "./resource-provider-repository";
 import { createDrizzleAdminAuditRepository } from "./admin-audit-repository";
+import { createDrizzleAdminMediaRepository } from "./admin-media-repository";
 import { createDrizzleAdminMetricsRepository } from "./admin-metrics-repository";
 import { createDrizzleAdminSettingsRepository } from "./admin-settings-repository";
 import {
@@ -59,6 +61,7 @@ export const createTRPCContext = async (opts: {
 }): Promise<{
   adminEmailList: string | undefined;
   adminAuditRepository: AdminAuditRepository;
+  adminMediaRepository: AdminMediaRepository;
   adminMetricsRepository: AdminMetricsRepository;
   authApi: Auth["api"];
   adminSettingsRepository: AdminSettingsRepository;
@@ -89,6 +92,10 @@ export const createTRPCContext = async (opts: {
   return {
     adminEmailList: opts.adminEmailList,
     adminAuditRepository: createDrizzleAdminAuditRepository(db),
+    adminMediaRepository: createDrizzleAdminMediaRepository(db, {
+      deliveryBaseUrl: mediaDeliveryBaseUrl,
+      uploadSessionExpiresInSeconds: mediaStorageConfig?.presignExpiresSeconds,
+    }),
     adminMetricsRepository: createDrizzleAdminMetricsRepository(db),
     adminSettingsRepository: createDrizzleAdminSettingsRepository(db),
     authApi,

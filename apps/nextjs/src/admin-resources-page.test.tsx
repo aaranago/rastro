@@ -56,18 +56,21 @@ describe("admin resources page", () => {
       },
     });
     adminResourceProviderApi.listAdminResourceProviderProfiles.mockResolvedValue(
-      [
-        providerProfile(),
-        providerProfile({
-          id: "22222222-2222-4222-8222-222222222222",
-          approximateLocationLabel: "Miraflores, La Paz",
-          city: "La Paz",
-          department: "La Paz",
-          name: "Patitas La Paz",
-          isVerified: false,
-          sponsorPlacement: undefined,
-        }),
-      ],
+      adminProviderListResult(
+        [
+          providerProfile(),
+          providerProfile({
+            id: "22222222-2222-4222-8222-222222222222",
+            approximateLocationLabel: "Miraflores, La Paz",
+            city: "La Paz",
+            department: "La Paz",
+            name: "Patitas La Paz",
+            isVerified: false,
+            sponsorPlacement: undefined,
+          }),
+        ],
+        { total: 20 },
+      ),
     );
     const { default: AdminResourcesPage, metadata } = await import(
       "./app/admin/proveedores/page"
@@ -80,7 +83,7 @@ describe("admin resources page", () => {
     });
     expect(html).toContain("Gestión de proveedores de recursos");
     expect(html).toContain("Cola de proveedores");
-    expect(html).toContain("2 proveedores en cola");
+    expect(html).toContain("20 proveedores");
     expect(html).toContain("Clinica Veterinaria San Roque");
     expect(html).toContain("Patitas La Paz");
     expect(html).toContain("Actualizado");
@@ -98,12 +101,84 @@ describe("admin resources page", () => {
     expect(html).not.toContain("Retirar por ID");
     expect(html).toContain("Métricas por departamento");
     expect(html).toContain("Admin Rastro");
+    expect(html).toContain("<table");
+    expect(html).toContain("/admin/proveedores?pageSize=10&amp;sortBy=name");
+    expect(html).toContain("/admin/proveedores?page=2&amp;pageSize=10");
+    expect(
+      adminResourceProviderApi.listAdminResourceProviderProfiles,
+    ).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 10,
+    });
     expect(html).not.toContain("modelo administrativo temporal");
     expect(html).not.toContain("no confirma publicacion");
     expect(html).not.toContain("Falta contrato API para actualizar detalles");
     expect(html).not.toContain("Falta contrato API para archivar o eliminar");
     expect(html).not.toMatch(forbiddenTerms);
     expect(html).not.toMatch(marketplaceTerms);
+  });
+
+  it("passes URL-derived provider list state to the backend", async () => {
+    authServer.getSession.mockResolvedValue({
+      user: {
+        email: "admin@rastro.bo",
+        id: "member-admin-la-paz",
+        name: "Admin Rastro",
+      },
+    });
+    adminResourceProviderApi.listAdminResourceProviderProfiles.mockResolvedValue(
+      adminProviderListResult([providerProfile()], {
+        page: 2,
+        pageSize: 25,
+        total: 40,
+      }),
+    );
+    const { default: AdminResourcesPage } = await import(
+      "./app/admin/proveedores/page"
+    );
+
+    const html = renderToStaticMarkup(
+      await AdminResourcesPage({
+        searchParams: Promise.resolve({
+          activeOn: "2026-07-15",
+          category: "veterinary",
+          city: "La Paz",
+          department: "La Paz",
+          mediaState: "has_media",
+          page: "2",
+          pageSize: "25",
+          search: "San Roque",
+          sortBy: "sponsorState",
+          sortDirection: "desc",
+          sponsorState: "active",
+          sponsorSurface: "resources_directory",
+          verification: "verified",
+        }),
+      }),
+    );
+
+    expect(
+      adminResourceProviderApi.listAdminResourceProviderProfiles,
+    ).toHaveBeenCalledWith({
+      filters: {
+        activeOn: "2026-07-15",
+        category: ["veterinary"],
+        city: "La Paz",
+        department: "La Paz",
+        mediaState: "has_media",
+        sponsorState: "active",
+        sponsorSurface: ["resources_directory"],
+        verification: ["verified"],
+      },
+      page: 2,
+      pageSize: 25,
+      search: "San Roque",
+      sortBy: "sponsorState",
+      sortDirection: "desc",
+    });
+    expect(html).toContain("Búsqueda: San Roque");
+    expect(html).toContain("Patrocinio: Activo");
+    expect(html).toContain("Mostrando 26-40 de 40");
   });
 
   it("renders restricted access for signed-in non-admin members", async () => {
@@ -216,5 +291,85 @@ function providerProfile(
     ],
     verificationNote: "Identidad revisada por Rastro.",
     ...overrides,
+  };
+}
+
+function adminProviderListResult(
+  items: AdminResourceProviderProfile[],
+  overrides: Partial<{
+    page: number;
+    pageSize: number;
+    total: number;
+  }> = {},
+) {
+  const page = overrides.page ?? 1;
+  const pageSize = overrides.pageSize ?? 10;
+  const total = overrides.total ?? items.length;
+
+  return {
+    availableFilters: [
+      {
+        key: "category",
+        label: "Categoría",
+        options: [{ label: "Clínica veterinaria", value: "veterinary" }],
+        type: "enum" as const,
+      },
+      {
+        key: "city",
+        label: "Ciudad",
+        type: "text" as const,
+      },
+      {
+        key: "department",
+        label: "Departamento",
+        type: "text" as const,
+      },
+      {
+        key: "verification",
+        label: "Verificación",
+        options: [{ label: "Verificado", value: "verified" }],
+        type: "enum" as const,
+      },
+      {
+        key: "sponsorState",
+        label: "Patrocinio",
+        options: [{ label: "Activo", value: "active" }],
+        type: "enum" as const,
+      },
+      {
+        key: "sponsorSurface",
+        label: "Superficie patrocinada",
+        options: [
+          { label: "Directorio de recursos", value: "resources_directory" },
+        ],
+        type: "enum" as const,
+      },
+      {
+        key: "activeOn",
+        label: "Activo en fecha",
+        type: "date" as const,
+      },
+      {
+        key: "mediaState",
+        label: "Medios",
+        options: [{ label: "Con medios", value: "has_media" }],
+        type: "enum" as const,
+      },
+    ],
+    availableSorts: [
+      { defaultDirection: "asc" as const, label: "Nombre", value: "name" },
+      {
+        defaultDirection: "desc" as const,
+        label: "Patrocinio",
+        value: "sponsorState",
+      },
+    ],
+    hasNextPage: page * pageSize < total,
+    hasPreviousPage: page > 1,
+    items,
+    page,
+    pageCount: Math.ceil(total / pageSize),
+    pageSize,
+    total,
   };
 }

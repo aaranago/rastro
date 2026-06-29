@@ -150,6 +150,10 @@ describe("Resources directory", () => {
       sponsorLabel: "Patrocinado",
       sponsorDisclosure:
         "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+      logoUrl: "https://example.com/san-roque-logo.png",
+      photoUrl: "https://example.com/san-roque-photo.png",
+      sponsorLogoUrl: "https://example.com/sponsor-san-roque-logo.png",
+      sponsorImageUrl: "https://example.com/sponsor-san-roque-banner.png",
     });
     expect(sponsoredProvider?.sponsorDisclosure).not.toMatch(
       /push|notific|prioridad de recuperaci[oó]n/i,
@@ -176,6 +180,8 @@ describe("Resources directory", () => {
       label: "Patrocinado",
       disclosure:
         "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+      logoUrl: "https://example.com/sponsor-san-roque-logo.png",
+      imageUrl: "https://example.com/sponsor-san-roque-banner.png",
       eligibleSurfaces: [
         "resources_directory",
         "provider_details",
@@ -278,6 +284,8 @@ describe("Resources directory", () => {
       subtitle: "Veterinaria especializada",
       heroImageUrl: "https://example.com/san-roque-photo.png",
       logoUrl: "https://example.com/san-roque-logo.png",
+      sponsorLogoUrl: "https://example.com/sponsor-san-roque-logo.png",
+      sponsorImageUrl: "https://example.com/sponsor-san-roque-banner.png",
       badges: [
         { label: "Veterinarias", tone: "category" },
         { label: "Verificado", tone: "verified" },
@@ -377,6 +385,8 @@ describe("Resources directory", () => {
       label: "Patrocinado",
       disclosure:
         "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+      logoUrl: "https://example.com/sponsor-san-roque-logo.png",
+      imageUrl: "https://example.com/sponsor-san-roque-banner.png",
       eligibleSurfaces: [
         "resources_directory",
         "provider_details",

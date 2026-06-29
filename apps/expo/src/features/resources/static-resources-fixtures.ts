@@ -26,6 +26,8 @@ const clinicSanRoque: ResourceProviderFixture = {
     kind: "Local Sponsor Placement",
     label: "Patrocinado",
     disclosure: "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+    logoUrl: "https://example.com/sponsor-san-roque-logo.png",
+    imageUrl: "https://example.com/sponsor-san-roque-banner.png",
     eligibleSurfaces: [
       "resources_directory",
       "provider_details",

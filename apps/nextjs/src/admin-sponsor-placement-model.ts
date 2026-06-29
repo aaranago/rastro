@@ -1,10 +1,21 @@
 import type { RouterInputs, RouterOutputs } from "@acme/api";
+import type { AdminSponsorPlacementListInput } from "@acme/validators";
 
 import type { AdminResourceProviderProfile } from "./admin-resource-provider-admin-model";
 import { localSponsorPlacementSurfaceOptions } from "./admin-resource-provider-admin-model";
 
+export type { AdminSponsorPlacementListInput };
+
 export type AdminSponsorPlacementRecord =
-  RouterOutputs["resources"]["admin"]["listSponsorPlacements"][number];
+  RouterOutputs["resources"]["admin"]["listSponsorPlacements"] extends readonly (infer TItem)[]
+    ? TItem
+    : RouterOutputs["resources"]["admin"]["listSponsorPlacements"] extends {
+          items: readonly (infer TItem)[];
+        }
+      ? TItem
+      : never;
+export type AdminSponsorPlacementListResult =
+  RouterOutputs["resources"]["admin"]["listSponsorPlacements"];
 export type AdminSponsorPlacementCreateInput =
   RouterInputs["resources"]["admin"]["createSponsor"];
 export type AdminSponsorPlacementUpdateInput =
@@ -16,6 +27,7 @@ export type AdminSponsorPlacementSurface =
 
 export interface AdminSponsorPlacementDashboardViewModel {
   createActionLabel: string;
+  list: AdminSponsorPlacementListStateViewModel;
   locale: "es-BO";
   placements: AdminSponsorPlacementViewModel[];
   providerOptions: AdminSponsorProviderOption[];
@@ -23,6 +35,18 @@ export interface AdminSponsorPlacementDashboardViewModel {
   stats: AdminSponsorPlacementStatsViewModel;
   surfaceOptions: AdminSponsorPlacementSurfaceOption[];
   title: string;
+}
+
+export interface AdminSponsorPlacementListStateViewModel {
+  availableFilters: AdminSponsorPlacementListResult["availableFilters"];
+  availableSorts: AdminSponsorPlacementListResult["availableSorts"];
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  input: AdminSponsorPlacementListInput;
+  page: number;
+  pageCount: number;
+  pageSize: number;
+  total: number;
 }
 
 export interface AdminSponsorProviderOption {
@@ -36,7 +60,9 @@ export interface AdminSponsorPlacementViewModel {
   dateWindowLabel: string;
   disclosure: string;
   endsOn: string;
+  imageUrl?: string;
   label: string;
+  logoUrl?: string;
   placementId: string;
   providerCity: string;
   providerDepartment: string;
@@ -92,20 +118,42 @@ const surfaceLabels = Object.fromEntries(
 ) as Record<AdminSponsorPlacementSurface, string>;
 
 export function buildAdminSponsorPlacementDashboardViewModel(input: {
-  placements: readonly AdminSponsorPlacementRecord[];
-  providers: readonly AdminResourceProviderProfile[];
+  listInput?: AdminSponsorPlacementListInput;
+  placements:
+    | readonly AdminSponsorPlacementRecord[]
+    | AdminSponsorPlacementListResult;
+  providers:
+    | readonly AdminResourceProviderProfile[]
+    | { items: readonly AdminResourceProviderProfile[] };
   today?: string;
 }): AdminSponsorPlacementDashboardViewModel {
   const today = input.today ?? new Date().toISOString().slice(0, 10);
-  const placements = input.placements.map((placement) =>
+  const placementList = normalizeSponsorPlacementList(input.placements);
+  const providerItems =
+    "items" in input.providers ? input.providers.items : input.providers;
+  const placements = placementList.items.map((placement) =>
     toSponsorPlacementViewModel(placement, today),
   );
 
   return {
     createActionLabel: "Crear patrocinio",
+    list: {
+      availableFilters: placementList.availableFilters,
+      availableSorts: placementList.availableSorts,
+      hasNextPage: placementList.hasNextPage,
+      hasPreviousPage: placementList.hasPreviousPage,
+      input: input.listInput ?? {
+        page: placementList.page,
+        pageSize: placementList.pageSize,
+      },
+      page: placementList.page,
+      pageCount: placementList.pageCount,
+      pageSize: placementList.pageSize,
+      total: placementList.total,
+    },
     locale: "es-BO",
     placements,
-    providerOptions: input.providers.map((provider) => ({
+    providerOptions: providerItems.map((provider) => ({
       city: provider.city,
       department: provider.department,
       id: provider.id,
@@ -117,6 +165,28 @@ export function buildAdminSponsorPlacementDashboardViewModel(input: {
     stats: buildStats(placements),
     surfaceOptions: [...adminSponsorPlacementSurfaceOptions],
     title: "Gestión de patrocinios locales",
+  };
+}
+
+function normalizeSponsorPlacementList(
+  placements:
+    | readonly AdminSponsorPlacementRecord[]
+    | AdminSponsorPlacementListResult,
+): AdminSponsorPlacementListResult {
+  if ("items" in placements) {
+    return placements;
+  }
+
+  return {
+    availableFilters: [],
+    availableSorts: [],
+    hasNextPage: false,
+    hasPreviousPage: false,
+    items: [...placements],
+    page: 1,
+    pageCount: placements.length > 0 ? 1 : 0,
+    pageSize: Math.max(placements.length, 1),
+    total: placements.length,
   };
 }
 
@@ -139,7 +209,9 @@ function toSponsorPlacementViewModel(
     dateWindowLabel: `${placement.startsOn} a ${placement.endsOn}`,
     disclosure: placement.disclosure,
     endsOn: placement.endsOn,
+    imageUrl: placement.imageUrl,
     label: placement.label,
+    logoUrl: placement.logoUrl,
     placementId: placement.placementId,
     providerCity: placement.city,
     providerDepartment: placement.department,

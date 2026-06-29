@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import type { AdminSponsorPlacementActionState } from "~/admin-sponsor-placement-actions";
 import { buildAdminModerationViewer } from "~/admin-moderation-access";
 import { listAdminResourceProviderProfiles } from "~/admin-resource-provider-api-adapter";
 import {
   applyAdminSponsorPlacementAction,
+  buildAdminSponsorPlacementActionState,
   buildAdminSponsorPlacementFeedback,
   buildAdminSponsorPlacementNotice,
   buildAdminSponsorPlacementRedirectUrl,
@@ -16,6 +18,7 @@ import {
   buildAdminSponsorPlacementDashboardViewModel,
   buildAdminSponsorPlacementsForbiddenViewModel,
 } from "~/admin-sponsor-placement-model";
+import { parseAdminSponsorPlacementListSearchParams } from "~/admin-url-form-parser";
 import { getSession } from "~/auth/server";
 import { env } from "~/env";
 
@@ -47,9 +50,13 @@ export default async function AdminSponsorPlacementsPage(
     );
   }
 
+  const listInput = parseAdminSponsorPlacementListSearchParams(searchParams);
   const [placements, providers] = await Promise.all([
-    listAdminSponsorPlacements(),
-    listAdminResourceProviderProfiles(),
+    listAdminSponsorPlacements(listInput),
+    listAdminResourceProviderProfiles({
+      page: 1,
+      pageSize: 10,
+    }),
   ]);
   const workflowFeedback = buildAdminSponsorPlacementFeedback(searchParams);
 
@@ -60,6 +67,7 @@ export default async function AdminSponsorPlacementsPage(
       notice={buildAdminSponsorPlacementNotice(workflowFeedback)}
       viewer={viewer.dashboardViewer}
       viewModel={buildAdminSponsorPlacementDashboardViewModel({
+        listInput,
         placements,
         providers,
       })}
@@ -68,14 +76,17 @@ export default async function AdminSponsorPlacementsPage(
   );
 }
 
-async function applyAdminSponsorPlacementsForm(formData: FormData) {
+async function applyAdminSponsorPlacementsForm(
+  _state: AdminSponsorPlacementActionState,
+  formData: FormData,
+): Promise<AdminSponsorPlacementActionState> {
   "use server";
 
   const session = await getSession();
   const viewer = buildAdminModerationViewer(session, env.RASTRO_ADMIN_EMAILS);
 
   if (viewer.modelViewer.role !== "admin") {
-    return;
+    return {};
   }
 
   const result = await applyAdminSponsorPlacementAction(formData);
@@ -83,7 +94,8 @@ async function applyAdminSponsorPlacementsForm(formData: FormData) {
   if (result.ok) {
     revalidatePath("/admin/patrocinios");
     revalidatePath("/admin/proveedores");
+    redirect(buildAdminSponsorPlacementRedirectUrl(result));
   }
 
-  redirect(buildAdminSponsorPlacementRedirectUrl(result));
+  return buildAdminSponsorPlacementActionState(result);
 }

@@ -1,14 +1,23 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  LocalSponsorPlacement,
+  ResourceProviderContactOption,
+} from "@acme/db/schema";
+
 import type { PersistedResourceProvider } from "./resource-provider-repository";
 import {
+  buildAdminResourceProviderListResult,
+  buildAdminSponsorPlacementListResult,
   buildLocalSponsorPlacementPolicy,
   buildNearbyResourceProvidersCondition,
   buildResourceProviderContactOptionWriteValues,
   buildResourceProviderLocationUpdateValues,
   buildResourceProviderLocationWriteValues,
   buildResourceProviderUpdateValues,
+  createDrizzleResourceProviderRepository,
   derivePublicResourceProviderLocation,
+  SponsorPlacementOverlapError,
   toAdminLocalSponsorPlacements,
   toAdminResourceProviderProfile,
   toPublicResourceProviderProfile,
@@ -78,11 +87,293 @@ function persistedProvider(
         label: "Patrocinado",
         disclosure:
           "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+        logoUrl: "https://example.com/sponsor-logo.png",
+        imageUrl: "https://example.com/sponsor-banner.png",
         startsAt: new Date("2026-07-01T00:00:00.000Z"),
         endsAt: new Date("2026-07-31T23:59:59.999Z"),
       },
     ],
     ...overrides,
+  };
+}
+
+function testUuid(index: number) {
+  return `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+}
+
+function providerRow(provider: PersistedResourceProvider) {
+  return {
+    category: provider.category,
+    createdAt: provider.createdAt,
+    createdByAdminId: "member-admin-la-paz",
+    deletedAt: provider.deletedAt,
+    description: provider.description,
+    emergencyAvailable: provider.emergencyAvailable,
+    externalLinks: provider.externalLinks,
+    hoursLabel: provider.hoursLabel,
+    id: provider.id,
+    isOpenNow: provider.isOpenNow,
+    location: {
+      addressLabel: provider.location.addressLabel,
+      approximateLocationLabel: provider.location.approximateLocationLabel,
+      city: provider.location.city,
+      countryCode: "BO",
+      createdAt: provider.createdAt,
+      department: provider.location.department,
+      exactLatitude: provider.location.publicLatitude,
+      exactLongitude: provider.location.publicLongitude,
+      exactPoint: {
+        x: provider.location.publicLongitude,
+        y: provider.location.publicLatitude,
+      },
+      locationCell: provider.location.locationCell,
+      providerId: provider.id,
+      publicLatitude: provider.location.publicLatitude,
+      publicLongitude: provider.location.publicLongitude,
+      publicPoint: {
+        x: provider.location.publicLongitude,
+        y: provider.location.publicLatitude,
+      },
+      publicPrecision: provider.location.precision,
+      updatedAt: provider.updatedAt,
+    },
+    logoUrl: provider.logoUrl,
+    name: provider.name,
+    photoUrl: provider.photoUrl,
+    serviceAreaLabel: provider.serviceAreaLabel,
+    shortDescription: provider.shortDescription,
+    socialLinks: provider.socialLinks,
+    updatedAt: provider.updatedAt,
+    verificationNote: provider.verificationNote,
+    verificationStatus: provider.verificationStatus,
+    verificationUpdatedByAdminId: "member-admin-la-paz",
+    verifiedAt: provider.verifiedAt,
+    websiteUrl: provider.websiteUrl,
+  };
+}
+
+function contactOptionRows(provider: PersistedResourceProvider) {
+  return provider.contactOptions.map((contact, index) => ({
+    createdAt: provider.createdAt,
+    id: testUuid(index + 1),
+    kind: contact.kind,
+    label: contact.label,
+    providerId: provider.id,
+    sortOrder: index,
+    updatedAt: provider.updatedAt,
+    value: contact.value,
+  }));
+}
+
+function sponsorPlacementRows(provider: PersistedResourceProvider) {
+  return provider.sponsorPlacements.map((placement) => ({
+    createdAt: provider.createdAt,
+    createdByAdminId: "member-admin-la-paz",
+    disclosure: placement.disclosure,
+    endsAt: placement.endsAt,
+    id: placement.id,
+    imageUrl: placement.imageUrl,
+    label: placement.label,
+    logoUrl: placement.logoUrl,
+    providerId: provider.id,
+    startsAt: placement.startsAt,
+    surface: placement.surface,
+    updatedAt: provider.updatedAt,
+  }));
+}
+
+function sponsorPlacementQueryRow(provider: PersistedResourceProvider) {
+  const [placement] = provider.sponsorPlacements;
+
+  if (!placement) {
+    throw new Error(
+      "Expected provider fixture to include a sponsor placement.",
+    );
+  }
+
+  return {
+    category: provider.category,
+    city: provider.location.city,
+    department: provider.location.department,
+    disclosure: placement.disclosure,
+    endsAt: placement.endsAt,
+    imageUrl: placement.imageUrl,
+    label: placement.label,
+    logoUrl: placement.logoUrl,
+    placementId: placement.id,
+    providerId: provider.id,
+    providerName: provider.name,
+    providerVerificationStatus: provider.verificationStatus,
+    startsAt: placement.startsAt,
+    surface: placement.surface,
+  };
+}
+
+function createSelectChain(
+  getRows: (state: { fromTable: unknown }) => unknown[],
+  callbacks: {
+    onLimit?: (value: number) => void;
+    onOffset?: (value: number) => void;
+  } = {},
+) {
+  const state = {
+    fromTable: undefined as unknown,
+  };
+  const chain = {
+    from(table: unknown) {
+      state.fromTable = table;
+
+      return chain;
+    },
+    innerJoin() {
+      return chain;
+    },
+    limit(value: number) {
+      callbacks.onLimit?.(value);
+
+      return chain;
+    },
+    offset(value: number) {
+      callbacks.onOffset?.(value);
+
+      return chain;
+    },
+    orderBy() {
+      return chain;
+    },
+    then(resolve: (rows: unknown[]) => void) {
+      resolve(getRows(state));
+    },
+    where() {
+      return chain;
+    },
+  };
+
+  return chain;
+}
+
+function createAdminProviderListDb(input: {
+  pageProviders: PersistedResourceProvider[];
+  total: number;
+}) {
+  const calls = {
+    contactProviderRows: 0,
+    findManyProviderRows: 0,
+    limits: [] as number[],
+    offsets: [] as number[],
+    sponsorProviderRows: 0,
+  };
+  const pageProviderIds = new Set(
+    input.pageProviders.map((provider) => provider.id),
+  );
+  const select = (fields?: Record<string, unknown>) => {
+    return createSelectChain(
+      ({ fromTable }) => {
+        if (fields && "total" in fields) {
+          return [{ total: input.total }];
+        }
+
+        if (fields && "id" in fields) {
+          return input.pageProviders.map((provider) => ({ id: provider.id }));
+        }
+
+        if (fromTable === ResourceProviderContactOption) {
+          const rows = input.pageProviders.flatMap(contactOptionRows);
+          calls.contactProviderRows = new Set(
+            rows.map((row) => row.providerId),
+          ).size;
+
+          return rows;
+        }
+
+        if (fromTable === LocalSponsorPlacement) {
+          const rows = input.pageProviders.flatMap(sponsorPlacementRows);
+          calls.sponsorProviderRows = new Set(
+            rows.map((row) => row.providerId),
+          ).size;
+
+          return rows;
+        }
+
+        return [];
+      },
+      {
+        onLimit(value) {
+          calls.limits.push(value);
+        },
+        onOffset(value) {
+          calls.offsets.push(value);
+        },
+      },
+    );
+  };
+
+  return {
+    calls,
+    db: {
+      query: {
+        ResourceProvider: {
+          findMany: () => {
+            calls.findManyProviderRows = pageProviderIds.size;
+
+            return Promise.resolve(input.pageProviders.map(providerRow));
+          },
+        },
+      },
+      select,
+    },
+  };
+}
+
+function createAdminSponsorPlacementListDb(input: {
+  pageProviders: PersistedResourceProvider[];
+  total: number;
+}) {
+  const calls = {
+    findManyWasCalled: false,
+    limits: [] as number[],
+    offsets: [] as number[],
+  };
+  const select = (fields?: Record<string, unknown>) => {
+    return createSelectChain(
+      () => {
+        if (fields && "total" in fields) {
+          return [{ total: input.total }];
+        }
+
+        if (fields && "placementId" in fields) {
+          return input.pageProviders.map(sponsorPlacementQueryRow);
+        }
+
+        return [];
+      },
+      {
+        onLimit(value) {
+          calls.limits.push(value);
+        },
+        onOffset(value) {
+          calls.offsets.push(value);
+        },
+      },
+    );
+  };
+
+  return {
+    calls,
+    db: {
+      query: {
+        ResourceProvider: {
+          findMany: () => {
+            calls.findManyWasCalled = true;
+
+            throw new Error(
+              "Sponsor placement list must not hydrate providers.",
+            );
+          },
+        },
+      },
+      select,
+    },
   };
 }
 
@@ -301,6 +592,8 @@ describe("resource provider repository", () => {
       label: "Patrocinado",
       disclosure:
         "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+      logoUrl: "https://example.com/sponsor-logo.png",
+      imageUrl: "https://example.com/sponsor-banner.png",
       eligibleSurfaces: ["resources_directory"],
       safetyPolicy: {
         recoveryPriority: {
@@ -362,6 +655,8 @@ describe("resource provider repository", () => {
         {
           endsOn: "2026-07-31",
           isActive: true,
+          logoUrl: "https://example.com/sponsor-logo.png",
+          imageUrl: "https://example.com/sponsor-banner.png",
           placementId: "22222222-2222-4222-8222-222222222222",
           startsOn: "2026-07-01",
           surface: "resources_directory",
@@ -395,6 +690,8 @@ describe("resource provider repository", () => {
               label: "Aliado local",
               disclosure:
                 "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+              logoUrl: null,
+              imageUrl: "https://example.com/patitas-sponsor.png",
               startsAt: new Date("2026-06-01T00:00:00.000Z"),
               endsAt: new Date("2026-06-30T23:59:59.999Z"),
             },
@@ -412,6 +709,8 @@ describe("resource provider repository", () => {
         isActive: false,
         placementId: "44444444-4444-4444-8444-444444444444",
         providerName: "Patitas La Paz",
+        providerVerificationStatus: "verified",
+        imageUrl: "https://example.com/patitas-sponsor.png",
         safetyPolicy: {
           eligibleSurfaces: ["provider_details"],
           recoveryPriority: {
@@ -425,11 +724,309 @@ describe("resource provider repository", () => {
       }),
       expect.objectContaining({
         isActive: true,
+        logoUrl: "https://example.com/sponsor-logo.png",
+        imageUrl: "https://example.com/sponsor-banner.png",
         placementId: "22222222-2222-4222-8222-222222222222",
         providerName: "Clinica Veterinaria San Roque",
         surface: "resources_directory",
       }),
     ]);
+  });
+
+  it("builds paginated admin provider lists with typed filters and deterministic sorting", () => {
+    const now = new Date("2026-07-15T12:00:00.000Z");
+    const profiles = [
+      toAdminResourceProviderProfile(persistedProvider(), { now }),
+      toAdminResourceProviderProfile(
+        persistedProvider({
+          id: "33333333-3333-4333-8333-333333333333",
+          name: "Patitas La Paz",
+          category: "shelter",
+          logoUrl: null,
+          photoUrl: null,
+          verificationStatus: "unverified",
+          location: {
+            ...persistedProvider().location,
+            city: "El Alto",
+            department: "La Paz",
+          },
+          sponsorPlacements: [
+            {
+              id: "44444444-4444-4444-8444-444444444444",
+              surface: "provider_details",
+              label: "Aliado local",
+              disclosure:
+                "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+              logoUrl: null,
+              imageUrl: null,
+              startsAt: new Date("2026-06-01T00:00:00.000Z"),
+              endsAt: new Date("2026-06-30T23:59:59.999Z"),
+            },
+          ],
+        }),
+        { now },
+      ),
+      toAdminResourceProviderProfile(
+        persistedProvider({
+          id: "55555555-5555-4555-8555-555555555555",
+          name: "Alimentos Andes",
+          category: "pet_food",
+          verificationStatus: "unverified",
+          location: {
+            ...persistedProvider().location,
+            city: "La Paz",
+            department: "La Paz",
+          },
+          sponsorPlacements: [],
+        }),
+        { now },
+      ),
+    ];
+
+    const sorted = buildAdminResourceProviderListResult(
+      profiles,
+      {
+        page: 1,
+        pageSize: 2,
+        sortBy: "city",
+        sortDirection: "asc",
+      },
+      { now },
+    );
+    const filtered = buildAdminResourceProviderListResult(
+      profiles,
+      {
+        filters: {
+          category: ["shelter"],
+          city: "El Alto",
+          mediaState: "missing_media",
+          sponsorState: "inactive",
+          sponsorSurface: ["provider_details"],
+          verification: ["unverified"],
+        },
+      },
+      { now },
+    );
+
+    expect(sorted).toMatchObject({
+      hasNextPage: true,
+      hasPreviousPage: false,
+      page: 1,
+      pageCount: 2,
+      pageSize: 2,
+      total: 3,
+    });
+    expect(sorted.items.map((provider) => provider.name)).toEqual([
+      "Patitas La Paz",
+      "Alimentos Andes",
+    ]);
+    expect(filtered).toMatchObject({
+      pageSize: 10,
+      total: 1,
+    });
+    expect(filtered.items[0]?.name).toBe("Patitas La Paz");
+    expect(filtered.availableFilters.map((filter) => filter.key)).toEqual(
+      expect.arrayContaining([
+        "activeOn",
+        "category",
+        "city",
+        "department",
+        "mediaState",
+        "sponsorState",
+        "sponsorSurface",
+        "verification",
+      ]),
+    );
+  });
+
+  it("builds paginated sponsor placement lists with state, window, and media filters", () => {
+    const now = new Date("2026-07-15T12:00:00.000Z");
+    const placements = toAdminLocalSponsorPlacements([
+      toAdminResourceProviderProfile(persistedProvider(), { now }),
+      toAdminResourceProviderProfile(
+        persistedProvider({
+          id: "33333333-3333-4333-8333-333333333333",
+          name: "Patitas La Paz",
+          category: "shelter",
+          verificationStatus: "unverified",
+          location: {
+            ...persistedProvider().location,
+            city: "El Alto",
+            department: "La Paz",
+          },
+          sponsorPlacements: [
+            {
+              id: "44444444-4444-4444-8444-444444444444",
+              surface: "provider_details",
+              label: "Aliado local",
+              disclosure:
+                "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+              logoUrl: null,
+              imageUrl: null,
+              startsAt: new Date("2026-06-01T00:00:00.000Z"),
+              endsAt: new Date("2026-06-30T23:59:59.999Z"),
+            },
+          ],
+        }),
+        { now },
+      ),
+    ]);
+
+    const filtered = buildAdminSponsorPlacementListResult(
+      placements,
+      {
+        filters: {
+          category: ["shelter"],
+          city: "El Alto",
+          endsTo: "2026-06-30",
+          mediaState: "missing_media",
+          startsFrom: "2026-06-01",
+          state: "expired",
+          surface: ["provider_details"],
+          verification: ["unverified"],
+        },
+        sortBy: "providerName",
+        sortDirection: "asc",
+      },
+      { now },
+    );
+
+    expect(filtered).toMatchObject({
+      page: 1,
+      pageCount: 1,
+      pageSize: 10,
+      total: 1,
+    });
+    expect(filtered.items[0]).toMatchObject({
+      placementId: "44444444-4444-4444-8444-444444444444",
+      providerName: "Patitas La Paz",
+      providerVerificationStatus: "unverified",
+      surface: "provider_details",
+    });
+    expect(filtered.availableSorts.map((sort) => sort.value)).toEqual(
+      expect.arrayContaining(["endsOn", "providerName", "state", "surface"]),
+    );
+  });
+
+  it("applies admin provider pagination before hydrating provider contacts and sponsor placements", async () => {
+    const providers = Array.from({ length: 25 }, (_, index) =>
+      persistedProvider({
+        id: testUuid(index + 1),
+        name: `Proveedor ${String(index + 1).padStart(2, "0")}`,
+        sponsorPlacements: [
+          {
+            id: testUuid(index + 101),
+            surface: "resources_directory",
+            label: "Patrocinado",
+            disclosure:
+              "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+            logoUrl: null,
+            imageUrl: null,
+            startsAt: new Date("2026-07-01T00:00:00.000Z"),
+            endsAt: new Date("2026-07-31T23:59:59.999Z"),
+          },
+        ],
+      }),
+    );
+    const pageProviders = providers.slice(10, 20);
+    const { calls, db } = createAdminProviderListDb({
+      pageProviders,
+      total: providers.length,
+    });
+    const repository = createDrizzleResourceProviderRepository(db as never, {
+      now: () => new Date("2026-07-15T12:00:00.000Z"),
+    });
+
+    const result = await repository.listProviders({
+      page: 2,
+      pageSize: 10,
+      sortBy: "name",
+      sortDirection: "asc",
+    });
+
+    expect(result).toMatchObject({
+      hasNextPage: true,
+      hasPreviousPage: true,
+      page: 2,
+      pageCount: 3,
+      pageSize: 10,
+      total: 25,
+    });
+    expect(result.items.map((provider) => provider.name)).toEqual(
+      pageProviders.map((provider) => provider.name),
+    );
+    expect(calls.limits).toEqual([10]);
+    expect(calls.offsets).toEqual([10]);
+    expect(calls.findManyProviderRows).toBe(10);
+    expect(calls.contactProviderRows).toBe(10);
+    expect(calls.sponsorProviderRows).toBe(10);
+  });
+
+  it("applies admin sponsor placement pagination without hydrating every provider", async () => {
+    const providers = Array.from({ length: 25 }, (_, index) =>
+      persistedProvider({
+        id: testUuid(index + 1),
+        name: `Proveedor ${String(index + 1).padStart(2, "0")}`,
+        sponsorPlacements: [
+          {
+            id: testUuid(index + 101),
+            surface:
+              index % 2 === 0 ? "resources_directory" : "provider_details",
+            label: "Patrocinado",
+            disclosure:
+              "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+            logoUrl: index % 2 === 0 ? "https://example.com/logo.png" : null,
+            imageUrl: null,
+            startsAt: new Date("2026-07-01T00:00:00.000Z"),
+            endsAt: new Date("2026-07-31T23:59:59.999Z"),
+          },
+        ],
+      }),
+    );
+    const pageProviders = providers.slice(10, 20);
+    const { calls, db } = createAdminSponsorPlacementListDb({
+      pageProviders,
+      total: providers.length,
+    });
+    const repository = createDrizzleResourceProviderRepository(db as never, {
+      now: () => new Date("2026-07-15T12:00:00.000Z"),
+    });
+
+    const result = await repository.listSponsorPlacements({
+      filters: {
+        state: "active",
+      },
+      page: 2,
+      pageSize: 10,
+      sortBy: "providerName",
+      sortDirection: "asc",
+    });
+
+    expect(result).toMatchObject({
+      hasNextPage: true,
+      hasPreviousPage: true,
+      page: 2,
+      pageCount: 3,
+      pageSize: 10,
+      total: 25,
+    });
+    expect(result.items.map((placement) => placement.providerName)).toEqual(
+      pageProviders.map((provider) => provider.name),
+    );
+    expect(result.items.every((placement) => placement.isActive)).toBe(true);
+    expect(calls.limits).toEqual([10]);
+    expect(calls.offsets).toEqual([10]);
+    expect(calls.findManyWasCalled).toBe(false);
+  });
+
+  it("provides field-specific sponsor placement overlap errors", () => {
+    const error = new SponsorPlacementOverlapError();
+
+    expect(error.fieldErrors).toMatchObject({
+      endsOn: ["La ventana se cruza con otro patrocinio local activo."],
+      startsOn: ["La ventana se cruza con otro patrocinio local activo."],
+      surface: ["La superficie ya tiene un patrocinio local en esa ventana."],
+    });
   });
 
   it("builds standalone sponsor policy for any supported surface", () => {

@@ -35,6 +35,8 @@ const apiProvider = {
     label: "Patrocinado",
     disclosure:
       "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+    logoUrl: "https://example.com/sponsor-logo.png",
+    imageUrl: "https://example.com/sponsor-banner.png",
     eligibleSurfaces: ["resources_directory" as const],
     safetyPolicy: {
       recoveryPriority: {
@@ -111,6 +113,8 @@ describe("createApiResourcesAdapter", () => {
           id: "11111111-1111-4111-8111-111111111111",
           distanceMeters: 800,
           sponsorPlacement: {
+            logoUrl: "https://example.com/sponsor-logo.png",
+            imageUrl: "https://example.com/sponsor-banner.png",
             safetyPolicy: {
               recoveryPriority: {
                 canAffect: false,
