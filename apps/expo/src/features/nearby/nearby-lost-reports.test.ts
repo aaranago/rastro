@@ -29,6 +29,11 @@ const manualLocation: NearbySearchLocation = {
   locationCellLabel: "Zona Sur",
   source: "manual",
 };
+const resolvedManualLocation: NearbySearchLocation = {
+  ...manualLocation,
+  coordinates: { latitude: -16.5, longitude: -68.1193 },
+  manualLocationKind: "place",
+};
 
 const reports: LostPetReportSummary[] = [
   {
@@ -499,6 +504,278 @@ describe("nearby Lost Pet Report discovery", () => {
     expect(viewModel.searchBoundaryLabel).toBe("Radio de 5 km · Zona Sur");
     expect(JSON.stringify(viewModel)).not.toContain("Bruno");
     expect(JSON.stringify(viewModel)).not.toContain("fixture");
+  });
+
+  it("replaces stale nearby cards with the backend-visible list after a successful refresh", async () => {
+    const cache = createInMemoryLastLoadedCache<NearbyLostReportsResult>();
+    const cacheKey = "nearby-api:zona-sur:5:moderation";
+    const omittedByBackend = [
+      buildCachedLostReport("hidden-bruno", "Bruno oculto"),
+      buildCachedLostReport("false-marked-luna", "Luna marcada falsa"),
+      buildCachedLostReport("deleted-toby", "Toby eliminado"),
+      buildCachedLostReport("unavailable-michi", "Michi no disponible"),
+      buildCachedLostReport("pending-review-nala", "Nala en revisión"),
+    ];
+    const backendVisibleReport = buildApiReport({
+      description: "Collar verde, visto cerca de la plaza.",
+      id: "api-visible-toby",
+      pet: {
+        breed: "Mestizo",
+        color: "Cafe",
+        distinguishingTraits: "Collar verde",
+        name: "Toby",
+        species: "dog",
+      },
+      title: "Toby perdido",
+      type: "lost_pet",
+    });
+    const adapter = createCachedNearbyLostReportsAdapter({
+      cache,
+      cacheKey,
+      source: createApiNearbyLostReportsAdapter({
+        client: {
+          report: {
+            nearby: {
+              query: () =>
+                Promise.resolve({
+                  query: {
+                    latitude: -16.5,
+                    limit: 50,
+                    longitude: -68.1193,
+                    radiusMeters: 5_000,
+                    types: ["lost_pet"],
+                  },
+                  results: [backendVisibleReport],
+                }),
+            },
+          },
+        },
+        now: () => "2026-06-19T20:00:00.000Z",
+      }),
+    });
+
+    await cache.write(
+      cacheKey,
+      buildCachedNearbyResult({
+        reports: omittedByBackend,
+      }),
+    );
+
+    const refreshedResult = await adapter.searchLostPetReports({
+      categories: ["lost-pet-report"],
+      location: resolvedManualLocation,
+      radiusKm: 5,
+    });
+    const viewModel = buildNearbyLostReportsViewModel({
+      locationState: { kind: "ready", location: resolvedManualLocation },
+      mode: "list",
+      radiusKm: 5,
+      result: { kind: "success", value: refreshedResult },
+    });
+
+    assertNearbyViewModelKind(viewModel, "ready");
+    expect(refreshedResult.reports.map((report) => report.id)).toEqual([
+      "api-visible-toby",
+    ]);
+    expect(viewModel.cards.map((card) => card.id)).toEqual([
+      "api-visible-toby",
+    ]);
+    expect(JSON.stringify(viewModel)).not.toContain("hidden-bruno");
+    expect(JSON.stringify(viewModel)).not.toContain("false-marked-luna");
+    expect(JSON.stringify(viewModel)).not.toContain("deleted-toby");
+    expect(JSON.stringify(viewModel)).not.toContain("unavailable-michi");
+    expect(JSON.stringify(viewModel)).not.toContain("pending-review-nala");
+  });
+
+  it("keeps a successful empty backend refresh authoritative over stale moderated cards", async () => {
+    const cache = createInMemoryLastLoadedCache<NearbyLostReportsResult>();
+    const cacheKey = "nearby-api:zona-sur:5:moderation-empty";
+    const adapter = createCachedNearbyLostReportsAdapter({
+      cache,
+      cacheKey,
+      source: createApiNearbyLostReportsAdapter({
+        client: {
+          report: {
+            nearby: {
+              query: () =>
+                Promise.resolve({
+                  query: {
+                    latitude: -16.5,
+                    limit: 50,
+                    longitude: -68.1193,
+                    radiusMeters: 5_000,
+                    types: ["lost_pet"],
+                  },
+                  results: [],
+                }),
+            },
+          },
+        },
+        now: () => "2026-06-19T20:00:00.000Z",
+      }),
+    });
+
+    await cache.write(
+      cacheKey,
+      buildCachedNearbyResult({
+        reports: [
+          buildCachedLostReport("hidden-bruno", "Bruno oculto"),
+          buildCachedLostReport("pending-review-nala", "Nala en revisión"),
+        ],
+      }),
+    );
+
+    const refreshedResult = await adapter.searchLostPetReports({
+      categories: ["lost-pet-report"],
+      location: resolvedManualLocation,
+      radiusKm: 5,
+    });
+    const viewModel = buildNearbyLostReportsViewModel({
+      locationState: { kind: "ready", location: resolvedManualLocation },
+      mode: "list",
+      radiusKm: 5,
+      result: { kind: "success", value: refreshedResult },
+    });
+    const offlineAdapter = createCachedNearbyLostReportsAdapter({
+      cache,
+      cacheKey,
+      source: {
+        searchLostPetReports: () =>
+          Promise.reject(new Error("Sin conexión de prueba.")),
+      },
+    });
+    const staleAfterSuccess = await offlineAdapter.searchLostPetReports({
+      categories: ["lost-pet-report"],
+      location: resolvedManualLocation,
+      radiusKm: 5,
+    });
+
+    assertNearbyViewModelKind(viewModel, "empty");
+    expect(refreshedResult.reports).toEqual([]);
+    expect(viewModel.title).toBe("No hay reportes cerca");
+    expect(JSON.stringify(viewModel)).not.toContain("hidden-bruno");
+    expect(JSON.stringify(viewModel)).not.toContain("pending-review-nala");
+    expect(staleAfterSuccess.isOffline).toBe(true);
+    expect(staleAfterSuccess.isStale).toBe(true);
+    expect(staleAfterSuccess.reports).toEqual([]);
+  });
+
+  it("does not let a failed cache write return older excluded cards after backend success", async () => {
+    const staleCachedResult = buildCachedNearbyResult({
+      reports: [
+        buildCachedLostReport("hidden-bruno", "Bruno oculto"),
+        buildCachedLostReport("false-marked-luna", "Luna marcada falsa"),
+      ],
+    });
+    let shouldFailBackend = false;
+    const adapter = createCachedNearbyLostReportsAdapter({
+      cache: {
+        read: () => Promise.resolve(staleCachedResult),
+        write: () => Promise.reject(new Error("Cache no disponible.")),
+      },
+      cacheKey: "nearby-api:zona-sur:5:cache-write-fails",
+      source: createApiNearbyLostReportsAdapter({
+        client: {
+          report: {
+            nearby: {
+              query: () => {
+                if (shouldFailBackend) {
+                  return Promise.reject(new Error("Sin conexión."));
+                }
+
+                return Promise.resolve({
+                  query: {
+                    latitude: -16.5,
+                    limit: 50,
+                    longitude: -68.1193,
+                    radiusMeters: 5_000,
+                    types: ["lost_pet"],
+                  },
+                  results: [
+                    buildApiReport({
+                      description: "Visto por la avenida principal.",
+                      id: "api-visible-toby",
+                      pet: {
+                        breed: "Mestizo",
+                        color: "Cafe",
+                        distinguishingTraits: "Pecho blanco",
+                        name: "Toby",
+                        species: "dog",
+                      },
+                      title: "Toby perdido",
+                      type: "lost_pet",
+                    }),
+                  ],
+                });
+              },
+            },
+          },
+        },
+        now: () => "2026-06-19T20:00:00.000Z",
+      }),
+    });
+
+    const refreshedResult = await adapter.searchLostPetReports({
+      categories: ["lost-pet-report"],
+      location: resolvedManualLocation,
+      radiusKm: 5,
+    });
+
+    shouldFailBackend = true;
+
+    const staleAfterFailedRefresh = await adapter.searchLostPetReports({
+      categories: ["lost-pet-report"],
+      location: resolvedManualLocation,
+      radiusKm: 5,
+    });
+
+    expect(refreshedResult.reports.map((report) => report.id)).toEqual([
+      "api-visible-toby",
+    ]);
+    expect(staleAfterFailedRefresh.isOffline).toBe(true);
+    expect(staleAfterFailedRefresh.isStale).toBe(true);
+    expect(staleAfterFailedRefresh.reports.map((report) => report.id)).toEqual([
+      "api-visible-toby",
+    ]);
+    expect(JSON.stringify(staleAfterFailedRefresh)).not.toContain(
+      "hidden-bruno",
+    );
+    expect(JSON.stringify(staleAfterFailedRefresh)).not.toContain(
+      "false-marked-luna",
+    );
+  });
+
+  it("surfaces backend failure for retry instead of treating it as a moderation refresh", async () => {
+    const adapter = createCachedNearbyLostReportsAdapter({
+      cache: createInMemoryLastLoadedCache<NearbyLostReportsResult>(),
+      cacheKey: "nearby-api:zona-sur:5:no-cache",
+      source: {
+        searchLostPetReports: () =>
+          Promise.reject(new Error("No pudimos conectar con Rastro.")),
+      },
+    });
+
+    await expect(
+      adapter.searchLostPetReports({
+        categories: ["lost-pet-report"],
+        location: resolvedManualLocation,
+        radiusKm: 5,
+      }),
+    ).rejects.toThrow("No pudimos conectar con Rastro.");
+
+    const viewModel = buildNearbyLostReportsViewModel({
+      locationState: { kind: "ready", location: resolvedManualLocation },
+      mode: "list",
+      radiusKm: 5,
+      result: {
+        kind: "error",
+        message: "No pudimos conectar con Rastro.",
+      },
+    });
+
+    assertNearbyViewModelKind(viewModel, "error");
+    expect(viewModel.retryLabel).toBe("Reintentar");
+    expect(viewModel.message).toBe("No pudimos conectar con Rastro.");
   });
 
   it("marks stale cached API results after a failed refresh", async () => {
@@ -1254,4 +1531,45 @@ function getNearbyReportKind(
   report: NearbyPublicReportSummary,
 ): NearbyPublicReportKind {
   return report.reportKind ?? "lost-pet-report";
+}
+
+function buildCachedLostReport(
+  id: string,
+  petName: string,
+): LostPetReportSummary {
+  const baseReport = reports[0];
+
+  if (!baseReport) {
+    throw new Error("Expected nearby lost report fixture.");
+  }
+
+  return {
+    ...baseReport,
+    id,
+    petName,
+    shareTarget: buildTestShareTarget(id, petName),
+  };
+}
+
+function buildCachedNearbyResult({
+  reports: cachedReports,
+}: {
+  reports: NearbyPublicReportSummary[];
+}): NearbyLostReportsResult {
+  return {
+    generatedAt: "2026-06-19T19:00:00.000Z",
+    query: {
+      categories: ["lost-pet-report"],
+      location: resolvedManualLocation,
+      radiusKm: 5,
+    },
+    reports: cachedReports,
+    searchBoundary: {
+      center: resolvedManualLocation,
+      engine: "rastro-postgis-radius",
+      owner: "rastro",
+      publicLocationPrecision: "location-cell",
+      radiusKm: 5,
+    },
+  };
 }

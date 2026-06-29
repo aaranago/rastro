@@ -16,27 +16,32 @@ export function createCachedNearbyLostReportsAdapter({
   cacheKey,
   source,
 }: CachedNearbyLostReportsAdapterOptions): NearbyLostReportsAdapter {
+  const latestSuccessfulResults = new Map<string, NearbyLostReportsResult>();
+
   return {
     async searchLostPetReports(query, options) {
       const key = resolveCacheKey(cacheKey, query);
+      let result: NearbyLostReportsResult;
 
       try {
-        const result = await source.searchLostPetReports(query, options);
-        await cache.write(key, toFreshCachedResult(result));
-        return result;
+        result = await source.searchLostPetReports(query, options);
       } catch (error) {
-        const cached = await cache.read(key);
+        const cached =
+          latestSuccessfulResults.get(key) ?? (await cache.read(key));
 
         if (cached === null) {
           throw error;
         }
 
-        return {
-          ...cached,
-          isOffline: true,
-          isStale: true,
-        };
+        return toStaleCachedResult(cached);
       }
+
+      const freshResult = toFreshCachedResult(result);
+
+      latestSuccessfulResults.set(key, freshResult);
+      await cache.write(key, freshResult).catch(() => undefined);
+
+      return result;
     },
   };
 }
@@ -54,4 +59,14 @@ function toFreshCachedResult(
   const { isOffline: _isOffline, isStale: _isStale, ...freshResult } = result;
 
   return freshResult;
+}
+
+function toStaleCachedResult(
+  result: NearbyLostReportsResult,
+): NearbyLostReportsResult {
+  return {
+    ...result,
+    isOffline: true,
+    isStale: true,
+  };
 }
