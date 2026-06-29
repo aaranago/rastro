@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PublicReportDetailApiReport } from "./public-report-detail";
 import {
   buildPublicReportDetailViewModel,
+  classifyPublicReportDetailLoadFailure,
   createApiPublicReportDetailAdapter,
 } from "./public-report-detail";
 
@@ -116,6 +117,43 @@ describe("public report detail view model", () => {
     );
     expect(viewModel.statusLabel).toBe("Reunida");
     expect(viewModel.statusTone).toBe("closed");
+  });
+
+  it("shows owner-facing pending-review copy without visitor contact actions", () => {
+    const viewModel = buildPublicReportDetailViewModel(
+      createReport({
+        status: "pending_review",
+      }),
+    );
+
+    expect(viewModel.contactActions).toEqual([]);
+    expect(viewModel.ownerNotice).toEqual({
+      body: "El equipo de Rastro lo está revisando antes de mostrarlo públicamente. Puedes verlo aquí porque es tu reporte.",
+      title: "Reporte en revisión",
+      tone: "review",
+    });
+    expect(viewModel.statusLabel).toBe("En revisión");
+    expect(viewModel.statusTone).toBe("review");
+  });
+
+  it("classifies not-found detail failures as unavailable instead of retryable network failures", () => {
+    expect(
+      classifyPublicReportDetailLoadFailure({
+        data: {
+          code: "NOT_FOUND",
+        },
+      }),
+    ).toBe("unavailable");
+    expect(
+      classifyPublicReportDetailLoadFailure(
+        new Error("TRPCClientError: NOT_FOUND"),
+      ),
+    ).toBe("unavailable");
+    expect(
+      classifyPublicReportDetailLoadFailure(
+        new Error("Network request failed"),
+      ),
+    ).toBe("error");
   });
 
   it("preserves five ready media URLs in display order", () => {

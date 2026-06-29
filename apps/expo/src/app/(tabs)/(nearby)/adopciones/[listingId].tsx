@@ -1,6 +1,5 @@
 import { useLocalSearchParams } from "expo-router";
 
-import { PublicAdoptionListingDeepLinkScreen } from "~/features/adoption-listings/public-adoption-listing-deep-link-screen";
 import { createApiPublicReportDetailAdapter } from "~/features/reports/public-report-detail";
 import { PublicReportDetailScreen } from "~/features/reports/public-report-detail-screen";
 import { trpcClient } from "~/utils/api";
@@ -16,7 +15,6 @@ export default function PublicAdoptionListingDeepLinkRoute() {
     <PublicReportDetailScreen
       adapter={reportDetailAdapter}
       expectedType="adoption"
-      fallback={<PublicAdoptionListingDeepLinkScreen listingId={listingId} />}
       reportId={listingId}
     />
   );

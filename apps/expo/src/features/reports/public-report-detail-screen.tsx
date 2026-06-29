@@ -12,9 +12,9 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { Galeria } from "@nandorojo/galeria";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
+import { Galeria } from "@nandorojo/galeria";
 
 import type {
   PublicReportDetailAdapter,
@@ -25,34 +25,40 @@ import { runPublicContactAction } from "../contact-actions/contact-actions";
 import { openInternalRastroHref } from "../navigation/internal-rastro-links";
 import { ShellIcon } from "../shell/shell-overlays";
 import { shellColors } from "../shell/shell-theme";
-import { buildPublicReportDetailViewModel } from "./public-report-detail";
+import {
+  buildPublicReportDetailViewModel,
+  classifyPublicReportDetailLoadFailure,
+} from "./public-report-detail";
 
 const bottomInset = 36;
 
 type PublicReportDetailLoadState =
   | { kind: "error" }
   | { kind: "loading" }
-  | { kind: "ready"; viewModel: PublicReportDetailViewModel };
+  | { kind: "ready"; viewModel: PublicReportDetailViewModel }
+  | { kind: "unavailable" };
 
 export function PublicReportDetailScreen({
   adapter,
   expectedType,
-  fallback,
   reportId,
 }: {
   adapter: PublicReportDetailAdapter;
   expectedType?: PublicReportDetailType;
-  fallback: React.ReactNode;
   reportId?: string | string[];
 }) {
   const resolvedReportId = normalizeReportId(reportId);
   const [loadState, setLoadState] = React.useState<PublicReportDetailLoadState>(
     { kind: "loading" },
   );
+  const [requestVersion, setRequestVersion] = React.useState(0);
+  const handleRetry = React.useCallback(() => {
+    setRequestVersion((version) => version + 1);
+  }, []);
 
   React.useEffect(() => {
     if (!resolvedReportId) {
-      setLoadState({ kind: "error" });
+      setLoadState({ kind: "unavailable" });
       return;
     }
 
@@ -67,7 +73,7 @@ export function PublicReportDetailScreen({
         }
 
         if (expectedType && report.type !== expectedType) {
-          setLoadState({ kind: "error" });
+          setLoadState({ kind: "unavailable" });
           return;
         }
 
@@ -76,23 +82,31 @@ export function PublicReportDetailScreen({
           viewModel: buildPublicReportDetailViewModel(report),
         });
       })
-      .catch(() => {
-        if (isCurrent) {
-          setLoadState({ kind: "error" });
+      .catch((error: unknown) => {
+        if (!isCurrent) {
+          return;
         }
+
+        setLoadState({
+          kind: classifyPublicReportDetailLoadFailure(error),
+        });
       });
 
     return () => {
       isCurrent = false;
     };
-  }, [adapter, expectedType, resolvedReportId]);
+  }, [adapter, expectedType, requestVersion, resolvedReportId]);
 
   if (loadState.kind === "ready") {
     return <PublicReportDetailContent viewModel={loadState.viewModel} />;
   }
 
   if (loadState.kind === "error") {
-    return <>{fallback}</>;
+    return <PublicReportDetailErrorState onRetry={handleRetry} />;
+  }
+
+  if (loadState.kind === "unavailable") {
+    return <PublicReportDetailUnavailableState />;
   }
 
   return <PublicReportDetailLoadingState />;
@@ -331,14 +345,28 @@ export function PublicReportDetailContent({
         </Text>
       </Pressable>
 
-      {viewModel.isCurrentMember ? (
-        <View style={styles.ownerNotice}>
-          <Text selectable style={styles.ownerNoticeTitle}>
-            Es tu reporte
+      {viewModel.ownerNotice ? (
+        <View
+          style={[
+            styles.ownerNotice,
+            viewModel.ownerNotice.tone === "review"
+              ? styles.ownerReviewNotice
+              : null,
+          ]}
+        >
+          <Text
+            selectable
+            style={[
+              styles.ownerNoticeTitle,
+              viewModel.ownerNotice.tone === "review"
+                ? styles.ownerReviewNoticeTitle
+                : null,
+            ]}
+          >
+            {viewModel.ownerNotice.title}
           </Text>
           <Text selectable style={styles.ownerNoticeBody}>
-            Comparte el enlace para que mas personas cerca de la zona puedan
-            verlo.
+            {viewModel.ownerNotice.body}
           </Text>
         </View>
       ) : null}
@@ -394,11 +422,7 @@ function ReportMediaGallery({
         style={[styles.hero, primaryPhotoUrl ? null : styles.heroFallbackFrame]}
       >
         {primaryPhotoUrl ? (
-          <Galeria
-            hidePageIndicators={false}
-            theme="dark"
-            urls={photoUrls}
-          >
+          <Galeria hidePageIndicators={false} theme="dark" urls={photoUrls}>
             <ScrollView
               accessibilityLabel={`Fotos del reporte, ${photoUrls.length} en total`}
               contentContainerStyle={styles.heroCarouselContent}
@@ -482,7 +506,9 @@ function ReportMediaGallery({
               styles.statusPill,
               viewModel.statusTone === "closed"
                 ? styles.statusPillClosed
-                : { backgroundColor: viewModel.accentColor },
+                : viewModel.statusTone === "review"
+                  ? styles.statusPillReview
+                  : { backgroundColor: viewModel.accentColor },
             ]}
           >
             <Text
@@ -490,7 +516,9 @@ function ReportMediaGallery({
                 styles.statusPillText,
                 viewModel.statusTone === "closed"
                   ? styles.statusPillTextClosed
-                  : null,
+                  : viewModel.statusTone === "review"
+                    ? styles.statusPillTextReview
+                    : null,
               ]}
             >
               {viewModel.statusLabel}
@@ -567,6 +595,65 @@ function PublicReportDetailLoadingState() {
         <Text selectable style={styles.loadingBody}>
           Estamos trayendo el detalle publico y las fotos del reporte.
         </Text>
+      </View>
+    </View>
+  );
+}
+
+export function PublicReportDetailUnavailableState() {
+  return (
+    <View style={styles.stateScreen}>
+      <View style={styles.statePanel}>
+        <View style={styles.stateIcon}>
+          <ShellIcon color={shellColors.primary} name="lock.fill" size={24} />
+        </View>
+        <Text selectable style={styles.stateTitle}>
+          Reporte no disponible
+        </Text>
+        <Text selectable style={styles.stateBody}>
+          Este reporte fue retirado, marcado para revisión o ya no está
+          disponible públicamente en Rastro.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+export function PublicReportDetailErrorState({
+  onRetry,
+}: {
+  onRetry: () => void;
+}) {
+  return (
+    <View style={styles.stateScreen}>
+      <View style={styles.statePanel}>
+        <View style={styles.stateIcon}>
+          <ShellIcon
+            color={shellColors.lost}
+            name="exclamationmark.triangle.fill"
+            size={24}
+          />
+        </View>
+        <Text selectable style={styles.stateTitle}>
+          No pudimos cargar el reporte
+        </Text>
+        <Text selectable style={styles.stateBody}>
+          Revisa tu conexión e intenta de nuevo. Si el problema continúa, vuelve
+          a abrir el enlace más tarde.
+        </Text>
+        <Pressable
+          accessibilityLabel="Reintentar carga del reporte"
+          accessibilityRole="button"
+          onPress={onRetry}
+          style={styles.retryButton}
+        >
+          <ShellIcon
+            color={shellColors.white}
+            name="arrow.clockwise"
+            size={17}
+          />
+          <Text style={styles.retryButtonText}>Reintentar</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -766,6 +853,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "900",
   },
+  ownerReviewNotice: {
+    backgroundColor: "#FFF4CC",
+  },
+  ownerReviewNoticeTitle: {
+    color: "#6F5500",
+  },
   primaryAction: {
     alignItems: "center",
     borderCurve: "continuous",
@@ -870,6 +963,9 @@ const styles = StyleSheet.create({
   statusPillClosed: {
     backgroundColor: shellColors.surfaceMuted,
   },
+  statusPillReview: {
+    backgroundColor: "#FFF4CC",
+  },
   statusPillText: {
     color: shellColors.white,
     fontSize: 12,
@@ -878,6 +974,47 @@ const styles = StyleSheet.create({
   },
   statusPillTextClosed: {
     color: shellColors.muted,
+  },
+  statusPillTextReview: {
+    color: "#6F5500",
+  },
+  stateBody: {
+    color: shellColors.muted,
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: "center",
+  },
+  stateIcon: {
+    alignItems: "center",
+    backgroundColor: shellColors.primarySoft,
+    borderCurve: "continuous",
+    borderRadius: 18,
+    height: 48,
+    justifyContent: "center",
+    width: 48,
+  },
+  statePanel: {
+    alignItems: "center",
+    backgroundColor: shellColors.surface,
+    borderColor: shellColors.border,
+    borderCurve: "continuous",
+    borderRadius: 22,
+    borderWidth: 1,
+    gap: 12,
+    padding: 24,
+  },
+  stateScreen: {
+    backgroundColor: shellColors.background,
+    flex: 1,
+    justifyContent: "center",
+    padding: 18,
+  },
+  stateTitle: {
+    color: shellColors.text,
+    fontSize: 19,
+    fontWeight: "900",
+    lineHeight: 24,
+    textAlign: "center",
   },
   subtitle: {
     color: shellColors.muted,
@@ -905,6 +1042,23 @@ const styles = StyleSheet.create({
   thumbnailImage: {
     height: "100%",
     width: "100%",
+  },
+  retryButton: {
+    alignItems: "center",
+    backgroundColor: shellColors.primary,
+    borderCurve: "continuous",
+    borderRadius: 16,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 48,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+  },
+  retryButtonText: {
+    color: shellColors.white,
+    fontSize: 15,
+    fontWeight: "900",
   },
   tertiaryAction: {
     alignItems: "center",

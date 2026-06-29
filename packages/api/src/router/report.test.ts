@@ -377,7 +377,52 @@ describe("report router", () => {
     });
   });
 
-  it("excludes hidden reports from nearby public results", async () => {
+  it("returns not found for false-marked public report details", async () => {
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      session: null,
+      reportRepository: {
+        findById: () =>
+          Promise.resolve(
+            persistedSightingReport({
+              falseReportedAt: new Date("2026-06-26T17:20:00.000Z"),
+              falseReportedByAdminId: "member-admin",
+            }),
+          ),
+      },
+    });
+
+    await expect(
+      caller.report.detail({ id: "report-sighting-sopocachi" }),
+    ).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("returns not found for deleted public report details", async () => {
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      session: null,
+      reportRepository: {
+        findById: () =>
+          Promise.resolve(
+            persistedSightingReport({
+              deletedAt: new Date("2026-06-26T17:30:00.000Z"),
+            }),
+          ),
+      },
+    });
+
+    await expect(
+      caller.report.detail({ id: "report-sighting-sopocachi" }),
+    ).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("excludes hidden and false-marked reports from nearby public results", async () => {
     const caller = createCaller({
       authApi: {},
       db: {},
@@ -394,6 +439,11 @@ describe("report router", () => {
               hiddenAt: new Date("2026-06-26T17:10:00.000Z"),
               hiddenByAdminId: "member-admin",
               hiddenReason: "spam",
+            }),
+            persistedSightingReport({
+              id: "report-false-sopocachi",
+              falseReportedAt: new Date("2026-06-26T17:20:00.000Z"),
+              falseReportedByAdminId: "member-admin",
             }),
           ]),
       },

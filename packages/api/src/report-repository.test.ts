@@ -31,7 +31,7 @@ describe("report repository", () => {
     expect(query.params).toEqual([-68.12, -16.5, 5000]);
   });
 
-  it("builds public visibility filters that exclude deleted and hidden reports", () => {
+  it("builds public visibility filters that exclude deleted, hidden, and false-marked reports", () => {
     const condition = buildPublicReportVisibilityCondition();
 
     if (!condition) {
@@ -42,6 +42,7 @@ describe("report repository", () => {
 
     expect(query.sql).toContain('"report"."deletedAt" is null');
     expect(query.sql).toContain('"report"."hiddenAt" is null');
+    expect(query.sql).toContain('"report"."falseReportedAt" is null');
   });
 
   it("derives structured report metrics fields from location cells instead of display labels", () => {

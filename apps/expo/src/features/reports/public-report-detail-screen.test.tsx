@@ -2,7 +2,11 @@ import * as React from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { PublicReportDetailViewModel } from "./public-report-detail";
-import { PublicReportDetailContent } from "./public-report-detail-screen";
+import {
+  PublicReportDetailContent,
+  PublicReportDetailErrorState,
+  PublicReportDetailUnavailableState,
+} from "./public-report-detail-screen";
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -228,12 +232,61 @@ describe("PublicReportDetailContent", () => {
     );
     const visitorScreen = renderFunctionElement(
       <PublicReportDetailContent
-        viewModel={createViewModel({ isCurrentMember: false })}
+        viewModel={createViewModel({
+          isCurrentMember: false,
+          ownerNotice: null,
+        })}
       />,
     );
 
     expect(findText(ownerScreen, "Es tu reporte")).toBe(true);
     expect(findText(visitorScreen, "Es tu reporte")).toBe(false);
+  });
+
+  it("renders pending-review owner copy when the backend allows the member to see the report", () => {
+    const screen = renderFunctionElement(
+      <PublicReportDetailContent
+        viewModel={createViewModel({
+          ownerNotice: {
+            body: "El equipo de Rastro lo está revisando antes de mostrarlo públicamente. Puedes verlo aquí porque es tu reporte.",
+            title: "Reporte en revisión",
+            tone: "review",
+          },
+          statusLabel: "En revisión",
+          statusTone: "review",
+        })}
+      />,
+    );
+
+    expect(findText(screen, "En revisión")).toBe(true);
+    expect(findText(screen, "Reporte en revisión")).toBe(true);
+    expect(findText(screen, "lo está revisando")).toBe(true);
+  });
+});
+
+describe("PublicReportDetail load states", () => {
+  it("shows unavailable moderation copy without a retry action", () => {
+    const screen = renderFunctionElement(
+      <PublicReportDetailUnavailableState />,
+    );
+
+    expect(findText(screen, "Reporte no disponible")).toBe(true);
+    expect(findText(screen, "retirado, marcado para revisión")).toBe(true);
+    expect(findText(screen, "Reintentar")).toBe(false);
+  });
+
+  it("shows a retry action for generic backend or network failures", () => {
+    const onRetry = vi.fn();
+    const screen = renderFunctionElement(
+      <PublicReportDetailErrorState onRetry={onRetry} />,
+    );
+
+    expect(findText(screen, "No pudimos cargar el reporte")).toBe(true);
+    expect(findText(screen, "Revisa tu conexión")).toBe(true);
+
+    pressByText(screen, "Reintentar");
+
+    expect(onRetry).toHaveBeenCalledOnce();
   });
 });
 
@@ -265,6 +318,11 @@ function createViewModel(
     },
     locationLabel: "La Paz",
     locationPrivacyLabel: "Mostramos una zona aproximada por seguridad.",
+    ownerNotice: {
+      body: "Comparte el enlace para que más personas cerca de la zona puedan verlo.",
+      title: "Es tu reporte",
+      tone: "default",
+    },
     photoUrls: ["https://cdn.rastro.bo/luna.jpg"],
     publicPageLabel: "Abrir página pública",
     shareMessage:

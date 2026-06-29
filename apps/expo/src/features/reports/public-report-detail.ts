@@ -21,6 +21,8 @@ export interface PublicReportDetailAdapter {
 }
 
 export type PublicReportDetailType = PublicReportDetailApiReport["type"];
+export type PublicReportDetailLoadFailureKind = "error" | "unavailable";
+export type PublicReportDetailStatusTone = "active" | "closed" | "review";
 
 export interface PublicReportDetailViewModel {
   accentColor: string;
@@ -37,13 +39,14 @@ export interface PublicReportDetailViewModel {
   locationAction: PublicReportDetailLocationAction;
   locationLabel: string;
   locationPrivacyLabel: string;
+  ownerNotice: PublicReportDetailOwnerNotice | null;
   photoUrls: string[];
   publicPageLabel: string;
   shareMessage: string;
   shareTitle: string;
   shareUrl: string;
   statusLabel: string;
-  statusTone: "active" | "closed";
+  statusTone: PublicReportDetailStatusTone;
   subtitle: string;
   title: string;
   type: PublicReportDetailType;
@@ -59,6 +62,12 @@ export interface PublicReportDetailFact {
 export interface PublicReportDetailLocationAction {
   label: string;
   url: string;
+}
+
+export interface PublicReportDetailOwnerNotice {
+  body: string;
+  title: string;
+  tone: "default" | "review";
 }
 
 const publicWebBaseUrl = "https://rastro.bo";
@@ -150,6 +159,18 @@ export function createApiPublicReportDetailAdapter({
   };
 }
 
+export function classifyPublicReportDetailLoadFailure(
+  error: unknown,
+): PublicReportDetailLoadFailureKind {
+  const code = readPublicReportDetailErrorCode(error);
+
+  if (code === "BAD_REQUEST" || code === "NOT_FOUND") {
+    return "unavailable";
+  }
+
+  return "error";
+}
+
 export function buildPublicReportDetailViewModel(
   report: PublicReportDetailApiReport,
 ): PublicReportDetailViewModel {
@@ -164,13 +185,8 @@ export function buildPublicReportDetailViewModel(
   const locationLabel = formatReportLocationLabel(report.location);
   const contactActions = getContactActions(report, shareTarget);
   const contactLabel = formatContactLabel(report.contact, contactActions);
-  const statusTone = report.status === "closed" ? "closed" : "active";
-  const statusLabel =
-    report.status === "closed"
-      ? report.outcome
-        ? outcomeLabels[report.outcome]
-        : "Cerrado"
-      : "Activo";
+  const statusTone = getReportStatusTone(report.status);
+  const statusLabel = getReportStatusLabel(report);
   const details = uniqueTrimmedValues([
     report.pet.size?.trim(),
     report.pet.color.trim(),
@@ -215,6 +231,7 @@ export function buildPublicReportDetailViewModel(
       report.location.precision === "exact"
         ? "Pin exacto compartido por la persona cuidadora."
         : "Mostramos una zona aproximada por seguridad.",
+    ownerNotice: buildOwnerNotice(report),
     photoUrls: getPhotoUrls(report),
     publicPageLabel: config.publicPageLabel,
     shareMessage: shareTarget.message,
@@ -226,6 +243,96 @@ export function buildPublicReportDetailViewModel(
     title: buildTitle({ petName, report }),
     type: report.type,
     typeLabel: config.typeLabel,
+  };
+}
+
+function readPublicReportDetailErrorCode(error: unknown) {
+  const directCode = readErrorCodeValue(error);
+
+  if (directCode) {
+    return directCode;
+  }
+
+  if (isRecord(error)) {
+    const dataCode = readErrorCodeValue(error.data);
+
+    if (dataCode) {
+      return dataCode;
+    }
+
+    if (isRecord(error.shape)) {
+      const shapeDataCode = readErrorCodeValue(error.shape.data);
+
+      if (shapeDataCode) {
+        return shapeDataCode;
+      }
+    }
+  }
+
+  if (error instanceof Error) {
+    const codeMatch = /\b(BAD_REQUEST|NOT_FOUND)\b/.exec(error.message);
+
+    return codeMatch?.[1];
+  }
+
+  return undefined;
+}
+
+function readErrorCodeValue(value: unknown) {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const code = readNonEmptyString(value.code)?.toUpperCase();
+
+  return code === "BAD_REQUEST" || code === "NOT_FOUND" ? code : undefined;
+}
+
+function getReportStatusTone(
+  status: PublicReportDetailApiReport["status"],
+): PublicReportDetailStatusTone {
+  if (status === "closed") {
+    return "closed";
+  }
+
+  if (status === "pending_review") {
+    return "review";
+  }
+
+  return "active";
+}
+
+function getReportStatusLabel(report: PublicReportDetailApiReport) {
+  if (report.status === "closed") {
+    return report.outcome ? outcomeLabels[report.outcome] : "Cerrado";
+  }
+
+  if (report.status === "pending_review") {
+    return "En revisión";
+  }
+
+  return "Activo";
+}
+
+function buildOwnerNotice(
+  report: PublicReportDetailApiReport,
+): PublicReportDetailOwnerNotice | null {
+  if (!report.owner.isCurrentMember) {
+    return null;
+  }
+
+  if (report.status === "pending_review") {
+    return {
+      body: "El equipo de Rastro lo está revisando antes de mostrarlo públicamente. Puedes verlo aquí porque es tu reporte.",
+      title: "Reporte en revisión",
+      tone: "review",
+    };
+  }
+
+  return {
+    body: "Comparte el enlace para que más personas cerca de la zona puedan verlo.",
+    title: "Es tu reporte",
+    tone: "default",
   };
 }
 
