@@ -1,11 +1,15 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { ThemeProvider } from "@acme/ui/theme";
 
 import { AdminNavigation } from "./admin-navigation";
-import { AdminAccessDenied } from "./admin-shell";
+import { AdminAccessDenied, AdminShell } from "./admin-shell";
 import { AdminHeaderThemeToggle } from "./admin-shell-client";
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/admin/metricas",
+}));
 
 describe("admin shell foundation", () => {
   it("renders the shared access-denied state for non-admin visitors", () => {
@@ -24,7 +28,7 @@ describe("admin shell foundation", () => {
     expect(html).toContain("Visitante");
   });
 
-  it("renders admin navigation labels, route status, and active route state", () => {
+  it("renders admin navigation labels and active route state without status residue", () => {
     const html = renderToStaticMarkup(
       <AdminNavigation currentPathname="/admin/proveedores" />,
     );
@@ -37,13 +41,14 @@ describe("admin shell foundation", () => {
     expect(html).toContain("Ajustes");
     expect(html).toContain("Métricas");
     expect(html).toContain("Auditoría");
-    expect(html).toContain("Disponible");
     expect(html).toContain('href="/admin/proveedores"');
     expect(html).toContain('href="/admin/miembros"');
     expect(html).toContain('href="/admin/metricas"');
     expect(html).toContain('href="/admin/auditoria"');
     expect(html).toContain('aria-current="page"');
+    expect(html).not.toContain("Disponible");
     expect(html).not.toContain("Planificado");
+    expect(html).not.toContain("ADMIN-");
     expect(html).not.toContain('aria-disabled="true"');
     expect(html).not.toContain("Overview");
     expect(html).not.toContain("Resource Provider");
@@ -61,6 +66,30 @@ describe("admin shell foundation", () => {
     expect(html).toContain("min-h-12");
     expect(html).toContain("focus-visible:ring-[3px]");
     expect(html).not.toContain("overflow-x-auto");
+  });
+
+  it("renders shell breadcrumbs, mobile drawer trigger, desktop collapse, and header search", () => {
+    const html = renderToStaticMarkup(
+      <ThemeProvider>
+        <AdminShell
+          viewer={{
+            displayName: "Admin Rastro",
+            role: "admin",
+          }}
+        >
+          <section>Contenido administrativo</section>
+        </AdminShell>
+      </ThemeProvider>,
+    );
+
+    expect(html).toContain('aria-label="Ruta de administración"');
+    expect(html).toContain('aria-label="Abrir navegación"');
+    expect(html).toContain('aria-label="Contraer barra lateral"');
+    expect(html).toContain('role="search"');
+    expect(html).toContain("Buscar desde Métricas");
+    expect(html).toContain("Contenido administrativo");
+    expect(html).not.toContain("ADMIN-");
+    expect(html).not.toContain("Disponible");
   });
 
   it("renders the admin theme toggle with Spanish accessible naming", () => {

@@ -1,17 +1,12 @@
 import Link from "next/link";
 
 import { cn } from "@acme/ui";
-import { Badge } from "@acme/ui/badge";
-
-export type AdminRouteStatus = "available" | "planned";
 
 export interface AdminNavigationItem {
   description: string;
   href: string;
-  issueId?: string;
   label: string;
-  status: AdminRouteStatus;
-  statusLabel: "Disponible" | "Planificado";
+  shortLabel: string;
 }
 
 export const adminNavigationItems: readonly AdminNavigationItem[] = [
@@ -19,70 +14,54 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
     description: "Resumen operativo y accesos rápidos del área admin.",
     href: "/admin",
     label: "Resumen",
-    status: "available",
-    statusLabel: "Disponible",
+    shortLabel: "RS",
   },
   {
     description:
       "Cola actual para reportes, publicaciones, chats y proveedores.",
     href: "/admin/moderacion",
-    issueId: "ADMIN-007",
     label: "Moderación",
-    status: "available",
-    statusLabel: "Disponible",
+    shortLabel: "MO",
   },
   {
-    description:
-      "Gestión actual de perfiles de proveedores y verificación.",
+    description: "Gestión actual de perfiles de proveedores y verificación.",
     href: "/admin/proveedores",
-    issueId: "ADMIN-002",
     label: "Proveedores",
-    status: "available",
-    statusLabel: "Disponible",
+    shortLabel: "PR",
   },
   {
     description:
       "Gestión independiente de patrocinios locales, sin afectar la recuperación.",
     href: "/admin/patrocinios",
-    issueId: "ADMIN-005",
     label: "Patrocinios",
-    status: "available",
-    statusLabel: "Disponible",
+    shortLabel: "PA",
   },
   {
     description:
       "Búsqueda de miembros, perfil de seguridad y suspensión persistida.",
     href: "/admin/miembros",
-    issueId: "ADMIN-009",
     label: "Miembros",
-    status: "available",
-    statusLabel: "Disponible",
+    shortLabel: "MI",
   },
   {
     description:
       "Modo de revisión, correo verificado requerido y reglas operativas.",
     href: "/admin/ajustes",
-    issueId: "ADMIN-006",
     label: "Ajustes",
-    status: "available",
-    statusLabel: "Disponible",
+    shortLabel: "AJ",
   },
   {
     description:
       "Métricas de abuso, contenido y recursos por ciudad y departamento.",
     href: "/admin/metricas",
-    issueId: "ADMIN-010",
     label: "Métricas",
-    status: "available",
-    statusLabel: "Disponible",
+    shortLabel: "ME",
   },
   {
     description: "Historial inmutable de acciones administrativas.",
     href: "/admin/auditoria",
-    issueId: "ADMIN-010",
     label: "Auditoría",
-    status: "available",
-    statusLabel: "Disponible",
+    shortLabel: "AU",
   },
 ];
 
@@ -97,18 +76,40 @@ function isAdminNavigationItemActive(
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-export function AdminNavigation(props: { currentPathname: string }) {
+export function getAdminNavigationItemForPathname(pathname: string) {
+  return (
+    adminNavigationItems
+      .filter((item) => isAdminNavigationItemActive(pathname, item))
+      .sort((left, right) => right.href.length - left.href.length)[0] ??
+    adminNavigationItems[0]
+  );
+}
+
+export function AdminNavigation(props: {
+  collapsed?: boolean;
+  currentPathname: string;
+  onNavigate?: () => void;
+}) {
   return (
     <nav
       aria-label="Navegación de administración"
-      className="min-w-0 max-w-full"
+      className="max-w-full min-w-0"
     >
-      <ul className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:flex-col">
+      <ul
+        className={cn(
+          "grid w-full min-w-0 grid-cols-1 gap-2",
+          props.collapsed
+            ? "lg:flex lg:flex-col"
+            : "sm:grid-cols-2 lg:flex lg:flex-col",
+        )}
+      >
         {adminNavigationItems.map((item) => (
           <li className="min-w-0" key={item.href}>
             <AdminNavigationEntry
+              collapsed={props.collapsed}
               currentPathname={props.currentPathname}
               item={item}
+              onNavigate={props.onNavigate}
             />
           </li>
         ))}
@@ -118,53 +119,47 @@ export function AdminNavigation(props: { currentPathname: string }) {
 }
 
 function AdminNavigationEntry(props: {
+  collapsed?: boolean;
   currentPathname: string;
   item: AdminNavigationItem;
+  onNavigate?: () => void;
 }) {
   const isActive = isAdminNavigationItemActive(
     props.currentPathname,
     props.item,
   );
   const className = cn(
-    "border-border/70 bg-card/60 text-card-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex min-h-12 w-full min-w-0 items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors outline-none focus-visible:ring-[3px]",
+    "border-border/70 bg-card/60 text-card-foreground hover:border-primary/50 hover:bg-primary/5 focus-visible:border-ring focus-visible:ring-ring/50 flex min-h-12 w-full min-w-0 items-center gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors outline-none focus-visible:ring-[3px]",
     isActive && "border-primary bg-primary/10 text-primary",
-    props.item.status === "available" &&
-      "hover:border-primary/50 hover:bg-primary/5",
-    props.item.status === "planned" &&
-      "text-muted-foreground bg-muted/40 border-dashed",
+    props.collapsed && "lg:justify-center lg:px-2",
   );
-
-  const content = (
-    <>
-      <span className="truncate font-medium">{props.item.label}</span>
-      <Badge
-        className="shrink-0"
-        variant={props.item.status === "available" ? "default" : "secondary"}
-      >
-        {props.item.statusLabel}
-      </Badge>
-    </>
-  );
-
-  if (props.item.status === "planned") {
-    return (
-      <span
-        aria-disabled="true"
-        className={className}
-        title={`${props.item.label}: ${props.item.statusLabel}`}
-      >
-        {content}
-      </span>
-    );
-  }
 
   return (
     <Link
       aria-current={isActive ? "page" : undefined}
+      aria-label={props.item.label}
       className={className}
       href={props.item.href}
+      onClick={props.onNavigate}
+      title={props.item.description}
     >
-      {content}
+      <span
+        aria-hidden="true"
+        className={cn(
+          "bg-muted text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-md text-[0.7rem] font-semibold",
+          isActive && "bg-primary text-primary-foreground",
+        )}
+      >
+        {props.item.shortLabel}
+      </span>
+      <span
+        className={cn(
+          "min-w-0 truncate font-medium",
+          props.collapsed && "lg:sr-only",
+        )}
+      >
+        {props.item.label}
+      </span>
     </Link>
   );
 }

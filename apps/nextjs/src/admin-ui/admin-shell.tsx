@@ -8,10 +8,7 @@ import {
   CardTitle,
 } from "@acme/ui/card";
 
-import {
-  AdminHeaderThemeToggle,
-  AdminNavigationWithPathname,
-} from "./admin-shell-client";
+import { AdminShellFrame } from "./admin-shell-client";
 
 export type AdminShellViewerRole = "admin" | "member" | "visitor";
 
@@ -32,54 +29,13 @@ export function AdminShell(props: {
       data-admin-route-shell
     >
       <AdminShellRouteStyles />
-      <div className="lg:grid lg:min-h-screen lg:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="border-border bg-background/95 border-b px-4 py-4 lg:sticky lg:top-0 lg:min-h-screen lg:border-r lg:border-b-0 lg:px-5 lg:py-6">
-          <div className="flex min-w-0 flex-col gap-4">
-            <div className="min-w-0">
-              <p className="text-primary text-sm font-semibold">
-                Administración Rastro
-              </p>
-              <h1 className="mt-1 truncate text-xl font-semibold tracking-normal">
-                Operación es-BO
-              </h1>
-              <p className="text-muted-foreground mt-2 text-sm">
-                Panel interno para moderación, proveedores y seguridad.
-              </p>
-            </div>
-            <AdminNavigationWithPathname />
-          </div>
-        </aside>
-
-        <div className="min-w-0">
-          <header className="border-border bg-background/95 sticky top-0 z-20 border-b px-4 py-3 backdrop-blur sm:px-6 lg:px-8">
-            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-muted-foreground text-xs font-semibold tracking-[0.12em] uppercase">
-                  Administración Rastro
-                </p>
-                <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-                  <p className="truncate text-sm font-medium">{displayName}</p>
-                  <Badge
-                    variant={
-                      props.viewer.role === "admin" ? "default" : "secondary"
-                    }
-                  >
-                    {getViewerRoleLabel(props.viewer.role)}
-                  </Badge>
-                </div>
-              </div>
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="text-muted-foreground text-sm">Tema</span>
-                <AdminHeaderThemeToggle />
-              </div>
-            </div>
-          </header>
-
-          <main className="min-w-0 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
-            {props.children}
-          </main>
-        </div>
-      </div>
+      <AdminShellFrame
+        displayName={displayName}
+        roleLabel={getViewerRoleLabel(props.viewer.role)}
+        viewerRole={props.viewer.role}
+      >
+        {props.children}
+      </AdminShellFrame>
     </div>
   );
 }

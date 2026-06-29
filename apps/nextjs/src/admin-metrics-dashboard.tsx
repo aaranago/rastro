@@ -61,10 +61,7 @@ function AdminMetricsHeader() {
   return (
     <section className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div className="min-w-0">
-        <Badge className="w-fit" variant="secondary">
-          ADMIN-010
-        </Badge>
-        <h2 className="mt-3 text-3xl font-semibold tracking-normal sm:text-4xl">
+        <h2 className="text-3xl font-semibold tracking-normal sm:text-4xl">
           Métricas operativas
         </h2>
         <p className="text-muted-foreground mt-3 max-w-3xl text-sm leading-6 sm:text-base">
@@ -278,7 +275,7 @@ function MetricsLocationCard(props: {
   return (
     <article className="border-border bg-background rounded-lg border p-4">
       <div className="min-w-0">
-        <h4 className="break-words text-base font-semibold">
+        <h4 className="text-base font-semibold break-words">
           {props.mode === "city"
             ? (props.row.city ?? "Sin ciudad")
             : props.row.department}
@@ -312,13 +309,13 @@ function LocationLabel(props: {
 }) {
   if (props.mode === "department") {
     return (
-      <span className="break-words font-medium">{props.row.department}</span>
+      <span className="font-medium break-words">{props.row.department}</span>
     );
   }
 
   return (
     <span className="flex min-w-0 flex-col">
-      <span className="break-words font-medium">
+      <span className="font-medium break-words">
         {props.row.city ?? "Sin ciudad"}
       </span>
       <span className="text-muted-foreground text-xs">

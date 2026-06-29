@@ -52,6 +52,20 @@ const imageMimeTypeSchema = z
   .string()
   .regex(/^image\/(jpeg|png|webp|heic|heif)$/);
 
+export const adminMediaAssetPurposeSchema = z.enum([
+  "provider_logo",
+  "provider_photo",
+  "sponsor_logo",
+  "sponsor_image",
+]);
+
+export const adminMediaAssetStatusSchema = z.enum([
+  "pending",
+  "ready",
+  "failed",
+  "removed",
+]);
+
 export const createUploadSessionInputSchema = z.object({
   checksumSha256: z.string().min(8).max(128).optional(),
   draftId: z.string().min(1).max(128),
@@ -64,6 +78,19 @@ export const createUploadSessionInputSchema = z.object({
 
 export const uploadSessionIdInputSchema = z.object({
   mediaId: z.uuid(),
+});
+
+export const createAdminMediaUploadSessionInputSchema = z.object({
+  checksumSha256: z.string().min(8).max(128).optional(),
+  height: z.number().int().positive(),
+  mimeType: imageMimeTypeSchema,
+  purpose: adminMediaAssetPurposeSchema,
+  sizeBytes: z.number().int().positive(),
+  width: z.number().int().positive(),
+});
+
+export const adminMediaAssetIdInputSchema = z.object({
+  assetId: z.uuid(),
 });
 
 const boliviaLatitudeSchema = z.number().min(-23).max(-9);
@@ -300,7 +327,9 @@ export const createResourceProviderInputSchema = z.object({
   category: resourceProviderCategorySchema,
   description: z.string().min(10).max(500),
   shortDescription: z.string().min(10).max(1000),
+  logoAssetId: z.uuid().optional(),
   logoUrl: z.url().optional(),
+  photoAssetId: z.uuid().optional(),
   photoUrl: z.url().optional(),
   location: resourceProviderLocationInputSchema,
   serviceAreaLabel: z.string().min(2).max(160),
@@ -323,7 +352,9 @@ export const updateResourceProviderInputSchema = z
     category: resourceProviderCategorySchema.optional(),
     description: z.string().min(10).max(500).optional(),
     shortDescription: z.string().min(10).max(1000).optional(),
+    logoAssetId: z.uuid().nullable().optional(),
     logoUrl: z.url().nullable().optional(),
+    photoAssetId: z.uuid().nullable().optional(),
     photoUrl: z.url().nullable().optional(),
     location: resourceProviderLocationUpdateInputSchema.optional(),
     serviceAreaLabel: z.string().min(2).max(160).optional(),
@@ -406,6 +437,10 @@ const localSponsorPlacementFieldsSchema = z.object({
     .min(10)
     .max(240)
     .default("Patrocinado: apoyo local. No cambia la prioridad de reportes."),
+  logoAssetId: z.uuid().nullable().optional(),
+  logoUrl: z.url().nullable().optional(),
+  imageAssetId: z.uuid().nullable().optional(),
+  imageUrl: z.url().nullable().optional(),
 });
 
 export const attachLocalSponsorPlacementInputSchema =
@@ -433,10 +468,116 @@ export const deleteResourceProviderInputSchema = z.object({
   providerId: z.uuid(),
 });
 
+export function createAdminListBaseInputSchema() {
+  return z.object({
+    page: z.number().int().min(1).optional(),
+    pageSize: z.number().int().min(1).max(100).optional(),
+    search: z.string().trim().max(160).optional(),
+    sortDirection: z.enum(["asc", "desc"]).optional(),
+  });
+}
+
+const adminListBaseInputSchema = createAdminListBaseInputSchema().strict();
+
+export const adminResourceProviderSortBySchema = z.enum([
+  "category",
+  "city",
+  "department",
+  "mediaState",
+  "name",
+  "sponsorState",
+  "updatedAt",
+  "verification",
+]);
+
+export const adminSponsorPlacementSortBySchema = z.enum([
+  "city",
+  "department",
+  "endsOn",
+  "mediaState",
+  "providerName",
+  "startsOn",
+  "state",
+  "surface",
+]);
+
+export const adminResourceProviderSponsorStateSchema = z.enum([
+  "any",
+  "active",
+  "inactive",
+  "none",
+]);
+
+export const adminSponsorPlacementStateSchema = z.enum([
+  "any",
+  "active",
+  "expired",
+  "scheduled",
+]);
+
+export const adminResourceProviderMediaStateSchema = z.enum([
+  "any",
+  "has_media",
+  "missing_media",
+]);
+
+export const adminResourceProviderListInputSchema = adminListBaseInputSchema
+  .extend({
+    filters: z
+      .object({
+        activeOn: isoDateOnlySchema.optional(),
+        category: z.array(resourceProviderCategorySchema).max(8).optional(),
+        city: z.string().trim().min(1).max(120).optional(),
+        department: z.string().trim().min(1).max(80).optional(),
+        mediaState: adminResourceProviderMediaStateSchema.optional(),
+        sponsorState: adminResourceProviderSponsorStateSchema.optional(),
+        sponsorSurface: z
+          .array(localSponsorPlacementSurfaceSchema)
+          .max(5)
+          .optional(),
+        verification: z
+          .array(resourceProviderVerificationStatusSchema)
+          .max(2)
+          .optional(),
+      })
+      .strict()
+      .optional(),
+    sortBy: adminResourceProviderSortBySchema.optional(),
+  })
+  .strict();
+
+export const adminSponsorPlacementListInputSchema = adminListBaseInputSchema
+  .extend({
+    filters: z
+      .object({
+        activeOn: isoDateOnlySchema.optional(),
+        category: z.array(resourceProviderCategorySchema).max(8).optional(),
+        city: z.string().trim().min(1).max(120).optional(),
+        department: z.string().trim().min(1).max(80).optional(),
+        endsFrom: isoDateOnlySchema.optional(),
+        endsTo: isoDateOnlySchema.optional(),
+        mediaState: adminResourceProviderMediaStateSchema.optional(),
+        startsFrom: isoDateOnlySchema.optional(),
+        startsTo: isoDateOnlySchema.optional(),
+        state: adminSponsorPlacementStateSchema.optional(),
+        surface: z.array(localSponsorPlacementSurfaceSchema).max(5).optional(),
+        verification: z
+          .array(resourceProviderVerificationStatusSchema)
+          .max(2)
+          .optional(),
+      })
+      .strict()
+      .optional(),
+    sortBy: adminSponsorPlacementSortBySchema.optional(),
+  })
+  .strict();
+
 export const localSponsorPlacementPolicySchema = z.object({
   kind: z.literal("Local Sponsor Placement"),
   label: z.string().min(1).max(80),
   disclosure: z.string().min(1).max(240),
+  logoUrl: z.url().optional(),
+  imageUrl: z.url().optional(),
   eligibleSurfaces: z.array(localSponsorPlacementSurfaceSchema).min(1).max(5),
   safetyPolicy: z.object({
     recoveryPriority: z.object({
@@ -541,6 +682,18 @@ export type CreateUploadSessionInput = z.infer<
   typeof createUploadSessionInputSchema
 >;
 export type UploadSessionIdInput = z.infer<typeof uploadSessionIdInputSchema>;
+export type AdminMediaAssetPurpose = z.infer<
+  typeof adminMediaAssetPurposeSchema
+>;
+export type AdminMediaAssetStatus = z.infer<
+  typeof adminMediaAssetStatusSchema
+>;
+export type CreateAdminMediaUploadSessionInput = z.infer<
+  typeof createAdminMediaUploadSessionInputSchema
+>;
+export type AdminMediaAssetIdInput = z.infer<
+  typeof adminMediaAssetIdInputSchema
+>;
 export type ReportLocationInput = z.infer<typeof reportLocationInputSchema>;
 export type ResourceProviderCategory = z.infer<
   typeof resourceProviderCategorySchema
@@ -586,6 +739,33 @@ export type DetachLocalSponsorPlacementInput = z.infer<
 >;
 export type DeleteResourceProviderInput = z.infer<
   typeof deleteResourceProviderInputSchema
+>;
+export type AdminResourceProviderSortBy = z.infer<
+  typeof adminResourceProviderSortBySchema
+>;
+export type AdminSponsorPlacementSortBy = z.infer<
+  typeof adminSponsorPlacementSortBySchema
+>;
+export type AdminResourceProviderSponsorState = z.infer<
+  typeof adminResourceProviderSponsorStateSchema
+>;
+export type AdminSponsorPlacementState = z.infer<
+  typeof adminSponsorPlacementStateSchema
+>;
+export type AdminResourceProviderMediaState = z.infer<
+  typeof adminResourceProviderMediaStateSchema
+>;
+export type AdminResourceProviderListInput = z.infer<
+  typeof adminResourceProviderListInputSchema
+>;
+export type AdminResourceProviderListFilters = NonNullable<
+  AdminResourceProviderListInput["filters"]
+>;
+export type AdminSponsorPlacementListInput = z.infer<
+  typeof adminSponsorPlacementListInputSchema
+>;
+export type AdminSponsorPlacementListFilters = NonNullable<
+  AdminSponsorPlacementListInput["filters"]
 >;
 export type LocalSponsorPlacementPolicy = z.infer<
   typeof localSponsorPlacementPolicySchema

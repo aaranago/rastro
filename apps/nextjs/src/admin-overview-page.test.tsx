@@ -27,7 +27,7 @@ describe("admin overview page", () => {
     envMock.env.RASTRO_ADMIN_EMAILS = "admin@rastro.bo";
   });
 
-  it("renders available sections and a metrics snapshot for admins", async () => {
+  it("renders operational sections and a metrics snapshot for admins", async () => {
     authServer.getSession.mockResolvedValue({
       user: {
         email: "admin@rastro.bo",
@@ -65,6 +65,7 @@ describe("admin overview page", () => {
     expect(html).toContain("proveedores de recursos");
     expect(html).toContain("Resumen operativo");
     expect(html).toContain("Indicadores principales");
+    expect(html).toContain("Secciones operativas");
     expect(html).toContain("Eventos de auditoría");
     expect(html).toContain("Reportes de abuso");
     expect(html).toContain("Pendientes de moderación");
@@ -80,7 +81,9 @@ describe("admin overview page", () => {
     );
     expect(html).not.toContain("Resource Providers");
     expect(html).not.toContain("Snapshot operativo");
+    expect(html).not.toContain("Secciones disponibles");
     expect(html).not.toContain("Secciones planificadas");
+    expect(html).not.toContain("ADMIN-");
     expect(metricsApi.getAdminMetricsOverview).toHaveBeenCalledOnce();
   });
 

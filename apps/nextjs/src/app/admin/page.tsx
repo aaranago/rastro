@@ -23,11 +23,8 @@ export const metadata: Metadata = {
   title: "Panel de administración | Rastro",
 };
 
-const availableSections = adminNavigationItems.filter(
-  (item) => item.status === "available" && item.href !== "/admin",
-);
-const plannedSections = adminNavigationItems.filter(
-  (item) => item.status === "planned",
+const operationalSections = adminNavigationItems.filter(
+  (item) => item.href !== "/admin",
 );
 
 const adminOverviewSectionCopy: Record<
@@ -37,7 +34,6 @@ const adminOverviewSectionCopy: Record<
     actionLabel: string;
     description: string;
     label: string;
-    note: string;
   }
 > = {
   "/admin/ajustes": {
@@ -46,14 +42,12 @@ const adminOverviewSectionCopy: Record<
     description:
       "Configura reglas operativas para publicación, revisión y requisitos de seguridad.",
     label: "Ajustes",
-    note: "Seguimiento de cambios operativos en ADMIN-006.",
   },
   "/admin/auditoria": {
     actionAriaLabel: "Abrir la sección de auditoría del panel",
     actionLabel: "Ir a auditoría",
     description: "Consulta el historial inmutable de acciones administrativas.",
     label: "Auditoría",
-    note: "Seguimiento de mejoras de trazabilidad en ADMIN-010.",
   },
   "/admin/metricas": {
     actionAriaLabel: "Abrir la sección de métricas del panel",
@@ -61,7 +55,6 @@ const adminOverviewSectionCopy: Record<
     description:
       "Revisa señales de abuso, contenido, recursos y actividad por ubicación.",
     label: "Métricas",
-    note: "Seguimiento de mejoras de indicadores en ADMIN-010.",
   },
   "/admin/miembros": {
     actionAriaLabel: "Abrir la sección de miembros del panel",
@@ -69,7 +62,6 @@ const adminOverviewSectionCopy: Record<
     description:
       "Busca miembros, revisa señales de seguridad y aplica suspensiones cuando corresponda.",
     label: "Miembros",
-    note: "Seguimiento de flujos de seguridad en ADMIN-009.",
   },
   "/admin/moderacion": {
     actionAriaLabel: "Abrir la sección de moderación del panel",
@@ -77,7 +69,6 @@ const adminOverviewSectionCopy: Record<
     description:
       "Revisa reportes, publicaciones, chats y proveedores que requieren decisión.",
     label: "Moderación",
-    note: "Seguimiento de colas y decisiones en ADMIN-007.",
   },
   "/admin/patrocinios": {
     actionAriaLabel: "Abrir la sección de patrocinios del panel",
@@ -85,7 +76,6 @@ const adminOverviewSectionCopy: Record<
     description:
       "Gestiona patrocinios locales sin cambiar la prioridad de recuperación.",
     label: "Patrocinios",
-    note: "Seguimiento de ubicaciones patrocinadas en ADMIN-005.",
   },
   "/admin/proveedores": {
     actionAriaLabel: "Abrir la sección de proveedores del panel",
@@ -93,7 +83,6 @@ const adminOverviewSectionCopy: Record<
     description:
       "Gestiona proveedores de recursos, verificación de identidad y cobertura local.",
     label: "Proveedores",
-    note: "Seguimiento de perfiles y verificación en ADMIN-002.",
   },
 };
 
@@ -124,29 +113,28 @@ export default async function AdminOverviewPage() {
       ) : null}
 
       <section
-        aria-labelledby="admin-available-sections"
+        aria-labelledby="admin-operational-sections"
         className="grid gap-4"
       >
         <div>
           <h3
             className="text-xl font-semibold tracking-normal"
-            id="admin-available-sections"
+            id="admin-operational-sections"
           >
-            Secciones disponibles
+            Secciones operativas
           </h3>
           <p className="text-muted-foreground mt-1 max-w-2xl text-sm leading-6">
-            Módulos activos del panel con datos y acciones disponibles para el
-            equipo operativo.
+            Módulos del panel para revisar colas, cuentas, trazabilidad y
+            señales de operación.
           </p>
         </div>
         <div className="grid gap-4 lg:grid-cols-2">
-          {availableSections.map((section) => {
+          {operationalSections.map((section) => {
             const copy = getAdminOverviewSectionCopy(section);
 
             return (
               <Card className="min-w-0 rounded-lg" key={section.href}>
                 <CardHeader>
-                  <Badge className="w-fit">{section.statusLabel}</Badge>
                   <CardTitle className="text-2xl tracking-normal">
                     {copy.label}
                   </CardTitle>
@@ -155,9 +143,6 @@ export default async function AdminOverviewPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
-                  <p className="text-muted-foreground text-sm leading-6">
-                    {copy.note}
-                  </p>
                   <Button
                     asChild
                     className="min-h-11 w-full justify-center sm:w-fit"
@@ -172,54 +157,6 @@ export default async function AdminOverviewPage() {
           })}
         </div>
       </section>
-
-      {plannedSections.length > 0 ? (
-        <section
-          aria-labelledby="admin-planned-sections"
-          className="grid gap-4"
-        >
-          <div>
-            <h3
-              className="text-xl font-semibold tracking-normal"
-              id="admin-planned-sections"
-            >
-              Secciones planificadas
-            </h3>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Visibles en navegación para orientar el mapa del panel, pero sin
-              acciones productivas todavía.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {plannedSections.map((section) => {
-              const copy = getAdminOverviewSectionCopy(section);
-
-              return (
-                <Card className="min-w-0 rounded-lg" key={section.href}>
-                  <CardHeader>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary">{section.statusLabel}</Badge>
-                      <Badge variant="outline">{section.issueId}</Badge>
-                    </div>
-                    <CardTitle className="text-xl tracking-normal">
-                      {copy.label}
-                    </CardTitle>
-                    <CardDescription className="text-sm leading-6">
-                      {copy.description}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground text-sm leading-6">
-                      Todavía no disponible. Esta tarjeta no crea, edita ni
-                      elimina datos.
-                    </p>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
     </div>
   );
 }
@@ -233,9 +170,6 @@ function getAdminOverviewSectionCopy(
       actionLabel: `Ir a ${section.label.toLocaleLowerCase("es-BO")}`,
       description: section.description,
       label: section.label,
-      note: section.issueId
-        ? `Seguimiento de mejoras en ${section.issueId}.`
-        : "Seguimiento operativo pendiente.",
     }
   );
 }
