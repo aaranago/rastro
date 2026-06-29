@@ -1,0 +1,15 @@
+$ pnpm -F @acme/api test
+.                                        |  WARN  Unsupported engine: wanted: {"node":"^22.21.0"} (current: {"node":"v24.11.1","pnpm":"10.19.0"})
+
+> @acme/api@ test /home/z/Personal/ai/rastro/packages/api
+> vitest run
+
+
+ RUN  v4.1.9 /home/z/Personal/ai/rastro/packages/api
+
+
+ Test Files  15 passed | 2 skipped (17)
+      Tests  117 passed | 8 skipped (125)
+   Start at  15:06:19
+   Duration  17.03s (transform 12.86s, setup 0ms, import 46.70s, tests 27.88s, environment 16ms)
+

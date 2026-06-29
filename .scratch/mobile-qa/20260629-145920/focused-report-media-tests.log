@@ -1,0 +1,11 @@
+$ pnpm -F @acme/expo exec vitest run src/features/report-media/report-media-draft.test.ts src/features/report-media/report-media-manager.test.tsx src/features/report-media/report-media-creation-photos.test.ts src/features/report-creation/report-creation-publish.test.ts src/features/report-creation/report-creation-ui.test.tsx src/features/report-creation/report-creation-route-screen.test.tsx
+.                                        |  WARN  Unsupported engine: wanted: {"node":"^22.21.0"} (current: {"node":"v24.11.1","pnpm":"10.19.0"})
+
+ RUN  v4.1.9 /home/z/Personal/ai/rastro/apps/expo
+
+
+ Test Files  6 passed (6)
+      Tests  75 passed (75)
+   Start at  15:05:30
+   Duration  1.63s (transform 2.72s, setup 0ms, import 3.93s, tests 280ms, environment 2ms)
+

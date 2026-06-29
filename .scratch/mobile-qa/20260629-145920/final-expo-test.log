@@ -1,0 +1,15 @@
+$ pnpm -F @acme/expo test
+.                                        |  WARN  Unsupported engine: wanted: {"node":"^22.21.0"} (current: {"node":"v24.11.1","pnpm":"10.19.0"})
+
+> @acme/expo@ test /home/z/Personal/ai/rastro/apps/expo
+> vitest run
+
+
+ RUN  v4.1.9 /home/z/Personal/ai/rastro/apps/expo
+
+
+ Test Files  73 passed (73)
+      Tests  494 passed (494)
+   Start at  15:06:20
+   Duration  12.63s (transform 46.48s, setup 0ms, import 75.56s, tests 8.44s, environment 22ms)
+

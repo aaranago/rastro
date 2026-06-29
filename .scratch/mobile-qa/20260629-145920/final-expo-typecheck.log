@@ -1,0 +1,6 @@
+$ pnpm -F @acme/expo typecheck
+.                                        |  WARN  Unsupported engine: wanted: {"node":"^22.21.0"} (current: {"node":"v24.11.1","pnpm":"10.19.0"})
+
+> @acme/expo@ typecheck /home/z/Personal/ai/rastro/apps/expo
+> tsc --noEmit
+

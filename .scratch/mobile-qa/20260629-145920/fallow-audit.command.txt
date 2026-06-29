@@ -1,0 +1,1 @@
+pnpm exec fallow audit --base HEAD --format json --quiet 2>/dev/null || true

@@ -1,0 +1,6 @@
+$ pnpm -F @acme/api lint
+.                                        |  WARN  Unsupported engine: wanted: {"node":"^22.21.0"} (current: {"node":"v24.11.1","pnpm":"10.19.0"})
+
+> @acme/api@ lint /home/z/Personal/ai/rastro/packages/api
+> eslint --flag unstable_native_nodejs_ts_config
+

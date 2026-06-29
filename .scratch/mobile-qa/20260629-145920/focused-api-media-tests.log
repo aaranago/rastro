@@ -1,0 +1,11 @@
+$ pnpm -F @acme/api exec vitest run src/router/report.test.ts src/report-repository.test.ts src/report-repository.integration.test.ts src/media-storage.test.ts src/media-storage.integration.test.ts src/report-media-cleanup.test.ts
+.                                        |  WARN  Unsupported engine: wanted: {"node":"^22.21.0"} (current: {"node":"v24.11.1","pnpm":"10.19.0"})
+
+ RUN  v4.1.9 /home/z/Personal/ai/rastro/packages/api
+
+
+ Test Files  4 passed | 2 skipped (6)
+      Tests  39 passed | 8 skipped (47)
+   Start at  15:05:29
+   Duration  10.74s (transform 3.31s, setup 0ms, import 7.63s, tests 8.17s, environment 2ms)
+

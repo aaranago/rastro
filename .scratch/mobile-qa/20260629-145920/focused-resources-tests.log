@@ -1,0 +1,11 @@
+$ pnpm -F @acme/expo exec vitest run src/features/resources/resource-provider-card.test.tsx src/features/resources/resource-provider-profile-screen.test.ts src/features/resources/resources.test.ts src/features/resources/resources-api-adapter.test.ts
+.                                        |  WARN  Unsupported engine: wanted: {"node":"^22.21.0"} (current: {"node":"v24.11.1","pnpm":"10.19.0"})
+
+ RUN  v4.1.9 /home/z/Personal/ai/rastro/apps/expo
+
+
+ Test Files  4 passed (4)
+      Tests  31 passed (31)
+   Start at  15:05:29
+   Duration  1.35s (transform 2.52s, setup 0ms, import 3.18s, tests 237ms, environment 1ms)
+

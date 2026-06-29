@@ -1,0 +1,6 @@
+$ pnpm -F @acme/api typecheck
+.                                        |  WARN  Unsupported engine: wanted: {"node":"^22.21.0"} (current: {"node":"v24.11.1","pnpm":"10.19.0"})
+
+> @acme/api@ typecheck /home/z/Personal/ai/rastro/packages/api
+> tsc --noEmit --emitDeclarationOnly false
+

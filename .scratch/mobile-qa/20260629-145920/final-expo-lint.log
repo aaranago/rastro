@@ -1,0 +1,7 @@
+$ pnpm -F @acme/expo lint
+.                                        |  WARN  Unsupported engine: wanted: {"node":"^22.21.0"} (current: {"node":"v24.11.1","pnpm":"10.19.0"})
+
+> @acme/expo@ lint /home/z/Personal/ai/rastro/apps/expo
+> eslint --flag unstable_native_nodejs_ts_config
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`

@@ -1,0 +1,4 @@
+$ git status --short
+?? .scratch/mobile-backend-parity/PRD.md
+?? .scratch/mobile-backend-parity/README.md
+?? .scratch/mobile-backend-parity/issues/09-managed-media-and-e2e-regression-closure.md

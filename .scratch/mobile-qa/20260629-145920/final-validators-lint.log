@@ -1,0 +1,6 @@
+$ pnpm -F @acme/validators lint
+.                                        |  WARN  Unsupported engine: wanted: {"node":"^22.21.0"} (current: {"node":"v24.11.1","pnpm":"10.19.0"})
+
+> @acme/validators@ lint /home/z/Personal/ai/rastro/packages/validators
+> eslint --flag unstable_native_nodejs_ts_config
+

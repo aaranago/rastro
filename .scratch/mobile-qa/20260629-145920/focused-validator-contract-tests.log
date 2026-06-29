@@ -1,0 +1,11 @@
+$ pnpm -F @acme/validators exec vitest run src/report-contracts.test.ts src/resource-provider-contracts.test.ts
+.                                        |  WARN  Unsupported engine: wanted: {"node":"^22.21.0"} (current: {"node":"v24.11.1","pnpm":"10.19.0"})
+
+ RUN  v4.1.9 /home/z/Personal/ai/rastro/packages/validators
+
+
+ Test Files  2 passed (2)
+      Tests  28 passed (28)
+   Start at  15:05:30
+   Duration  707ms (transform 323ms, setup 0ms, import 613ms, tests 101ms, environment 0ms)
+
