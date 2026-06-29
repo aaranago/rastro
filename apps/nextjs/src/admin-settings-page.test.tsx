@@ -58,5 +58,7 @@ describe("admin settings page", () => {
     expect(html).toContain("Correo verificado requerido");
     expect(html).toContain("No se pudieron guardar los ajustes");
     expect(html).toContain("Admin Rastro");
+    expect(html).not.toContain("ADMIN-");
+    expect(html).not.toContain("Disponible");
   });
 });

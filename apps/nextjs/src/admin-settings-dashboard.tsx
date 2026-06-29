@@ -51,7 +51,7 @@ export function AdminSettingsDashboard(props: AdminSettingsDashboardProps) {
       <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
           <Badge className="w-fit" variant="secondary">
-            ADMIN-006
+            Reglas operativas
           </Badge>
           <h2 className="mt-3 text-3xl font-semibold tracking-normal sm:text-4xl">
             Ajustes de publicación
@@ -160,7 +160,7 @@ export function AdminSettingsDashboard(props: AdminSettingsDashboardProps) {
               Estado persistido
             </CardTitle>
             <CardDescription>
-              Listo para enlazar con auditoría en ADMIN-010.
+              Los cambios quedan registrados para trazabilidad operativa.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 text-sm">

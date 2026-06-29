@@ -29,6 +29,7 @@ describe("AdminSettingsDashboard", () => {
     expect(html).toContain("Confirmo aplicar estos ajustes");
     expect(html).toContain("Sin cambios guardados todavía");
     expect(html).toContain("Desactivado");
+    expectNoAdminCopyResidue(html);
   });
 
   it("renders toggled state and success feedback", () => {
@@ -51,6 +52,7 @@ describe("AdminSettingsDashboard", () => {
     expect(html).toContain("Ajustes guardados");
     expect(html).toContain("Activado");
     expect(html).toContain("member-admin");
+    expectNoAdminCopyResidue(html);
   });
 
   it("renders a clear error state", () => {
@@ -75,5 +77,11 @@ describe("AdminSettingsDashboard", () => {
     expect(html).toContain('aria-invalid="true"');
     expect(html).toContain('aria-describedby="confirm-settings-change-error"');
     expect(html).toContain("Marca esta confirmación antes de guardar cambios.");
+    expectNoAdminCopyResidue(html);
   });
 });
+
+function expectNoAdminCopyResidue(html: string) {
+  expect(html).not.toContain("ADMIN-");
+  expect(html).not.toContain("Disponible");
+}
