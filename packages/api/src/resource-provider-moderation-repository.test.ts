@@ -61,8 +61,8 @@ describe("Resource Provider moderation repository", () => {
 
     const queue = await repository.listResourceProviderQueue();
 
-    expect(queue).toHaveLength(1);
-    expect(queue[0]).toMatchObject({
+    expect(queue.items).toHaveLength(1);
+    expect(queue.items[0]).toMatchObject({
       newestReport: {
         detail: "El mapa lleva a otra zona.",
         reporter: {
@@ -108,9 +108,9 @@ describe("Resource Provider moderation repository", () => {
 
     expect(first?.status).toBe("created");
     expect(duplicate?.status).toBe("already_reported");
-    expect(queue).toHaveLength(1);
-    expect(queue[0]?.reportCount).toBe(1);
-    expect(queue[0]?.newestReport.detail).toBe(report.detail);
+    expect(queue.items).toHaveLength(1);
+    expect(queue.items[0]?.reportCount).toBe(1);
+    expect(queue.items[0]?.newestReport.detail).toBe(report.detail);
   });
 
   it("returns null when the reported provider is not an active target", async () => {

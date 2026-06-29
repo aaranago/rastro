@@ -1,20 +1,23 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { buildAdminModerationViewer } from "~/admin-moderation-access";
 import {
   applyAdminModerationForm,
   buildAdminModerationFeedback,
   buildAdminModerationNotice,
 } from "~/admin-moderation-actions";
-import { buildAdminModerationViewer } from "~/admin-moderation-access";
 import { AdminModerationReviewDetail } from "~/admin-moderation-dashboard";
-import { toPersistedAdminModerationDashboardProps } from "~/admin-moderation-dashboard-adapter";
+import {
+  toReportAdminModerationReviewItem,
+  toResourceProviderAdminModerationReviewItem,
+} from "~/admin-moderation-dashboard-adapter";
 import {
   buildAdminModerationFilters,
   buildAdminModerationReturnPath,
 } from "~/admin-moderation-filters";
-import { listAdminReportModerationQueue } from "~/admin-report-moderation-api-adapter";
-import { listAdminResourceProviderModerationQueue } from "~/admin-resource-provider-moderation-api-adapter";
+import { getAdminReportModerationQueueItem } from "~/admin-report-moderation-api-adapter";
+import { getAdminResourceProviderModerationQueueItem } from "~/admin-resource-provider-moderation-api-adapter";
 import { getAdminSettings } from "~/admin-settings-api-adapter";
 import { getSession } from "~/auth/server";
 import { env } from "~/env";
@@ -46,25 +49,10 @@ export default async function AdminModerationReviewItemPage(
     return null;
   }
 
-  const [settings, reportQueue, resourceProviderQueue] = await Promise.all([
+  const [settings, item] = await Promise.all([
     getAdminSettings(),
-    listAdminReportModerationQueue(),
-    listAdminResourceProviderModerationQueue(),
+    getAdminModerationReviewItem(reviewItemId),
   ]);
-  const dashboardProps = toPersistedAdminModerationDashboardProps(
-    viewer.dashboardViewer,
-    {
-      reviewModeEnabled: settings.adoptionReviewModeEnabled,
-      verifiedEmailRequiredToPublish: settings.verifiedEmailRequiredToPublish,
-    },
-    {
-      reportQueue,
-      resourceProviderQueue,
-    },
-  );
-  const item = dashboardProps.flaggedItems.find(
-    (flaggedItem) => flaggedItem.id === reviewItemId,
-  );
 
   if (!item) {
     notFound();
@@ -83,8 +71,23 @@ export default async function AdminModerationReviewItemPage(
         `/admin/moderacion/${reviewItemId}`,
         filters,
       )}
-      settings={dashboardProps.settings}
+      settings={{
+        reviewModeEnabled: settings.adoptionReviewModeEnabled,
+        verifiedEmailRequiredToPublish: settings.verifiedEmailRequiredToPublish,
+      }}
       viewer={viewer.dashboardViewer}
     />
   );
+}
+
+async function getAdminModerationReviewItem(reviewItemId: string) {
+  if (reviewItemId.startsWith("report-review-")) {
+    const item = await getAdminReportModerationQueueItem(reviewItemId);
+
+    return item ? toReportAdminModerationReviewItem(item) : null;
+  }
+
+  const item = await getAdminResourceProviderModerationQueueItem(reviewItemId);
+
+  return item ? toResourceProviderAdminModerationReviewItem(item) : null;
 }

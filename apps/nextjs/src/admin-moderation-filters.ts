@@ -28,6 +28,17 @@ export function buildAdminModerationReturnPath(
 ) {
   const params = new URLSearchParams();
 
+  appendAdminModerationFilterParams(params, filters);
+
+  const query = params.toString();
+
+  return query ? `${pathname}?${query}` : pathname;
+}
+
+export function appendAdminModerationFilterParams(
+  params: URLSearchParams,
+  filters: AdminModerationFilters,
+) {
   if (filters.targetType !== "all") {
     params.set("targetType", filters.targetType);
   }
@@ -47,10 +58,6 @@ export function buildAdminModerationReturnPath(
   if (filters.risk !== "all") {
     params.set("risk", filters.risk);
   }
-
-  const query = params.toString();
-
-  return query ? `${pathname}?${query}` : pathname;
 }
 
 function getNonEmptySearchParam(

@@ -64,6 +64,27 @@
       "when": 1782518400000,
       "tag": "0008_admin_audit_metrics",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782691200000,
+      "tag": "0009_sponsor_media_urls",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782694800000,
+      "tag": "0010_admin_enterprise_moderation",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782698400000,
+      "tag": "0011_admin_media_assets",
+      "breakpoints": true
     }
   ]
 }

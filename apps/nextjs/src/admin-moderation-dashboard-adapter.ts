@@ -4,13 +4,23 @@ import type {
   AdminModerationDashboardProps,
   AdminModerationFlaggedItem,
   AdminModerationMetric,
+  AdminModerationQueueSection,
+  AdminModerationQueueSortOption,
   AdminModerationViewer,
 } from "./admin-moderation-dashboard";
 
-export type AdminResourceProviderModerationQueue =
+type AdminResourceProviderModerationQueue =
   RouterOutputs["admin"]["moderation"]["resourceProviderQueue"];
-export type AdminReportModerationQueue =
+type AdminResourceProviderModerationQueueList =
+  RouterOutputs["admin"]["moderation"]["resourceProviderQueueList"];
+type AdminResourceProviderModerationQueueItem =
+  RouterOutputs["admin"]["moderation"]["resourceProviderQueueItem"];
+type AdminReportModerationQueue =
   RouterOutputs["admin"]["moderation"]["reportQueue"];
+type AdminReportModerationQueueList =
+  RouterOutputs["admin"]["moderation"]["reportQueueList"];
+type AdminReportModerationQueueItem =
+  RouterOutputs["admin"]["moderation"]["reportQueueItem"];
 
 export function toPersistedAdminModerationDashboardProps(
   viewer: AdminModerationViewer,
@@ -19,35 +29,112 @@ export function toPersistedAdminModerationDashboardProps(
     verifiedEmailRequiredToPublish: boolean;
   },
   queues: {
-    reportQueue: AdminReportModerationQueue;
-    resourceProviderQueue: AdminResourceProviderModerationQueue;
+    reportQueue: RouterOutputs["admin"]["moderation"]["reportQueueList"] | null;
+    resourceProviderQueue:
+      | RouterOutputs["admin"]["moderation"]["resourceProviderQueueList"]
+      | null;
   },
 ): AdminModerationDashboardProps {
-  const flaggedItems = [
-    ...queues.reportQueue.map(toReportFlaggedItem),
-    ...queues.resourceProviderQueue.map(toResourceProviderFlaggedItem),
-  ];
+  const dashboardQueues = buildDashboardQueues(queues);
+  const flaggedItems = dashboardQueues.flatMap((queue) => [...queue.items]);
 
   return {
-    flaggedItems,
     metrics: buildDashboardMetrics(flaggedItems),
+    queues: dashboardQueues,
     settings,
     viewer,
   };
+}
+
+export function toReportAdminModerationReviewItem(
+  item: RouterOutputs["admin"]["moderation"]["reportQueueItem"],
+): AdminModerationFlaggedItem {
+  return toReportFlaggedItem(item);
+}
+
+export function toResourceProviderAdminModerationReviewItem(
+  item: RouterOutputs["admin"]["moderation"]["resourceProviderQueueItem"],
+): AdminModerationFlaggedItem {
+  return toResourceProviderFlaggedItem(item);
 }
 
 export function buildForbiddenAdminModerationDashboardProps(
   viewer: AdminModerationViewer,
 ): AdminModerationDashboardProps {
   return {
-    flaggedItems: [],
     metrics: [],
+    queues: [],
     settings: {
       reviewModeEnabled: false,
       verifiedEmailRequiredToPublish: false,
     },
     viewer,
   };
+}
+
+function buildDashboardQueues(queues: {
+  reportQueue: AdminReportModerationQueueList | null;
+  resourceProviderQueue: AdminResourceProviderModerationQueueList | null;
+}): AdminModerationQueueSection[] {
+  const dashboardQueues: AdminModerationQueueSection[] = [];
+
+  if (queues.reportQueue) {
+    dashboardQueues.push({
+      availableSorts: toQueueSortOptions(queues.reportQueue.availableSorts),
+      description:
+        "Prioriza reportes y publicaciones con más avisos o riesgo de fraude, ubicación falsa o daño a la comunidad.",
+      emptyDescription:
+        "Cuando lleguen reportes de abuso o riesgo sobre reportes o adopciones, aparecerán en esta cola.",
+      filteredEmptyDescription:
+        "Ajusta tipo, motivo, departamento o riesgo para ampliar la cola de reportes.",
+      id: "reports",
+      items: queues.reportQueue.items.map(toReportFlaggedItem),
+      page: queues.reportQueue.page,
+      pageSize: queues.reportQueue.pageSize,
+      tableCaption: "Reportes y publicaciones reportadas para moderación",
+      title: "Reportes",
+      total: queues.reportQueue.total,
+    });
+  }
+
+  if (queues.resourceProviderQueue) {
+    dashboardQueues.push({
+      availableSorts: toQueueSortOptions(
+        queues.resourceProviderQueue.availableSorts,
+      ),
+      description:
+        "Revisa perfiles de proveedores de recursos reportados por la comunidad.",
+      emptyDescription:
+        "Cuando lleguen reportes sobre proveedores de recursos, aparecerán en esta cola.",
+      filteredEmptyDescription:
+        "Ajusta motivo, departamento o ciudad para ampliar la cola de proveedores.",
+      id: "resource-providers",
+      items: queues.resourceProviderQueue.items.map(
+        toResourceProviderFlaggedItem,
+      ),
+      page: queues.resourceProviderQueue.page,
+      pageSize: queues.resourceProviderQueue.pageSize,
+      tableCaption: "Proveedores de recursos reportados para moderación",
+      title: "Proveedores",
+      total: queues.resourceProviderQueue.total,
+    });
+  }
+
+  return dashboardQueues;
+}
+
+function toQueueSortOptions(
+  sorts: readonly {
+    defaultDirection: "asc" | "desc";
+    label: string;
+    value: string;
+  }[],
+): AdminModerationQueueSortOption[] {
+  return sorts.map((sort) => ({
+    defaultDirection: sort.defaultDirection,
+    label: sort.label,
+    value: sort.value,
+  }));
 }
 
 function buildDashboardMetrics(
@@ -109,7 +196,7 @@ const reportTypeLabels = {
 >;
 
 function toReportFlaggedItem(
-  item: AdminReportModerationQueue[number],
+  item: AdminReportModerationQueueItem,
 ): AdminModerationFlaggedItem {
   const actionDetail = item.newestAction
     ? `Ultima acción: ${item.newestAction.action === "hide" ? "oculto" : "restaurado"} por ${item.newestAction.adminId ?? "admin"} (${item.newestAction.reason}).`
@@ -134,7 +221,9 @@ function toReportFlaggedItem(
     reasonLabel: item.target.hiddenReason ?? "Revisión de contenido",
     reportCount: item.reportCount,
     reporterLabel: "Moderación Rastro",
+    reviewKind: "report",
     target: {
+      falseReportState: item.target.falseReportState,
       href: buildReviewTargetHref(item.id),
       id: item.target.id,
       locationLabel: item.target.city,
@@ -146,7 +235,7 @@ function toReportFlaggedItem(
 }
 
 function toResourceProviderFlaggedItem(
-  item: AdminResourceProviderModerationQueue[number],
+  item: AdminResourceProviderModerationQueueItem,
 ): AdminModerationFlaggedItem {
   return {
     accusedMember: {
@@ -164,9 +253,11 @@ function toResourceProviderFlaggedItem(
     ].join(" "),
     id: item.id,
     newestReportLabel: formatNewestReportLabel(item.newestReport.createdAt),
+    providerReviewStatus: item.status,
     reasonLabel: moderationReasonLabels[item.reason],
     reportCount: item.reportCount,
     reporterLabel: item.newestReport.reporter.displayName,
+    reviewKind: "resource_provider",
     target: {
       href: buildReviewTargetHref(item.id),
       id: item.provider.id,

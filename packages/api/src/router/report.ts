@@ -19,41 +19,31 @@ import type { PersistedReport } from "../report-repository";
 import { defaultAdminSettings } from "../admin-settings-repository";
 import { toPublicReport } from "../report-repository";
 import { protectedProcedure, publicProcedure } from "../trpc";
-
-function normalizeContentType(contentType: string | null) {
-  return contentType?.split(";")[0]?.trim().toLowerCase() ?? null;
-}
-
-function numberMetadata(
-  metadata: Record<string, string>,
-  key: string,
-): number | null {
-  const value = metadata[key.toLowerCase()] ?? metadata[key];
-  if (!value) {
-    return null;
-  }
-
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function stringMetadata(
-  metadata: Record<string, string>,
-  key: string,
-): string | null {
-  return metadata[key.toLowerCase()] ?? metadata[key] ?? null;
-}
+import {
+  normalizeUploadContentType,
+  readNumberUploadMetadata,
+  readStringUploadMetadata,
+} from "../upload-metadata";
 
 function uploadMetadataMatches(
   storedObject: StoredObjectHead,
   pendingMedia: PersistedReportMediaUpload,
 ) {
-  const storedWidth = numberMetadata(storedObject.metadata, "width");
-  const storedHeight = numberMetadata(storedObject.metadata, "height");
-  const storedMediaId = stringMetadata(storedObject.metadata, "mediaId");
-  const storedSizeBytes = numberMetadata(storedObject.metadata, "sizeBytes");
+  const storedWidth = readNumberUploadMetadata(storedObject.metadata, "width");
+  const storedHeight = readNumberUploadMetadata(
+    storedObject.metadata,
+    "height",
+  );
+  const storedMediaId = readStringUploadMetadata(
+    storedObject.metadata,
+    "mediaId",
+  );
+  const storedSizeBytes = readNumberUploadMetadata(
+    storedObject.metadata,
+    "sizeBytes",
+  );
   const requiredChecks = [
-    normalizeContentType(storedObject.contentType) ===
+    normalizeUploadContentType(storedObject.contentType) ===
       pendingMedia.expectedMimeType,
     storedObject.contentLength === pendingMedia.expectedSizeBytes,
     storedMediaId === pendingMedia.id,
@@ -120,7 +110,7 @@ function canReadReport(
   report: PersistedReport,
   viewerMemberId: string | null,
 ): boolean {
-  if (report.hiddenAt) {
+  if (report.hiddenAt || report.falseReportedAt) {
     return false;
   }
 

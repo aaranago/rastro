@@ -8,12 +8,20 @@ import type {
 import { buildAdminModerationViewer } from "./admin-moderation-access";
 import {
   hideAdminReportTarget,
+  markFalseReportTarget,
   restoreAdminReportTarget,
+  unmarkFalseReportTarget,
 } from "./admin-report-moderation-api-adapter";
+import { resolveResourceProviderReviewItem } from "./admin-resource-provider-moderation-api-adapter";
 import { getSession } from "./auth/server";
 import { env } from "./env";
 
-export type AdminModerationActionName = "hide_target" | "restore_target";
+export type AdminModerationActionName =
+  | "hide_target"
+  | "mark_false_report"
+  | "resolve_provider_review"
+  | "restore_target"
+  | "unmark_false_report";
 
 export interface AdminModerationFeedback {
   action: AdminModerationActionName;
@@ -22,17 +30,42 @@ export interface AdminModerationFeedback {
   targetTitle?: string;
 }
 
-interface ParsedAdminModerationAction {
+type ParsedAdminModerationAction =
+  | ParsedAdminReportModerationAction
+  | ParsedAdminResourceProviderResolutionAction;
+
+interface ParsedAdminModerationActionBase {
   action: AdminModerationActionName;
   confirmed: boolean;
   note?: string;
   reason: string;
   returnTo: string;
   reviewItemId?: string;
-  targetId: string;
   targetTitle?: string;
-  targetType: HideableAdminModerationTargetType;
 }
+
+interface ParsedAdminReportModerationAction
+  extends ParsedAdminModerationActionBase {
+  action:
+    | "hide_target"
+    | "mark_false_report"
+    | "restore_target"
+    | "unmark_false_report";
+  targetId: string;
+  targetType: ReportAdminModerationTargetType;
+}
+
+interface ParsedAdminResourceProviderResolutionAction
+  extends ParsedAdminModerationActionBase {
+  action: "resolve_provider_review";
+  providerResolutionStatus: AdminResourceProviderResolutionStatus;
+  reviewItemId: string;
+}
+
+type AdminResourceProviderResolutionStatus =
+  | "dismissed_false_report"
+  | "resolved_action_taken"
+  | "resolved_no_action";
 
 export async function applyAdminModerationForm(formData: FormData) {
   "use server";
@@ -74,9 +107,16 @@ export async function applyAdminModerationForm(formData: FormData) {
 
   if (result.ok) {
     revalidatePath("/admin/moderacion");
+    revalidatePath("/admin/auditoria");
 
     if (action.reviewItemId) {
       revalidatePath(`/admin/moderacion/${action.reviewItemId}`);
+    }
+
+    if (action.action === "resolve_provider_review") {
+      revalidatePath("/admin/proveedores");
+    } else {
+      revalidatePath("/admin/miembros");
     }
   }
 
@@ -119,15 +159,14 @@ export function buildAdminModerationNotice(
   const targetTitle = feedback.targetTitle ?? "el contenido seleccionado";
 
   if (feedback.ok) {
+    const successCopy = getAdminModerationSuccessCopy(
+      feedback.action,
+      targetTitle,
+    );
+
     return {
-      body:
-        feedback.action === "hide_target"
-          ? `${targetTitle} quedó oculto y la cola mostrará el nuevo estado al recargar.`
-          : `${targetTitle} quedó restaurado y vuelve a usar las reglas públicas normales.`,
-      title:
-        feedback.action === "hide_target"
-          ? "Contenido ocultado"
-          : "Contenido restaurado",
+      body: successCopy.body,
+      title: successCopy.title,
       tone: "success",
     };
   }
@@ -147,6 +186,39 @@ export function buildAdminModerationNotice(
   };
 }
 
+function getAdminModerationSuccessCopy(
+  action: AdminModerationActionName,
+  targetTitle: string,
+) {
+  switch (action) {
+    case "hide_target":
+      return {
+        body: `${targetTitle} quedó oculto y la cola mostrará el nuevo estado al recargar.`,
+        title: "Contenido ocultado",
+      };
+    case "mark_false_report":
+      return {
+        body: `${targetTitle} quedó marcado como reporte falso y salió de superficies públicas.`,
+        title: "Reporte falso marcado",
+      };
+    case "resolve_provider_review":
+      return {
+        body: `La revisión de ${targetTitle} quedó resuelta y auditada.`,
+        title: "Revisión de proveedor resuelta",
+      };
+    case "restore_target":
+      return {
+        body: `${targetTitle} quedó restaurado y vuelve a usar las reglas públicas normales.`,
+        title: "Contenido restaurado",
+      };
+    case "unmark_false_report":
+      return {
+        body: `${targetTitle} ya no está marcado como reporte falso.`,
+        title: "Marca falsa revertida",
+      };
+  }
+}
+
 function parseAdminReportModerationAction(
   formData: FormData,
 ): ParsedAdminModerationAction | null {
@@ -156,8 +228,12 @@ function parseAdminReportModerationAction(
     return null;
   }
 
+  if (action === "resolve_provider_review") {
+    return parseAdminResourceProviderResolutionAction(formData);
+  }
+
   const targetId = getStringFormValue(formData, "targetId");
-  const targetType = getHideableTargetType(
+  const targetType = getReportTargetType(
     getStringFormValue(formData, "targetType"),
   );
   const reason =
@@ -180,22 +256,73 @@ function parseAdminReportModerationAction(
   };
 }
 
+function parseAdminResourceProviderResolutionAction(
+  formData: FormData,
+): ParsedAdminResourceProviderResolutionAction | null {
+  const reviewItemId = getOptionalStringFormValue(formData, "reviewItemId");
+  const providerResolutionStatus =
+    getProviderResolutionStatusFormValue(formData);
+  const reason =
+    getOptionalStringFormValue(formData, "providerResolutionReason") ??
+    "admin_review";
+
+  if (!reviewItemId || !providerResolutionStatus) {
+    return null;
+  }
+
+  return {
+    action: "resolve_provider_review",
+    confirmed: getStringFormValue(formData, "confirmModerationAction") === "on",
+    note: getOptionalStringFormValue(formData, "providerResolutionNote"),
+    providerResolutionStatus,
+    reason,
+    returnTo: getSafeReturnTo(getStringFormValue(formData, "returnTo")),
+    reviewItemId,
+    targetTitle: getOptionalStringFormValue(formData, "targetTitle"),
+  };
+}
+
 async function applyPersistedModerationAction(
   action: ParsedAdminModerationAction,
 ) {
   try {
-    if (action.action === "hide_target") {
-      await hideAdminReportTarget({
-        note: action.note,
-        reason: action.reason,
-        reportId: action.targetId,
-      });
-    } else {
-      await restoreAdminReportTarget({
-        note: action.note,
-        reason: action.reason,
-        reportId: action.targetId,
-      });
+    switch (action.action) {
+      case "hide_target":
+        await hideAdminReportTarget({
+          note: action.note,
+          reason: action.reason,
+          reportId: action.targetId,
+        });
+        break;
+      case "mark_false_report":
+        await markFalseReportTarget({
+          note: action.note,
+          reason: action.reason,
+          reportId: action.targetId,
+        });
+        break;
+      case "resolve_provider_review":
+        await resolveResourceProviderReviewItem({
+          resolutionNote: action.note,
+          resolutionReason: action.reason,
+          reviewItemId: action.reviewItemId,
+          status: action.providerResolutionStatus,
+        });
+        break;
+      case "restore_target":
+        await restoreAdminReportTarget({
+          note: action.note,
+          reason: action.reason,
+          reportId: action.targetId,
+        });
+        break;
+      case "unmark_false_report":
+        await unmarkFalseReportTarget({
+          note: action.note,
+          reason: action.reason,
+          reportId: action.targetId,
+        });
+        break;
     }
 
     return { ok: true };
@@ -254,7 +381,7 @@ function getActionFormValue(
 ): AdminModerationActionName | null {
   const value = getStringFormValue(formData, "moderationAction");
 
-  return value === "hide_target" || value === "restore_target" ? value : null;
+  return isAdminModerationActionName(value) ? value : null;
 }
 
 function getActionSearchParam(
@@ -262,7 +389,31 @@ function getActionSearchParam(
 ): AdminModerationActionName | null {
   const value = getSingleSearchParam(searchParams, "accion");
 
-  return value === "hide_target" || value === "restore_target" ? value : null;
+  return isAdminModerationActionName(value) ? value : null;
+}
+
+function isAdminModerationActionName(
+  value: string | null | undefined,
+): value is AdminModerationActionName {
+  return (
+    value === "hide_target" ||
+    value === "mark_false_report" ||
+    value === "resolve_provider_review" ||
+    value === "restore_target" ||
+    value === "unmark_false_report"
+  );
+}
+
+function getProviderResolutionStatusFormValue(
+  formData: FormData,
+): AdminResourceProviderResolutionStatus | null {
+  const value = getStringFormValue(formData, "providerResolutionStatus");
+
+  return value === "dismissed_false_report" ||
+    value === "resolved_action_taken" ||
+    value === "resolved_no_action"
+    ? value
+    : null;
 }
 
 function getErrorReasonSearchParam(
@@ -300,9 +451,9 @@ function getSingleSearchParam(
   return value;
 }
 
-function getHideableTargetType(
+function getReportTargetType(
   targetType: string | null,
-): HideableAdminModerationTargetType | null {
+): ReportAdminModerationTargetType | null {
   if (
     targetType === "adoption_listing" ||
     targetType === "found_pet_report" ||
@@ -315,7 +466,10 @@ function getHideableTargetType(
   return null;
 }
 
-type HideableAdminModerationTargetType = Extract<
+type ReportAdminModerationTargetType = Extract<
   AdminModerationTargetType,
-  "adoption_listing" | "found_pet_report" | "lost_pet_report" | "sighting_report"
+  | "adoption_listing"
+  | "found_pet_report"
+  | "lost_pet_report"
+  | "sighting_report"
 >;

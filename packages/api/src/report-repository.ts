@@ -73,6 +73,10 @@ export interface PersistedReport {
   hiddenByAdminId?: string | null;
   hiddenReason?: string | null;
   hiddenNote?: string | null;
+  falseReportedAt?: Date | null;
+  falseReportedByAdminId?: string | null;
+  falseReportReason?: string | null;
+  falseReportNote?: string | null;
   resolvedAt: Date | null;
   deletedAt: Date | null;
   location: PersistedReportLocation;
@@ -155,7 +159,11 @@ export function buildNearbyReportsDistance(input: NearbyReportsInput) {
 }
 
 export function buildPublicReportVisibilityCondition() {
-  return and(isNull(Report.deletedAt), isNull(Report.hiddenAt));
+  return and(
+    isNull(Report.deletedAt),
+    isNull(Report.hiddenAt),
+    isNull(Report.falseReportedAt),
+  );
 }
 
 function publicLocationFromInput(
@@ -324,6 +332,10 @@ function toPersistedReport(
     hiddenByAdminId: row.hiddenByAdminId,
     hiddenReason: row.hiddenReason,
     hiddenNote: row.hiddenNote,
+    falseReportedAt: row.falseReportedAt,
+    falseReportedByAdminId: row.falseReportedByAdminId,
+    falseReportReason: row.falseReportReason,
+    falseReportNote: row.falseReportNote,
     resolvedAt: row.resolvedAt,
     deletedAt: row.deletedAt,
     location: {

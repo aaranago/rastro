@@ -77,8 +77,13 @@ describe("report schema", () => {
     ]);
   });
 
-  it("records hide and restore moderation actions separately from report status", () => {
-    expect(reportModerationActionType.enumValues).toEqual(["hide", "restore"]);
+  it("records moderation actions separately from report status", () => {
+    expect(reportModerationActionType.enumValues).toEqual([
+      "hide",
+      "restore",
+      "mark_false",
+      "unmark_false",
+    ]);
 
     const reportIndexes = getTableConfig(Report).indexes.map(
       (index) => index.config.name,

@@ -20,6 +20,25 @@ const postgisPoint4326 = customType<{
     sql`ST_SetSRID(ST_MakePoint(${value.x}, ${value.y}), 4326)`,
 });
 
+type PgTableBuilder = Parameters<Parameters<typeof pgTable>[1]>[0];
+
+const timestampWithTimezone = { mode: "date", withTimezone: true } as const;
+
+function createUploadLifecycleColumns(t: PgTableBuilder) {
+  return {
+    expiresAt: t.timestamp(timestampWithTimezone).notNull(),
+    verifiedAt: t.timestamp(timestampWithTimezone),
+    failedAt: t.timestamp(timestampWithTimezone),
+    removedAt: t.timestamp(timestampWithTimezone),
+    createdAt: t.timestamp(timestampWithTimezone).defaultNow().notNull(),
+    updatedAt: t
+      .timestamp(timestampWithTimezone)
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  };
+}
+
 export const Post = pgTable("post", (t) => ({
   id: t.uuid().notNull().primaryKey().defaultRandom(),
   title: t.varchar({ length: 256 }).notNull(),
@@ -109,7 +128,12 @@ export const moderationReportReason = pgEnum("moderation_report_reason", [
 
 export const resourceProviderModerationReviewStatus = pgEnum(
   "resource_provider_moderation_review_status",
-  ["pending"],
+  [
+    "pending",
+    "dismissed_false_report",
+    "resolved_action_taken",
+    "resolved_no_action",
+  ],
 );
 
 export const memberSuspensionStatus = pgEnum("member_suspension_status", [
@@ -237,6 +261,20 @@ export const reportMediaStatus = pgEnum("report_media_status", [
   "removed",
 ]);
 
+export const adminMediaAssetPurpose = pgEnum("admin_media_asset_purpose", [
+  "provider_logo",
+  "provider_photo",
+  "sponsor_logo",
+  "sponsor_image",
+]);
+
+export const adminMediaAssetStatus = pgEnum("admin_media_asset_status", [
+  "pending",
+  "ready",
+  "failed",
+  "removed",
+]);
+
 export const reportLifecycleEventType = pgEnum("report_lifecycle_event_type", [
   "created",
   "updated",
@@ -246,7 +284,7 @@ export const reportLifecycleEventType = pgEnum("report_lifecycle_event_type", [
 
 export const reportModerationActionType = pgEnum(
   "report_moderation_action_type",
-  ["hide", "restore"],
+  ["hide", "restore", "mark_false", "unmark_false"],
 );
 
 export const Report = pgTable(
@@ -289,6 +327,12 @@ export const Report = pgTable(
     }),
     hiddenReason: t.varchar({ length: 120 }),
     hiddenNote: t.text(),
+    falseReportedAt: t.timestamp({ mode: "date", withTimezone: true }),
+    falseReportedByAdminId: t.text().references(() => user.id, {
+      onDelete: "set null",
+    }),
+    falseReportReason: t.varchar({ length: 120 }),
+    falseReportNote: t.text(),
     resolvedAt: t.timestamp({ mode: "date", withTimezone: true }),
     deletedAt: t.timestamp({ mode: "date", withTimezone: true }),
   }),
@@ -300,6 +344,7 @@ export const Report = pgTable(
     index("report_caretaker_idx").on(table.caretakerId),
     index("report_type_status_idx").on(table.type, table.status),
     index("report_hidden_at_idx").on(table.hiddenAt),
+    index("report_false_reported_at_idx").on(table.falseReportedAt),
     index("report_created_at_idx").on(table.createdAt),
   ],
 );
@@ -374,19 +419,7 @@ export const ReportMedia = pgTable(
     expectedChecksumSha256: t.varchar({ length: 128 }),
     altText: t.varchar({ length: 240 }),
     position: t.integer(),
-    expiresAt: t.timestamp({ mode: "date", withTimezone: true }).notNull(),
-    verifiedAt: t.timestamp({ mode: "date", withTimezone: true }),
-    failedAt: t.timestamp({ mode: "date", withTimezone: true }),
-    removedAt: t.timestamp({ mode: "date", withTimezone: true }),
-    createdAt: t
-      .timestamp({ mode: "date", withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: t
-      .timestamp({ mode: "date", withTimezone: true })
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
+    ...createUploadLifecycleColumns(t),
   }),
   (table) => [
     index("report_media_report_idx").on(table.reportId),
@@ -398,6 +431,40 @@ export const ReportMedia = pgTable(
     uniqueIndex("report_media_report_ready_position_idx")
       .on(table.reportId, table.position)
       .where(sql`${table.status} = 'ready' AND ${table.reportId} IS NOT NULL`),
+  ],
+);
+
+export const AdminMediaAsset = pgTable(
+  "admin_media_asset",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    createdByAdminId: t.text().references(() => user.id, {
+      onDelete: "set null",
+    }),
+    purpose: adminMediaAssetPurpose().notNull(),
+    status: adminMediaAssetStatus().default("pending").notNull(),
+    objectKey: t.varchar({ length: 512 }).notNull(),
+    canonicalUrl: t.text(),
+    mimeType: t.varchar({ length: 80 }).notNull(),
+    width: t.integer().notNull(),
+    height: t.integer().notNull(),
+    sizeBytes: t.integer().notNull(),
+    expectedChecksumSha256: t.varchar({ length: 128 }),
+    ...createUploadLifecycleColumns(t),
+  }),
+  (table) => [
+    index("admin_media_asset_admin_status_idx").on(
+      table.createdByAdminId,
+      table.status,
+    ),
+    index("admin_media_asset_purpose_status_idx").on(
+      table.purpose,
+      table.status,
+    ),
+    index("admin_media_asset_pending_expiry_idx")
+      .on(table.expiresAt)
+      .where(sql`${table.status} = 'pending'`),
+    uniqueIndex("admin_media_asset_object_key_idx").on(table.objectKey),
   ],
 );
 
@@ -594,6 +661,8 @@ export const LocalSponsorPlacement = pgTable(
       .varchar({ length: 240 })
       .default("Patrocinado: apoyo local. No cambia la prioridad de reportes.")
       .notNull(),
+    logoUrl: t.text(),
+    imageUrl: t.text(),
     startsAt: t.timestamp({ mode: "date", withTimezone: true }).notNull(),
     endsAt: t.timestamp({ mode: "date", withTimezone: true }).notNull(),
     createdByAdminId: t.text().references(() => user.id, {
@@ -639,6 +708,12 @@ export const ResourceProviderModerationReviewItem = pgTable(
       .timestamp({ mode: "date", withTimezone: true })
       .defaultNow()
       .notNull(),
+    resolvedAt: t.timestamp({ mode: "date", withTimezone: true }),
+    resolvedByAdminId: t.text().references(() => user.id, {
+      onDelete: "set null",
+    }),
+    resolutionNote: t.text(),
+    resolutionReason: t.varchar({ length: 120 }),
     createdAt: t
       .timestamp({ mode: "date", withTimezone: true })
       .defaultNow()
@@ -653,14 +728,17 @@ export const ResourceProviderModerationReviewItem = pgTable(
     uniqueIndex("resource_provider_moderation_review_unique_idx").on(
       table.providerId,
       table.reason,
-      table.status,
-    ),
+    ).where(sql`${table.status} = 'pending'`),
     index("resource_provider_moderation_review_provider_idx").on(
       table.providerId,
     ),
     index("resource_provider_moderation_review_status_latest_idx").on(
       table.status,
       table.lastReportedAt,
+    ),
+    index("resource_provider_moderation_review_resolved_admin_idx").on(
+      table.resolvedByAdminId,
+      table.resolvedAt,
     ),
   ],
 );
@@ -719,6 +797,10 @@ export const reportRelations = relations(Report, ({ one, many }) => ({
     fields: [Report.hiddenByAdminId],
     references: [user.id],
   }),
+  falseReportedByAdmin: one(user, {
+    fields: [Report.falseReportedByAdminId],
+    references: [user.id],
+  }),
 }));
 
 export const reportLocationRelations = relations(ReportLocation, ({ one }) => ({
@@ -734,6 +816,16 @@ export const reportMediaRelations = relations(ReportMedia, ({ one }) => ({
     references: [Report.id],
   }),
 }));
+
+export const adminMediaAssetRelations = relations(
+  AdminMediaAsset,
+  ({ one }) => ({
+    createdByAdmin: one(user, {
+      fields: [AdminMediaAsset.createdByAdminId],
+      references: [user.id],
+    }),
+  }),
+);
 
 export const reportLifecycleEventRelations = relations(
   ReportLifecycleEvent,
@@ -844,6 +936,10 @@ export const resourceProviderModerationReviewItemRelations = relations(
       references: [ResourceProvider.id],
     }),
     reports: many(ResourceProviderModerationReport),
+    resolvedByAdmin: one(user, {
+      fields: [ResourceProviderModerationReviewItem.resolvedByAdminId],
+      references: [user.id],
+    }),
   }),
 );
 
