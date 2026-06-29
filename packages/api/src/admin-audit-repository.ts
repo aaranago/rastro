@@ -3,6 +3,19 @@ import type { AdminAuditEventMetadataJson } from "@acme/db/schema";
 import { and, asc, desc, eq, or, sql } from "@acme/db";
 import { AdminAuditEvent } from "@acme/db/schema";
 
+import type {
+  AdminListInput,
+  AdminListResult,
+  AdminListSortOption,
+  AdminListSortSpec,
+  NormalizedAdminListInput,
+} from "./admin-list-contract";
+import {
+  buildAdminListResult,
+  compareAdminListItems,
+  normalizeAdminListInput,
+} from "./admin-list-contract";
+
 export interface AdminAuditActor {
   email: string | null;
   id: string | null;
@@ -30,18 +43,36 @@ export interface AdminAuditFilterOptions {
   targetTypes: string[];
 }
 
-export interface AdminAuditListInput {
-  actor?: string;
+export type AdminAuditSortBy =
+  | "action"
+  | "actor"
+  | "createdAt"
+  | "targetLabel"
+  | "targetType";
+
+export interface AdminAuditFilters {
   action?: string;
+  actor?: string;
+  actorId?: string;
+  targetType?: string;
+}
+
+export interface AdminAuditListInput
+  extends AdminListInput<AdminAuditFilters, AdminAuditSortBy> {
+  action?: string;
+  actor?: string;
   actorId?: string;
   limit?: number;
   targetType?: string;
 }
 
-export interface AdminAuditListResult {
-  availableFilters: AdminAuditFilterOptions;
+export interface AdminAuditListResult
+  extends AdminListResult<
+    PersistedAdminAuditEvent,
+    AdminAuditFilterOptions,
+    AdminAuditSortBy
+  > {
   events: PersistedAdminAuditEvent[];
-  total: number;
 }
 
 export interface RecordAdminAuditEventInput {
@@ -71,7 +102,11 @@ export function createDrizzleAdminAuditRepository(
 ): AdminAuditRepository {
   return {
     list: async (input = {}) => {
-      const actor = input.actorId ?? input.actor;
+      const normalized = normalizeAdminAuditListInput(input);
+      const actor = normalized.filters.actorId ?? normalized.filters.actor;
+      const searchPattern = normalized.search
+        ? `%${escapeLikePattern(normalized.search)}%`
+        : null;
       const filters = [
         actor
           ? or(
@@ -79,9 +114,21 @@ export function createDrizzleAdminAuditRepository(
               eq(AdminAuditEvent.actorEmail, actor),
             )
           : undefined,
-        input.action ? eq(AdminAuditEvent.action, input.action) : undefined,
-        input.targetType
-          ? eq(AdminAuditEvent.targetType, input.targetType)
+        normalized.filters.action
+          ? eq(AdminAuditEvent.action, normalized.filters.action)
+          : undefined,
+        normalized.filters.targetType
+          ? eq(AdminAuditEvent.targetType, normalized.filters.targetType)
+          : undefined,
+        searchPattern
+          ? or(
+              sql`${AdminAuditEvent.action} ILIKE ${searchPattern} ESCAPE '\\'`,
+              sql`${AdminAuditEvent.actorEmail} ILIKE ${searchPattern} ESCAPE '\\'`,
+              sql`${AdminAuditEvent.summary} ILIKE ${searchPattern} ESCAPE '\\'`,
+              sql`${AdminAuditEvent.targetId} ILIKE ${searchPattern} ESCAPE '\\'`,
+              sql`${AdminAuditEvent.targetLabel} ILIKE ${searchPattern} ESCAPE '\\'`,
+              sql`${AdminAuditEvent.targetType} ILIKE ${searchPattern} ESCAPE '\\'`,
+            )
           : undefined,
       ].filter((filter) => filter !== undefined);
       const whereClause = filters.length > 0 ? and(...filters) : sql`true`;
@@ -95,8 +142,9 @@ export function createDrizzleAdminAuditRepository(
         .select()
         .from(AdminAuditEvent)
         .where(whereClause)
-        .orderBy(desc(AdminAuditEvent.createdAt))
-        .limit(clampAuditLimit(input.limit));
+        .orderBy(...buildAuditOrderBy(normalized))
+        .limit(normalized.pageSize)
+        .offset(normalized.offset);
       const optionRows = await db
         .select({
           action: AdminAuditEvent.action,
@@ -107,11 +155,19 @@ export function createDrizzleAdminAuditRepository(
         .from(AdminAuditEvent)
         .orderBy(asc(AdminAuditEvent.action), asc(AdminAuditEvent.targetType))
         .limit(500);
+      const events = rows.map(toPersistedAdminAuditEvent);
+      const list = buildAdminListResult({
+        availableFilters: buildFilterOptions(optionRows),
+        availableSorts: adminAuditAvailableSorts,
+        items: events,
+        page: normalized.page,
+        pageSize: normalized.pageSize,
+        total: Number(countRow?.total ?? rows.length),
+      });
 
       return {
-        availableFilters: buildFilterOptions(optionRows),
-        events: rows.map(toPersistedAdminAuditEvent),
-        total: Number(countRow?.total ?? rows.length),
+        ...list,
+        events,
       };
     },
     record: async (input) => {
@@ -152,24 +208,39 @@ export function createInMemoryAdminAuditRepository({
 
   return {
     list: (input = {}) => {
-      const actor = input.actorId ?? input.actor;
+      const normalized = normalizeAdminAuditListInput(input);
+      const actor = normalized.filters.actorId ?? normalized.filters.actor;
+      const normalizedSearch = normalized.search?.toLowerCase() ?? null;
       const filteredRows = rows
         .filter((event) =>
           actor ? event.actor.id === actor || event.actor.email === actor : true,
         )
         .filter((event) =>
-          input.action ? event.action === input.action : true,
+          normalized.filters.action
+            ? event.action === normalized.filters.action
+            : true,
         )
         .filter((event) =>
-          input.targetType ? event.target.type === input.targetType : true,
+          normalized.filters.targetType
+            ? event.target.type === normalized.filters.targetType
+            : true,
         )
-        .sort(
-          (left, right) =>
-            right.createdAt.getTime() - left.createdAt.getTime(),
+        .filter((event) =>
+          normalizedSearch ? auditEventMatchesSearch(event, normalizedSearch) : true,
+        )
+        .sort((left, right) =>
+          compareAdminListItems(
+            left,
+            right,
+            buildAuditSortSpecs(normalized.sortBy, normalized.sortDirection),
+          ),
         );
-      const limitedRows = filteredRows.slice(0, clampAuditLimit(input.limit));
-
-      return Promise.resolve({
+      const limitedRows = filteredRows.slice(
+        normalized.offset,
+        normalized.offset + normalized.pageSize,
+      );
+      const events = limitedRows.map((event) => ({ ...event }));
+      const list = buildAdminListResult({
         availableFilters: buildFilterOptions(
           rows.map((event) => ({
             action: event.action,
@@ -178,8 +249,16 @@ export function createInMemoryAdminAuditRepository({
             targetType: event.target.type,
           })),
         ),
-        events: limitedRows.map((event) => ({ ...event })),
+        availableSorts: adminAuditAvailableSorts,
+        items: events,
+        page: normalized.page,
+        pageSize: normalized.pageSize,
         total: filteredRows.length,
+      });
+
+      return Promise.resolve({
+        ...list,
+        events,
       });
     },
     record: (input) => {
@@ -199,6 +278,156 @@ export function createInMemoryAdminAuditRepository({
       return Promise.resolve({ ...event });
     },
   };
+}
+
+const adminAuditAvailableSorts = [
+  {
+    defaultDirection: "desc",
+    label: "Fecha",
+    value: "createdAt",
+  },
+  {
+    defaultDirection: "asc",
+    label: "Accion",
+    value: "action",
+  },
+  {
+    defaultDirection: "asc",
+    label: "Admin",
+    value: "actor",
+  },
+  {
+    defaultDirection: "asc",
+    label: "Tipo de objetivo",
+    value: "targetType",
+  },
+  {
+    defaultDirection: "asc",
+    label: "Objetivo",
+    value: "targetLabel",
+  },
+] satisfies readonly AdminListSortOption<AdminAuditSortBy>[];
+
+function normalizeAdminAuditListInput(
+  input: AdminAuditListInput = {},
+): NormalizedAdminListInput<AdminAuditFilters, AdminAuditSortBy> {
+  return normalizeAdminListInput<AdminAuditFilters, AdminAuditSortBy>(
+    {
+      ...input,
+      pageSize: input.pageSize ?? input.limit,
+      filters: {
+        ...input.filters,
+        action: input.filters?.action ?? input.action,
+        actor: input.filters?.actor ?? input.actor,
+        actorId: input.filters?.actorId ?? input.actorId,
+        targetType: input.filters?.targetType ?? input.targetType,
+      },
+    },
+    {
+      defaultFilters: {},
+      defaultSortBy: "createdAt",
+      defaultSortDirection: "desc",
+    } satisfies {
+      defaultFilters: AdminAuditFilters;
+      defaultSortBy: AdminAuditSortBy;
+      defaultSortDirection: "desc";
+    },
+  );
+}
+
+function buildAuditOrderBy(
+  input: NormalizedAdminListInput<AdminAuditFilters, AdminAuditSortBy>,
+) {
+  const order = input.sortDirection === "asc" ? asc : desc;
+
+  switch (input.sortBy) {
+    case "action":
+      return [
+        order(AdminAuditEvent.action),
+        desc(AdminAuditEvent.createdAt),
+        asc(AdminAuditEvent.id),
+      ];
+    case "actor":
+      return [
+        order(AdminAuditEvent.actorEmail),
+        desc(AdminAuditEvent.createdAt),
+        asc(AdminAuditEvent.id),
+      ];
+    case "targetLabel":
+      return [
+        order(AdminAuditEvent.targetLabel),
+        desc(AdminAuditEvent.createdAt),
+        asc(AdminAuditEvent.id),
+      ];
+    case "targetType":
+      return [
+        order(AdminAuditEvent.targetType),
+        desc(AdminAuditEvent.createdAt),
+        asc(AdminAuditEvent.id),
+      ];
+    case "createdAt":
+      return [order(AdminAuditEvent.createdAt), asc(AdminAuditEvent.id)];
+  }
+}
+
+function buildAuditSortSpecs(
+  sortBy: AdminAuditSortBy,
+  sortDirection: "asc" | "desc",
+): readonly AdminListSortSpec<PersistedAdminAuditEvent>[] {
+  const secondary = [
+    {
+      direction: "asc",
+      getValue: (event: PersistedAdminAuditEvent) => event.id,
+    },
+  ] satisfies readonly AdminListSortSpec<PersistedAdminAuditEvent>[];
+
+  switch (sortBy) {
+    case "action":
+      return [
+        { direction: sortDirection, getValue: (event) => event.action },
+        { direction: "desc", getValue: (event) => event.createdAt },
+        ...secondary,
+      ];
+    case "actor":
+      return [
+        { direction: sortDirection, getValue: (event) => event.actor.label },
+        { direction: "desc", getValue: (event) => event.createdAt },
+        ...secondary,
+      ];
+    case "targetLabel":
+      return [
+        { direction: sortDirection, getValue: (event) => event.target.label },
+        { direction: "desc", getValue: (event) => event.createdAt },
+        ...secondary,
+      ];
+    case "targetType":
+      return [
+        { direction: sortDirection, getValue: (event) => event.target.type },
+        { direction: "desc", getValue: (event) => event.createdAt },
+        ...secondary,
+      ];
+    case "createdAt":
+      return [
+        { direction: sortDirection, getValue: (event) => event.createdAt },
+        ...secondary,
+      ];
+  }
+}
+
+function auditEventMatchesSearch(
+  event: PersistedAdminAuditEvent,
+  normalizedSearch: string,
+) {
+  return [
+    event.action,
+    event.actor.email,
+    event.actor.id,
+    event.actor.label,
+    event.summary,
+    event.target.id,
+    event.target.label,
+    event.target.type,
+  ].some((value) => value?.toLowerCase().includes(normalizedSearch));
 }
 
 function toPersistedAdminAuditEvent(
@@ -260,10 +489,6 @@ function toAuditActor(id: string | null, email: string | null): AdminAuditActor 
   };
 }
 
-function clampAuditLimit(limit = 50) {
-  return Math.min(Math.max(limit, 1), 100);
-}
-
 function cleanMetadata(
   metadata: AdminAuditEventMetadataJson | null | undefined,
 ): AdminAuditEventMetadataJson | null {
@@ -276,4 +501,11 @@ function cleanMetadata(
   );
 
   return Object.keys(cleaned).length > 0 ? cleaned : null;
+}
+
+function escapeLikePattern(value: string) {
+  return value
+    .replaceAll("\\", "\\\\")
+    .replaceAll("%", "\\%")
+    .replaceAll("_", "\\_");
 }

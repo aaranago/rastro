@@ -13,7 +13,7 @@ const envMock = vi.hoisted(() => ({
 
 const memberApi = vi.hoisted(() => ({
   getAdminMemberProfile: vi.fn(),
-  searchAdminMembers: vi.fn(),
+  listAdminMembers: vi.fn(),
 }));
 
 vi.mock("~/auth/server", () => authServer);
@@ -25,10 +25,10 @@ describe("admin members page", () => {
     vi.resetModules();
     authServer.getSession.mockReset();
     memberApi.getAdminMemberProfile.mockReset();
-    memberApi.searchAdminMembers.mockReset();
+    memberApi.listAdminMembers.mockReset();
   });
 
-  it("loads search results and the selected member profile for allowlisted admins", async () => {
+  it("loads the first member page and the selected member profile for allowlisted admins", async () => {
     authServer.getSession.mockResolvedValue({
       user: {
         email: "admin@rastro.bo",
@@ -36,15 +36,19 @@ describe("admin members page", () => {
         name: "Admin Rastro",
       },
     });
-    memberApi.searchAdminMembers.mockResolvedValue([
-      {
-        currentSuspension: null,
-        email: "camila@example.com",
-        emailVerified: true,
-        id: "member-camila",
-        name: "Camila R.",
-      },
-    ]);
+    memberApi.listAdminMembers.mockResolvedValue(
+      adminMemberListResult([
+        {
+          createdAt: new Date("2026-06-20T12:00:00.000Z"),
+          currentSuspension: null,
+          email: "camila@example.com",
+          emailVerified: true,
+          id: "member-camila",
+          name: "Camila R.",
+          updatedAt: new Date("2026-06-26T12:00:00.000Z"),
+        },
+      ]),
+    );
     memberApi.getAdminMemberProfile.mockResolvedValue({
       currentSuspension: null,
       member: {
@@ -92,12 +96,49 @@ describe("admin members page", () => {
     expect(html).toContain("camila@example.com");
     expect(html).toContain("Bruno perdido");
     expect(html).toContain("Suspender miembro");
-    expect(memberApi.searchAdminMembers).toHaveBeenCalledWith({
-      query: "camila",
+    expect(memberApi.listAdminMembers).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 10,
+      search: "camila",
     });
     expect(memberApi.getAdminMemberProfile).toHaveBeenCalledWith(
       "member-camila",
     );
+  });
+
+  it("loads the first 10 members without requiring search", async () => {
+    authServer.getSession.mockResolvedValue({
+      user: {
+        email: "admin@rastro.bo",
+        id: "member-admin",
+        name: "Admin Rastro",
+      },
+    });
+    memberApi.listAdminMembers.mockResolvedValue(
+      adminMemberListResult([
+        {
+          createdAt: new Date("2026-06-20T12:00:00.000Z"),
+          currentSuspension: null,
+          email: "ana@example.com",
+          emailVerified: true,
+          id: "member-ana",
+          name: "Ana S.",
+          updatedAt: new Date("2026-06-26T12:00:00.000Z"),
+        },
+      ]),
+    );
+    const { default: AdminMembersPage } = await import(
+      "./app/admin/miembros/page"
+    );
+
+    const html = renderToStaticMarkup(await AdminMembersPage());
+
+    expect(html).toContain("Ana S.");
+    expect(memberApi.listAdminMembers).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 10,
+    });
+    expect(memberApi.getAdminMemberProfile).not.toHaveBeenCalled();
   });
 
   it("does not call member APIs for non-admin members", async () => {
@@ -122,7 +163,21 @@ describe("admin members page", () => {
     );
 
     expect(html).toBe("");
-    expect(memberApi.searchAdminMembers).not.toHaveBeenCalled();
+    expect(memberApi.listAdminMembers).not.toHaveBeenCalled();
     expect(memberApi.getAdminMemberProfile).not.toHaveBeenCalled();
   });
 });
+
+function adminMemberListResult<T>(items: T[]) {
+  return {
+    availableFilters: [],
+    availableSorts: [],
+    hasNextPage: false,
+    hasPreviousPage: false,
+    items,
+    page: 1,
+    pageCount: items.length > 0 ? 1 : 0,
+    pageSize: 10,
+    total: items.length,
+  };
+}

@@ -37,6 +37,18 @@ describe("admin audit page", () => {
     });
     auditApi.listAdminAuditEvents.mockResolvedValue({
       data: {
+        availableSorts: [
+          {
+            defaultDirection: "desc",
+            label: "Fecha",
+            value: "createdAt",
+          },
+          {
+            defaultDirection: "asc",
+            label: "Objetivo",
+            value: "targetLabel",
+          },
+        ],
         events: [
           {
             action: "settings_updated",
@@ -77,6 +89,11 @@ describe("admin audit page", () => {
             },
           ],
         },
+        hasNextPage: false,
+        hasPreviousPage: false,
+        page: 1,
+        pageCount: 1,
+        pageSize: 100,
         total: 1,
       },
       status: "ready",
@@ -91,6 +108,9 @@ describe("admin audit page", () => {
           action: "settings_updated",
           actor: "admin@rastro.bo",
           limit: "500",
+          search: "review mode",
+          sortBy: "targetLabel",
+          sortDirection: "asc",
           targetType: "admin_settings",
         }),
       }),
@@ -101,11 +121,15 @@ describe("admin audit page", () => {
     });
     expect(html).toContain("Auditoría administrativa");
     expect(html).toContain("Review Mode activado para adopciones");
-    expect(html).toContain('value="200"');
+    expect(html).toContain('value="100"');
     expect(auditApi.listAdminAuditEvents).toHaveBeenCalledWith({
       action: "settings_updated",
       actor: "admin@rastro.bo",
-      limit: 200,
+      page: 1,
+      pageSize: 100,
+      search: "review mode",
+      sortBy: "targetLabel",
+      sortDirection: "asc",
       targetType: "admin_settings",
     });
   });

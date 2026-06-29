@@ -11,7 +11,11 @@ describe("AdminAuditLogDashboard", () => {
         query={{
           action: "settings_updated",
           actor: "admin@rastro.bo",
-          limit: 75,
+          page: 2,
+          pageSize: 10,
+          search: "adopciones",
+          sortBy: "createdAt",
+          sortDirection: "desc",
           targetType: "admin_settings",
         }}
         state={{
@@ -26,12 +30,24 @@ describe("AdminAuditLogDashboard", () => {
     expect(html).toContain("Todos los actores");
     expect(html).toContain("Todos los destinos");
     expect(html).toContain("Todas las acciones");
-    expect(html).toContain('value="75"');
+    expect(html).toContain('value="adopciones"');
+    expect(html).toContain('value="10"');
     expect(html).toContain("Actor: admin@rastro.bo");
+    expect(html).toContain("Búsqueda: adopciones");
     expect(html).toContain("Destino: Ajustes admin");
     expect(html).toContain("Acción: Ajustes actualizados");
     expect(html).toContain("Eventos");
     expect(html).toContain("Vista larga");
+    expect(html).toContain("Fecha");
+    expect(html).toContain(
+      "/admin/auditoria?search=adopciones&amp;actor=admin%40rastro.bo&amp;targetType=admin_settings&amp;action=settings_updated&amp;pageSize=10&amp;sortBy=action&amp;sortDirection=asc",
+    );
+    expect(html).toContain(
+      "/admin/auditoria?search=adopciones&amp;actor=admin%40rastro.bo&amp;targetType=admin_settings&amp;action=settings_updated&amp;pageSize=10&amp;sortBy=createdAt&amp;sortDirection=asc",
+    );
+    expect(html).toContain(
+      "/admin/auditoria?search=adopciones&amp;actor=admin%40rastro.bo&amp;targetType=admin_settings&amp;action=settings_updated&amp;page=3&amp;pageSize=10&amp;sortBy=createdAt&amp;sortDirection=desc",
+    );
     expect(html).toContain("table-fixed");
     expect(html).toContain("break-words");
     expect(html).toContain("Review Mode activado para adopciones");
@@ -45,17 +61,23 @@ describe("AdminAuditLogDashboard", () => {
         query={{
           action: "member_suspended",
           actor: "nueva-admin@rastro.bo",
-          limit: 50,
+          pageSize: 10,
           targetType: "member",
         }}
         state={{
           data: {
+            availableSorts: [],
             events: [],
             filters: {
               actions: [],
               actors: [],
               targetTypes: [],
             },
+            hasNextPage: false,
+            hasPreviousPage: false,
+            page: 1,
+            pageCount: 0,
+            pageSize: 10,
             total: 0,
           },
           status: "ready",
@@ -72,13 +94,13 @@ describe("AdminAuditLogDashboard", () => {
   it("renders loading and error states", () => {
     const loadingHtml = renderToStaticMarkup(
       <AdminAuditLogDashboard
-        query={{ limit: 50 }}
+        query={{ pageSize: 10 }}
         state={{ status: "loading" }}
       />,
     );
     const errorHtml = renderToStaticMarkup(
       <AdminAuditLogDashboard
-        query={{ limit: 50 }}
+        query={{ pageSize: 10 }}
         state={{
           message: "El contrato admin.audit.list todavía no está disponible.",
           status: "error",
@@ -94,6 +116,18 @@ describe("AdminAuditLogDashboard", () => {
 
 function auditLogData(): AdminAuditLogData {
   return {
+    availableSorts: [
+      {
+        defaultDirection: "asc",
+        label: "Acción",
+        value: "action",
+      },
+      {
+        defaultDirection: "desc",
+        label: "Fecha",
+        value: "createdAt",
+      },
+    ],
     events: Array.from({ length: 14 }, (_, index) => ({
       action: index === 0 ? "settings_updated" : "moderation_hide_target",
       actor: {
@@ -143,6 +177,11 @@ function auditLogData(): AdminAuditLogData {
         },
       ],
     },
-    total: 14,
+    hasNextPage: true,
+    hasPreviousPage: true,
+    page: 2,
+    pageCount: 3,
+    pageSize: 10,
+    total: 23,
   };
 }

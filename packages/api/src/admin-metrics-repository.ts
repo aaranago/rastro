@@ -8,7 +8,7 @@ import {
   ReportLocation,
   ResourceProvider,
   ResourceProviderLocation,
-  ResourceProviderModerationReport,
+  ResourceProviderModerationReviewItem,
 } from "@acme/db/schema";
 
 export interface AdminMetricsSummaryCard {
@@ -236,16 +236,21 @@ async function listProviderModerationMetricRows(db: Database) {
       department: ResourceProviderLocation.department,
       pendingProviderReportCount: sql<number>`count(*)::int`,
     })
-    .from(ResourceProviderModerationReport)
+    .from(ResourceProviderModerationReviewItem)
     .innerJoin(
       ResourceProvider,
-      eq(ResourceProvider.id, ResourceProviderModerationReport.providerId),
+      eq(ResourceProvider.id, ResourceProviderModerationReviewItem.providerId),
     )
     .innerJoin(
       ResourceProviderLocation,
       eq(ResourceProviderLocation.providerId, ResourceProvider.id),
     )
-    .where(isNull(ResourceProvider.deletedAt))
+    .where(
+      and(
+        isNull(ResourceProvider.deletedAt),
+        eq(ResourceProviderModerationReviewItem.status, "pending"),
+      ),
+    )
     .groupBy(ResourceProviderLocation.city, ResourceProviderLocation.department);
 
   return rows.map((row) => ({

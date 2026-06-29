@@ -1,21 +1,34 @@
 import { headers } from "next/headers";
 
+import type { RouterInputs, RouterOutputs } from "@acme/api";
 import { appRouter, createTRPCContext } from "@acme/api";
 
 import { auth } from "~/auth/server";
 import { env } from "~/env";
-
-export interface AdminMemberSearchInput {
-  query: string;
-}
 
 export interface AdminMemberSuspensionInput {
   memberId: string;
   reason: string;
 }
 
-export async function searchAdminMembers(input: AdminMemberSearchInput) {
-  return (await createAdminMembersCaller()).admin.members.search(input);
+export interface AdminMemberListInput {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  sortBy?:
+    | "createdAt"
+    | "email"
+    | "emailVerified"
+    | "name"
+    | "suspensionStatus";
+  sortDirection?: "asc" | "desc";
+}
+export type AdminMemberListResult = RouterOutputs["admin"]["members"]["list"];
+
+export async function listAdminMembers(input: AdminMemberListInput) {
+  return (await createAdminMembersCaller()).admin.members.list(
+    input as RouterInputs["admin"]["members"]["list"],
+  );
 }
 
 export async function getAdminMemberProfile(memberId: string) {

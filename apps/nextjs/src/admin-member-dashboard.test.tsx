@@ -76,15 +76,17 @@ describe("AdminMemberDashboard", () => {
           suspensionHistory: [activeSuspension],
         }}
         query="diego"
-        results={[
+        listState={adminMemberListResult([
           {
+            createdAt: new Date("2026-06-20T12:00:00.000Z"),
             currentSuspension: activeSuspension,
             email: "diego@example.com",
             emailVerified: false,
             id: "member-diego",
             name: "Diego P.",
+            updatedAt: new Date("2026-06-26T12:00:00.000Z"),
           },
-        ]}
+        ])}
         viewer={baseViewer}
       />,
     );
@@ -128,15 +130,17 @@ describe("AdminMemberDashboard", () => {
           suspensionHistory: [],
         }}
         query="camila"
-        results={[
+        listState={adminMemberListResult([
           {
+            createdAt: new Date("2026-06-20T12:00:00.000Z"),
             currentSuspension: null,
             email: "camila@example.com",
             emailVerified: true,
             id: "member-camila",
             name: "Camila R.",
+            updatedAt: new Date("2026-06-26T12:00:00.000Z"),
           },
-        ]}
+        ])}
         viewer={baseViewer}
         workflowFeedback={{
           fieldErrors: {
@@ -159,3 +163,17 @@ describe("AdminMemberDashboard", () => {
     expect(html).toContain('data-state="open"');
   });
 });
+
+function adminMemberListResult<T>(items: T[]) {
+  return {
+    availableFilters: [],
+    availableSorts: [],
+    hasNextPage: false,
+    hasPreviousPage: false,
+    items,
+    page: 1,
+    pageCount: items.length > 0 ? 1 : 0,
+    pageSize: 10,
+    total: items.length,
+  };
+}

@@ -38,13 +38,15 @@ import {
 import { Textarea } from "@acme/ui/textarea";
 
 import type { AdminMemberWorkflowFeedback } from "./admin-member-actions";
+import type { AdminMemberListResult } from "./admin-member-api-adapter";
+import type { AdminDataListColumn } from "./admin-ui/admin-data-list";
+import { AdminDataList } from "./admin-ui/admin-data-list";
 import { AdminSubmitButton } from "./admin-ui/admin-submit-button";
 
-export type AdminMemberSearchResults =
-  RouterOutputs["admin"]["members"]["search"];
 export type AdminMemberProfile =
   | RouterOutputs["admin"]["members"]["profile"]
   | null;
+type AdminMemberListItem = AdminMemberListResult["items"][number];
 
 export interface AdminMemberViewer {
   displayName: string;
@@ -53,9 +55,10 @@ export interface AdminMemberViewer {
 
 export interface AdminMemberDashboardProps {
   formAction?: React.ComponentProps<"form">["action"];
+  listHrefForPage?: (page: number) => string;
+  listState: AdminMemberListResult;
   profile: AdminMemberProfile;
   query: string;
-  results: AdminMemberSearchResults;
   viewer: AdminMemberViewer;
   workflowFeedback?: AdminMemberWorkflowFeedback;
 }
@@ -75,7 +78,9 @@ const reportStatusLabels = {
 
 const moderationActionLabels = {
   hide: "Ocultado",
+  mark_false: "Marcado como reporte falso",
   restore: "Restaurado",
+  unmark_false: "Reporte falso revertido",
 } as const;
 
 export function AdminMemberDashboard(props: AdminMemberDashboardProps) {
@@ -85,9 +90,13 @@ export function AdminMemberDashboard(props: AdminMemberDashboardProps) {
         <AdminMemberHeader viewer={props.viewer} />
         <AdminMemberNotice feedback={props.workflowFeedback} />
 
-        <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(340px,420px)_minmax(0,1fr)]">
+        <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(340px,420px)]">
           <section className="flex min-w-0 flex-col gap-4">
-            <MemberSearchPanel query={props.query} results={props.results} />
+            <MemberListPanel
+              hrefForPage={props.listHrefForPage}
+              listState={props.listState}
+              query={props.query}
+            />
           </section>
           <section className="min-w-0">
             {props.profile ? (
@@ -168,72 +177,132 @@ function AdminMemberNotice(props: {
   );
 }
 
-function MemberSearchPanel(props: {
+function MemberListPanel(props: {
+  hrefForPage?: (page: number) => string;
+  listState: AdminMemberListResult;
   query: string;
-  results: AdminMemberSearchResults;
 }) {
+  const columns = getMemberListColumns(props.query);
+  const activeFilters = props.query
+    ? [
+        {
+          label: "Búsqueda",
+          value: props.query,
+        },
+      ]
+    : [];
+  const totalLabel =
+    props.listState.total === 1
+      ? "1 miembro"
+      : `${props.listState.total} miembros`;
+
   return (
-    <>
-      <form
-        action="/admin/miembros"
-        className="border-border bg-card text-card-foreground rounded-lg border p-4 shadow-xs"
-      >
-        <Field>
-          <FieldLabel htmlFor="admin-member-query">
-            Buscar por correo, nombre o ID
-          </FieldLabel>
-          <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
-            <Input
-              defaultValue={props.query}
-              id="admin-member-query"
-              maxLength={120}
-              name="q"
-              placeholder="camila@example.com"
-              type="search"
-            />
-            <Button className="sm:w-fit" type="submit">
-              Buscar
-            </Button>
-          </div>
-        </Field>
-      </form>
-
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold">Resultados</h2>
-        <Badge variant="secondary">
-          {props.results.length === 1
-            ? "1 miembro"
-            : `${props.results.length} miembros`}
-        </Badge>
-      </div>
-
-      {props.results.length > 0 ? (
-        <div className="grid gap-3">
-          {props.results.map((member) => (
-            <MemberSearchResultCard
-              key={member.id}
-              member={member}
-              query={props.query}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs">
-          <p className="text-sm font-medium">
-            {props.query
-              ? "Sin resultados para la búsqueda."
-              : "Ingresa una búsqueda para cargar miembros."}
-          </p>
-        </div>
+    <AdminDataList
+      activeFilters={activeFilters}
+      columns={columns}
+      description="Lista operativa para abrir perfiles de seguridad, estado de correo y suspensión."
+      emptyState={{
+        description:
+          "Cuando existan miembros registrados, aparecerán aquí para revisión.",
+        title: "No hay miembros registrados.",
+      }}
+      filterBar={<MemberSearchForm query={props.query} />}
+      filteredEmptyState={{
+        description: "Prueba con otro correo, nombre o ID de miembro.",
+        title: "Sin resultados para la búsqueda.",
+      }}
+      getRowKey={(member) => member.id}
+      id="admin-member-list"
+      pagination={{
+        hrefForPage: props.hrefForPage,
+        page: props.listState.page,
+        pageSize: props.listState.pageSize,
+        totalItems: props.listState.total,
+      }}
+      renderMobileCard={(member) => (
+        <MemberListCard member={member} query={props.query} />
       )}
-    </>
+      rows={props.listState.items}
+      tableCaption="Miembros administrativos"
+      title="Miembros"
+      totalLabel={totalLabel}
+    />
   );
 }
 
-function MemberSearchResultCard(props: {
-  member: AdminMemberSearchResults[number];
-  query: string;
-}) {
+function MemberSearchForm(props: { query: string }) {
+  return (
+    <form action="/admin/miembros" className="grid min-w-0 gap-3">
+      <Field>
+        <FieldLabel htmlFor="admin-member-query">
+          Buscar por correo, nombre o ID
+        </FieldLabel>
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+          <Input
+            defaultValue={props.query}
+            id="admin-member-query"
+            maxLength={120}
+            name="q"
+            placeholder="camila@example.com"
+            type="search"
+          />
+          <Button className="sm:w-fit" type="submit">
+            Buscar
+          </Button>
+        </div>
+      </Field>
+    </form>
+  );
+}
+
+function getMemberListColumns(
+  query: string,
+): readonly AdminDataListColumn<AdminMemberListItem>[] {
+  return [
+    {
+      cell: (member) => (
+        <a
+          className="text-foreground hover:text-primary focus-visible:border-ring focus-visible:ring-ring/50 block min-w-0 rounded-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-[3px]"
+          href={buildMemberHref(member.id, query)}
+        >
+          <span className="block break-words">{member.name}</span>
+          <span className="text-muted-foreground block text-xs break-all">
+            {member.email}
+          </span>
+          <span className="text-muted-foreground mt-1 block text-xs break-all">
+            {member.id}
+          </span>
+        </a>
+      ),
+      header: "Miembro",
+      headerClassName: "w-[48%]",
+      id: "member",
+      rowHeader: true,
+    },
+    {
+      cell: (member) => (
+        <MemberStateBadge
+          activeSuspension={Boolean(member.currentSuspension)}
+        />
+      ),
+      header: "Estado",
+      headerClassName: "w-[22%]",
+      id: "state",
+    },
+    {
+      cell: (member) => (
+        <Badge variant={member.emailVerified ? "default" : "secondary"}>
+          {member.emailVerified ? "Verificado" : "Pendiente"}
+        </Badge>
+      ),
+      header: "Correo",
+      headerClassName: "w-[30%]",
+      id: "email",
+    },
+  ];
+}
+
+function MemberListCard(props: { member: AdminMemberListItem; query: string }) {
   return (
     <a
       className="border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-primary/5 block rounded-lg border p-4 shadow-xs transition-colors"
@@ -698,7 +767,7 @@ function MemberProfileEmptyState(props: { hasQuery: boolean }) {
       <p className="text-muted-foreground mt-2 text-sm">
         {props.hasQuery
           ? "Selecciona un resultado para revisar estado, reportes y acciones."
-          : "Busca un miembro para abrir su perfil de seguridad."}
+          : "Selecciona un miembro de la lista para abrir su perfil de seguridad."}
       </p>
     </div>
   );

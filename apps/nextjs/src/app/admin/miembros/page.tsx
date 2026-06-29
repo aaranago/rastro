@@ -2,10 +2,7 @@ import type { Metadata } from "next";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import type {
-  AdminMemberProfile,
-  AdminMemberSearchResults,
-} from "~/admin-member-dashboard";
+import type { AdminMemberListInput } from "~/admin-member-api-adapter";
 import {
   applyAdminMemberAction,
   buildAdminMemberRedirectUrl,
@@ -13,10 +10,16 @@ import {
 } from "~/admin-member-actions";
 import {
   getAdminMemberProfile,
-  searchAdminMembers,
+  listAdminMembers,
 } from "~/admin-member-api-adapter";
 import { AdminMemberDashboard } from "~/admin-member-dashboard";
 import { buildAdminModerationViewer } from "~/admin-moderation-access";
+import {
+  buildAdminQueryHref,
+  getPositiveIntegerSearchParam,
+  getSingleSearchParam,
+  getSortDirectionSearchParam,
+} from "~/admin-search-params";
 import { getSession } from "~/auth/server";
 import { env } from "~/env";
 
@@ -41,23 +44,27 @@ export default async function AdminMembersPage(
 
   const query = getSingleSearchParam(searchParams, "q")?.trim() ?? "";
   const selectedMemberId = getSingleSearchParam(searchParams, "memberId");
-  const [searchedMembers, profile] = await Promise.all([
-    query ? searchAdminMembers({ query }) : Promise.resolve([]),
+  const listInput = buildAdminMemberListInput(searchParams, query);
+  const [listState, profile] = await Promise.all([
+    listAdminMembers(listInput),
     selectedMemberId ? getAdminMemberProfile(selectedMemberId) : null,
   ]);
-  const results =
-    searchedMembers.length > 0
-      ? searchedMembers
-      : profile
-        ? [toSearchResult(profile)]
-        : [];
 
   return (
     <AdminMemberDashboard
       formAction={applyAdminMembersForm}
+      listHrefForPage={(page) =>
+        buildAdminMemberListHref({
+          page,
+          pageSize: listState.pageSize,
+          query,
+          sortBy: listInput.sortBy,
+          sortDirection: listInput.sortDirection,
+        })
+      }
+      listState={listState}
       profile={profile}
       query={query}
-      results={results}
       viewer={viewer.dashboardViewer}
       workflowFeedback={buildAdminMemberWorkflowFeedback(searchParams)}
     />
@@ -87,33 +94,68 @@ export async function applyAdminMembersForm(formData: FormData) {
   redirect(buildAdminMemberRedirectUrl(result, query));
 }
 
-function toSearchResult(
-  profile: NonNullable<AdminMemberProfile>,
-): AdminMemberSearchResults[number] {
-  return {
-    currentSuspension: profile.currentSuspension,
-    email: profile.member.email,
-    emailVerified: profile.member.emailVerified,
-    id: profile.member.id,
-    name: profile.member.name,
-  };
-}
-
 function getStringFormValue(formData: FormData, key: string) {
   const value = formData.get(key);
 
   return typeof value === "string" ? value.trim() : null;
 }
 
-function getSingleSearchParam(
+function buildAdminMemberListInput(
   searchParams: Record<string, string | string[] | undefined>,
-  key: string,
-) {
-  const value = searchParams[key];
+  query: string,
+): AdminMemberListInput {
+  const input: AdminMemberListInput = {
+    page: getPositiveIntegerSearchParam(searchParams, "page", 1),
+    pageSize: getPositiveIntegerSearchParam(searchParams, "pageSize", 10),
+  };
+  const sortBy = getMemberSortBySearchParam(searchParams);
+  const sortDirection = getSortDirectionSearchParam(searchParams);
 
-  if (Array.isArray(value)) {
-    return value[0] ?? null;
+  if (query.length > 0) {
+    input.search = query;
   }
 
-  return value ?? null;
+  if (sortBy) {
+    input.sortBy = sortBy;
+  }
+
+  if (sortDirection) {
+    input.sortDirection = sortDirection;
+  }
+
+  return input;
+}
+
+function buildAdminMemberListHref(input: {
+  page: number;
+  pageSize: number;
+  query: string;
+  sortBy: ReturnType<typeof getMemberSortBySearchParam>;
+  sortDirection: ReturnType<typeof getSortDirectionSearchParam>;
+}) {
+  return buildAdminQueryHref({
+    basePath: "/admin/miembros",
+    page: input.page,
+    pageSize: input.pageSize,
+    searchParam: {
+      key: "q",
+      value: input.query,
+    },
+    sortBy: input.sortBy,
+    sortDirection: input.sortDirection,
+  });
+}
+
+function getMemberSortBySearchParam(
+  searchParams: Record<string, string | string[] | undefined>,
+) {
+  const value = getSingleSearchParam(searchParams, "sortBy");
+
+  return value === "createdAt" ||
+    value === "email" ||
+    value === "emailVerified" ||
+    value === "name" ||
+    value === "suspensionStatus"
+    ? value
+    : undefined;
 }

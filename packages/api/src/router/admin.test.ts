@@ -265,6 +265,85 @@ describe("admin settings router", () => {
     ]);
   });
 
+  it("lists members through the enterprise list contract for allowlisted admins", async () => {
+    const listInputs: unknown[] = [];
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      authApi: {},
+      db: {},
+      memberSuspensionRepository: {
+        listMembers: (input: unknown) => {
+          listInputs.push(input);
+
+          return Promise.resolve({
+            availableFilters: [],
+            availableSorts: [],
+            hasNextPage: true,
+            hasPreviousPage: true,
+            items: [
+              {
+                createdAt: new Date("2026-06-20T12:00:00.000Z"),
+                currentSuspension: null,
+                email: "camila@example.com",
+                emailVerified: true,
+                id: "member-camila",
+                name: "Camila R.",
+                updatedAt: new Date("2026-06-26T12:00:00.000Z"),
+              },
+            ],
+            page: 2,
+            pageCount: 3,
+            pageSize: 25,
+            total: 51,
+          });
+        },
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin",
+        },
+      },
+    });
+
+    await expect(
+      caller.admin.members.list({
+        filters: {
+          emailVerification: "verified",
+          suspension: "not_suspended",
+        },
+        page: 2,
+        pageSize: 25,
+        search: "camila",
+        sortBy: "email",
+        sortDirection: "asc",
+      }),
+    ).resolves.toMatchObject({
+      hasNextPage: true,
+      items: [
+        {
+          email: "camila@example.com",
+          id: "member-camila",
+        },
+      ],
+      page: 2,
+      total: 51,
+    });
+    expect(listInputs).toEqual([
+      {
+        filters: {
+          emailVerification: "verified",
+          suspension: "not_suspended",
+        },
+        page: 2,
+        pageSize: 25,
+        search: "camila",
+        sortBy: "email",
+        sortDirection: "asc",
+      },
+    ]);
+  });
+
   it("rejects member search for non-admin members", async () => {
     let searchWasCalled = false;
     const caller = createCaller({
@@ -686,6 +765,162 @@ describe("admin settings router", () => {
     ]);
   });
 
+  it("lists, reads, and resolves Resource Provider queue items through enterprise moderation procedures", async () => {
+    const listInputs: unknown[] = [];
+    const itemInputs: unknown[] = [];
+    const resolutionInputs: unknown[] = [];
+    const auditEvents: unknown[] = [];
+    const reviewItem = {
+      createdAt: new Date("2026-06-26T16:00:00.000Z"),
+      id: "22222222-2222-4222-8222-222222222222",
+      lastReportedAt: new Date("2026-06-26T16:00:00.000Z"),
+      newestReport: {
+        createdAt: new Date("2026-06-26T16:00:00.000Z"),
+        detail: "La direccion visible no coincide con el local.",
+        reporter: {
+          displayName: "Ana S.",
+          email: "ana@example.com",
+          memberId: "member-ana",
+          suspension: null,
+        },
+      },
+      provider: {
+        city: "La Paz",
+        department: "La Paz",
+        id: "11111111-1111-4111-8111-111111111111",
+        locationLabel: "Sopocachi, La Paz",
+        name: "Clinica Veterinaria San Roque",
+        verificationStatus: "verified",
+      },
+      reason: "incorrect_location",
+      reportCount: 2,
+      resolution: null,
+      status: "pending",
+    };
+    const caller = createCaller({
+      adminAuditRepository: createAuditRecorder(auditEvents),
+      adminEmailList: "admin@rastro.bo",
+      authApi: {},
+      db: {},
+      resourceProviderModerationRepository: {
+        getResourceProviderQueueItem: (input: unknown) => {
+          itemInputs.push(input);
+
+          return Promise.resolve(reviewItem);
+        },
+        listResourceProviderQueue: (input: unknown) => {
+          listInputs.push(input);
+
+          return Promise.resolve({
+            availableFilters: [],
+            availableSorts: [],
+            hasNextPage: false,
+            hasPreviousPage: false,
+            items: [reviewItem],
+            page: 1,
+            pageCount: 1,
+            pageSize: 10,
+            total: 1,
+          });
+        },
+        resolveResourceProviderReviewItem: (input: unknown) => {
+          resolutionInputs.push(input);
+
+          return Promise.resolve({
+            ...reviewItem,
+            resolution: {
+              note: "Proveedor corregido.",
+              reason: "reviewed",
+              resolvedAt: new Date("2026-06-26T17:00:00.000Z"),
+              resolvedByAdminId: "member-admin",
+            },
+            status: "resolved_action_taken",
+          });
+        },
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin",
+        },
+      },
+    });
+
+    await expect(
+      caller.admin.moderation.resourceProviderQueueList({
+        filters: {
+          reason: ["incorrect_location"],
+          status: ["pending"],
+          verification: ["verified"],
+        },
+        page: 1,
+        pageSize: 10,
+        search: "san roque",
+        sortBy: "lastReportedAt",
+      }),
+    ).resolves.toMatchObject({
+      items: [
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          provider: {
+            name: "Clinica Veterinaria San Roque",
+          },
+        },
+      ],
+      total: 1,
+    });
+    await expect(
+      caller.admin.moderation.resourceProviderQueueItem({
+        reviewItemId: "22222222-2222-4222-8222-222222222222",
+      }),
+    ).resolves.toMatchObject({
+      id: "22222222-2222-4222-8222-222222222222",
+    });
+    await expect(
+      caller.admin.moderation.resolveResourceProviderReviewItem({
+        resolutionNote: "Proveedor corregido.",
+        resolutionReason: "reviewed",
+        reviewItemId: "22222222-2222-4222-8222-222222222222",
+        status: "resolved_action_taken",
+      }),
+    ).resolves.toMatchObject({
+      resolution: {
+        reason: "reviewed",
+      },
+      status: "resolved_action_taken",
+    });
+
+    expect(listInputs).toHaveLength(1);
+    expect(itemInputs).toEqual([
+      {
+        reviewItemId: "22222222-2222-4222-8222-222222222222",
+      },
+    ]);
+    expect(resolutionInputs).toEqual([
+      {
+        adminId: "member-admin",
+        resolutionNote: "Proveedor corregido.",
+        resolutionReason: "reviewed",
+        reviewItemId: "22222222-2222-4222-8222-222222222222",
+        status: "resolved_action_taken",
+      },
+    ]);
+    expect(auditEvents).toMatchObject([
+      {
+        action: "resource_provider_report.resolve",
+        metadata: {
+          reason: "reviewed",
+          resolutionNote: "Proveedor corregido.",
+          status: "resolved_action_taken",
+        },
+        target: {
+          id: "22222222-2222-4222-8222-222222222222",
+          type: "resource_provider_moderation_review",
+        },
+      },
+    ]);
+  });
+
   it("lists the DB-backed report and Adoption Listing moderation queue for allowlisted admins", async () => {
     const caller = createCaller({
       adminEmailList: "admin@rastro.bo",
@@ -739,6 +974,196 @@ describe("admin settings router", () => {
           type: "adoption_listing",
         },
       },
+    ]);
+  });
+
+  it("lists, reads, and marks false report queue items through enterprise moderation procedures", async () => {
+    const listInputs: unknown[] = [];
+    const itemInputs: unknown[] = [];
+    const actions: unknown[] = [];
+    const auditEvents: unknown[] = [];
+    const reportItem = {
+      createdAt: new Date("2026-06-26T17:00:00.000Z"),
+      id: "report-review-11111111-1111-4111-8111-111111111111",
+      newestAction: null,
+      reportCount: 1,
+      target: {
+        caretaker: {
+          displayName: "Camila R.",
+          email: "camila@example.com",
+          memberId: "member-camila",
+          suspension: null,
+        },
+        city: "La Paz",
+        department: "La Paz",
+        falseReport: null,
+        falseReportState: "not_false",
+        hiddenAt: null,
+        hiddenByAdminId: null,
+        hiddenNote: null,
+        hiddenReason: null,
+        id: "11111111-1111-4111-8111-111111111111",
+        locationLabel: "Sopocachi, La Paz",
+        reportType: "adoption",
+        status: "visible",
+        title: "Nala busca nuevo hogar",
+        type: "adoption_listing",
+        visibility: "visible",
+      },
+      updatedAt: new Date("2026-06-26T17:00:00.000Z"),
+    };
+    const caller = createCaller({
+      adminAuditRepository: createAuditRecorder(auditEvents),
+      adminEmailList: "admin@rastro.bo",
+      authApi: {},
+      db: {},
+      reportModerationRepository: {
+        getReportQueueItem: (input: unknown) => {
+          itemInputs.push(input);
+
+          return Promise.resolve(reportItem);
+        },
+        listReportQueue: (input: unknown) => {
+          listInputs.push(input);
+
+          return Promise.resolve({
+            availableFilters: [],
+            availableSorts: [],
+            hasNextPage: false,
+            hasPreviousPage: false,
+            items: [reportItem],
+            page: 1,
+            pageCount: 1,
+            pageSize: 20,
+            total: 1,
+          });
+        },
+        markFalseReportTarget: (input: unknown) => {
+          actions.push(["mark_false", input]);
+
+          return Promise.resolve({
+            ...reportItem,
+            newestAction: {
+              action: "mark_false",
+              adminId: "member-admin",
+              createdAt: new Date("2026-06-26T17:10:00.000Z"),
+              note: "Reporte fabricado.",
+              reason: "false_report",
+            },
+            target: {
+              ...reportItem.target,
+              falseReportState: "marked_false",
+            },
+          });
+        },
+        unmarkFalseReportTarget: (input: unknown) => {
+          actions.push(["unmark_false", input]);
+
+          return Promise.resolve(reportItem);
+        },
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin",
+        },
+      },
+    });
+
+    await expect(
+      caller.admin.moderation.reportQueueList({
+        filters: {
+          falseReportState: "not_false",
+          type: ["adoption"],
+          visibility: "visible",
+        },
+        page: 1,
+        pageSize: 20,
+        search: "nala",
+      }),
+    ).resolves.toMatchObject({
+      items: [
+        {
+          target: {
+            falseReportState: "not_false",
+            title: "Nala busca nuevo hogar",
+          },
+        },
+      ],
+      total: 1,
+    });
+    await expect(
+      caller.admin.moderation.reportQueueItem({
+        id: "report-review-11111111-1111-4111-8111-111111111111",
+      }),
+    ).resolves.toMatchObject({
+      target: {
+        id: "11111111-1111-4111-8111-111111111111",
+      },
+    });
+    await expect(
+      caller.admin.moderation.markFalseReportTarget({
+        note: "Reporte fabricado.",
+        reason: "false_report",
+        reportId: "11111111-1111-4111-8111-111111111111",
+      }),
+    ).resolves.toMatchObject({
+      newestAction: {
+        action: "mark_false",
+      },
+      target: {
+        falseReportState: "marked_false",
+      },
+    });
+    await caller.admin.moderation.unmarkFalseReportTarget({
+      note: "Apelacion aceptada.",
+      reason: "reviewed",
+      reportId: "11111111-1111-4111-8111-111111111111",
+    });
+
+    expect(listInputs).toHaveLength(1);
+    expect(itemInputs).toEqual([
+      {
+        id: "report-review-11111111-1111-4111-8111-111111111111",
+      },
+    ]);
+    expect(actions).toEqual([
+      [
+        "mark_false",
+        {
+          adminId: "member-admin",
+          note: "Reporte fabricado.",
+          reason: "false_report",
+          reportId: "11111111-1111-4111-8111-111111111111",
+        },
+      ],
+      [
+        "unmark_false",
+        {
+          adminId: "member-admin",
+          note: "Apelacion aceptada.",
+          reason: "reviewed",
+          reportId: "11111111-1111-4111-8111-111111111111",
+        },
+      ],
+    ]);
+    expect(auditEvents).toEqual([
+      expect.objectContaining({
+        action: "report.mark_false",
+        metadata: {
+          note: "Reporte fabricado.",
+          reason: "false_report",
+          reportType: "adoption",
+        },
+      }),
+      expect.objectContaining({
+        action: "report.unmark_false",
+        metadata: {
+          note: "Apelacion aceptada.",
+          reason: "reviewed",
+          reportType: "adoption",
+        },
+      }),
     ]);
   });
 

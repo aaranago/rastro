@@ -13,7 +13,19 @@ import {
 export interface AdminAuditListInput {
   action?: string;
   actor?: string;
+  actorId?: string;
+  filters?: {
+    action?: string;
+    actor?: string;
+    actorId?: string;
+    targetType?: string;
+  };
   limit?: number;
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  sortBy?: "action" | "actor" | "createdAt" | "targetLabel" | "targetType";
+  sortDirection?: "asc" | "desc";
   targetType?: string;
 }
 
@@ -50,12 +62,24 @@ type AdminAuditFilterOptionSource =
     };
 
 interface AdminAuditListResponse {
+  availableFilters?: {
+    actions: AdminAuditFilterOptionSource[];
+    actors: AdminAuditFilterOptionSource[];
+    targetTypes: AdminAuditFilterOptionSource[];
+  };
+  availableSorts?: readonly AdminAuditSortOption[];
   events: AdminAuditEvent[];
   filters: {
     actions: AdminAuditFilterOptionSource[];
     actors: AdminAuditFilterOptionSource[];
     targetTypes: AdminAuditFilterOptionSource[];
   };
+  hasNextPage?: boolean;
+  hasPreviousPage?: boolean;
+  items?: AdminAuditEvent[];
+  page?: number;
+  pageCount?: number;
+  pageSize?: number;
   total: number;
 }
 
@@ -64,13 +88,25 @@ export interface AdminAuditFilterOption {
   value: string;
 }
 
+export interface AdminAuditSortOption {
+  defaultDirection: "asc" | "desc";
+  label: string;
+  value: NonNullable<AdminAuditListInput["sortBy"]>;
+}
+
 export interface AdminAuditLogData {
+  availableSorts: readonly AdminAuditSortOption[];
   events: AdminAuditEvent[];
   filters: {
     actions: AdminAuditFilterOption[];
     actors: AdminAuditFilterOption[];
     targetTypes: AdminAuditFilterOption[];
   };
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  page: number;
+  pageCount: number;
+  pageSize: number;
   total: number;
 }
 
@@ -131,7 +167,13 @@ async function createAdminAuditCaller(): Promise<ExpectedAdminAuditCaller> {
 function normalizeAdminAuditListResponse(
   response: AdminAuditListResponse,
 ): AdminAuditLogData {
+  const page = response.page ?? 1;
+  const pageSize = response.pageSize ?? Math.max(response.events.length, 1);
+  const pageCount =
+    response.pageCount ?? (Math.ceil(response.total / pageSize) || 0);
+
   return {
+    availableSorts: response.availableSorts ?? [],
     events: response.events,
     filters: {
       actions: toAuditFilterOptions(response.filters.actions, (value) =>
@@ -142,6 +184,11 @@ function normalizeAdminAuditListResponse(
         getAuditTargetTypeLabel(value),
       ),
     },
+    hasNextPage: response.hasNextPage ?? page < pageCount,
+    hasPreviousPage: response.hasPreviousPage ?? page > 1,
+    page,
+    pageCount,
+    pageSize,
     total: response.total,
   };
 }

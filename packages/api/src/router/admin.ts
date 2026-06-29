@@ -1,4 +1,10 @@
 import { TRPCError } from "@trpc/server";
+import {
+  createAdminListBaseInputSchema,
+  moderationReportReasonSchema,
+  reportTypeSchema,
+  resourceProviderVerificationStatusSchema,
+} from "@acme/validators";
 import { z } from "zod/v4";
 
 import type {
@@ -36,15 +42,141 @@ const memberSuspensionTransitionInputSchema = memberProfileInputSchema.extend({
   reason: z.string().trim().min(1).max(1_000),
 });
 
+const adminListBaseInputSchema = createAdminListBaseInputSchema();
+
 const adminAuditListInputSchema = z
   .object({
     action: z.string().trim().min(1).max(120).optional(),
     actor: z.string().trim().min(1).max(320).optional(),
     actorId: z.string().trim().min(1).max(191).optional(),
+    filters: z
+      .object({
+        action: z.string().trim().min(1).max(120).optional(),
+        actor: z.string().trim().min(1).max(320).optional(),
+        actorId: z.string().trim().min(1).max(191).optional(),
+        targetType: z.string().trim().min(1).max(120).optional(),
+      })
+      .optional(),
     limit: z.number().int().min(1).max(100).optional(),
+    page: z.number().int().min(1).optional(),
+    pageSize: z.number().int().min(1).max(100).optional(),
+    search: z.string().trim().max(160).optional(),
+    sortBy: z
+      .enum(["action", "actor", "createdAt", "targetLabel", "targetType"])
+      .optional(),
+    sortDirection: z.enum(["asc", "desc"]).optional(),
     targetType: z.string().trim().min(1).max(120).optional(),
   })
   .optional();
+
+const adminMemberListInputSchema = adminListBaseInputSchema
+  .extend({
+    filters: z
+      .object({
+        createdFrom: z.coerce.date().optional(),
+        createdTo: z.coerce.date().optional(),
+        emailVerification: z
+          .enum(["any", "unverified", "verified"])
+          .optional(),
+        suspension: z.enum(["any", "not_suspended", "suspended"]).optional(),
+      })
+      .optional(),
+    sortBy: z
+      .enum(["createdAt", "email", "emailVerified", "name", "suspensionStatus"])
+      .optional(),
+  })
+  .optional();
+
+const reportModerationListInputSchema = adminListBaseInputSchema
+  .extend({
+    filters: z
+      .object({
+        city: z.string().trim().min(1).max(120).optional(),
+        department: z.string().trim().min(1).max(120).optional(),
+        falseReportState: z
+          .enum(["any", "marked_false", "not_false"])
+          .optional(),
+        reason: z.string().trim().min(1).max(120).optional(),
+        risk: z.enum(["any", "caretaker_suspended", "none"]).optional(),
+        type: z.array(reportTypeSchema).max(4).optional(),
+        visibility: z.enum(["any", "hidden", "visible"]).optional(),
+      })
+      .optional(),
+    sortBy: z
+      .enum([
+        "city",
+        "createdAt",
+        "department",
+        "falseReportState",
+        "title",
+        "type",
+        "updatedAt",
+        "visibility",
+      ])
+      .optional(),
+  })
+  .optional();
+
+const resourceProviderModerationListInputSchema = adminListBaseInputSchema
+  .extend({
+    filters: z
+      .object({
+        city: z.string().trim().min(1).max(120).optional(),
+        department: z.string().trim().min(1).max(120).optional(),
+        reason: z.array(moderationReportReasonSchema).max(8).optional(),
+        reporterSuspension: z
+          .enum(["any", "none", "reporter_suspended"])
+          .optional(),
+        status: z
+          .array(
+            z.enum([
+              "dismissed_false_report",
+              "pending",
+              "resolved_action_taken",
+              "resolved_no_action",
+            ]),
+          )
+          .max(4)
+          .optional(),
+        verification: z
+          .array(resourceProviderVerificationStatusSchema)
+          .max(2)
+          .optional(),
+      })
+      .optional(),
+    sortBy: z
+      .enum([
+        "city",
+        "createdAt",
+        "department",
+        "lastReportedAt",
+        "providerName",
+        "reason",
+        "status",
+        "verification",
+      ])
+      .optional(),
+  })
+  .optional();
+
+const reportQueueItemInputSchema = z.object({
+  id: z.string().trim().min(1).max(160),
+});
+
+const resourceProviderQueueItemInputSchema = z.object({
+  reviewItemId: z.uuid(),
+});
+
+const resourceProviderReviewResolutionInputSchema =
+  resourceProviderQueueItemInputSchema.extend({
+    resolutionNote: z.string().trim().max(1_000).optional(),
+    resolutionReason: z.string().trim().min(1).max(120),
+    status: z.enum([
+      "dismissed_false_report",
+      "resolved_action_taken",
+      "resolved_no_action",
+    ]),
+  });
 
 const adminAuditRecordInputSchema = z.object({
   action: z.string().trim().min(1).max(120),
@@ -106,8 +238,12 @@ async function recordAdminAuditEvent(
 }
 
 function toAdminAuditListResponse(result: AdminAuditListResult) {
+  const events = result.events.map(toAdminAuditEventResponse);
+
   return {
-    events: result.events.map(toAdminAuditEventResponse),
+    availableFilters: result.availableFilters,
+    availableSorts: result.availableSorts,
+    events,
     filters: {
       actions: result.availableFilters.actions,
       actors: result.availableFilters.actors.map((actor) => ({
@@ -116,6 +252,12 @@ function toAdminAuditListResponse(result: AdminAuditListResult) {
       })),
       targetTypes: result.availableFilters.targetTypes,
     },
+    hasNextPage: result.hasNextPage,
+    hasPreviousPage: result.hasPreviousPage,
+    items: events,
+    page: result.page,
+    pageCount: result.pageCount,
+    pageSize: result.pageSize,
     total: result.total,
   };
 }
@@ -207,6 +349,10 @@ function readMetadataString(
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
+function unwrapAdminListItems<T>(result: { items: T[] } | T[]) {
+  return Array.isArray(result) ? result : result.items;
+}
+
 export const adminRouter = createTRPCRouter({
   audit: createTRPCRouter({
     list: protectedProcedure
@@ -243,6 +389,13 @@ export const adminRouter = createTRPCRouter({
     }),
   }),
   members: createTRPCRouter({
+    list: protectedProcedure
+      .input(adminMemberListInputSchema)
+      .query(async ({ ctx, input }) => {
+        requireAdmin(ctx);
+
+        return ctx.memberSuspensionRepository.listMembers(input ?? {});
+      }),
     profile: protectedProcedure
       .input(memberProfileInputSchema)
       .query(async ({ ctx, input }) => {
@@ -362,16 +515,142 @@ export const adminRouter = createTRPCRouter({
 
         return item;
       }),
-    reportQueue: protectedProcedure.query(async ({ ctx }) => {
-      requireAdmin(ctx);
+    markFalseReportTarget: protectedProcedure
+      .input(reportModerationTransitionInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const admin = requireAdmin(ctx);
+        const item =
+          await ctx.reportModerationRepository.markFalseReportTarget({
+            adminId: admin.id,
+            note: input.note,
+            reason: input.reason,
+            reportId: input.reportId,
+          });
 
-      return ctx.reportModerationRepository.listReportQueue();
-    }),
-    resourceProviderQueue: protectedProcedure.query(async ({ ctx }) => {
-      requireAdmin(ctx);
+        if (!item) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
 
-      return ctx.resourceProviderModerationRepository.listResourceProviderQueue();
-    }),
+        await recordAdminAuditEvent(ctx, admin, {
+          action: "report.mark_false",
+          metadata: {
+            note: input.note ?? null,
+            reason: input.reason,
+            reportType: item.target.reportType,
+          },
+          source: "admin.moderation.markFalseReportTarget",
+          summary: `Marco como falso ${item.target.title}.`,
+          target: {
+            id: item.target.id,
+            label: item.target.title,
+            type: item.target.type,
+          },
+        });
+
+        return item;
+      }),
+    reportQueue: protectedProcedure
+      .input(reportModerationListInputSchema)
+      .query(async ({ ctx, input }) => {
+        requireAdmin(ctx);
+
+        return unwrapAdminListItems(
+          await ctx.reportModerationRepository.listReportQueue(input ?? {}),
+        );
+      }),
+    reportQueueItem: protectedProcedure
+      .input(reportQueueItemInputSchema)
+      .query(async ({ ctx, input }) => {
+        requireAdmin(ctx);
+        const item = await ctx.reportModerationRepository.getReportQueueItem(
+          input,
+        );
+
+        if (!item) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        return item;
+      }),
+    reportQueueList: protectedProcedure
+      .input(reportModerationListInputSchema)
+      .query(async ({ ctx, input }) => {
+        requireAdmin(ctx);
+
+        return ctx.reportModerationRepository.listReportQueue(input ?? {});
+      }),
+    resolveResourceProviderReviewItem: protectedProcedure
+      .input(resourceProviderReviewResolutionInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const admin = requireAdmin(ctx);
+        const item =
+          await ctx.resourceProviderModerationRepository.resolveResourceProviderReviewItem(
+            {
+              adminId: admin.id,
+              resolutionNote: input.resolutionNote,
+              resolutionReason: input.resolutionReason,
+              reviewItemId: input.reviewItemId,
+              status: input.status,
+            },
+          );
+
+        if (!item) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        await recordAdminAuditEvent(ctx, admin, {
+          action: "resource_provider_report.resolve",
+          metadata: {
+            reason: input.resolutionReason,
+            resolutionNote: input.resolutionNote ?? null,
+            status: input.status,
+          },
+          source: "admin.moderation.resolveResourceProviderReviewItem",
+          summary: `Resolvio reporte de ${item.provider.name}.`,
+          target: {
+            id: item.id,
+            label: item.provider.name,
+            type: "resource_provider_moderation_review",
+          },
+        });
+
+        return item;
+      }),
+    resourceProviderQueue: protectedProcedure
+      .input(resourceProviderModerationListInputSchema)
+      .query(async ({ ctx, input }) => {
+        requireAdmin(ctx);
+
+        return unwrapAdminListItems(
+          await ctx.resourceProviderModerationRepository.listResourceProviderQueue(
+            input ?? {},
+          ),
+        );
+      }),
+    resourceProviderQueueItem: protectedProcedure
+      .input(resourceProviderQueueItemInputSchema)
+      .query(async ({ ctx, input }) => {
+        requireAdmin(ctx);
+        const item =
+          await ctx.resourceProviderModerationRepository.getResourceProviderQueueItem(
+            input,
+          );
+
+        if (!item) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        return item;
+      }),
+    resourceProviderQueueList: protectedProcedure
+      .input(resourceProviderModerationListInputSchema)
+      .query(async ({ ctx, input }) => {
+        requireAdmin(ctx);
+
+        return ctx.resourceProviderModerationRepository.listResourceProviderQueue(
+          input ?? {},
+        );
+      }),
     restoreReportTarget: protectedProcedure
       .input(reportModerationTransitionInputSchema)
       .mutation(async ({ ctx, input }) => {
@@ -396,6 +675,40 @@ export const adminRouter = createTRPCRouter({
           },
           source: "admin.moderation.restoreReportTarget",
           summary: `Restauro ${item.target.title}.`,
+          target: {
+            id: item.target.id,
+            label: item.target.title,
+            type: item.target.type,
+          },
+        });
+
+        return item;
+      }),
+    unmarkFalseReportTarget: protectedProcedure
+      .input(reportModerationTransitionInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const admin = requireAdmin(ctx);
+        const item =
+          await ctx.reportModerationRepository.unmarkFalseReportTarget({
+            adminId: admin.id,
+            note: input.note,
+            reason: input.reason,
+            reportId: input.reportId,
+          });
+
+        if (!item) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        await recordAdminAuditEvent(ctx, admin, {
+          action: "report.unmark_false",
+          metadata: {
+            note: input.note ?? null,
+            reason: input.reason,
+            reportType: item.target.reportType,
+          },
+          source: "admin.moderation.unmarkFalseReportTarget",
+          summary: `Reabrio revision de falsedad para ${item.target.title}.`,
           target: {
             id: item.target.id,
             label: item.target.title,
