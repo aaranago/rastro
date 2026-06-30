@@ -67,6 +67,7 @@ describe("Resource Provider nearby search", () => {
     });
     expect(result.providers.map((provider) => provider.id)).toEqual([
       "clinic-san-roque",
+      "clinica-rastro-qa",
       "dra-marta-gomez",
     ]);
     expect(result.providers[0]).toMatchObject({

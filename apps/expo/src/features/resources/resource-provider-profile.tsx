@@ -1,17 +1,23 @@
-import { useCallback } from "react";
+import * as React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import type {
   ResourceContactOption,
-  ResourceProviderProfile,
+  ResourceProviderProfile as ResourceProviderProfileData,
 } from "./resource-types";
 import type { ResourceProviderProfileViewModel } from "./resources-view-model";
 import { resourcesColors, resourcesShadow } from "./resources-theme";
 import { buildResourceProviderProfileViewModel } from "./resources-view-model";
 
-interface ResourceProviderProfileProps {
-  profile: ResourceProviderProfile;
+type ResourceIconName = React.ComponentProps<
+  typeof MaterialCommunityIcons
+>["name"];
+
+export interface ResourceProviderProfileProps {
+  bottomInset?: number;
+  profile: ResourceProviderProfileData;
   reportFeedback?: {
     body: string;
     title: string;
@@ -32,6 +38,7 @@ interface ResourceProviderProfileProps {
 }
 
 export function ResourceProviderProfile({
+  bottomInset = 180,
   profile,
   reportFeedback,
   onContactAction,
@@ -39,145 +46,369 @@ export function ResourceProviderProfile({
   onReportProvider,
 }: ResourceProviderProfileProps) {
   const viewModel = buildResourceProviderProfileViewModel(profile);
-  const handleReportProvider = useCallback(() => {
+  const scrollBottomInset = Math.max(bottomInset, 156);
+  const handleReportProvider = React.useCallback(() => {
     onReportProvider?.(viewModel.id);
   }, [onReportProvider, viewModel.id]);
 
   return (
     <ScrollView
-      style={styles.root}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: scrollBottomInset },
+      ]}
       contentInsetAdjustmentBehavior="automatic"
+      contentInset={{ bottom: scrollBottomInset }}
+      scrollIndicatorInsets={{ bottom: scrollBottomInset }}
+      style={styles.root}
     >
-      <View style={styles.hero}>
-        {viewModel.heroImageUrl ? (
-          <Image
-            source={{ uri: viewModel.heroImageUrl }}
-            style={styles.heroImage}
-            contentFit="cover"
-          />
-        ) : (
-          <Image
-            source="sf:pawprint.fill"
-            style={styles.heroIcon}
-            tintColor={resourcesColors.primary}
-            contentFit="contain"
-          />
-        )}
-      </View>
-
-      <View style={styles.header}>
-        <View style={styles.logo}>
-          {viewModel.logoUrl ? (
-            <Image
-              source={{ uri: viewModel.logoUrl }}
+      <View style={styles.contentFrame}>
+        <View style={styles.summaryCard}>
+          <View style={styles.identityRow}>
+            <RemoteImageWithFallback
+              accessibilityLabel={`Logo de ${viewModel.name}`}
+              fallback={
+                <ResourceIcon
+                  color={resourcesColors.primary}
+                  name={getCategoryIcon(profile.categoryId)}
+                  size={30}
+                />
+              }
               style={styles.logoImage}
-              contentFit="cover"
+              uri={viewModel.logoUrl}
             />
-          ) : (
-            <Image
-              source="sf:cross.case.fill"
-              style={styles.logoIcon}
-              tintColor={resourcesColors.primary}
-              contentFit="contain"
-            />
-          )}
+            <View style={styles.identityCopy}>
+              <Text
+                maxFontSizeMultiplier={1.15}
+                selectable
+                style={styles.title}
+              >
+                {viewModel.name}
+              </Text>
+              <Text
+                maxFontSizeMultiplier={1.2}
+                selectable
+                style={styles.subtitle}
+              >
+                {viewModel.subtitle}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.badgeRow}>
+            {viewModel.badges.map((badge) => (
+              <ProfileBadge
+                key={`${badge.tone}-${badge.label}`}
+                badge={badge}
+              />
+            ))}
+          </View>
+
+          <View style={styles.factGrid}>
+            {viewModel.quickFacts.map((fact) => (
+              <ProfileFact key={`${fact.label}-${fact.value}`} fact={fact} />
+            ))}
+          </View>
+
+          {viewModel.sponsorDisclosure ? (
+            <Text selectable style={styles.sponsorDisclosure}>
+              {viewModel.sponsorDisclosure}
+            </Text>
+          ) : null}
         </View>
-        <Text selectable style={styles.title}>
-          {viewModel.name}
-        </Text>
-        <Text selectable style={styles.subtitle}>
-          {viewModel.subtitle}
-        </Text>
-        <View style={styles.badgeRow}>
-          {viewModel.badges.map((badge) => (
-            <ProfileBadge key={`${badge.tone}-${badge.label}`} badge={badge} />
-          ))}
-        </View>
-        {viewModel.sponsorDisclosure ? (
-          <Text selectable style={styles.sponsorDisclosure}>
-            {viewModel.sponsorDisclosure}
-          </Text>
+
+        {viewModel.primaryActions.length > 0 ? (
+          <View style={styles.actionGrid}>
+            {viewModel.primaryActions.map((action) => (
+              <ProfileActionButton
+                key={`${action.kind}-${action.value}`}
+                providerId={viewModel.id}
+                kind={action.kind}
+                label={action.label}
+                value={action.value}
+                onContactAction={onContactAction}
+              />
+            ))}
+          </View>
         ) : null}
+
+        <ProviderMediaGallery
+          categoryLabel={viewModel.categoryLabel}
+          items={viewModel.mediaItems}
+          providerName={viewModel.name}
+        />
+
         <SponsorMediaPanel
           imageUrl={viewModel.sponsorImageUrl}
           logoUrl={viewModel.sponsorLogoUrl}
           providerName={viewModel.name}
         />
-      </View>
 
-      <View style={styles.actionGrid}>
-        {viewModel.primaryActions.map((action) => (
-          <ProfileActionButton
-            key={`${action.kind}-${action.value}`}
-            providerId={viewModel.id}
-            kind={action.kind}
-            label={action.label}
-            value={action.value}
-            onContactAction={onContactAction}
-          />
+        {reportFeedback ? (
+          <ReportFeedbackPanel feedback={reportFeedback} />
+        ) : null}
+
+        {viewModel.sections.map((section) => (
+          <View key={section.title} style={styles.section}>
+            <Text selectable style={styles.sectionTitle}>
+              {section.title}
+            </Text>
+            {section.rows.map((row) => (
+              <View
+                key={`${section.title}-${row.label}`}
+                style={styles.detailRow}
+              >
+                <Text selectable style={styles.detailLabel}>
+                  {row.label}
+                </Text>
+                <Text selectable style={styles.detailValue}>
+                  {row.value}
+                </Text>
+              </View>
+            ))}
+          </View>
         ))}
-        <Pressable
-          accessibilityRole="button"
-          onPress={handleReportProvider}
-          style={({ pressed }) => [
-            styles.secondaryAction,
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <Image
-            source="sf:exclamationmark.bubble.fill"
-            style={styles.actionIcon}
-            tintColor={resourcesColors.error}
-          />
-          <Text selectable numberOfLines={1} style={styles.reportActionText}>
-            {viewModel.reportAction.label}
-          </Text>
-        </Pressable>
-      </View>
 
-      {reportFeedback ? (
-        <ReportFeedbackPanel feedback={reportFeedback} />
-      ) : null}
+        {viewModel.optionalLinks.length > 0 ? (
+          <View style={styles.section}>
+            <Text selectable style={styles.sectionTitle}>
+              Enlaces
+            </Text>
+            {viewModel.optionalLinks.map((link) => (
+              <ProfileLink
+                key={link.url}
+                providerId={viewModel.id}
+                label={link.label}
+                url={link.url}
+                onOpenLink={onOpenLink}
+              />
+            ))}
+          </View>
+        ) : null}
 
-      {viewModel.sections.map((section) => (
-        <View key={section.title} style={styles.section}>
-          <Text selectable style={styles.sectionTitle}>
-            {section.title}
-          </Text>
-          {section.rows.map((row) => (
-            <View
-              key={`${section.title}-${row.label}`}
-              style={styles.detailRow}
-            >
-              <Text selectable style={styles.detailLabel}>
-                {row.label}
-              </Text>
-              <Text selectable style={styles.detailValue}>
-                {row.value}
-              </Text>
-            </View>
-          ))}
-        </View>
-      ))}
-
-      {viewModel.optionalLinks.length > 0 ? (
-        <View style={styles.section}>
-          <Text selectable style={styles.sectionTitle}>
-            Enlaces
-          </Text>
-          {viewModel.optionalLinks.map((link) => (
-            <ProfileLink
-              key={link.url}
-              providerId={viewModel.id}
-              label={link.label}
-              url={link.url}
-              onOpenLink={onOpenLink}
+        <View style={styles.safetyCard}>
+          <View style={styles.safetyCopy}>
+            <Text selectable style={styles.safetyTitle}>
+              Seguridad
+            </Text>
+            <Text selectable style={styles.safetyBody}>
+              Avisa si los datos no coinciden, hay fraude o el servicio parece
+              riesgoso.
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleReportProvider}
+            style={({ pressed }) => [
+              styles.reportButton,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <ResourceIcon
+              color={resourcesColors.error}
+              name="flag-outline"
+              size={18}
             />
-          ))}
+            <Text
+              maxFontSizeMultiplier={1.1}
+              numberOfLines={1}
+              style={styles.reportActionText}
+            >
+              {viewModel.reportAction.label}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+function ProviderMediaGallery({
+  categoryLabel,
+  items,
+  providerName,
+}: {
+  categoryLabel: string;
+  items: ResourceProviderProfileViewModel["mediaItems"];
+  providerName: string;
+}) {
+  const [activeIndex, setActiveIndex] = React.useState(0);
+  const [frameWidth, setFrameWidth] = React.useState(0);
+  const handleFrameLayout = React.useCallback(
+    (event: { nativeEvent: { layout: { width: number } } }) => {
+      setFrameWidth(Math.round(event.nativeEvent.layout.width));
+    },
+    [],
+  );
+
+  if (items.length === 0) {
+    return (
+      <View
+        onLayout={handleFrameLayout}
+        style={[styles.mediaFrame, styles.mediaFallback]}
+      >
+        <ResourceIcon
+          color={resourcesColors.primary}
+          name="image-off"
+          size={34}
+        />
+        <Text selectable style={styles.mediaFallbackTitle}>
+          Sin foto del proveedor
+        </Text>
+        <Text selectable style={styles.mediaFallbackBody}>
+          {categoryLabel}
+        </Text>
+      </View>
+    );
+  }
+
+  if (items.length === 1) {
+    const [item] = items;
+
+    if (!item) {
+      return null;
+    }
+
+    return (
+      <View style={styles.mediaGroup}>
+        <View onLayout={handleFrameLayout} style={styles.mediaFrame}>
+          <RemoteImageWithFallback
+            accessibilityLabel={item.accessibilityLabel}
+            fallback={
+              <View style={styles.mediaImageFallback}>
+                <ResourceIcon
+                  color={resourcesColors.primary}
+                  name="image-broken-variant"
+                  size={32}
+                />
+                <Text selectable style={styles.mediaFallbackTitle}>
+                  No pudimos cargar esta foto
+                </Text>
+              </View>
+            }
+            priority="high"
+            recyclingKey={item.url}
+            style={styles.mediaImage}
+            uri={item.url}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.mediaGroup}>
+      <ScrollView
+        accessibilityLabel={`Fotos de ${providerName}`}
+        contentContainerStyle={styles.mediaCarouselContent}
+        decelerationRate="fast"
+        horizontal
+        onMomentumScrollEnd={(event) => {
+          const width = event.nativeEvent.layoutMeasurement.width;
+          const nextIndex = width
+            ? Math.round(event.nativeEvent.contentOffset.x / width)
+            : 0;
+
+          setActiveIndex(Math.max(0, Math.min(nextIndex, items.length - 1)));
+        }}
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        style={styles.mediaFrame}
+        onLayout={handleFrameLayout}
+      >
+        {items.map((item, index) => (
+          <View
+            key={item.id}
+            style={[
+              styles.mediaSlide,
+              frameWidth > 0 ? { width: frameWidth } : null,
+            ]}
+          >
+            <RemoteImageWithFallback
+              accessibilityLabel={item.accessibilityLabel}
+              fallback={
+                <View style={styles.mediaImageFallback}>
+                  <ResourceIcon
+                    color={resourcesColors.primary}
+                    name="image-broken-variant"
+                    size={32}
+                  />
+                  <Text selectable style={styles.mediaFallbackTitle}>
+                    No pudimos cargar esta foto
+                  </Text>
+                </View>
+              }
+              priority={index === 0 ? "high" : "normal"}
+              recyclingKey={item.url}
+              style={styles.mediaImage}
+              uri={item.url}
+            />
+          </View>
+        ))}
+      </ScrollView>
+
+      {items.length > 1 ? (
+        <View style={styles.mediaFooter}>
+          <View accessibilityElementsHidden style={styles.galleryDots}>
+            {items.map((item, index) => (
+              <View
+                key={`dot:${item.id}`}
+                style={[
+                  styles.galleryDot,
+                  activeIndex === index ? styles.galleryDotActive : null,
+                ]}
+              />
+            ))}
+          </View>
+          <Text selectable style={styles.mediaCount}>
+            {activeIndex + 1} de {items.length}
+          </Text>
         </View>
       ) : null}
-    </ScrollView>
+    </View>
+  );
+}
+
+function RemoteImageWithFallback({
+  accessibilityLabel,
+  contentFit = "cover",
+  fallback,
+  priority,
+  recyclingKey,
+  style,
+  uri,
+}: {
+  accessibilityLabel: string;
+  contentFit?: "contain" | "cover";
+  fallback: React.ReactNode;
+  priority?: "high" | "low" | "normal";
+  recyclingKey?: string;
+  style: object;
+  uri?: string;
+}) {
+  const [didFail, setDidFail] = React.useState(false);
+
+  React.useEffect(() => {
+    setDidFail(false);
+  }, [uri]);
+
+  if (!uri || didFail) {
+    return <View style={[style, styles.remoteImageFallback]}>{fallback}</View>;
+  }
+
+  return (
+    <Image
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="image"
+      cachePolicy="memory-disk"
+      contentFit={contentFit}
+      onError={() => setDidFail(true)}
+      priority={priority}
+      recyclingKey={recyclingKey ?? uri}
+      source={{ uri }}
+      style={style}
+      transition={160}
+    />
   );
 }
 
@@ -188,6 +419,8 @@ function ReportFeedbackPanel({
 }) {
   return (
     <View
+      accessibilityLiveRegion="polite"
+      accessibilityRole="alert"
       style={[styles.reportFeedback, reportFeedbackToneStyles[feedback.tone]]}
     >
       <Text
@@ -223,6 +456,35 @@ function ProfileBadge({
   );
 }
 
+function ProfileFact({
+  fact,
+}: {
+  fact: ResourceProviderProfileViewModel["quickFacts"][number];
+}) {
+  const tone = fact.tone ?? "default";
+
+  return (
+    <View style={[styles.factItem, factToneStyles[tone]]}>
+      <ResourceIcon
+        color={factToneTextColors[tone]}
+        name={fact.iconName as ResourceIconName}
+        size={18}
+      />
+      <View style={styles.factCopy}>
+        <Text
+          selectable
+          style={[styles.factLabel, { color: factToneTextColors[tone] }]}
+        >
+          {fact.label}
+        </Text>
+        <Text selectable numberOfLines={2} style={styles.factValue}>
+          {fact.value}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function SponsorMediaPanel({
   imageUrl,
   logoUrl,
@@ -242,17 +504,36 @@ function SponsorMediaPanel({
       style={styles.sponsorMediaPanel}
     >
       {logoUrl ? (
-        <Image
-          source={{ uri: logoUrl }}
+        <RemoteImageWithFallback
+          accessibilityLabel={`Logo de patrocinio de ${providerName}`}
+          fallback={
+            <ResourceIcon
+              color={resourcesColors.tertiary}
+              name="star"
+              size={24}
+            />
+          }
           style={styles.sponsorLogoImage}
-          contentFit="cover"
+          uri={logoUrl}
         />
       ) : null}
       {imageUrl ? (
-        <Image
-          source={{ uri: imageUrl }}
+        <RemoteImageWithFallback
+          accessibilityLabel={`Imagen de patrocinio de ${providerName}`}
+          fallback={
+            <View style={styles.sponsorBannerFallback}>
+              <ResourceIcon
+                color={resourcesColors.tertiary}
+                name="image-off"
+                size={24}
+              />
+              <Text selectable style={styles.sponsorFallbackText}>
+                Patrocinio local
+              </Text>
+            </View>
+          }
           style={styles.sponsorBannerImage}
-          contentFit="cover"
+          uri={imageUrl}
         />
       ) : null}
     </View>
@@ -272,7 +553,7 @@ function ProfileActionButton({
   value: string;
   onContactAction?: ResourceProviderProfileProps["onContactAction"];
 }) {
-  const handlePress = useCallback(() => {
+  const handlePress = React.useCallback(() => {
     onContactAction?.({
       providerId,
       kind,
@@ -280,9 +561,11 @@ function ProfileActionButton({
       value,
     });
   }, [kind, label, onContactAction, providerId, value]);
+  const displayLabel = getCompactActionLabel(kind, label);
 
   return (
     <Pressable
+      accessibilityLabel={label}
       accessibilityRole="button"
       onPress={handlePress}
       style={({ pressed }) => [
@@ -290,16 +573,46 @@ function ProfileActionButton({
         pressed ? styles.pressed : null,
       ]}
     >
-      <Image
-        source={`sf:${getActionSymbol(kind)}`}
-        style={styles.actionIcon}
-        tintColor={resourcesColors.surface}
+      <ResourceIcon
+        color={resourcesColors.surface}
+        name={getActionIcon(kind)}
       />
-      <Text selectable numberOfLines={1} style={styles.primaryActionText}>
-        {label}
+      <Text
+        maxFontSizeMultiplier={1.1}
+        numberOfLines={1}
+        style={styles.primaryActionText}
+      >
+        {displayLabel}
       </Text>
     </Pressable>
   );
+}
+
+function getCompactActionLabel(
+  kind: ResourceContactOption["kind"],
+  fallbackLabel: string,
+) {
+  if (kind === "phone") {
+    return "Llamar";
+  }
+
+  if (kind === "whatsapp") {
+    return "WhatsApp";
+  }
+
+  if (kind === "website") {
+    return "Web";
+  }
+
+  if (kind === "email") {
+    return "Correo";
+  }
+
+  if (kind === "directions") {
+    return "Mapa";
+  }
+
+  return fallbackLabel.length > 12 ? "Social" : fallbackLabel;
 }
 
 function ProfileLink({
@@ -313,7 +626,7 @@ function ProfileLink({
   url: string;
   onOpenLink?: ResourceProviderProfileProps["onOpenLink"];
 }) {
-  const handlePress = useCallback(() => {
+  const handlePress = React.useCallback(() => {
     onOpenLink?.({
       providerId,
       label,
@@ -327,35 +640,147 @@ function ProfileLink({
       onPress={handlePress}
       style={({ pressed }) => [styles.linkRow, pressed ? styles.pressed : null]}
     >
-      <Text selectable style={styles.linkLabel}>
-        {label}
-      </Text>
-      <Text selectable numberOfLines={1} style={styles.linkUrl}>
-        {url}
-      </Text>
+      <ResourceIcon
+        color={resourcesColors.primary}
+        name={getLinkIcon(label, url)}
+      />
+      <View style={styles.linkCopy}>
+        <Text selectable style={styles.linkLabel}>
+          {label}
+        </Text>
+        <Text selectable numberOfLines={1} style={styles.linkUrl}>
+          {url}
+        </Text>
+      </View>
+      <ResourceIcon
+        color={resourcesColors.muted}
+        name="chevron-right"
+        size={18}
+      />
     </Pressable>
   );
 }
 
-function getActionSymbol(kind: ResourceContactOption["kind"]) {
+function ResourceIcon({
+  color,
+  name,
+  size = 20,
+}: {
+  color: string;
+  name: ResourceIconName;
+  size?: number;
+}) {
+  return (
+    <MaterialCommunityIcons
+      accessibilityElementsHidden
+      color={color}
+      importantForAccessibility="no"
+      name={name}
+      size={size}
+    />
+  );
+}
+
+function getActionIcon(kind: ResourceContactOption["kind"]): ResourceIconName {
   if (kind === "phone") {
-    return "phone.fill";
+    return "phone";
   }
 
   if (kind === "whatsapp") {
-    return "message.fill";
+    return "whatsapp";
   }
 
   if (kind === "directions") {
-    return "location.fill";
+    return "map-marker";
   }
 
   if (kind === "email") {
-    return "envelope.fill";
+    return "email-outline";
   }
 
-  return "link";
+  if (kind === "website") {
+    return "web";
+  }
+
+  return "link-variant";
 }
+
+function getCategoryIcon(
+  categoryId: ResourceProviderProfileData["categoryId"],
+): ResourceIconName {
+  if (categoryId === "veterinary") {
+    return "medical-bag";
+  }
+
+  if (categoryId === "shelter") {
+    return "home-heart";
+  }
+
+  if (categoryId === "groomer") {
+    return "content-cut";
+  }
+
+  if (categoryId === "pet_food") {
+    return "food-variant";
+  }
+
+  if (categoryId === "trainer") {
+    return "hand-heart";
+  }
+
+  if (categoryId === "pet_store") {
+    return "storefront-outline";
+  }
+
+  if (categoryId === "transport") {
+    return "car-estate";
+  }
+
+  return "paw";
+}
+
+function getLinkIcon(label: string, url: string): ResourceIconName {
+  const normalized = `${label} ${url}`.toLowerCase();
+
+  if (normalized.includes("instagram")) {
+    return "instagram";
+  }
+
+  if (normalized.includes("facebook")) {
+    return "facebook";
+  }
+
+  if (normalized.includes("whatsapp")) {
+    return "whatsapp";
+  }
+
+  if (normalized.includes("web") || normalized.includes("sitio")) {
+    return "web";
+  }
+
+  return "open-in-new";
+}
+
+const factToneTextColors = {
+  default: resourcesColors.primary,
+  success: resourcesColors.secondary,
+  warning: resourcesColors.tertiary,
+};
+
+const factToneStyles = StyleSheet.create({
+  default: {
+    backgroundColor: resourcesColors.surfaceMuted,
+    borderColor: resourcesColors.border,
+  },
+  success: {
+    backgroundColor: "#E7F3EB",
+    borderColor: "#BBDDC5",
+  },
+  warning: {
+    backgroundColor: "#F1F7FB",
+    borderColor: "#C9DDEB",
+  },
+});
 
 const profileBadgeToneStyles = StyleSheet.create({
   category: {
@@ -389,16 +814,16 @@ const profileBadgeTextStyles = StyleSheet.create({
 
 const reportFeedbackToneStyles = StyleSheet.create({
   error: {
-    borderColor: "#F4B6B6",
     backgroundColor: "#FDECEC",
+    borderColor: "#F4B6B6",
   },
   info: {
-    borderColor: "#C9DDEB",
     backgroundColor: "#F1F7FB",
+    borderColor: "#C9DDEB",
   },
   success: {
-    borderColor: "#BBDDC5",
     backgroundColor: "#E7F3EB",
+    borderColor: "#BBDDC5",
   },
 });
 
@@ -415,166 +840,263 @@ const reportFeedbackTitleToneStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: resourcesColors.background,
-  },
-  content: {
-    padding: 18,
-    paddingBottom: 36,
-    gap: 16,
-  },
-  hero: {
-    minHeight: 220,
-    borderRadius: 24,
-    borderCurve: "continuous",
-    overflow: "hidden",
-    backgroundColor: resourcesColors.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heroImage: {
-    width: "100%",
-    height: "100%",
-  },
-  heroIcon: {
-    width: 56,
-    height: 56,
-  },
-  header: {
-    gap: 10,
-  },
-  logo: {
-    width: 78,
-    height: 78,
-    marginTop: -54,
-    marginLeft: 18,
-    borderRadius: 28,
-    borderCurve: "continuous",
-    borderWidth: 4,
-    borderColor: resourcesColors.surface,
-    backgroundColor: resourcesColors.surface,
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: resourcesShadow.primary,
-  },
-  logoImage: {
-    width: "100%",
-    height: "100%",
-  },
-  logoIcon: {
-    width: 34,
-    height: 34,
-  },
-  title: {
-    color: resourcesColors.text,
-    fontSize: 32,
-    lineHeight: 38,
-    fontWeight: "900",
-  },
-  subtitle: {
-    color: resourcesColors.muted,
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: "600",
-  },
-  badgeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  profileBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  profileBadgeText: {
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: "800",
-  },
-  sponsorDisclosure: {
-    color: resourcesColors.muted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  sponsorMediaPanel: {
-    minHeight: 88,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    borderRadius: 18,
-    borderCurve: "continuous",
-    backgroundColor: resourcesColors.warningSoft,
-    padding: 8,
-  },
-  sponsorLogoImage: {
-    width: 62,
-    height: 62,
-    borderRadius: 16,
-    borderCurve: "continuous",
-  },
-  sponsorBannerImage: {
-    flex: 1,
-    minWidth: 0,
-    height: 72,
-    borderRadius: 14,
-    borderCurve: "continuous",
-  },
   actionGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
   },
-  primaryAction: {
-    minHeight: 46,
+  badgeRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    borderRadius: 999,
-    backgroundColor: resourcesColors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-    boxShadow: resourcesShadow.primary,
+    flexWrap: "wrap",
+    gap: 7,
   },
-  secondaryAction: {
-    minHeight: 46,
-    flexDirection: "row",
+  content: {
     alignItems: "center",
+    padding: 16,
+  },
+  contentFrame: {
+    gap: 12,
+    maxWidth: 620,
+    width: "100%",
+  },
+  detailLabel: {
+    color: resourcesColors.muted,
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 16,
+    textTransform: "uppercase",
+  },
+  detailRow: {
+    gap: 3,
+  },
+  detailValue: {
+    color: resourcesColors.text,
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  factCopy: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  factGrid: {
     gap: 8,
-    borderRadius: 999,
-    backgroundColor: resourcesColors.surface,
+  },
+  factItem: {
+    alignItems: "center",
+    borderCurve: "continuous",
+    borderRadius: 14,
     borderWidth: 1,
+    flexDirection: "row",
+    gap: 9,
+    minHeight: 48,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  factLabel: {
+    fontSize: 11,
+    fontWeight: "900",
+    lineHeight: 13,
+    textTransform: "uppercase",
+  },
+  factValue: {
+    color: resourcesColors.text,
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
+  galleryDot: {
+    backgroundColor: resourcesColors.border,
+    borderCurve: "continuous",
+    borderRadius: 999,
+    height: 6,
+    width: 6,
+  },
+  galleryDotActive: {
+    backgroundColor: resourcesColors.primary,
+    width: 18,
+  },
+  galleryDots: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 5,
+  },
+  identityCopy: {
+    flex: 1,
+    gap: 4,
+    minWidth: 0,
+  },
+  identityRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+  },
+  linkCopy: {
+    flex: 1,
+    gap: 3,
+    minWidth: 0,
+  },
+  linkLabel: {
+    color: resourcesColors.primary,
+    fontSize: 15,
+    fontWeight: "900",
+    lineHeight: 19,
+  },
+  linkRow: {
+    alignItems: "center",
+    backgroundColor: resourcesColors.surfaceMuted,
+    borderCurve: "continuous",
+    borderRadius: 14,
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 52,
+    padding: 12,
+  },
+  linkUrl: {
+    color: resourcesColors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  logoImage: {
+    alignItems: "center",
+    backgroundColor: resourcesColors.primarySoft,
+    borderColor: resourcesColors.surface,
+    borderCurve: "continuous",
+    borderRadius: 18,
+    borderWidth: 2,
+    height: 62,
+    justifyContent: "center",
+    overflow: "hidden",
+    width: 62,
+  },
+  mediaCarouselContent: {
+    alignItems: "stretch",
+  },
+  mediaCount: {
+    color: resourcesColors.muted,
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 16,
+  },
+  mediaFallback: {
+    alignItems: "center",
+    backgroundColor: resourcesColors.primarySoft,
     borderColor: resourcesColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
+    borderWidth: 1,
+    gap: 6,
+    justifyContent: "center",
   },
-  actionIcon: {
-    width: 16,
-    height: 16,
+  mediaFallbackBody: {
+    color: resourcesColors.muted,
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 17,
   },
-  primaryActionText: {
-    color: resourcesColors.surface,
+  mediaFallbackTitle: {
+    color: resourcesColors.primary,
     fontSize: 15,
-    lineHeight: 18,
-    fontWeight: "800",
+    fontWeight: "900",
+    lineHeight: 19,
+    textAlign: "center",
   },
-  reportActionText: {
-    color: resourcesColors.error,
-    fontSize: 15,
-    lineHeight: 18,
-    fontWeight: "800",
+  mediaFooter: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 2,
+  },
+  mediaFrame: {
+    alignSelf: "stretch",
+    aspectRatio: 16 / 9,
+    backgroundColor: resourcesColors.surfaceMuted,
+    borderCurve: "continuous",
+    borderRadius: 18,
+    overflow: "hidden",
+    width: "100%",
+  },
+  mediaGroup: {
+    gap: 8,
+  },
+  mediaImage: {
+    height: "100%",
+    width: "100%",
+  },
+  mediaImageFallback: {
+    alignItems: "center",
+    flex: 1,
+    gap: 8,
+    justifyContent: "center",
+    padding: 14,
+  },
+  mediaSlide: {
+    height: "100%",
+    width: "100%",
   },
   pressed: {
     opacity: 0.76,
     transform: [{ scale: 0.98 }],
   },
-  reportFeedback: {
-    gap: 5,
-    borderWidth: 1,
-    borderRadius: 18,
+  primaryAction: {
+    alignItems: "center",
+    backgroundColor: resourcesColors.primary,
     borderCurve: "continuous",
+    borderRadius: 14,
+    boxShadow: resourcesShadow.primary,
+    flexDirection: "row",
+    flexGrow: 1,
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 46,
+    minWidth: 150,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  primaryActionText: {
+    color: resourcesColors.surface,
+    fontSize: 15,
+    fontWeight: "900",
+    lineHeight: 18,
+  },
+  profileBadge: {
+    borderCurve: "continuous",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  profileBadgeText: {
+    fontSize: 12,
+    fontWeight: "900",
+    lineHeight: 15,
+  },
+  remoteImageFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reportActionText: {
+    color: resourcesColors.error,
+    fontSize: 14,
+    fontWeight: "900",
+    lineHeight: 17,
+  },
+  reportButton: {
+    alignItems: "center",
+    backgroundColor: resourcesColors.surface,
+    borderColor: "#F4B6B6",
+    borderCurve: "continuous",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  reportFeedback: {
+    borderCurve: "continuous",
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 5,
     padding: 14,
   },
   reportFeedbackBody: {
@@ -584,56 +1106,122 @@ const styles = StyleSheet.create({
   },
   reportFeedbackTitle: {
     fontSize: 15,
-    lineHeight: 19,
     fontWeight: "900",
-  },
-  section: {
-    gap: 12,
-    borderWidth: 1,
-    borderColor: resourcesColors.border,
-    borderRadius: 18,
-    borderCurve: "continuous",
-    backgroundColor: resourcesColors.surface,
-    padding: 16,
-    boxShadow: resourcesShadow.soft,
-  },
-  sectionTitle: {
-    color: resourcesColors.primary,
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: "900",
-  },
-  detailRow: {
-    gap: 3,
-  },
-  detailLabel: {
-    color: resourcesColors.muted,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  detailValue: {
-    color: resourcesColors.text,
-    fontSize: 15,
-    lineHeight: 21,
-  },
-  linkRow: {
-    gap: 4,
-    borderRadius: 14,
-    borderCurve: "continuous",
-    backgroundColor: resourcesColors.surfaceMuted,
-    padding: 12,
-  },
-  linkLabel: {
-    color: resourcesColors.primary,
-    fontSize: 15,
     lineHeight: 19,
-    fontWeight: "800",
   },
-  linkUrl: {
+  root: {
+    backgroundColor: resourcesColors.background,
+    flex: 1,
+  },
+  safetyBody: {
     color: resourcesColors.muted,
     fontSize: 13,
     lineHeight: 18,
+  },
+  safetyCard: {
+    alignItems: "center",
+    backgroundColor: "#FFF8F8",
+    borderColor: "#F4B6B6",
+    borderCurve: "continuous",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "space-between",
+    padding: 14,
+  },
+  safetyCopy: {
+    flex: 1,
+    gap: 4,
+    minWidth: 190,
+  },
+  safetyTitle: {
+    color: resourcesColors.error,
+    fontSize: 15,
+    fontWeight: "900",
+    lineHeight: 19,
+  },
+  section: {
+    backgroundColor: resourcesColors.surface,
+    borderColor: resourcesColors.border,
+    borderCurve: "continuous",
+    borderRadius: 16,
+    borderWidth: 1,
+    boxShadow: resourcesShadow.soft,
+    gap: 12,
+    padding: 15,
+  },
+  sectionTitle: {
+    color: resourcesColors.primary,
+    fontSize: 17,
+    fontWeight: "900",
+    lineHeight: 21,
+  },
+  sponsorBannerFallback: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  sponsorBannerImage: {
+    borderCurve: "continuous",
+    borderRadius: 12,
+    flex: 1,
+    height: 66,
+    minWidth: 0,
+  },
+  sponsorDisclosure: {
+    color: resourcesColors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  sponsorFallbackText: {
+    color: resourcesColors.tertiary,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 17,
+  },
+  sponsorLogoImage: {
+    backgroundColor: resourcesColors.surface,
+    borderCurve: "continuous",
+    borderRadius: 12,
+    height: 54,
+    overflow: "hidden",
+    width: 54,
+  },
+  sponsorMediaPanel: {
+    alignItems: "center",
+    backgroundColor: resourcesColors.warningSoft,
+    borderCurve: "continuous",
+    borderRadius: 16,
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 78,
+    padding: 8,
+  },
+  subtitle: {
+    color: resourcesColors.muted,
+    fontSize: 15,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
+  summaryCard: {
+    backgroundColor: resourcesColors.surface,
+    borderColor: resourcesColors.border,
+    borderCurve: "continuous",
+    borderRadius: 18,
+    borderWidth: 1,
+    boxShadow: resourcesShadow.soft,
+    gap: 12,
+    padding: 14,
+  },
+  title: {
+    color: resourcesColors.text,
+    fontSize: 24,
+    fontWeight: "900",
+    lineHeight: 29,
   },
 });

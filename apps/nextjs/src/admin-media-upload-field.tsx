@@ -135,11 +135,7 @@ export function AdminMediaUploadField(props: AdminMediaUploadFieldProps) {
       } catch (uploadError) {
         setProgress(0);
         setState("failed");
-        setError(
-          uploadError instanceof Error
-            ? uploadError.message
-            : "No pudimos cargar el archivo.",
-        );
+        setError(getAdminMediaUploadErrorMessage(uploadError));
       }
     },
     [onRemovedChange, purpose, setLocalPreview],
@@ -189,7 +185,9 @@ export function AdminMediaUploadField(props: AdminMediaUploadFieldProps) {
       void getAdminMediaClient()
         .resources.admin.removeMediaAsset.mutate({ assetId: assetIdToRemove })
         .catch(() => {
-          setError("El medio se retiró del formulario, pero falta limpiar el archivo.");
+          setError(
+            "El medio se retiró del formulario, pero falta limpiar el archivo.",
+          );
         });
     }
   }, [assetId, onRemovedChange]);
@@ -197,9 +195,9 @@ export function AdminMediaUploadField(props: AdminMediaUploadFieldProps) {
   return (
     <Field data-admin-media-upload={props.purpose}>
       <input name={props.assetFieldName} type="hidden" value={readyAssetId} />
-      <div className="flex flex-col gap-3 rounded-md border border-dashed p-3">
+      <div className="flex min-w-0 flex-col gap-3 rounded-md border border-dashed p-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+          <div className="min-w-0">
             <FieldLabel htmlFor={props.id}>{props.label}</FieldLabel>
             <FieldDescription>{props.description}</FieldDescription>
           </div>
@@ -226,8 +224,10 @@ export function AdminMediaUploadField(props: AdminMediaUploadFieldProps) {
         <Input
           accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
           aria-describedby={`${props.id}-status`}
+          className="sr-only"
           id={props.id}
           onChange={onFileChange}
+          tabIndex={-1}
           type="file"
         />
 
@@ -250,10 +250,15 @@ export function AdminMediaUploadField(props: AdminMediaUploadFieldProps) {
             : "Selecciona o reemplaza el archivo antes de guardar."}
         </p>
 
-        {error ? <FieldError>{error}</FieldError> : null}
+        {error ? (
+          <FieldError className="max-w-full [overflow-wrap:anywhere] break-words">
+            {error}
+          </FieldError>
+        ) : null}
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex min-w-0 flex-wrap gap-2">
           <Button
+            className="h-auto min-h-8 max-w-full whitespace-normal"
             disabled={!lastFile}
             onClick={retryUpload}
             size="sm"
@@ -264,6 +269,7 @@ export function AdminMediaUploadField(props: AdminMediaUploadFieldProps) {
             Reintentar
           </Button>
           <Button
+            className="h-auto min-h-8 max-w-full whitespace-normal"
             onClick={() => {
               const input = document.getElementById(props.id);
               if (input instanceof HTMLInputElement) {
@@ -275,9 +281,10 @@ export function AdminMediaUploadField(props: AdminMediaUploadFieldProps) {
             variant="outline"
           >
             <UploadIcon aria-hidden="true" className="size-4" />
-            Reemplazar
+            {previewUrl ? "Reemplazar" : "Seleccionar"}
           </Button>
           <Button
+            className="h-auto min-h-8 max-w-full whitespace-normal"
             disabled={!assetId && !previewUrl}
             onClick={removeAsset}
             size="sm"
@@ -303,6 +310,33 @@ export const adminMediaUploadStateLabels = {
 
 function normalizeInitialAssetId(value: string | undefined) {
   return value?.trim() ?? "";
+}
+
+export function getAdminMediaUploadErrorMessage(error: unknown) {
+  if (!(error instanceof Error)) {
+    return "No pudimos cargar el archivo. Intenta nuevamente o usa el fallback por URL externa.";
+  }
+
+  if (
+    error.message.startsWith("No pudimos leer las dimensiones") ||
+    error.message.startsWith("La carga fue rechazada")
+  ) {
+    return error.message;
+  }
+
+  if (
+    /\b(Failed query|insert into|params:|SQL|admin_media_asset)\b/i.test(
+      error.message,
+    )
+  ) {
+    return "No pudimos preparar la carga administrada. Revisa la configuración de medios e intenta nuevamente.";
+  }
+
+  if (error.message.length > 180) {
+    return "No pudimos cargar el archivo. Intenta nuevamente o usa el fallback por URL externa.";
+  }
+
+  return error.message;
 }
 
 function getAdminMediaClient() {

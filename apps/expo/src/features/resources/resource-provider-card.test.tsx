@@ -11,11 +11,17 @@ vi.mock("react", async () => {
   return {
     ...actual,
     useCallback: <TCallback,>(callback: TCallback) => callback,
+    useState: <TState,>(initialState: TState) =>
+      [initialState, vi.fn()] as const,
   };
 });
 
 vi.mock("expo-image", () => ({
   Image: "Image",
+}));
+
+vi.mock("@expo/vector-icons", () => ({
+  MaterialCommunityIcons: "MaterialCommunityIcons",
 }));
 
 vi.mock("react-native", () => ({

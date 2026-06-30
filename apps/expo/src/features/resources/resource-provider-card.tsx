@@ -1,8 +1,12 @@
-import { memo, useCallback } from "react";
+import type { ComponentProps } from "react";
+import { memo, useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { resourcesColors, resourcesShadow } from "./resources-theme";
+
+type ResourceIconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 interface ResourceProviderCardProps {
   id: string;
@@ -62,7 +66,11 @@ export const ResourceProviderCard = memo(function ResourceProviderCard({
       onPress={handleOpenProvider}
       style={({ pressed }) => getCardStyle({ isSponsored, pressed })}
     >
-      <ProviderMedia id={id} imageUrl={imageUrl} />
+      <ProviderMedia
+        categoryLabel={categoryLabel}
+        id={id}
+        imageUrl={imageUrl}
+      />
 
       <View style={styles.content}>
         <ProviderCardHeader
@@ -122,22 +130,35 @@ function getCardStyle({
   ];
 }
 
-function ProviderMedia({ id, imageUrl }: { id: string; imageUrl?: string }) {
+function ProviderMedia({
+  categoryLabel,
+  id,
+  imageUrl,
+}: {
+  categoryLabel: string;
+  id: string;
+  imageUrl?: string;
+}) {
+  const [didFail, setDidFail] = useState(false);
+  const shouldShowImage = imageUrl && !didFail;
+
   return (
     <View style={styles.media}>
-      {imageUrl ? (
+      {shouldShowImage ? (
         <Image
           source={{ uri: imageUrl }}
           style={styles.mediaImage}
           contentFit="cover"
+          onError={() => {
+            setDidFail(true);
+          }}
           recyclingKey={id}
         />
       ) : (
-        <Image
-          source="sf:pawprint.fill"
-          style={styles.mediaIcon}
-          tintColor={resourcesColors.primary}
-          contentFit="contain"
+        <ResourceIcon
+          color={resourcesColors.primary}
+          name={getProviderIconName(categoryLabel)}
+          size={34}
         />
       )}
     </View>
@@ -221,32 +242,66 @@ function SponsorMediaRow({
       style={styles.sponsorMediaRow}
     >
       {logoUrl ? (
-        <Image
-          source={{ uri: logoUrl }}
-          style={styles.sponsorLogo}
-          contentFit="cover"
+        <SponsorImageWithFallback
+          fallbackLabel="Sponsor"
+          imageStyle={styles.sponsorLogo}
           recyclingKey={`${id}-sponsor-logo`}
+          uri={logoUrl}
         />
       ) : null}
       {imageUrl ? (
-        <Image
-          source={{ uri: imageUrl }}
-          style={styles.sponsorImage}
-          contentFit="cover"
+        <SponsorImageWithFallback
+          fallbackLabel="Patrocinio"
+          imageStyle={styles.sponsorImage}
           recyclingKey={`${id}-sponsor-image`}
+          uri={imageUrl}
         />
       ) : null}
     </View>
   );
 }
 
+function SponsorImageWithFallback({
+  fallbackLabel,
+  imageStyle,
+  recyclingKey,
+  uri,
+}: {
+  fallbackLabel: string;
+  imageStyle: object;
+  recyclingKey: string;
+  uri: string;
+}) {
+  const [didFail, setDidFail] = useState(false);
+
+  if (didFail) {
+    return (
+      <View style={[imageStyle, styles.sponsorImageFallback]}>
+        <Text numberOfLines={1} style={styles.sponsorImageFallbackText}>
+          {fallbackLabel}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri }}
+      style={imageStyle}
+      contentFit="cover"
+      onError={() => setDidFail(true)}
+      recyclingKey={recyclingKey}
+    />
+  );
+}
+
 function DistancePill({ label }: { label: string }) {
   return (
     <View style={styles.distancePill}>
-      <Image
-        source="sf:location.fill"
-        style={styles.inlineIcon}
-        tintColor={resourcesColors.primary}
+      <ResourceIcon
+        color={resourcesColors.primary}
+        name="map-marker"
+        size={13}
       />
       <Text selectable style={styles.distanceText}>
         {label}
@@ -324,6 +379,11 @@ function ProviderActionsRow({
           onPress={onReportProvider}
           style={styles.reportButton}
         >
+          <ResourceIcon
+            color={resourcesColors.muted}
+            name="flag-outline"
+            size={13}
+          />
           <Text selectable numberOfLines={1} style={styles.reportText}>
             Reportar
           </Text>
@@ -334,13 +394,11 @@ function ProviderActionsRow({
 }
 
 function VerificationBadge() {
-  return (
-    <Badge label="Verificado" tone="blue" iconName="checkmark.seal.fill" />
-  );
+  return <Badge label="Verificado" tone="blue" iconName="check-decagram" />;
 }
 
 function SponsorBadge({ label }: { label: string }) {
-  return <Badge label={label} tone="sponsor" iconName="star.fill" />;
+  return <Badge label={label} tone="sponsor" iconName="star" />;
 }
 
 function Badge({
@@ -350,16 +408,12 @@ function Badge({
 }: {
   label: string;
   tone: "neutral" | "blue" | "green" | "sponsor";
-  iconName?: string;
+  iconName?: ResourceIconName;
 }) {
   return (
     <View style={[styles.badge, badgeToneStyles[tone]]}>
       {iconName ? (
-        <Image
-          source={`sf:${iconName}`}
-          style={styles.badgeIcon}
-          tintColor={badgeTextColors[tone]}
-        />
+        <ResourceIcon color={badgeTextColors[tone]} name={iconName} size={12} />
       ) : null}
       <Text
         selectable
@@ -369,6 +423,40 @@ function Badge({
       </Text>
     </View>
   );
+}
+
+function ResourceIcon({
+  color,
+  name,
+  size,
+}: {
+  color: string;
+  name: ResourceIconName;
+  size: number;
+}) {
+  return <MaterialCommunityIcons color={color} name={name} size={size} />;
+}
+
+function getProviderIconName(categoryLabel: string): ResourceIconName {
+  const normalizedLabel = categoryLabel.toLowerCase();
+
+  if (normalizedLabel.includes("veterin")) {
+    return "medical-bag";
+  }
+
+  if (normalizedLabel.includes("refug")) {
+    return "home-heart";
+  }
+
+  if (normalizedLabel.includes("peluquer")) {
+    return "content-cut";
+  }
+
+  if (normalizedLabel.includes("transporte")) {
+    return "car";
+  }
+
+  return "storefront-outline";
 }
 
 const badgeTextColors = {
@@ -426,10 +514,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  mediaIcon: {
-    width: 34,
-    height: 34,
-  },
   content: {
     flex: 1,
     gap: 8,
@@ -482,10 +566,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 5,
   },
-  inlineIcon: {
-    width: 13,
-    height: 13,
-  },
   distanceText: {
     color: resourcesColors.primary,
     fontSize: 12,
@@ -505,10 +585,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 5,
-  },
-  badgeIcon: {
-    width: 12,
-    height: 12,
   },
   badgeText: {
     fontSize: 12,
@@ -538,6 +614,20 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderCurve: "continuous",
   },
+  sponsorImageFallback: {
+    alignItems: "center",
+    backgroundColor: resourcesColors.surface,
+    borderColor: resourcesColors.border,
+    borderWidth: 1,
+    justifyContent: "center",
+    paddingHorizontal: 6,
+  },
+  sponsorImageFallbackText: {
+    color: resourcesColors.tertiary,
+    fontSize: 11,
+    fontWeight: "900",
+    lineHeight: 14,
+  },
   actionsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -558,6 +648,9 @@ const styles = StyleSheet.create({
   },
   reportButton: {
     minHeight: 32,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     justifyContent: "center",
     borderRadius: 999,
     paddingHorizontal: 10,

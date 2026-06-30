@@ -1,24 +1,37 @@
 import type { LegendListRenderItemProps } from "@legendapp/list";
+import type { ComponentProps } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
-import { Image } from "expo-image";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LegendList } from "@legendapp/list";
 
+import type { ReportMapProviderState } from "../maps/report-map";
+import type {
+  NearbyForegroundLocationResult,
+  NearbyLocationAdapter,
+} from "../nearby/nearby-location-adapter";
+import type { NearbySearchLocation } from "../nearby/nearby-types";
+import type { ResourceManualLocationOption } from "./resource-location-options";
 import type {
   ResourceCategoryId,
+  ResourceCoordinate,
   ResourceProviderSummary,
   ResourcesDirectoryMode,
   ResourcesDirectoryStatus,
   ResourceSearchLocation,
 } from "./resource-types";
 import type {
-  ResourceCategoryOption,
   ResourceProviderSummaryViewModel,
   ResourcesDirectoryViewModel,
 } from "./resources-view-model";
@@ -26,26 +39,36 @@ import type {
   ResourceProviderDirectoryResult,
   ResourcesAdapter,
 } from "./static-resources-adapter";
+import { getNativeMapProviderState } from "../maps/map-provider-config";
+import { expoNearbyLocationAdapter } from "../nearby/nearby-expo-location-adapter";
+import {
+  getResourceManualLocationMatches,
+  resolveResourceManualLocationSearch,
+  resourceManualLocationOptions,
+} from "./resource-location-options";
 import { ResourceProviderCard } from "./resource-provider-card";
 import { defaultApiResourcesAdapter } from "./resources-default-api-adapter";
 import { resourcesColors, resourcesShadow } from "./resources-theme";
-import {
-  buildResourcesDirectoryViewModel,
-  resourceCategoryOptions,
-} from "./resources-view-model";
+import { buildResourcesDirectoryViewModel } from "./resources-view-model";
 
 const defaultResourcesAdapter = defaultApiResourcesAdapter;
+
+type ResourceScreenIconName = ComponentProps<
+  typeof MaterialCommunityIcons
+>["name"];
 
 type ResourceNoticeAction = NonNullable<
   NonNullable<ResourcesDirectoryViewModel["notice"]>["actions"]
 >[number];
 
-interface ResourcesScreenProps {
+export interface ResourcesScreenProps {
   adapter?: ResourcesAdapter;
   initialLocation?: ResourceSearchLocation;
   initialMode?: ResourcesDirectoryMode;
   radiusMeters?: number;
   isOffline?: boolean;
+  locationAdapter?: NearbyLocationAdapter;
+  manualLocationOptions?: readonly ResourceManualLocationOption[];
   onOpenProvider?: (providerId: string) => void;
   onReportProvider?: (providerId: string) => void;
   onManualSearchPress?: () => void;
@@ -60,14 +83,31 @@ export function ResourcesScreen({
   initialMode = "list",
   radiusMeters = 5000,
   isOffline = false,
+  locationAdapter = expoNearbyLocationAdapter,
+  manualLocationOptions = resourceManualLocationOptions,
   onOpenProvider,
   onReportProvider,
   onManualSearchPress,
   onUseCurrentLocationPress,
 }: ResourcesScreenProps) {
+  const safeAreaInsets = useSafeAreaInsets();
   const [mode, setMode] = useState<ResourcesDirectoryMode>(initialMode);
   const [location, setLocation] =
     useState<ResourceSearchLocation>(initialLocation);
+  const [manualSearchText, setManualSearchText] = useState(() =>
+    getInitialManualSearchText(initialLocation),
+  );
+  const [manualSearchFeedback, setManualSearchFeedback] = useState<
+    string | undefined
+  >();
+  const [isManualSearchFocused, setIsManualSearchFocused] = useState(false);
+  const [isResolvingLocation, setIsResolvingLocation] = useState(false);
+  const [selectedMapProviderId, setSelectedMapProviderId] = useState<
+    string | undefined
+  >();
+  const [mapCameraCenter, setMapCameraCenter] = useState<
+    ResourceCoordinate | undefined
+  >();
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<
     ResourceCategoryId[]
   >([]);
@@ -92,6 +132,9 @@ export function ResourcesScreen({
 
   useEffect(() => {
     let isCurrent = true;
+
+    setStatus("loading");
+    setErrorMessage(undefined);
 
     const searchProviders: Promise<ResourceProviderDirectoryResult> =
       adapter.searchProviderDirectory !== undefined
@@ -127,6 +170,12 @@ export function ResourcesScreen({
     };
   }, [adapter, reloadVersion, searchQuery]);
 
+  useEffect(() => {
+    if (location.kind === "manual" && !isManualSearchFocused) {
+      setManualSearchText(location.label);
+    }
+  }, [isManualSearchFocused, location]);
+
   const viewModel = useMemo(
     () =>
       buildResourcesDirectoryViewModel({
@@ -155,6 +204,12 @@ export function ResourcesScreen({
   const listData = getVisibleResults(viewModel);
   const { width } = useWindowDimensions();
   const estimatedItemSize = width > 520 ? 132 : 156;
+  const listBottomInset = Math.max(safeAreaInsets.bottom + 168, 188);
+  const manualLocationMatches = useMemo(
+    () =>
+      getResourceManualLocationMatches(manualSearchText, manualLocationOptions),
+    [manualLocationOptions, manualSearchText],
+  );
 
   const handleRefresh = useCallback(() => {
     setReloadVersion((current) => current + 1);
@@ -164,12 +219,88 @@ export function ResourcesScreen({
     setMode(nextMode);
   }, []);
 
-  const handleUseCurrentLocation = useCallback(() => {
-    setLocation({
-      kind: "current",
-    });
+  const applyManualLocation = useCallback(
+    (option: ResourceManualLocationOption) => {
+      setLocation(option.location);
+      setManualSearchText(option.location.label);
+      setManualSearchFeedback(undefined);
+      setIsManualSearchFocused(false);
+      if (option.location.coordinate) {
+        setMapCameraCenter(option.location.coordinate);
+      }
+    },
+    [],
+  );
+
+  const handleManualSearchSubmit = useCallback(() => {
+    onManualSearchPress?.();
+
+    const matchedLocation = resolveResourceManualLocationSearch(
+      manualSearchText,
+      manualLocationOptions,
+    );
+
+    if (!matchedLocation) {
+      setManualSearchFeedback(
+        "Elige una zona de Bolivia de la lista para buscar.",
+      );
+      setIsManualSearchFocused(true);
+      return;
+    }
+
+    applyManualLocation(matchedLocation);
+  }, [
+    applyManualLocation,
+    manualLocationOptions,
+    manualSearchText,
+    onManualSearchPress,
+  ]);
+
+  const handleUseCurrentLocation = useCallback(async () => {
     onUseCurrentLocationPress?.();
-  }, [onUseCurrentLocationPress]);
+    setIsResolvingLocation(true);
+    setManualSearchFeedback(undefined);
+
+    try {
+      const result = await locationAdapter.resolveForegroundLocation({
+        lastKnownMaxAgeMs: 30 * 60 * 1000,
+        requestPermission: true,
+      });
+      const resolvedLocation = toResourceSearchLocationFromForeground(result);
+
+      if (resolvedLocation) {
+        setLocation(resolvedLocation);
+        setManualSearchText(resolvedLocation.label ?? "Ubicación actual");
+        if ("coordinate" in resolvedLocation && resolvedLocation.coordinate) {
+          setMapCameraCenter(resolvedLocation.coordinate);
+        }
+        return;
+      }
+
+      if (
+        result.kind === "permission-denied" ||
+        result.kind === "permission-required"
+      ) {
+        setLocation({
+          kind: "denied",
+          label: "Ubicación desactivada",
+        });
+        return;
+      }
+
+      setManualSearchFeedback(
+        result.kind === "unavailable" && result.reason === "outside-bolivia"
+          ? "La ubicación detectada está fuera de Bolivia."
+          : "No pudimos obtener tu ubicación. Busca por zona.",
+      );
+    } catch {
+      setManualSearchFeedback(
+        "No pudimos obtener tu ubicación. Busca por zona.",
+      );
+    } finally {
+      setIsResolvingLocation(false);
+    }
+  }, [locationAdapter, onUseCurrentLocationPress]);
 
   const handleSelectAllCategories = useCallback(() => {
     setSelectedCategoryIds([]);
@@ -198,7 +329,7 @@ export function ResourcesScreen({
       }
 
       if (kind === "use_current_location") {
-        handleUseCurrentLocation();
+        void handleUseCurrentLocation();
         return;
       }
 
@@ -238,12 +369,32 @@ export function ResourcesScreen({
     <ResourcesHeader
       viewModel={viewModel}
       mode={mode}
+      location={location}
+      manualLocationMatches={manualLocationMatches}
+      manualSearchFeedback={manualSearchFeedback}
+      manualSearchText={manualSearchText}
       selectedCategoryIds={selectedCategoryIds}
+      selectedMapProviderId={selectedMapProviderId}
+      mapCameraCenter={mapCameraCenter}
+      isManualSearchFocused={isManualSearchFocused}
+      isResolvingLocation={isResolvingLocation}
       onModeChange={handleModeChange}
-      onManualSearchPress={onManualSearchPress}
+      onManualSearchTextChange={setManualSearchText}
+      onManualSearchFocus={() => {
+        setIsManualSearchFocused(true);
+        onManualSearchPress?.();
+      }}
+      onManualSearchBlur={() => {
+        setTimeout(() => setIsManualSearchFocused(false), 120);
+      }}
+      onManualSearchSubmit={handleManualSearchSubmit}
+      onSelectManualLocation={applyManualLocation}
       onUseCurrentLocationPress={handleUseCurrentLocation}
       onSelectAllCategories={handleSelectAllCategories}
       onToggleCategory={handleToggleCategory}
+      onOpenProvider={onOpenProvider}
+      onSelectMapProvider={setSelectedMapProviderId}
+      onMapCameraCenterChange={setMapCameraCenter}
       onNoticeAction={handleNoticeAction}
     />
   );
@@ -270,10 +421,14 @@ export function ResourcesScreen({
             />
           ) : null
         }
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: listBottomInset },
+        ]}
         contentInsetAdjustmentBehavior="automatic"
         refreshing={status === "loading"}
         onRefresh={handleRefresh}
+        scrollIndicatorInsets={{ bottom: listBottomInset }}
       />
     </View>
   );
@@ -282,121 +437,316 @@ export function ResourcesScreen({
 function ResourcesHeader({
   viewModel,
   mode,
+  location,
+  manualLocationMatches,
+  manualSearchFeedback,
+  manualSearchText,
   selectedCategoryIds,
+  selectedMapProviderId,
+  mapCameraCenter,
+  isManualSearchFocused,
+  isResolvingLocation,
   onModeChange,
-  onManualSearchPress,
+  onManualSearchTextChange,
+  onManualSearchFocus,
+  onManualSearchBlur,
+  onManualSearchSubmit,
+  onSelectManualLocation,
   onUseCurrentLocationPress,
   onSelectAllCategories,
   onToggleCategory,
+  onOpenProvider,
+  onSelectMapProvider,
+  onMapCameraCenterChange,
   onNoticeAction,
 }: {
   viewModel: ResourcesDirectoryViewModel;
   mode: ResourcesDirectoryMode;
+  location: ResourceSearchLocation;
+  manualLocationMatches: readonly ResourceManualLocationOption[];
+  manualSearchFeedback?: string;
+  manualSearchText: string;
   selectedCategoryIds: readonly ResourceCategoryId[];
+  selectedMapProviderId?: string;
+  mapCameraCenter?: ResourceCoordinate;
+  isManualSearchFocused: boolean;
+  isResolvingLocation: boolean;
   onModeChange: (mode: ResourcesDirectoryMode) => void;
-  onManualSearchPress?: () => void;
+  onManualSearchTextChange: (value: string) => void;
+  onManualSearchFocus: () => void;
+  onManualSearchBlur: () => void;
+  onManualSearchSubmit: () => void;
+  onSelectManualLocation: (option: ResourceManualLocationOption) => void;
   onUseCurrentLocationPress: () => void;
   onSelectAllCategories: () => void;
   onToggleCategory: (categoryId: ResourceCategoryId) => void;
+  onOpenProvider?: (providerId: string) => void;
+  onSelectMapProvider: (providerId: string) => void;
+  onMapCameraCenterChange: (coordinate: ResourceCoordinate) => void;
   onNoticeAction: (kind: ResourceNoticeAction["kind"]) => void;
 }) {
-  const renderCategory = useCallback(
-    ({ item }: LegendListRenderItemProps<ResourceCategoryOption>) => (
-      <CategoryChip
-        id={item.id}
-        label={item.label}
-        isSelected={selectedCategoryIds.includes(item.id)}
-        onToggleCategory={onToggleCategory}
-      />
-    ),
-    [onToggleCategory, selectedCategoryIds],
-  );
-
   return (
     <View style={styles.header}>
-      <View style={styles.titleRow}>
-        <View style={styles.titleIcon}>
-          <Image
-            source="sf:pawprint.fill"
-            style={styles.titleIconImage}
-            tintColor={resourcesColors.surface}
-          />
-        </View>
-        <View style={styles.titleCopy}>
-          <Text selectable style={styles.screenTitle}>
-            Recursos
-          </Text>
-          <Text selectable style={styles.locationLabel}>
-            {viewModel.location.label}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.searchRow}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onManualSearchPress}
-          style={({ pressed }) => [
-            styles.searchButton,
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <Image
-            source="sf:magnifyingglass"
-            style={styles.searchIcon}
-            tintColor={resourcesColors.muted}
-          />
-          <Text selectable numberOfLines={1} style={styles.searchText}>
-            Ciudad, barrio o punto en Bolivia
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Usar ubicación actual"
-          onPress={onUseCurrentLocationPress}
-          style={({ pressed }) => [
-            styles.iconButton,
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <Image
-            source="sf:location.fill"
-            style={styles.iconButtonImage}
-            tintColor={resourcesColors.surface}
-          />
-        </Pressable>
-      </View>
+      <ResourcesHeaderTitle locationLabel={viewModel.location.label} />
+      <ResourcesSearchSection
+        isFocused={isManualSearchFocused}
+        isResolvingLocation={isResolvingLocation}
+        manualSearchFeedback={manualSearchFeedback}
+        manualSearchText={manualSearchText}
+        matches={manualLocationMatches}
+        onBlur={onManualSearchBlur}
+        onChangeText={onManualSearchTextChange}
+        onFocus={onManualSearchFocus}
+        onSelectManualLocation={onSelectManualLocation}
+        onSubmit={onManualSearchSubmit}
+        onUseCurrentLocationPress={onUseCurrentLocationPress}
+      />
 
       <DirectoryPresentation viewModel={viewModel} />
 
       <SearchBoundaryPanel viewModel={viewModel} />
 
-      <View style={styles.segmented}>
-        <ModeButton
-          label="Lista"
-          iconName="list.bullet"
-          mode="list"
-          activeMode={mode}
-          onModeChange={onModeChange}
-        />
-        <ModeButton
-          label="Mapa"
-          iconName="map.fill"
-          mode="map"
-          activeMode={mode}
-          onModeChange={onModeChange}
+      <ResourcesModeSelector activeMode={mode} onModeChange={onModeChange} />
+      <ResourceCategoryFilterRow
+        categories={viewModel.categories}
+        resultSummaryLabel={viewModel.resultSummaryLabel}
+        selectedCategoryIds={selectedCategoryIds}
+        onSelectAllCategories={onSelectAllCategories}
+        onToggleCategory={onToggleCategory}
+      />
+
+      <ResourcesMapSlot
+        cameraCenter={mapCameraCenter}
+        location={location}
+        mode={mode}
+        onCameraCenterChange={onMapCameraCenterChange}
+        onOpenProvider={onOpenProvider}
+        onSelectProvider={onSelectMapProvider}
+        selectedProviderId={selectedMapProviderId}
+        viewModel={viewModel}
+      />
+      <ResourcesNoticeSlot
+        viewModel={viewModel}
+        onNoticeAction={onNoticeAction}
+      />
+    </View>
+  );
+}
+
+function ResourcesMapSlot({
+  cameraCenter,
+  location,
+  mode,
+  onCameraCenterChange,
+  onOpenProvider,
+  onSelectProvider,
+  selectedProviderId,
+  viewModel,
+}: {
+  cameraCenter?: ResourceCoordinate;
+  location: ResourceSearchLocation;
+  mode: ResourcesDirectoryMode;
+  onCameraCenterChange: (coordinate: ResourceCoordinate) => void;
+  onOpenProvider?: (providerId: string) => void;
+  onSelectProvider: (providerId: string) => void;
+  selectedProviderId?: string;
+  viewModel: ResourcesDirectoryViewModel;
+}) {
+  if (mode !== "map") {
+    return null;
+  }
+
+  return (
+    <ResourcesMapPanel
+      cameraCenter={cameraCenter}
+      location={location}
+      onCameraCenterChange={onCameraCenterChange}
+      onOpenProvider={onOpenProvider}
+      onSelectProvider={onSelectProvider}
+      selectedProviderId={selectedProviderId}
+      viewModel={viewModel}
+    />
+  );
+}
+
+function ResourcesNoticeSlot({
+  viewModel,
+  onNoticeAction,
+}: {
+  viewModel: ResourcesDirectoryViewModel;
+  onNoticeAction: (kind: ResourceNoticeAction["kind"]) => void;
+}) {
+  if (!viewModel.notice || viewModel.state === "empty") {
+    return null;
+  }
+
+  return (
+    <ResourcesStatePanel
+      title={viewModel.notice.title}
+      body={viewModel.notice.body}
+      actions={viewModel.notice.actions}
+      onAction={onNoticeAction}
+    />
+  );
+}
+
+function ResourcesHeaderTitle({ locationLabel }: { locationLabel: string }) {
+  return (
+    <View style={styles.titleRow}>
+      <View style={styles.titleIcon}>
+        <ResourceScreenIcon
+          color={resourcesColors.surface}
+          name="paw"
+          size={23}
         />
       </View>
+      <View style={styles.titleCopy}>
+        <Text selectable style={styles.screenTitle}>
+          Recursos
+        </Text>
+        <Text selectable style={styles.locationLabel}>
+          {locationLabel}
+        </Text>
+      </View>
+    </View>
+  );
+}
 
+function ResourcesSearchSection({
+  isFocused,
+  isResolvingLocation,
+  manualSearchFeedback,
+  manualSearchText,
+  matches,
+  onBlur,
+  onChangeText,
+  onFocus,
+  onSelectManualLocation,
+  onSubmit,
+  onUseCurrentLocationPress,
+}: {
+  isFocused: boolean;
+  isResolvingLocation: boolean;
+  manualSearchFeedback?: string;
+  manualSearchText: string;
+  matches: readonly ResourceManualLocationOption[];
+  onBlur: () => void;
+  onChangeText: (value: string) => void;
+  onFocus: () => void;
+  onSelectManualLocation: (option: ResourceManualLocationOption) => void;
+  onSubmit: () => void;
+  onUseCurrentLocationPress: () => void;
+}) {
+  return (
+    <View style={styles.searchSection}>
+      <View style={styles.searchRow}>
+        <View style={styles.searchButton}>
+          <ResourceScreenIcon
+            color={resourcesColors.muted}
+            name="magnify"
+            size={18}
+          />
+          <TextInput
+            accessibilityLabel="Buscar ciudad, barrio o punto en Bolivia"
+            autoCapitalize="words"
+            autoCorrect={false}
+            onBlur={onBlur}
+            onChangeText={onChangeText}
+            onFocus={onFocus}
+            onSubmitEditing={onSubmit}
+            placeholder="Ciudad, barrio o punto en Bolivia"
+            placeholderTextColor={resourcesColors.muted}
+            returnKeyType="search"
+            style={styles.searchInput}
+            value={manualSearchText}
+          />
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Usar ubicación actual"
+          disabled={isResolvingLocation}
+          onPress={onUseCurrentLocationPress}
+          style={({ pressed }) => [
+            styles.iconButton,
+            pressed ? styles.pressed : null,
+            isResolvingLocation ? styles.disabled : null,
+          ]}
+        >
+          {isResolvingLocation ? (
+            <ActivityIndicator color={resourcesColors.surface} size="small" />
+          ) : (
+            <ResourceScreenIcon
+              color={resourcesColors.surface}
+              name="crosshairs-gps"
+              size={21}
+            />
+          )}
+        </Pressable>
+      </View>
+
+      {isFocused || manualSearchFeedback ? (
+        <ManualLocationSuggestions
+          feedback={manualSearchFeedback}
+          matches={matches}
+          onSelectManualLocation={onSelectManualLocation}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+function ResourcesModeSelector({
+  activeMode,
+  onModeChange,
+}: {
+  activeMode: ResourcesDirectoryMode;
+  onModeChange: (mode: ResourcesDirectoryMode) => void;
+}) {
+  return (
+    <View style={styles.segmented}>
+      <ModeButton
+        label="Lista"
+        iconName="format-list-bulleted"
+        mode="list"
+        activeMode={activeMode}
+        onModeChange={onModeChange}
+      />
+      <ModeButton
+        label="Mapa"
+        iconName="map"
+        mode="map"
+        activeMode={activeMode}
+        onModeChange={onModeChange}
+      />
+    </View>
+  );
+}
+
+function ResourceCategoryFilterRow({
+  categories,
+  resultSummaryLabel,
+  selectedCategoryIds,
+  onSelectAllCategories,
+  onToggleCategory,
+}: {
+  categories: ResourcesDirectoryViewModel["categories"];
+  resultSummaryLabel: string;
+  selectedCategoryIds: readonly ResourceCategoryId[];
+  onSelectAllCategories: () => void;
+  onToggleCategory: (categoryId: ResourceCategoryId) => void;
+}) {
+  const hasAllCategoriesSelected = selectedCategoryIds.length === 0;
+
+  return (
+    <View style={styles.categorySection}>
       <View style={styles.categoriesBlock}>
         <Pressable
           accessibilityRole="button"
+          accessibilityState={{ selected: hasAllCategoriesSelected }}
           onPress={onSelectAllCategories}
           style={({ pressed }) => [
             styles.categoryChip,
-            selectedCategoryIds.length === 0
-              ? styles.categoryChipSelected
-              : null,
+            hasAllCategoriesSelected ? styles.categoryChipSelected : null,
             pressed ? styles.pressed : null,
           ]}
         >
@@ -404,36 +754,34 @@ function ResourcesHeader({
             selectable
             style={[
               styles.categoryChipText,
-              selectedCategoryIds.length === 0
-                ? styles.categoryChipTextSelected
-                : null,
+              hasAllCategoriesSelected ? styles.categoryChipTextSelected : null,
             ]}
           >
             Todos
           </Text>
         </Pressable>
-        <LegendList
+        <ScrollView
           horizontal
-          data={resourceCategoryOptions}
-          renderItem={renderCategory}
-          keyExtractor={categoryKeyExtractor}
-          estimatedItemSize={116}
-          ItemSeparatorComponent={CategorySeparator}
-          showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoryListContent}
-        />
+          showsHorizontalScrollIndicator={false}
+        >
+          {categories.map((category) => (
+            <View key={category.id} style={styles.categoryChipWrap}>
+              <CategoryChip
+                id={category.id}
+                label={category.label}
+                isSelected={category.isSelected}
+                onToggleCategory={onToggleCategory}
+              />
+              <CategorySeparator />
+            </View>
+          ))}
+        </ScrollView>
       </View>
 
-      {mode === "map" ? <ResourcesMapPreview viewModel={viewModel} /> : null}
-
-      {viewModel.notice && viewModel.state !== "empty" ? (
-        <ResourcesStatePanel
-          title={viewModel.notice.title}
-          body={viewModel.notice.body}
-          actions={viewModel.notice.actions}
-          onAction={onNoticeAction}
-        />
-      ) : null}
+      <Text selectable style={styles.resultSummary}>
+        {resultSummaryLabel}
+      </Text>
     </View>
   );
 }
@@ -473,10 +821,10 @@ function SearchBoundaryPanel({
   return (
     <View style={styles.boundaryPanel}>
       <View style={styles.boundaryTitleRow}>
-        <Image
-          source="sf:scope"
-          style={styles.boundaryIcon}
-          tintColor={resourcesColors.tertiary}
+        <ResourceScreenIcon
+          color={resourcesColors.tertiary}
+          name="crosshairs-gps"
+          size={16}
         />
         <Text selectable style={styles.boundaryTitle}>
           {viewModel.searchBoundary.title}
@@ -500,7 +848,7 @@ function ModeButton({
   onModeChange,
 }: {
   label: string;
-  iconName: string;
+  iconName: ResourceScreenIconName;
   mode: ResourcesDirectoryMode;
   activeMode: ResourcesDirectoryMode;
   onModeChange: (mode: ResourcesDirectoryMode) => void;
@@ -520,10 +868,10 @@ function ModeButton({
         pressed ? styles.pressed : null,
       ]}
     >
-      <Image
-        source={`sf:${iconName}`}
-        style={styles.modeIcon}
-        tintColor={isActive ? resourcesColors.surface : resourcesColors.muted}
+      <ResourceScreenIcon
+        color={isActive ? resourcesColors.surface : resourcesColors.muted}
+        name={iconName}
+        size={16}
       />
       <Text
         selectable
@@ -553,6 +901,7 @@ function CategoryChip({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ selected: isSelected }}
       onPress={handlePress}
       style={({ pressed }) => [
         styles.categoryChip,
@@ -573,36 +922,315 @@ function CategoryChip({
   );
 }
 
-function ResourcesMapPreview({
-  viewModel,
+function ManualLocationSuggestions({
+  feedback,
+  matches,
+  onSelectManualLocation,
 }: {
-  viewModel: ResourcesDirectoryViewModel;
+  feedback?: string;
+  matches: readonly ResourceManualLocationOption[];
+  onSelectManualLocation: (option: ResourceManualLocationOption) => void;
 }) {
   return (
-    <View style={styles.mapPreview}>
-      <View style={styles.mapPinPrimary}>
-        <Image
-          source="sf:cross.case.fill"
-          style={styles.mapPinIcon}
-          tintColor={resourcesColors.surface}
+    <View style={styles.searchSuggestionsPanel}>
+      {feedback ? (
+        <Text selectable style={styles.searchFeedback}>
+          {feedback}
+        </Text>
+      ) : null}
+      <ScrollView
+        horizontal
+        contentContainerStyle={styles.searchSuggestionsContent}
+        keyboardShouldPersistTaps="handled"
+        showsHorizontalScrollIndicator={false}
+      >
+        {matches.map((option) => (
+          <ManualLocationChip
+            key={option.location.label}
+            option={option}
+            onSelectManualLocation={onSelectManualLocation}
+          />
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+function ManualLocationChip({
+  option,
+  onSelectManualLocation,
+}: {
+  option: ResourceManualLocationOption;
+  onSelectManualLocation: (option: ResourceManualLocationOption) => void;
+}) {
+  const handlePress = useCallback(() => {
+    onSelectManualLocation(option);
+  }, [onSelectManualLocation, option]);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={handlePress}
+      style={({ pressed }) => [
+        styles.searchSuggestionChip,
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      <ResourceScreenIcon
+        color={resourcesColors.primary}
+        name="map-marker"
+        size={15}
+      />
+      <Text numberOfLines={1} style={styles.searchSuggestionText}>
+        {option.location.label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function ResourcesMapPanel({
+  cameraCenter,
+  location,
+  onCameraCenterChange,
+  onOpenProvider,
+  onSelectProvider,
+  selectedProviderId,
+  viewModel,
+}: {
+  cameraCenter?: ResourceCoordinate;
+  location: ResourceSearchLocation;
+  onCameraCenterChange: (coordinate: ResourceCoordinate) => void;
+  onOpenProvider?: (providerId: string) => void;
+  onSelectProvider: (providerId: string) => void;
+  selectedProviderId?: string;
+  viewModel: ResourcesDirectoryViewModel;
+}) {
+  const providerState = getNativeMapProviderState();
+  const pins = viewModel.results.filter(hasMapCoordinate);
+  const selectedProvider =
+    pins.find((provider) => provider.id === selectedProviderId) ?? pins[0];
+  const currentLocation = getMapSearchCoordinate(location);
+
+  if (pins.length === 0) {
+    return (
+      <View style={styles.mapEmptyPanel}>
+        <ResourceScreenIcon
+          color={resourcesColors.primary}
+          name="map-marker-off"
+          size={28}
+        />
+        <Text selectable style={styles.mapEmptyTitle}>
+          Sin puntos para mapa
+        </Text>
+        <Text selectable style={styles.mapEmptyBody}>
+          Estos resultados todavía no tienen zona pública aproximada.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.resourceMapPanel}>
+      <View style={styles.resourceMapHeader}>
+        <View>
+          <Text selectable style={styles.resourceMapTitle}>
+            Mapa de servicios
+          </Text>
+          <Text selectable style={styles.resourceMapMeta}>
+            {viewModel.resultSummaryLabel}
+          </Text>
+        </View>
+        <Text selectable style={styles.resourceMapPrivacy}>
+          Zona aprox.
+        </Text>
+      </View>
+
+      {providerState.kind === "error" ? (
+        <ResourcesMapStatusPanel providerState={providerState} />
+      ) : (
+        <View style={styles.resourceMapFrame}>
+          <MapView
+            initialRegion={buildResourceMapRegion({
+              cameraCenter,
+              currentLocation,
+              pins,
+            })}
+            loadingEnabled
+            mapPadding={{ bottom: 12, left: 12, right: 12, top: 12 }}
+            onRegionChangeComplete={(region) =>
+              onCameraCenterChange({
+                latitude: region.latitude,
+                longitude: region.longitude,
+              })
+            }
+            provider={PROVIDER_GOOGLE}
+            style={styles.resourceMap}
+          >
+            {pins.map((provider) => (
+              <Marker
+                coordinate={provider.approximateLocation}
+                identifier={provider.id}
+                key={provider.id}
+                onPress={() => onSelectProvider(provider.id)}
+                title={provider.name}
+              >
+                <View
+                  style={[
+                    styles.resourceMapMarker,
+                    provider.id === selectedProvider?.id
+                      ? styles.resourceMapMarkerSelected
+                      : null,
+                  ]}
+                >
+                  <ResourceScreenIcon
+                    color={resourcesColors.surface}
+                    name={getMapMarkerIcon(provider.categoryLabel)}
+                    size={18}
+                  />
+                </View>
+              </Marker>
+            ))}
+            {currentLocation ? (
+              <Marker
+                coordinate={currentLocation}
+                identifier="resource-search-origin"
+                title="Zona de búsqueda"
+              >
+                <View style={styles.currentLocationMarker}>
+                  <View style={styles.currentLocationDot} />
+                </View>
+              </Marker>
+            ) : null}
+          </MapView>
+        </View>
+      )}
+
+      {selectedProvider ? (
+        <ResourceMapSelectedProvider
+          onOpenProvider={onOpenProvider}
+          provider={selectedProvider}
+        />
+      ) : null}
+
+      <ScrollView
+        horizontal
+        contentContainerStyle={styles.mapProviderList}
+        showsHorizontalScrollIndicator={false}
+      >
+        {pins.map((provider) => {
+          const isSelected = provider.id === selectedProvider?.id;
+
+          return (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
+              key={`map-list:${provider.id}`}
+              onPress={() => onSelectProvider(provider.id)}
+              style={[
+                styles.mapProviderChip,
+                isSelected ? styles.mapProviderChipSelected : null,
+              ]}
+            >
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.mapProviderChipText,
+                  isSelected ? styles.mapProviderChipTextSelected : null,
+                ]}
+              >
+                {provider.name}
+              </Text>
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.mapProviderChipMeta,
+                  isSelected ? styles.mapProviderChipTextSelected : null,
+                ]}
+              >
+                {provider.locationLabel}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
+function ResourceMapSelectedProvider({
+  onOpenProvider,
+  provider,
+}: {
+  onOpenProvider?: (providerId: string) => void;
+  provider: ResourceProviderSummaryViewModel & {
+    approximateLocation: ResourceCoordinate;
+  };
+}) {
+  const handleOpen = useCallback(() => {
+    onOpenProvider?.(provider.id);
+  }, [onOpenProvider, provider.id]);
+
+  const content = (
+    <>
+      <View style={styles.mapSelectedIcon}>
+        <ResourceScreenIcon
+          color={resourcesColors.primary}
+          name={getMapMarkerIcon(provider.categoryLabel)}
+          size={21}
         />
       </View>
-      <View style={styles.mapPinSecondary}>
-        <Image
-          source="sf:house.fill"
-          style={styles.mapPinIcon}
-          tintColor={resourcesColors.surface}
-        />
-      </View>
-      <View style={styles.mapPanel}>
-        <Text selectable style={styles.mapTitle}>
-          {viewModel.searchBoundary.title}
+      <View style={styles.mapSelectedCopy}>
+        <Text numberOfLines={1} style={styles.mapSelectedTitle}>
+          {provider.name}
         </Text>
-        <Text selectable style={styles.mapCopy}>
-          {viewModel.results.length} recursos. {viewModel.searchBoundary.body}{" "}
-          {viewModel.searchBoundary.precisionLabel}.
+        <Text numberOfLines={1} style={styles.mapSelectedMeta}>
+          {[provider.distanceLabel, provider.locationLabel]
+            .filter(Boolean)
+            .join(" · ")}
         </Text>
       </View>
+      {onOpenProvider ? (
+        <Text style={styles.mapSelectedAction}>Ver</Text>
+      ) : null}
+    </>
+  );
+
+  if (!onOpenProvider) {
+    return <View style={styles.mapSelectedProvider}>{content}</View>;
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={handleOpen}
+      style={({ pressed }) => [
+        styles.mapSelectedProvider,
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      {content}
+    </Pressable>
+  );
+}
+
+function ResourcesMapStatusPanel({
+  providerState,
+}: {
+  providerState: Extract<ReportMapProviderState, { kind: "error" }>;
+}) {
+  return (
+    <View style={styles.mapStatusPanel}>
+      <ResourceScreenIcon
+        color={resourcesColors.tertiary}
+        name="alert-outline"
+        size={28}
+      />
+      <Text selectable style={styles.mapStatusTitle}>
+        Mapa no disponible
+      </Text>
+      <Text selectable style={styles.mapStatusBody}>
+        {providerState.message}
+      </Text>
     </View>
   );
 }
@@ -690,16 +1318,124 @@ function providerKeyExtractor(provider: ResourceProviderSummaryViewModel) {
   return provider.id;
 }
 
-function categoryKeyExtractor(category: ResourceCategoryOption) {
-  return category.id;
-}
-
 function ProviderSeparator() {
   return <View style={styles.providerSeparator} />;
 }
 
 function CategorySeparator() {
   return <View style={styles.categorySeparator} />;
+}
+
+function ResourceScreenIcon({
+  color,
+  name,
+  size,
+}: {
+  color: string;
+  name: ResourceScreenIconName;
+  size: number;
+}) {
+  return <MaterialCommunityIcons color={color} name={name} size={size} />;
+}
+
+function getInitialManualSearchText(location: ResourceSearchLocation) {
+  return location.kind === "manual" ? location.label : "";
+}
+
+function toResourceSearchLocationFromForeground(
+  result: NearbyForegroundLocationResult,
+): ResourceSearchLocation | undefined {
+  if (result.kind !== "available") {
+    return undefined;
+  }
+
+  return toResourceSearchLocationFromNearby(result.location);
+}
+
+function toResourceSearchLocationFromNearby(
+  location: NearbySearchLocation,
+): ResourceSearchLocation | undefined {
+  if (!location.coordinates) {
+    return undefined;
+  }
+
+  return {
+    coordinate: { ...location.coordinates },
+    countryCode: "BO",
+    kind: location.source === "last" ? "last" : "current",
+    label: location.label,
+    locationCellLabel: location.locationCellLabel,
+  };
+}
+
+function hasMapCoordinate(
+  provider: ResourceProviderSummaryViewModel,
+): provider is ResourceProviderSummaryViewModel & {
+  approximateLocation: ResourceCoordinate & { label: string };
+} {
+  return (
+    provider.approximateLocation !== undefined &&
+    Number.isFinite(provider.approximateLocation.latitude) &&
+    Number.isFinite(provider.approximateLocation.longitude)
+  );
+}
+
+function getMapSearchCoordinate(
+  location: ResourceSearchLocation,
+): ResourceCoordinate | undefined {
+  return "coordinate" in location ? location.coordinate : undefined;
+}
+
+function buildResourceMapRegion({
+  cameraCenter,
+  currentLocation,
+  pins,
+}: {
+  cameraCenter?: ResourceCoordinate;
+  currentLocation?: ResourceCoordinate;
+  pins: readonly (ResourceProviderSummaryViewModel & {
+    approximateLocation: ResourceCoordinate;
+  })[];
+}) {
+  const center =
+    cameraCenter ?? currentLocation ?? pins[0]?.approximateLocation;
+
+  return {
+    latitude: center?.latitude ?? -16.5,
+    latitudeDelta: 0.08,
+    longitude: center?.longitude ?? -68.1193,
+    longitudeDelta: 0.08,
+  };
+}
+
+function getMapMarkerIcon(categoryLabel: string): ResourceScreenIconName {
+  const normalizedLabel = categoryLabel.toLowerCase();
+
+  if (normalizedLabel.includes("veterin")) {
+    return "medical-bag";
+  }
+
+  if (normalizedLabel.includes("refug")) {
+    return "home-heart";
+  }
+
+  if (normalizedLabel.includes("pelu")) {
+    return "content-cut";
+  }
+
+  if (normalizedLabel.includes("alimento")) {
+    return "food-variant";
+  }
+
+  if (normalizedLabel.includes("tienda")) {
+    return "storefront-outline";
+  }
+
+  if (normalizedLabel.includes("transporte")) {
+    return "car-estate";
+  }
+
+  return "paw";
 }
 
 const styles = StyleSheet.create({
@@ -709,7 +1445,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingBottom: 32,
   },
   header: {
     gap: 16,
@@ -755,6 +1490,9 @@ const styles = StyleSheet.create({
     gap: 10,
     alignItems: "center",
   },
+  searchSection: {
+    gap: 8,
+  },
   searchButton: {
     minHeight: 52,
     flex: 1,
@@ -773,12 +1511,47 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
   },
-  searchText: {
+  searchInput: {
     flex: 1,
-    color: resourcesColors.muted,
+    color: resourcesColors.text,
     fontSize: 15,
-    lineHeight: 20,
     fontWeight: "600",
+    minHeight: 44,
+    padding: 0,
+  },
+  searchSuggestionsPanel: {
+    gap: 8,
+    marginTop: -6,
+  },
+  searchSuggestionsContent: {
+    gap: 8,
+    paddingRight: 2,
+  },
+  searchSuggestionChip: {
+    alignItems: "center",
+    backgroundColor: resourcesColors.surface,
+    borderColor: resourcesColors.border,
+    borderCurve: "continuous",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    maxWidth: 220,
+    minHeight: 36,
+    paddingHorizontal: 11,
+  },
+  searchSuggestionText: {
+    color: resourcesColors.text,
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 17,
+  },
+  searchFeedback: {
+    color: resourcesColors.tertiary,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 18,
   },
   directoryPanel: {
     gap: 8,
@@ -871,6 +1644,9 @@ const styles = StyleSheet.create({
     backgroundColor: resourcesColors.primary,
     boxShadow: resourcesShadow.primary,
   },
+  disabled: {
+    opacity: 0.72,
+  },
   iconButtonImage: {
     width: 20,
     height: 20,
@@ -914,8 +1690,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
+  categorySection: {
+    gap: 8,
+  },
   categoryListContent: {
     paddingRight: 2,
+  },
+  categoryChipWrap: {
+    flexDirection: "row",
   },
   categoryChip: {
     minHeight: 40,
@@ -946,62 +1728,211 @@ const styles = StyleSheet.create({
   categorySeparator: {
     width: 8,
   },
-  mapPreview: {
-    minHeight: 190,
-    borderRadius: 22,
-    borderCurve: "continuous",
-    overflow: "hidden",
-    backgroundColor: "#F2E4E2",
-    borderWidth: 1,
+  resultSummary: {
+    color: resourcesColors.primary,
+    fontSize: 13,
+    fontWeight: "900",
+    lineHeight: 17,
+  },
+  resourceMapPanel: {
+    backgroundColor: resourcesColors.surface,
     borderColor: resourcesColors.border,
-    padding: 16,
-    justifyContent: "flex-end",
-  },
-  mapPinPrimary: {
-    position: "absolute",
-    top: 44,
-    left: "42%",
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: resourcesColors.primary,
-    boxShadow: resourcesShadow.primary,
-  },
-  mapPinSecondary: {
-    position: "absolute",
-    top: 86,
-    right: 42,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: resourcesColors.tertiary,
+    borderCurve: "continuous",
+    borderRadius: 18,
+    borderWidth: 1,
     boxShadow: resourcesShadow.soft,
+    gap: 12,
+    padding: 12,
   },
-  mapPinIcon: {
-    width: 18,
-    height: 18,
+  resourceMapHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
   },
-  mapPanel: {
-    gap: 4,
+  resourceMapTitle: {
+    color: resourcesColors.text,
+    fontSize: 16,
+    fontWeight: "900",
+    lineHeight: 20,
+  },
+  resourceMapMeta: {
+    color: resourcesColors.muted,
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 16,
+  },
+  resourceMapPrivacy: {
+    backgroundColor: resourcesColors.primarySoft,
+    borderRadius: 999,
+    color: resourcesColors.primary,
+    fontSize: 12,
+    fontWeight: "900",
+    overflow: "hidden",
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  resourceMapFrame: {
+    height: 260,
     borderRadius: 16,
     borderCurve: "continuous",
-    backgroundColor: "rgba(255, 255, 255, 0.92)",
-    padding: 14,
+    overflow: "hidden",
+    backgroundColor: resourcesColors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: resourcesColors.border,
   },
-  mapTitle: {
+  resourceMap: {
+    flex: 1,
+  },
+  resourceMapMarker: {
+    alignItems: "center",
+    backgroundColor: resourcesColors.primary,
+    borderColor: resourcesColors.surface,
+    borderRadius: 22,
+    borderWidth: 2,
+    boxShadow: resourcesShadow.primary,
+    justifyContent: "center",
+    minHeight: 42,
+    minWidth: 42,
+  },
+  resourceMapMarkerSelected: {
+    backgroundColor: resourcesColors.tertiary,
+    minHeight: 48,
+    minWidth: 48,
+  },
+  currentLocationMarker: {
+    alignItems: "center",
+    backgroundColor: "rgba(15, 118, 101, 0.18)",
+    borderColor: resourcesColors.surface,
+    borderRadius: 16,
+    borderWidth: 2,
+    height: 32,
+    justifyContent: "center",
+    width: 32,
+  },
+  currentLocationDot: {
+    backgroundColor: resourcesColors.primary,
+    borderRadius: 6,
+    height: 12,
+    width: 12,
+  },
+  mapSelectedProvider: {
+    alignItems: "center",
+    backgroundColor: resourcesColors.surfaceMuted,
+    borderColor: resourcesColors.border,
+    borderCurve: "continuous",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 62,
+    padding: 10,
+  },
+  mapSelectedIcon: {
+    alignItems: "center",
+    backgroundColor: resourcesColors.primarySoft,
+    borderRadius: 13,
+    height: 42,
+    justifyContent: "center",
+    width: 42,
+  },
+  mapSelectedCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  mapSelectedTitle: {
     color: resourcesColors.text,
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 15,
     fontWeight: "900",
+    lineHeight: 19,
   },
-  mapCopy: {
+  mapSelectedMeta: {
     color: resourcesColors.muted,
     fontSize: 13,
-    lineHeight: 18,
+    fontWeight: "700",
+    lineHeight: 17,
+  },
+  mapSelectedAction: {
+    color: resourcesColors.primary,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  mapProviderList: {
+    gap: 8,
+    paddingRight: 2,
+  },
+  mapProviderChip: {
+    borderColor: resourcesColors.border,
+    borderCurve: "continuous",
+    borderRadius: 14,
+    borderWidth: 1,
+    maxWidth: 210,
+    minHeight: 54,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  mapProviderChipSelected: {
+    backgroundColor: resourcesColors.primary,
+    borderColor: resourcesColors.primary,
+  },
+  mapProviderChipText: {
+    color: resourcesColors.text,
+    fontSize: 13,
+    fontWeight: "900",
+    lineHeight: 17,
+  },
+  mapProviderChipMeta: {
+    color: resourcesColors.muted,
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 16,
+  },
+  mapProviderChipTextSelected: {
+    color: resourcesColors.surface,
+  },
+  mapStatusPanel: {
+    alignItems: "center",
+    backgroundColor: "#FFF7ED",
+    borderColor: "#FED7AA",
+    borderCurve: "continuous",
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 8,
+    padding: 16,
+  },
+  mapStatusTitle: {
+    color: resourcesColors.tertiary,
+    fontSize: 16,
+    fontWeight: "900",
+    lineHeight: 20,
+  },
+  mapStatusBody: {
+    color: resourcesColors.text,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  mapEmptyPanel: {
+    alignItems: "center",
+    backgroundColor: resourcesColors.surface,
+    borderColor: resourcesColors.border,
+    borderCurve: "continuous",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 8,
+    padding: 18,
+  },
+  mapEmptyTitle: {
+    color: resourcesColors.text,
+    fontSize: 16,
+    fontWeight: "900",
+    lineHeight: 20,
+  },
+  mapEmptyBody: {
+    color: resourcesColors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
   },
   statePanel: {
     gap: 10,

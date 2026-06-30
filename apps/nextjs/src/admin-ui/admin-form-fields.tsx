@@ -59,6 +59,7 @@ export function AdminExternalMediaUrlFallback(props: {
   id: string;
   removedFieldNames: readonly string[];
 }) {
+  const removedFieldNames = new Set(props.removedFieldNames);
   const shouldOpen = props.fields.some(
     (field) => field.hasSubmittedValue || field.error,
   );
@@ -93,18 +94,22 @@ export function AdminExternalMediaUrlFallback(props: {
       </Button>
       {open ? (
         <div className="grid gap-4 sm:grid-cols-2" id={props.id}>
-          {props.fields.map((field) => (
-            <AdminTextField
-              error={field.error}
-              id={field.id}
-              key={field.name}
-              label={field.label}
-              name={field.name}
-              placeholder={field.placeholder}
-              type="url"
-              value={field.value}
-            />
-          ))}
+          {props.fields.map((field) => {
+            const isRemoved = removedFieldNames.has(field.name);
+
+            return (
+              <AdminTextField
+                error={field.error}
+                id={field.id}
+                key={field.name}
+                label={field.label}
+                name={field.name}
+                placeholder={field.placeholder}
+                type="url"
+                value={isRemoved ? undefined : field.value}
+              />
+            );
+          })}
         </div>
       ) : (
         props.removedFieldNames.map((fieldName) => (
@@ -174,7 +179,10 @@ export function AdminListFilterSubmitControls(props: {
         value={props.sortDirection ?? ""}
       />
       <div className="flex items-end">
-        <Button className="w-full lg:w-fit" type="submit">
+        <Button
+          className="h-auto min-h-9 w-full whitespace-normal xl:w-fit"
+          type="submit"
+        >
           Aplicar filtros
         </Button>
       </div>

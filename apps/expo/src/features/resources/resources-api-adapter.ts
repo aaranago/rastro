@@ -124,6 +124,9 @@ function toResourceProviderSummary(
     categoryId: provider.categoryId,
     description: provider.description,
     approximateLocationLabel: provider.approximateLocationLabel,
+    approximateLocation: provider.approximateLocation
+      ? { ...provider.approximateLocation }
+      : undefined,
     contactOptions: provider.contactOptions.map((contact) => ({ ...contact })),
     distanceMeters: provider.distanceMeters,
     emergencyAvailable: provider.emergencyAvailable,
@@ -156,6 +159,8 @@ function toResourceProviderSummary(
 function toResourceProviderProfile(
   profile: ResourceDetailOutput,
 ): ResourceProviderProfile {
+  const media = getProviderMedia(profile);
+
   return {
     ...toResourceProviderSummary(profile),
     externalLinks: profile.externalLinks
@@ -168,7 +173,20 @@ function toResourceProviderProfile(
       ? profile.socialLinks.map((link) => ({ ...link }))
       : undefined,
     websiteUrl: profile.websiteUrl,
+    media,
   };
+}
+
+function getProviderMedia(profile: ResourceDetailOutput) {
+  const providerWithOptionalMedia = profile as ResourceDetailOutput & {
+    media?: {
+      alt?: string;
+      id: string;
+      url: string;
+    }[];
+  };
+
+  return providerWithOptionalMedia.media?.map((media) => ({ ...media }));
 }
 
 function isNotFoundLikeError(error: unknown) {

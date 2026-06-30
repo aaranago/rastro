@@ -70,6 +70,49 @@ describe("report media delivery route", () => {
     });
   });
 
+  it("streams admin-managed media through the server-side storage adapter", async () => {
+    nextEnv.env.RASTRO_STORAGE_BUCKET = "rastro-media";
+    const storage = {
+      getObject: vi.fn().mockResolvedValue({
+        body: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+        cacheControl: "public, max-age=120",
+        contentLength: 4,
+        contentType: "image/png",
+        eTag: '"admin-media"',
+        metadata: {},
+      }),
+    };
+    api.parseMediaStorageConfig.mockReturnValue({ bucket: "rastro-media" });
+    api.createS3MediaStorage.mockReturnValue(storage);
+    const { GET } = await import("./route");
+
+    const response = await GET(
+      new Request(
+        "http://localhost/api/report-media/admin-media/admin/provider_logo/asset/original.png",
+      ),
+      {
+        params: Promise.resolve({
+          objectKey: [
+            "admin-media",
+            "admin",
+            "provider_logo",
+            "asset",
+            "original.png",
+          ],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/png");
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(
+      new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+    );
+    expect(storage.getObject).toHaveBeenCalledWith({
+      objectKey: "admin-media/admin/provider_logo/asset/original.png",
+    });
+  });
+
   it("does not proxy arbitrary bucket keys", async () => {
     const { GET } = await import("./route");
 

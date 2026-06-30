@@ -23,16 +23,16 @@ function mediaStorageEnv(): Record<string, string | undefined> {
 }
 
 function responseForUnavailableMedia(status = 404) {
-  return Response.json(
-    { error: "Report media is not available." },
-    { status },
-  );
+  return Response.json({ error: "Media is not available." }, { status });
 }
 
 function normalizeObjectKey(params: { objectKey?: string[] }) {
   const objectKey = params.objectKey?.join("/") ?? "";
 
-  if (!objectKey.startsWith("report-media/")) {
+  if (
+    !objectKey.startsWith("report-media/") &&
+    !objectKey.startsWith("admin-media/")
+  ) {
     return null;
   }
 

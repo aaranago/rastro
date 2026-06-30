@@ -152,6 +152,70 @@ describe("admin resource provider form parser", () => {
     });
   });
 
+  it("preserves existing provider media when edit forms omit media URL fields", () => {
+    const result = parseUpdateProviderInput(
+      formData({
+        providerId: "11111111-1111-4111-8111-111111111111",
+        name: "Clinica Veterinaria San Roque",
+        category: "veterinary",
+        description:
+          "Veterinaria local con atencion general, urgencias y orientacion.",
+        shortDescription:
+          "Atencion veterinaria general y orientacion para familias cuidadoras.",
+        department: "La Paz",
+        city: "La Paz",
+        approximateLocationLabel: "Sopocachi, La Paz",
+        locationCell: "bo-lpb-sopocachi",
+        serviceAreaLabel: "Atiende La Paz y El Alto",
+        hoursLabel: "Lun - Dom: 24 horas",
+        "contactOptions.0.kind": "phone",
+        "contactOptions.0.label": "Llamar",
+        "contactOptions.0.value": "+591 2 222 1111",
+      }),
+    );
+
+    if (!result.ok) {
+      throw new Error("Expected parser to accept edit form.");
+    }
+
+    expect(result.input.logoUrl).toBeUndefined();
+    expect(result.input.photoUrl).toBeUndefined();
+    expect(result.input.websiteUrl).toBeUndefined();
+  });
+
+  it("clears provider media only when edit forms submit blank media URL fields", () => {
+    const result = parseUpdateProviderInput(
+      formData({
+        providerId: "11111111-1111-4111-8111-111111111111",
+        name: "Clinica Veterinaria San Roque",
+        category: "veterinary",
+        description:
+          "Veterinaria local con atencion general, urgencias y orientacion.",
+        shortDescription:
+          "Atencion veterinaria general y orientacion para familias cuidadoras.",
+        department: "La Paz",
+        city: "La Paz",
+        approximateLocationLabel: "Sopocachi, La Paz",
+        locationCell: "bo-lpb-sopocachi",
+        serviceAreaLabel: "Atiende La Paz y El Alto",
+        hoursLabel: "Lun - Dom: 24 horas",
+        logoUrl: "",
+        photoUrl: "",
+        "contactOptions.0.kind": "phone",
+        "contactOptions.0.label": "Llamar",
+        "contactOptions.0.value": "+591 2 222 1111",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      input: {
+        logoUrl: null,
+        photoUrl: null,
+      },
+    });
+  });
+
   it("parses field-array contact and link order after reorder and remove", () => {
     const result = parseUpdateProviderInput(
       formData({

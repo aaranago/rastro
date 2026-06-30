@@ -148,6 +148,10 @@ const verificationStatusLabels = {
 
 const emptyAdminResourceProviderActionState: AdminResourceProviderActionState =
   {};
+const providerWorkflowSheetClassName =
+  "w-full overflow-x-hidden overflow-y-auto sm:max-w-3xl";
+const providerWorkflowTriggerClassName =
+  "h-auto min-h-8 w-full justify-start whitespace-normal text-left";
 
 const providerContactArraySchema = z.object({
   contactOptions: z.array(
@@ -194,8 +198,8 @@ export function AdminResourcesDashboard(props: AdminResourcesDashboardProps) {
   const stats = getSummaryStats(props.providers, props.metrics);
 
   return (
-    <main className="bg-background min-h-screen overflow-x-hidden [&_*]:box-border">
-      <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6">
+    <main className="bg-background min-h-screen [&_*]:box-border">
+      <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 px-4 sm:px-6 lg:px-8">
         <AdminResourcesHeader title={props.title} viewer={props.viewer} />
         {props.notice ? <AdminResourcesNotice notice={props.notice} /> : null}
         <AdminResourcesSummary stats={stats} />
@@ -343,7 +347,7 @@ function ProviderQueue(props: {
         />
       )}
       rowActions={{
-        className: "w-[176px]",
+        className: "w-[220px] min-w-[220px]",
         header: "Acciones",
         render: (provider) => (
           <ProviderActionWorkflowList
@@ -446,7 +450,7 @@ function ProviderFilterBar(props: {
   return (
     <form action="/admin/proveedores" className="grid min-w-0 gap-3">
       <input name="pageSize" type="hidden" value={props.list.pageSize} />
-      <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(180px,1.4fr)_repeat(4,minmax(130px,1fr))]">
+      <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(180px,1.4fr)_repeat(4,minmax(130px,1fr))]">
         <Field>
           <FieldLabel htmlFor="provider-search">Buscar proveedor</FieldLabel>
           <Input
@@ -492,7 +496,7 @@ function ProviderFilterBar(props: {
           value={getArrayFilterValue(filters.verification)}
         />
       </div>
-      <div className="grid min-w-0 gap-3 lg:grid-cols-[repeat(5,minmax(130px,1fr))_auto]">
+      <div className="grid min-w-0 gap-3 xl:grid-cols-[repeat(5,minmax(130px,1fr))_auto]">
         <NativeSelectField
           id="provider-sponsor-state"
           label="Patrocinio"
@@ -739,7 +743,7 @@ function ProviderActionWorkflowList(props: {
   );
 
   return (
-    <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-1">
+    <div className="grid min-w-0 gap-2">
       <EditProviderWorkflow
         feedback={editFeedback}
         formAction={props.formAction}
@@ -796,7 +800,7 @@ function CreateProviderWorkflow(props: {
       </SheetTrigger>
       <SheetContent
         aria-describedby="create-provider-description"
-        className="w-full overflow-y-auto sm:max-w-3xl"
+        className={providerWorkflowSheetClassName}
       >
         <SheetHeader>
           <SheetTitle>Registrar proveedor</SheetTitle>
@@ -857,13 +861,18 @@ function EditProviderWorkflow(props: {
   return (
     <Sheet defaultOpen={Boolean(feedback)}>
       <SheetTrigger asChild>
-        <Button data-workflow-trigger="edit" type="button" variant="outline">
+        <Button
+          className={providerWorkflowTriggerClassName}
+          data-workflow-trigger="edit"
+          type="button"
+          variant="outline"
+        >
           Editar detalles
         </Button>
       </SheetTrigger>
       <SheetContent
         aria-describedby={`edit-provider-description-${props.provider.providerId}`}
-        className="w-full overflow-y-auto sm:max-w-3xl"
+        className={providerWorkflowSheetClassName}
       >
         <SheetHeader>
           <SheetTitle>Editar {props.provider.name}</SheetTitle>
@@ -1662,6 +1671,7 @@ function VerificationProviderWorkflow(props: {
     <Dialog defaultOpen={Boolean(feedback)}>
       <DialogTrigger asChild>
         <Button
+          className={providerWorkflowTriggerClassName}
           data-workflow-trigger="verification"
           type="button"
           variant="outline"
@@ -1744,13 +1754,18 @@ function SponsorProviderWorkflow(props: {
   return (
     <Sheet defaultOpen={Boolean(props.feedback)}>
       <SheetTrigger asChild>
-        <Button data-workflow-trigger="sponsor" type="button" variant="outline">
+        <Button
+          className={providerWorkflowTriggerClassName}
+          data-workflow-trigger="sponsor"
+          type="button"
+          variant="outline"
+        >
           Patrocinio
         </Button>
       </SheetTrigger>
       <SheetContent
         aria-describedby={`sponsor-description-${props.provider.providerId}`}
-        className="w-full overflow-y-auto sm:max-w-2xl"
+        className="w-full overflow-x-hidden overflow-y-auto sm:max-w-2xl"
       >
         <SheetHeader>
           <SheetTitle>Patrocinio de {props.provider.name}</SheetTitle>
@@ -2097,7 +2112,12 @@ function ArchiveProviderWorkflow(props: {
   return (
     <Dialog defaultOpen={Boolean(feedback)}>
       <DialogTrigger asChild>
-        <Button data-workflow-trigger="archive" type="button" variant="outline">
+        <Button
+          className={providerWorkflowTriggerClassName}
+          data-workflow-trigger="archive"
+          type="button"
+          variant="outline"
+        >
           Archivar
         </Button>
       </DialogTrigger>
@@ -2260,7 +2280,9 @@ function WorkflowErrorAlert(props: {
   return (
     <Alert variant="destructive">
       <AlertTitle>No se guardó la acción</AlertTitle>
-      <AlertDescription>{props.feedback.formError}</AlertDescription>
+      <AlertDescription className="max-w-full [overflow-wrap:anywhere] break-words">
+        {props.feedback.formError}
+      </AlertDescription>
     </Alert>
   );
 }
@@ -2561,22 +2583,22 @@ function MetricTable(props: {
   return (
     <div className="mt-4">
       <h3 className="text-sm font-semibold">{props.heading}</h3>
-      <div className="mt-2 overflow-x-auto">
-        <table className="w-full text-left text-sm">
+      <div className="mt-2 min-w-0">
+        <table className="w-full table-fixed text-left text-sm">
           <caption className="sr-only">{props.caption}</caption>
           <thead className="text-muted-foreground text-xs font-semibold uppercase">
             <tr>
-              <th className="py-2 pr-3" scope="col">
+              <th className="w-[46%] py-2 pr-2" scope="col">
                 Lugar
               </th>
-              <th className="px-3 py-2 text-right" scope="col">
+              <th className="w-[18%] px-1 py-2 text-right" scope="col">
                 Total
               </th>
-              <th className="px-3 py-2 text-right" scope="col">
-                Verificados
+              <th className="w-[18%] px-1 py-2 text-right" scope="col">
+                Verif.
               </th>
-              <th className="py-2 pl-3 text-right" scope="col">
-                Patrocinios
+              <th className="w-[18%] py-2 pl-1 text-right" scope="col">
+                Patroc.
               </th>
             </tr>
           </thead>
@@ -2590,16 +2612,16 @@ function MetricTable(props: {
             ) : (
               props.metrics.map((metric) => (
                 <tr key={metric.label}>
-                  <th className="py-3 pr-3 font-medium" scope="row">
+                  <th className="py-3 pr-2 font-medium break-words" scope="row">
                     {metric.label}
                   </th>
-                  <td className="px-3 py-3 text-right">
+                  <td className="px-1 py-3 text-right">
                     {metric.providerCount}
                   </td>
-                  <td className="px-3 py-3 text-right">
+                  <td className="px-1 py-3 text-right">
                     {metric.verifiedProviderCount}
                   </td>
-                  <td className="py-3 pl-3 text-right">
+                  <td className="py-3 pl-1 text-right">
                     {metric.activeSponsorPlacementCount}
                   </td>
                 </tr>

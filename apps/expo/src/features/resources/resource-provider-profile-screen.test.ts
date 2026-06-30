@@ -100,18 +100,46 @@ vi.mock("expo-image", () => ({
   Image: "Image",
 }));
 
+vi.mock("@expo/vector-icons", () => ({
+  MaterialCommunityIcons: "MaterialCommunityIcons",
+}));
+
+vi.mock("@nandorojo/galeria", async () => {
+  const actualReact = await vi.importActual<typeof React>("react");
+  const GaleriaImage = (props: ElementProps) =>
+    actualReact.createElement("Galeria.Image", props, props.children);
+  const GaleriaRoot = Object.assign(
+    (props: ElementProps) =>
+      actualReact.createElement("Galeria", props, props.children),
+    { Image: GaleriaImage },
+  );
+
+  return {
+    Galeria: GaleriaRoot,
+  };
+});
+
 vi.mock("react-native", () => ({
+  ActivityIndicator: "ActivityIndicator",
   Linking: {
     openURL: () => Promise.resolve(),
   },
+  Modal: "Modal",
   Pressable: "Pressable",
   ScrollView: "ScrollView",
   StyleSheet: {
+    absoluteFill: {},
     create: <TStyles extends Record<string, unknown>>(styles: TStyles) =>
       styles,
+    flatten: (style: unknown) => style,
   },
   Text: "Text",
+  TextInput: "TextInput",
   View: "View",
+}));
+
+vi.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ bottom: 0, left: 0, right: 0, top: 0 }),
 }));
 
 vi.mock("../../utils/api", () => ({
@@ -160,6 +188,47 @@ describe("Resource Provider profile screen", () => {
     ).toBe(true);
   });
 
+  it("shows a compact fallback when an attached provider image fails", async () => {
+    const adapter = createAdapter({
+      providerProfile: {
+        ...profile,
+        photoUrl: "https://example.com/broken-provider-photo.png",
+      },
+    });
+
+    void renderScreen(createProfileScreen(adapter));
+    await flushEffects();
+    const readyScreen = renderScreen(createProfileScreen(adapter));
+
+    triggerImageErrorByUri(
+      readyScreen,
+      "https://example.com/broken-provider-photo.png",
+    );
+
+    const fallbackScreen = renderScreen(createProfileScreen(adapter));
+
+    expect(findText(fallbackScreen, "No pudimos cargar esta foto")).toBe(true);
+    expect(findText(fallbackScreen, "Clinica Veterinaria San Roque")).toBe(
+      true,
+    );
+  });
+
+  it("does not reserve a blank hero when provider detail has no photo", async () => {
+    const adapter = createAdapter({
+      providerProfile: {
+        ...profile,
+        photoUrl: undefined,
+      },
+    });
+
+    void renderScreen(createProfileScreen(adapter));
+    await flushEffects();
+    const readyScreen = renderScreen(createProfileScreen(adapter));
+
+    expect(findText(readyScreen, "Sin foto del proveedor")).toBe(true);
+    expect(findText(readyScreen, "Veterinaria")).toBe(true);
+  });
+
   it("waits for backend confirmation before showing provider report success", async () => {
     let resolveReport:
       | ((
@@ -180,13 +249,19 @@ describe("Resource Provider profile screen", () => {
     await flushEffects();
     const readyScreen = renderScreen(createProfileScreen(adapter));
 
-    pressByText(readyScreen, "Reportar");
+    pressByText(readyScreen, "Reportar proveedor");
+
+    const confirmationScreen = renderScreen(createProfileScreen(adapter));
+    expect(findText(confirmationScreen, "Reportar proveedor")).toBe(true);
+    expect(findText(confirmationScreen, "Ubicación incorrecta")).toBe(true);
+
+    pressByText(confirmationScreen, "Enviar");
 
     const pendingScreen = renderScreen(createProfileScreen(adapter));
     expect(reportProvider).toHaveBeenCalledWith({
-      detail: "Reporte enviado desde el perfil de Recursos.",
+      detail: "Reporte de proveedor: ubicación incorrecta.",
       providerId: profile.id,
-      reason: "other",
+      reason: "incorrect_location",
     });
     expect(findText(pendingScreen, "Reportando perfil")).toBe(true);
     expect(findText(pendingScreen, "Reporte enviado")).toBe(false);
@@ -194,17 +269,17 @@ describe("Resource Provider profile screen", () => {
     resolveReport?.({
       status: "created",
       moderationItem: {
-        detail: "Reporte enviado desde el perfil de Recursos.",
+        detail: "Reporte de proveedor: ubicación incorrecta.",
         id: "review-provider-1",
         providerId: profile.id,
         providerName: profile.name,
-        reason: "other",
+        reason: "incorrect_location",
         reviewItem: {
           createdAt: "2026-06-26T16:00:00.000Z",
-          detail: "Reporte enviado desde el perfil de Recursos.",
+          detail: "Reporte de proveedor: ubicación incorrecta.",
           id: "review-provider-1",
           kind: "abuse_report",
-          reason: "other",
+          reason: "incorrect_location",
           reporterMemberId: "member-ana",
           status: "pending",
           targetId: profile.id,
@@ -238,7 +313,9 @@ describe("Resource Provider profile screen", () => {
     await flushEffects();
     const readyScreen = renderScreen(createProfileScreen(adapter));
 
-    pressByText(readyScreen, "Reportar");
+    pressByText(readyScreen, "Reportar proveedor");
+    const confirmationScreen = renderScreen(createProfileScreen(adapter));
+    pressByText(confirmationScreen, "Enviar");
     await Promise.resolve();
     await Promise.resolve();
 
@@ -290,15 +367,17 @@ const profile: ResourceProviderProfileData = {
 };
 
 function createAdapter({
+  providerProfile = profile,
   reportProvider = vi.fn<ResourcesAdapter["reportProvider"]>(),
 }: {
+  providerProfile?: ResourceProviderProfileData;
   reportProvider?: ResourcesAdapter["reportProvider"];
 } = {}): ResourcesAdapter {
   return {
-    getProviderProfile: () => Promise.resolve(profile),
+    getProviderProfile: () => Promise.resolve(providerProfile),
     getProviderProfileDetail: (providerId) =>
       Promise.resolve({
-        profile,
+        profile: providerProfile,
         providerId,
       }),
     reportProvider,
@@ -437,6 +516,22 @@ function collectImageUris(node: React.ReactNode): string[] {
       collectImageUris(child),
     ),
   ];
+}
+
+function triggerImageErrorByUri(node: React.ReactNode, uri: string) {
+  const image = findElement(
+    node,
+    (element) =>
+      element.type === "Image" &&
+      getImageSourceUri(element.props.source)[0] === uri,
+  );
+  const onError = image?.props.onError;
+
+  if (typeof onError !== "function") {
+    throw new Error(`Expected image ${uri} to expose onError`);
+  }
+
+  (onError as () => void)();
 }
 
 function getImageSourceUri(source: unknown): string[] {

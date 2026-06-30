@@ -564,7 +564,10 @@ describe("resources router", () => {
       metadata: {
         adminId: "member-admin-la-paz",
         adminMediaAssetId: "11111111-1111-4111-8111-111111111111",
+        height: "900",
         purpose: "provider_logo",
+        sizeBytes: "300000",
+        width: "1200",
       },
     });
     expect(session).toMatchObject({
@@ -1023,7 +1026,9 @@ describe("resources router", () => {
       adminEmailList: "admin@rastro.bo",
       adminAuditRepository: createAuditRecorder(),
       adminMediaRepository: {
-        assertReadyAssetForPurpose: (input: NonNullable<typeof assertCalls>[number]) => {
+        assertReadyAssetForPurpose: (
+          input: NonNullable<typeof assertCalls>[number],
+        ) => {
           calls.push(input);
           assertCalls = calls;
 
@@ -1217,6 +1222,49 @@ describe("resources router", () => {
         },
       }),
     ]);
+  });
+
+  it("preserves provider media fields when admin updates omit media changes", async () => {
+    let updateInput:
+      | {
+          adminId: string;
+          provider: UpdateResourceProviderInput;
+        }
+      | undefined;
+    const caller = createCaller({
+      adminEmailList: "admin@rastro.bo",
+      adminAuditRepository: createAuditRecorder(),
+      resourceProviderRepository: {
+        updateProvider: (input: NonNullable<typeof updateInput>) => {
+          updateInput = input;
+          return Promise.resolve(
+            providerProfile({
+              name: input.provider.name,
+              logoUrl: "https://cdn.rastro.bo/existing-logo.webp",
+              photoUrl: "https://cdn.rastro.bo/existing-photo.webp",
+            }),
+          );
+        },
+      },
+      session: {
+        user: {
+          email: "admin@rastro.bo",
+          id: "member-admin-la-paz",
+        },
+      },
+    });
+
+    const updated = await caller.resources.admin.updateProvider({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      name: "Clinica Veterinaria San Roque Norte",
+    });
+
+    expect(updateInput?.provider.logoUrl).toBeUndefined();
+    expect(updateInput?.provider.photoUrl).toBeUndefined();
+    expect(updated).toMatchObject({
+      logoUrl: "https://cdn.rastro.bo/existing-logo.webp",
+      photoUrl: "https://cdn.rastro.bo/existing-photo.webp",
+    });
   });
 
   it("lets allowlisted admins update multiple contacts without dropping link fields", async () => {

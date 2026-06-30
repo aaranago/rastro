@@ -65,6 +65,41 @@ const clinicSanRoque: ResourceProviderFixture = {
   ],
 };
 
+const clinicaRastroQa: ResourceProviderFixture = {
+  id: "clinica-rastro-qa",
+  name: "Clínica Rastro QA",
+  categoryId: "veterinary",
+  description: "Clínica con logo y foto",
+  approximateLocationLabel: "Sopocachi, La Paz",
+  serviceAreaLabel: "Atiende La Paz, El Alto y Viacha",
+  distanceMeters: 650,
+  exactLocation: {
+    addressLabel: "Sopocachi, La Paz",
+    countryCode: "BO",
+    latitude: -16.5099,
+    locationCellLabel: "Sopocachi",
+    longitude: -68.1242,
+  },
+  isVerified: true,
+  isOpenNow: true,
+  emergencyAvailable: true,
+  logoUrl: "https://dummyimage.com/256x256/0f7665/ffffff.png&text=RQ",
+  photoUrl:
+    "https://dummyimage.com/900x560/e7f3eb/0f7665.png&text=Clinica+Rastro+QA",
+  contactOptions: [
+    {
+      kind: "whatsapp",
+      label: "WhatsApp",
+      value: "+591 70000005",
+    },
+    {
+      kind: "directions",
+      label: "Cómo llegar",
+      value: "geo:-16.5099,-68.1242",
+    },
+  ],
+};
+
 const draMartaGomez: ResourceProviderFixture = {
   id: "dra-marta-gomez",
   name: "Consultorio Dra. Marta Gómez",
@@ -271,6 +306,7 @@ const apoyoMascotero: ResourceProviderFixture = {
 
 const providers = [
   clinicSanRoque,
+  clinicaRastroQa,
   draMartaGomez,
   huellasFelices,
   peludosFelices,
@@ -299,6 +335,20 @@ const profiles = [
       {
         label: "Ficha externa",
         url: "https://sanroque.example.com/ficha",
+      },
+    ],
+  },
+  {
+    ...toPublicProviderSummary(clinicaRastroQa),
+    serviceAreaLabel: "Atiende La Paz, El Alto y Viacha",
+    hoursLabel: "Lun - Sáb: 08:00 - 18:00",
+    shortDescription:
+      "Clínica de prueba para validar que el directorio usa logo y foto del proveedor sin perder medios al editar.",
+    websiteUrl: "https://qa.rastro.bo/clinica",
+    socialLinks: [
+      {
+        label: "Facebook",
+        url: "https://facebook.example.com/clinicarastroqa",
       },
     ],
   },
@@ -358,9 +408,20 @@ function toPublicProviderSummary(
 
   return {
     ...summary,
+    approximateLocation: {
+      label: summary.approximateLocationLabel,
+      latitude: toApproximateCoordinate(provider.exactLocation.latitude),
+      locationCell: provider.exactLocation.locationCellLabel,
+      longitude: toApproximateCoordinate(provider.exactLocation.longitude),
+      precision: "approximate",
+    },
     contactOptions: summary.contactOptions.map((contact) => ({ ...contact })),
     sponsorPlacement: cloneLocalSponsorPlacement(summary.sponsorPlacement),
   };
+}
+
+function toApproximateCoordinate(value: number) {
+  return Number(value.toFixed(3));
 }
 
 function cloneLocalSponsorPlacement(

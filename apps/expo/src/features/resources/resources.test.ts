@@ -13,6 +13,10 @@ import type {
 import { createInMemoryLastLoadedCache } from "../resilience/last-loaded-cache";
 import { createInMemoryTrustSafetyRepository } from "../trust-safety";
 import {
+  getResourceManualLocationMatches,
+  resolveResourceManualLocationSearch,
+} from "./resource-location-options";
+import {
   buildResourceProviderProfileViewModel,
   buildResourcesDirectoryViewModel,
 } from "./resources-view-model";
@@ -102,10 +106,36 @@ describe("Resources directory", () => {
 
     expect(viewModel.location.label).toBe("Buscando en Sopocachi, La Paz");
     expect(viewModel.selectedCategoryLabels).toEqual(["Veterinarias"]);
+    expect(viewModel.resultSummaryLabel).toBe("3 recursos · Veterinarias");
     expect(viewModel.results.map((provider) => provider.name)).toEqual([
       "Clínica Veterinaria San Roque",
+      "Clínica Rastro QA",
       "Consultorio Dra. Marta Gómez",
     ]);
+  });
+
+  it("resolves typed Bolivia city and neighborhood searches for Recursos", () => {
+    expect(resolveResourceManualLocationSearch("sopocachi")).toMatchObject({
+      location: {
+        coordinate: {
+          latitude: -16.510231,
+          longitude: -68.123881,
+        },
+        countryCode: "BO",
+        label: "Sopocachi, La Paz",
+        locationCellLabel: "Sopocachi",
+      },
+    });
+    expect(resolveResourceManualLocationSearch("zona sur")).toMatchObject({
+      location: {
+        label: "Achumani, La Paz",
+      },
+    });
+    expect(
+      getResourceManualLocationMatches("cocha").map(
+        (match) => match.location.label,
+      ),
+    ).toContain("Queru Queru, Cochabamba");
   });
 
   it("uses shared Rastro/PostGIS search boundary copy for list and map views", () => {
@@ -418,16 +448,41 @@ describe("Resources directory", () => {
     expect(viewModel).toMatchObject({
       id: "clinic-san-roque",
       name: "Clínica Veterinaria San Roque",
+      categoryLabel: "Veterinaria",
       subtitle: "Veterinaria especializada",
       heroImageUrl: "https://example.com/san-roque-photo.png",
+      mediaItems: [
+        {
+          accessibilityLabel: "Foto principal de Clínica Veterinaria San Roque",
+          id: "clinic-san-roque:photo",
+          url: "https://example.com/san-roque-photo.png",
+        },
+      ],
       logoUrl: "https://example.com/san-roque-logo.png",
       sponsorLogoUrl: "https://example.com/sponsor-san-roque-logo.png",
       sponsorImageUrl: "https://example.com/sponsor-san-roque-banner.png",
       badges: [
-        { label: "Veterinarias", tone: "category" },
+        { label: "Veterinaria", tone: "category" },
         { label: "Verificado", tone: "verified" },
         { label: "Patrocinado", tone: "sponsor" },
         { label: "Urgencias 24h", tone: "emergency" },
+      ],
+      quickFacts: [
+        {
+          iconName: "map-marker",
+          label: "Zona",
+          value: "Sopocachi, La Paz",
+        },
+        {
+          iconName: "clock-outline",
+          label: "Horario",
+          value: "Lun - Dom: 24 horas",
+        },
+        {
+          iconName: "map-marker-radius",
+          label: "Cobertura",
+          value: "Atiende La Paz y El Alto",
+        },
       ],
       primaryActions: [
         {
@@ -492,10 +547,32 @@ describe("Resources directory", () => {
       sponsorDisclosure:
         "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
       reportAction: {
-        label: "Reportar",
+        label: "Reportar proveedor",
         providerId: "clinic-san-roque",
       },
     });
+  });
+
+  it("uses separate logo and photo media for the QA clinic fixture", () => {
+    const profile = rastroResourceFixtures.profiles.find(
+      (providerProfile) => providerProfile.id === "clinica-rastro-qa",
+    );
+
+    if (!profile) {
+      throw new Error("Missing Clínica Rastro QA fixture");
+    }
+
+    const viewModel = buildResourceProviderProfileViewModel(profile);
+
+    expect(viewModel.logoUrl).toContain("text=RQ");
+    expect(viewModel.heroImageUrl).toContain("Clinica+Rastro+QA");
+    expect(viewModel.mediaItems).toEqual([
+      {
+        accessibilityLabel: "Foto principal de Clínica Rastro QA",
+        id: "clinica-rastro-qa:photo",
+        url: profile.photoUrl,
+      },
+    ]);
   });
 
   it("exposes Local Sponsor Placement policy on provider profiles separately from verification", () => {
@@ -567,7 +644,7 @@ describe("Resources directory", () => {
 
     expect(viewModel.badges).toEqual([
       {
-        label: "Veterinarias",
+        label: "Veterinaria",
         tone: "category",
       },
     ]);
@@ -604,7 +681,7 @@ describe("Resources directory", () => {
     const viewModel = buildResourceProviderProfileViewModel(profile);
 
     expect(viewModel.badges.map((badge) => badge.label)).toEqual([
-      "Peluquerías",
+      "Peluquería",
     ]);
     expect(viewModel.primaryActions.map((action) => action.label)).toEqual([
       "Llamar",
@@ -617,9 +694,46 @@ describe("Resources directory", () => {
       "Horario y zona",
     ]);
     expect(viewModel.reportAction).toMatchObject({
-      label: "Reportar",
+      label: "Reportar proveedor",
       providerId: "peludos-felices",
     });
+  });
+
+  it("deduplicates profile media from backend media arrays and legacy photo URLs", () => {
+    const profile = buildProviderProfile({
+      media: [
+        {
+          alt: "Fachada del local",
+          id: "media-1",
+          url: "https://cdn.rastro.bo/provider-photo.webp",
+        },
+        {
+          id: "media-duplicate",
+          url: "https://cdn.rastro.bo/provider-photo.webp",
+        },
+        {
+          alt: "Sala de atención",
+          id: "media-2",
+          url: "https://cdn.rastro.bo/provider-room.webp",
+        },
+      ],
+      photoUrl: "https://cdn.rastro.bo/provider-photo.webp",
+    });
+
+    const viewModel = buildResourceProviderProfileViewModel(profile);
+
+    expect(viewModel.mediaItems).toEqual([
+      {
+        accessibilityLabel: "Fachada del local",
+        id: "media-1",
+        url: "https://cdn.rastro.bo/provider-photo.webp",
+      },
+      {
+        accessibilityLabel: "Sala de atención",
+        id: "media-2",
+        url: "https://cdn.rastro.bo/provider-room.webp",
+      },
+    ]);
   });
 
   it("creates a moderation item when reporting a provider", async () => {

@@ -240,7 +240,10 @@ export function FieldError({
     <div
       role="alert"
       data-slot="field-error"
-      className={cn("text-destructive text-sm font-normal", className)}
+      className={cn(
+        "text-destructive max-w-full text-sm font-normal [overflow-wrap:anywhere] break-words",
+        className,
+      )}
       {...props}
     >
       {content}

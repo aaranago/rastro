@@ -1,26 +1,37 @@
 import type { Href } from "expo-router";
+import type { ComponentProps } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Linking,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
-import { Image } from "expo-image";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import type {
   ResourceContactOption,
   ResourceProviderProfile as ResourceProviderProfileData,
+  ResourceReportReason,
 } from "./resource-types";
 import type { ResourcesAdapter } from "./static-resources-adapter";
+import { trustSafetyReportReasonOptions } from "../trust-safety";
 import { ResourceProviderProfile } from "./resource-provider-profile";
 import { defaultApiResourcesAdapter } from "./resources-default-api-adapter";
 import { resourcesColors, resourcesShadow } from "./resources-theme";
 
 const defaultResourcesAdapter = defaultApiResourcesAdapter;
 const bottomInset = 36;
+
+type ProfileStateIconName = ComponentProps<
+  typeof MaterialCommunityIcons
+>["name"];
 
 type ProfileLoadState =
   | {
@@ -59,6 +70,16 @@ type ReportState =
       message: string;
     };
 
+interface ProviderReportDraft {
+  detail: string;
+  providerId: string;
+  reason: ResourceReportReason;
+}
+
+const providerReportReasonOptions = trustSafetyReportReasonOptions.filter(
+  (option) => option.value !== "stolen_pet_concern",
+);
+
 export interface ResourceProviderProfileScreenProps {
   adapter?: ResourcesAdapter;
   providerId?: string | string[];
@@ -72,6 +93,8 @@ export function ResourceProviderProfileScreen({
   adapter = defaultResourcesAdapter,
   providerId,
 }: ResourceProviderProfileScreenProps) {
+  const safeAreaInsets = useSafeAreaInsets();
+  const profileBottomInset = Math.max(safeAreaInsets.bottom + 168, 188);
   const resolvedProviderId = useMemo(
     () => normalizeProviderId(providerId),
     [providerId],
@@ -79,10 +102,8 @@ export function ResourceProviderProfileScreen({
   const [loadState, setLoadState] = useState<ProfileLoadState>({
     kind: "loading",
   });
-  const [reportState, setReportState] = useState<ReportState>({
-    kind: "idle",
-  });
   const [reloadVersion, setReloadVersion] = useState(0);
+  const reportWorkflow = useProviderReportWorkflow(adapter);
 
   useEffect(() => {
     if (!resolvedProviderId) {
@@ -130,10 +151,10 @@ export function ResourceProviderProfileScreen({
   }, [adapter, reloadVersion, resolvedProviderId]);
 
   const handleRetry = useCallback(() => {
-    setReportState({ kind: "idle" });
+    reportWorkflow.resetReportState();
     setLoadState({ kind: "loading", providerId: resolvedProviderId });
     setReloadVersion((current) => current + 1);
-  }, [resolvedProviderId]);
+  }, [reportWorkflow, resolvedProviderId]);
 
   const handleContactAction = useCallback(
     (action: {
@@ -158,42 +179,13 @@ export function ResourceProviderProfileScreen({
     [],
   );
 
-  const handleReportProvider = useCallback(
-    (nextProviderId: string) => {
-      if (reportState.kind === "reporting") {
-        return;
-      }
-
-      setReportState({ kind: "reporting" });
-      adapter
-        .reportProvider({
-          detail: "Reporte enviado desde el perfil de Recursos.",
-          providerId: nextProviderId,
-          reason: "other",
-        })
-        .then(() => {
-          setReportState({ kind: "reported" });
-        })
-        .catch((error: unknown) => {
-          setReportState({
-            kind: "error",
-            message:
-              error instanceof Error
-                ? error.message
-                : "No pudimos enviar el reporte.",
-          });
-        });
-    },
-    [adapter, reportState.kind],
-  );
-
   const currentLoadState = getCurrentLoadState(loadState, resolvedProviderId);
 
   if (currentLoadState.kind === "loading") {
     return (
       <ResourceProviderProfileStateScreen
         body="Estamos cargando datos de contacto, horario y señales de confianza."
-        iconName="hourglass"
+        iconName="timer-sand"
         title="Cargando proveedor"
       />
     );
@@ -204,7 +196,7 @@ export function ResourceProviderProfileScreen({
       <ResourceProviderProfileStateScreen
         actionLabel="Reintentar"
         body="Puede que este proveedor ya no esté disponible en Recursos."
-        iconName="questionmark.circle.fill"
+        iconName="help-circle"
         onAction={handleRetry}
         title="No encontramos este proveedor"
       />
@@ -216,7 +208,7 @@ export function ResourceProviderProfileScreen({
       <ResourceProviderProfileStateScreen
         actionLabel="Reintentar"
         body={currentLoadState.message}
-        iconName="exclamationmark.triangle.fill"
+        iconName="alert"
         onAction={handleRetry}
         title="No pudimos abrir el perfil"
       />
@@ -224,13 +216,138 @@ export function ResourceProviderProfileScreen({
   }
 
   return (
-    <ResourceProviderProfile
-      onContactAction={handleContactAction}
-      onOpenLink={handleOpenLink}
-      onReportProvider={handleReportProvider}
-      profile={currentLoadState.profile}
-      reportFeedback={buildReportFeedback(reportState, currentLoadState)}
-    />
+    <>
+      <ResourceProviderProfile
+        bottomInset={profileBottomInset}
+        onContactAction={handleContactAction}
+        onOpenLink={handleOpenLink}
+        onReportProvider={reportWorkflow.openReportProvider}
+        profile={currentLoadState.profile}
+        reportFeedback={buildReportFeedback(
+          reportWorkflow.reportState,
+          currentLoadState,
+        )}
+      />
+      <ProviderReportConfirmationModal
+        canSubmit={reportWorkflow.canSubmit}
+        detail={reportWorkflow.detail}
+        errorMessage={reportWorkflow.errorMessage}
+        isSubmitting={reportWorkflow.reportState.kind === "reporting"}
+        onCancel={reportWorkflow.closeReportProvider}
+        onChangeDetail={reportWorkflow.changeReportDetail}
+        onChangeReason={reportWorkflow.changeReportReason}
+        onSubmit={reportWorkflow.submitReportProvider}
+        providerName={currentLoadState.profile.name}
+        reasonLabel={reportWorkflow.reasonLabel}
+        selectedReason={reportWorkflow.selectedReason}
+        visible={reportWorkflow.isVisible}
+      />
+    </>
+  );
+}
+
+function useProviderReportWorkflow(adapter: ResourcesAdapter) {
+  const [reportState, setReportState] = useState<ReportState>({ kind: "idle" });
+  const [reportDraft, setReportDraft] = useState<ProviderReportDraft | null>(
+    null,
+  );
+
+  const openReportProvider = useCallback(
+    (providerId: string) => {
+      if (reportState.kind === "reporting") {
+        return;
+      }
+
+      setReportDraft({
+        detail: "",
+        providerId,
+        reason: "incorrect_location",
+      });
+    },
+    [reportState.kind],
+  );
+
+  const closeReportProvider = useCallback(() => {
+    if (reportState.kind !== "reporting") {
+      setReportDraft(null);
+    }
+  }, [reportState.kind]);
+
+  const changeReportReason = useCallback((reason: ResourceReportReason) => {
+    setReportDraft((current) => (current ? { ...current, reason } : current));
+  }, []);
+
+  const changeReportDetail = useCallback((detail: string) => {
+    setReportDraft((current) => (current ? { ...current, detail } : current));
+  }, []);
+
+  const submitReportProvider = useCallback(() => {
+    if (!reportDraft || reportState.kind === "reporting") {
+      return;
+    }
+
+    const reasonLabel = getProviderReportReasonLabel(reportDraft.reason);
+    const detail =
+      reportDraft.detail.trim() ||
+      `Reporte de proveedor: ${reasonLabel.toLowerCase()}.`;
+
+    setReportState({ kind: "reporting" });
+    adapter
+      .reportProvider({
+        detail,
+        providerId: reportDraft.providerId,
+        reason: reportDraft.reason,
+      })
+      .then(() => {
+        setReportState({ kind: "reported" });
+        setReportDraft(null);
+      })
+      .catch((error: unknown) => {
+        setReportState({
+          kind: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "No pudimos enviar el reporte.",
+        });
+      });
+  }, [adapter, reportDraft, reportState.kind]);
+
+  const resetReportState = useCallback(() => {
+    setReportState({ kind: "idle" });
+    setReportDraft(null);
+  }, []);
+
+  const selectedReason = reportDraft?.reason ?? "incorrect_location";
+
+  return useMemo(
+    () => ({
+      canSubmit: reportDraft !== null && reportState.kind !== "reporting",
+      changeReportDetail,
+      changeReportReason,
+      closeReportProvider,
+      detail: reportDraft?.detail ?? "",
+      errorMessage:
+        reportState.kind === "error" ? reportState.message : undefined,
+      isVisible: reportDraft !== null,
+      openReportProvider,
+      reasonLabel: getProviderReportReasonLabel(selectedReason),
+      reportState,
+      resetReportState,
+      selectedReason,
+      submitReportProvider,
+    }),
+    [
+      changeReportDetail,
+      changeReportReason,
+      closeReportProvider,
+      openReportProvider,
+      reportDraft,
+      reportState,
+      resetReportState,
+      selectedReason,
+      submitReportProvider,
+    ],
   );
 }
 
@@ -278,7 +395,7 @@ function ResourceProviderProfileStateScreen({
 }: {
   actionLabel?: string;
   body: string;
-  iconName: string;
+  iconName: ProfileStateIconName;
   onAction?: () => void;
   title: string;
 }) {
@@ -292,10 +409,10 @@ function ResourceProviderProfileStateScreen({
     >
       <View style={styles.statePanel}>
         <View style={styles.stateIcon}>
-          <Image
-            source={`sf:${iconName}`}
-            style={styles.stateIconImage}
-            tintColor={resourcesColors.primary}
+          <MaterialCommunityIcons
+            color={resourcesColors.primary}
+            name={iconName}
+            size={30}
           />
         </View>
         <Text selectable style={styles.stateTitle}>
@@ -320,6 +437,185 @@ function ResourceProviderProfileStateScreen({
         ) : null}
       </View>
     </ScrollView>
+  );
+}
+
+function ProviderReportConfirmationModal({
+  canSubmit,
+  detail,
+  errorMessage,
+  isSubmitting,
+  onCancel,
+  onChangeDetail,
+  onChangeReason,
+  onSubmit,
+  providerName,
+  reasonLabel,
+  selectedReason,
+  visible,
+}: {
+  canSubmit: boolean;
+  detail: string;
+  errorMessage?: string;
+  isSubmitting: boolean;
+  onCancel: () => void;
+  onChangeDetail: (detail: string) => void;
+  onChangeReason: (reason: ResourceReportReason) => void;
+  onSubmit: () => void;
+  providerName: string;
+  reasonLabel: string;
+  selectedReason: ResourceReportReason;
+  visible: boolean;
+}) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Modal
+      animationType="fade"
+      onRequestClose={onCancel}
+      transparent
+      visible={visible}
+    >
+      <View
+        style={[
+          styles.reportModalBackdrop,
+          {
+            paddingBottom: Math.max(insets.bottom, 14),
+            paddingLeft: Math.max(insets.left, 12),
+            paddingRight: Math.max(insets.right, 12),
+            paddingTop: Math.max(insets.top, 12),
+          },
+        ]}
+      >
+        <Pressable
+          accessibilityLabel="Cerrar reporte de proveedor"
+          accessibilityRole="button"
+          disabled={isSubmitting}
+          onPress={onCancel}
+          style={StyleSheet.absoluteFill}
+        />
+        <View
+          accessibilityLabel={`Reportar ${providerName}`}
+          accessibilityViewIsModal
+          style={styles.reportSheet}
+        >
+          <View style={styles.reportSheetHeader}>
+            <View style={styles.reportSheetTitleGroup}>
+              <Text selectable style={styles.reportSheetTitle}>
+                Reportar proveedor
+              </Text>
+              <Text selectable style={styles.reportSheetBody}>
+                Elige el motivo antes de enviarlo a moderación.
+              </Text>
+            </View>
+            <Pressable
+              accessibilityLabel="Cerrar"
+              accessibilityRole="button"
+              disabled={isSubmitting}
+              onPress={onCancel}
+              style={({ pressed }) => [
+                styles.reportSheetClose,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <Text style={styles.reportSheetCloseText}>x</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.reportReasonGrid}>
+            {providerReportReasonOptions.map((option) => {
+              const isSelected = selectedReason === option.value;
+
+              return (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  key={option.value}
+                  onPress={() => onChangeReason(option.value)}
+                  style={({ pressed }) => [
+                    styles.reportReasonButton,
+                    isSelected ? styles.reportReasonButtonSelected : null,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  <Text
+                    maxFontSizeMultiplier={1.1}
+                    numberOfLines={1}
+                    style={[
+                      styles.reportReasonText,
+                      isSelected ? styles.reportReasonTextSelected : null,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View style={styles.reportDetailField}>
+            <Text selectable style={styles.reportDetailLabel}>
+              Detalle opcional
+            </Text>
+            <TextInput
+              accessibilityLabel="Detalle del reporte"
+              editable={!isSubmitting}
+              maxLength={500}
+              multiline
+              onChangeText={onChangeDetail}
+              placeholder={`Ej. ${reasonLabel.toLowerCase()} en ${providerName}`}
+              placeholderTextColor={resourcesColors.muted}
+              style={styles.reportDetailInput}
+              value={detail}
+            />
+          </View>
+
+          {errorMessage ? (
+            <Text
+              accessibilityRole="alert"
+              selectable
+              style={styles.reportSheetError}
+            >
+              {errorMessage}
+            </Text>
+          ) : null}
+
+          <View style={styles.reportSheetActions}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={isSubmitting}
+              onPress={onCancel}
+              style={({ pressed }) => [
+                styles.reportSheetButton,
+                styles.reportSheetSecondaryButton,
+                isSubmitting ? styles.reportSheetButtonDisabled : null,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <Text style={styles.reportSheetSecondaryText}>Cancelar</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ busy: isSubmitting, disabled: !canSubmit }}
+              disabled={!canSubmit}
+              onPress={onSubmit}
+              style={({ pressed }) => [
+                styles.reportSheetButton,
+                styles.reportSheetPrimaryButton,
+                !canSubmit ? styles.reportSheetButtonDisabled : null,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color={resourcesColors.surface} />
+              ) : (
+                <Text style={styles.reportSheetPrimaryText}>Enviar</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -362,6 +658,13 @@ function buildReportFeedback(
   return undefined;
 }
 
+function getProviderReportReasonLabel(reason: ResourceReportReason) {
+  return (
+    providerReportReasonOptions.find((option) => option.value === reason)
+      ?.label ?? "Otro motivo"
+  );
+}
+
 function buildContactUrl(action: {
   kind: ResourceContactOption["kind"];
   value: string;
@@ -400,6 +703,154 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.76,
     transform: [{ scale: 0.98 }],
+  },
+  reportDetailField: {
+    gap: 7,
+  },
+  reportDetailInput: {
+    backgroundColor: resourcesColors.surfaceMuted,
+    borderColor: resourcesColors.border,
+    borderCurve: "continuous",
+    borderRadius: 14,
+    borderWidth: 1,
+    color: resourcesColors.text,
+    fontSize: 15,
+    lineHeight: 20,
+    minHeight: 86,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    textAlignVertical: "top",
+  },
+  reportDetailLabel: {
+    color: resourcesColors.primary,
+    fontSize: 13,
+    fontWeight: "900",
+    lineHeight: 17,
+  },
+  reportModalBackdrop: {
+    backgroundColor: "rgba(23, 32, 28, 0.42)",
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  reportReasonButton: {
+    alignItems: "center",
+    backgroundColor: resourcesColors.surfaceMuted,
+    borderColor: resourcesColors.border,
+    borderCurve: "continuous",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexGrow: 1,
+    minHeight: 40,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  reportReasonButtonSelected: {
+    backgroundColor: resourcesColors.primary,
+    borderColor: resourcesColors.primary,
+  },
+  reportReasonGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  reportReasonText: {
+    color: resourcesColors.primary,
+    fontSize: 13,
+    fontWeight: "900",
+    lineHeight: 16,
+  },
+  reportReasonTextSelected: {
+    color: resourcesColors.surface,
+  },
+  reportSheet: {
+    backgroundColor: resourcesColors.surface,
+    borderColor: resourcesColors.border,
+    borderCurve: "continuous",
+    borderRadius: 22,
+    borderWidth: 1,
+    boxShadow: resourcesShadow.soft,
+    gap: 14,
+    padding: 16,
+  },
+  reportSheetActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  reportSheetBody: {
+    color: resourcesColors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  reportSheetButton: {
+    alignItems: "center",
+    borderCurve: "continuous",
+    borderRadius: 14,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 46,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  reportSheetButtonDisabled: {
+    opacity: 0.62,
+  },
+  reportSheetClose: {
+    alignItems: "center",
+    backgroundColor: resourcesColors.surfaceMuted,
+    borderCurve: "continuous",
+    borderRadius: 999,
+    height: 34,
+    justifyContent: "center",
+    width: 34,
+  },
+  reportSheetCloseText: {
+    color: resourcesColors.muted,
+    fontSize: 18,
+    fontWeight: "900",
+    lineHeight: 20,
+  },
+  reportSheetError: {
+    color: resourcesColors.error,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
+  reportSheetHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  reportSheetPrimaryButton: {
+    backgroundColor: resourcesColors.primary,
+  },
+  reportSheetPrimaryText: {
+    color: resourcesColors.surface,
+    fontSize: 15,
+    fontWeight: "900",
+    lineHeight: 18,
+  },
+  reportSheetSecondaryButton: {
+    backgroundColor: resourcesColors.surface,
+    borderColor: resourcesColors.border,
+    borderWidth: 1,
+  },
+  reportSheetSecondaryText: {
+    color: resourcesColors.primary,
+    fontSize: 15,
+    fontWeight: "900",
+    lineHeight: 18,
+  },
+  reportSheetTitle: {
+    color: resourcesColors.text,
+    fontSize: 21,
+    fontWeight: "900",
+    lineHeight: 26,
+  },
+  reportSheetTitleGroup: {
+    flex: 1,
+    gap: 4,
+    minWidth: 0,
   },
   stateAction: {
     alignItems: "center",

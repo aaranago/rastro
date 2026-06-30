@@ -121,6 +121,13 @@ export interface ResourceProviderSummary {
   categoryId: ResourceCategoryId;
   description: string;
   approximateLocationLabel: string;
+  approximateLocation?: {
+    label: string;
+    latitude: number;
+    locationCell: string;
+    longitude: number;
+    precision: "approximate";
+  };
   serviceAreaLabel?: string;
   distanceMeters?: number;
   isVerified?: boolean;
@@ -148,6 +155,11 @@ export type ResourceProviderProfile = Omit<
   ResourceProviderSummary,
   "serviceAreaLabel"
 > & {
+  media?: {
+    alt?: string;
+    id: string;
+    url: string;
+  }[];
   serviceAreaLabel: string;
   hoursLabel?: string;
   shortDescription: string;

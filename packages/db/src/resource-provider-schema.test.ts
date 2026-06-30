@@ -6,8 +6,8 @@ import {
   adminMediaAssetPurpose,
   adminMediaAssetStatus,
   LocalSponsorPlacement,
-  moderationReportReason,
   localSponsorPlacementSurface,
+  moderationReportReason,
   ResourceProvider,
   resourceProviderCategory,
   resourceProviderContactKind,
@@ -129,10 +129,24 @@ describe("resource provider schema", () => {
     expect(AdminMediaAsset.verifiedAt).toBeDefined();
     expect(AdminMediaAsset.failedAt).toBeDefined();
     expect(AdminMediaAsset.removedAt).toBeDefined();
+    expect(AdminMediaAsset.createdAt.default).toBeDefined();
+    expect(AdminMediaAsset.createdAt.notNull).toBe(true);
+    expect(AdminMediaAsset.updatedAt.default).toBeDefined();
+    expect(AdminMediaAsset.updatedAt.notNull).toBe(true);
     expect(objectKeyIndex?.unique).toBe(true);
     expect(
       pendingExpiryIndex?.where?.toQuery(postgresQueryConfig as never).sql,
     ).toBe(`"admin_media_asset"."status" = 'pending'`);
+  });
+
+  it("keeps admin media assets inside Drizzle-managed app tables", async () => {
+    process.env.POSTGRES_URL ??=
+      "postgresql://postgres:postgres@localhost/rastro";
+
+    const { default: drizzleConfig } = await import("../drizzle.config");
+
+    expect(drizzleConfig.tablesFilter).toContain("admin_media_asset");
+    expect(drizzleConfig.tablesFilter).toContain("admin_settings");
   });
 
   it("indexes exact PostGIS search, public location display, contacts, and sponsor windows", () => {
@@ -173,7 +187,8 @@ describe("resource provider schema", () => {
       ResourceProviderModerationReport,
     ).indexes.map((index) => index.config);
     const reviewUnique = reviewIndexes.find(
-      (index) => index.name === "resource_provider_moderation_review_unique_idx",
+      (index) =>
+        index.name === "resource_provider_moderation_review_unique_idx",
     );
     const reportUnique = reportIndexes.find(
       (index) =>

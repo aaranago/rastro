@@ -14,6 +14,7 @@ import {
   buildForbiddenAdminResourcesDashboardProps,
   toAdminResourcesDashboardProps,
 } from "./admin-resources-dashboard-adapter";
+import { AdminExternalMediaUrlFallback } from "./admin-ui/admin-form-fields";
 
 const forbiddenTerms = new RegExp(
   [
@@ -63,6 +64,13 @@ describe("AdminResourcesDashboard", () => {
     expect(html).toContain("Verificación");
     expect(html).toContain("Patrocinio");
     expect(html).toContain("Archivar");
+    expect(html).toContain("min-w-[220px]");
+    expect(html).toContain("whitespace-normal");
+    expect(html).toContain("text-left");
+    expect(html).toContain("px-4 sm:px-6 lg:px-8");
+    expect(html).toContain("table-fixed");
+    expect(html).toContain("Verif.");
+    expect(html).toContain("Patroc.");
     expect(html).not.toContain("Latitud exacta");
     expect(html).not.toContain("Ubicación y privacidad");
     expect(html).not.toContain("Opciones de contacto");
@@ -385,6 +393,32 @@ describe("AdminResourcesDashboard", () => {
     expect(html).toMatch(
       /<input type="hidden" name="photoAssetId" value="22222222-2222-4222-8222-222222222222"\/>/,
     );
+  });
+
+  it("keeps removed external media URL fields blank when the fallback is open", () => {
+    const html = renderToStaticMarkup(
+      <form>
+        <AdminExternalMediaUrlFallback
+          fields={[
+            {
+              error: "Revisa la URL.",
+              hasSubmittedValue: true,
+              id: "provider-logo",
+              label: "Logo URL externa",
+              name: "logoUrl",
+              placeholder: "https://proveedor.example/logo.png",
+              value: "https://cdn.rastro.bo/old-logo.webp",
+            },
+          ]}
+          id="provider-media-fallback"
+          removedFieldNames={["logoUrl"]}
+        />
+      </form>,
+    );
+
+    expect(html).toContain("Logo URL externa");
+    expect(html).toContain('name="logoUrl"');
+    expect(html).not.toContain("https://cdn.rastro.bo/old-logo.webp");
   });
 });
 

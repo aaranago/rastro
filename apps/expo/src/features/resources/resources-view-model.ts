@@ -15,7 +15,7 @@ export interface ResourceCategoryOption {
   label: string;
 }
 
-export const resourceCategoryOptions = [
+const resourceCategoryOptions = [
   {
     id: "veterinary",
     label: "Veterinarias",
@@ -54,6 +54,17 @@ const categoryLabels = new Map<ResourceCategoryId, string>(
   resourceCategoryOptions.map((category) => [category.id, category.label]),
 );
 
+const profileCategoryLabels = new Map<ResourceCategoryId, string>([
+  ["veterinary", "Veterinaria"],
+  ["shelter", "Refugio"],
+  ["groomer", "Peluquería"],
+  ["pet_food", "Alimentos"],
+  ["trainer", "Entrenamiento"],
+  ["pet_store", "Tienda"],
+  ["transport", "Transporte"],
+  ["other", "Recurso local"],
+]);
+
 export interface ResourcesDirectoryViewModelInput {
   providers: readonly ResourceProviderSummary[];
   selectedCategoryIds?: readonly ResourceCategoryId[];
@@ -74,6 +85,11 @@ export interface ResourceProviderSummaryViewModel {
   categoryLabel: string;
   description: string;
   locationLabel: string;
+  approximateLocation?: {
+    label: string;
+    latitude: number;
+    longitude: number;
+  };
   serviceAreaLabel?: string;
   distanceLabel?: string;
   isVerified: boolean;
@@ -123,6 +139,7 @@ export interface ResourcesDirectoryViewModel {
   };
   categories: (ResourceCategoryOption & { isSelected: boolean })[];
   selectedCategoryLabels: string[];
+  resultSummaryLabel: string;
   results: ResourceProviderSummaryViewModel[];
   notice?: {
     title: string;
@@ -137,12 +154,24 @@ export interface ResourcesDirectoryViewModel {
 export interface ResourceProviderProfileViewModel {
   id: string;
   name: string;
+  categoryLabel: string;
   subtitle: string;
   heroImageUrl?: string;
+  mediaItems: {
+    accessibilityLabel: string;
+    id: string;
+    url: string;
+  }[];
   logoUrl?: string;
   badges: {
     label: string;
     tone: "category" | "verified" | "sponsor" | "emergency";
+  }[];
+  quickFacts: {
+    iconName: string;
+    label: string;
+    tone?: "default" | "success" | "warning";
+    value: string;
   }[];
   primaryActions: {
     kind: ResourceContactOption["kind"];
@@ -205,6 +234,10 @@ export function buildResourcesDirectoryViewModel(
     presentation: buildPresentationViewModel(),
     categories,
     selectedCategoryLabels,
+    resultSummaryLabel: buildResultSummaryLabel(
+      results.length,
+      selectedCategoryLabels,
+    ),
     results,
     notice: buildDirectoryNotice(state, {
       errorMessage: input.errorMessage,
@@ -222,7 +255,7 @@ export function buildResourceProviderProfileViewModel(
   );
   const badges: ResourceProviderProfileViewModel["badges"] = [
     {
-      label: getCategoryLabel(profile.categoryId),
+      label: getProfileCategoryLabel(profile.categoryId),
       tone: "category",
     },
   ];
@@ -251,10 +284,13 @@ export function buildResourceProviderProfileViewModel(
   return {
     id: profile.id,
     name: profile.name,
+    categoryLabel: getProfileCategoryLabel(profile.categoryId),
     subtitle: profile.description,
     heroImageUrl: profile.photoUrl,
+    mediaItems: buildProviderProfileMediaItems(profile),
     logoUrl: profile.logoUrl,
     badges,
+    quickFacts: buildProfileQuickFacts(profile),
     primaryActions: getVisibleContactOptions(profile.contactOptions).map(
       (contact) => ({
         kind: contact.kind,
@@ -269,7 +305,7 @@ export function buildResourceProviderProfileViewModel(
     sponsorLogoUrl: sponsorPlacement?.logoUrl,
     sponsorImageUrl: sponsorPlacement?.imageUrl,
     reportAction: {
-      label: "Reportar",
+      label: "Reportar proveedor",
       providerId: profile.id,
     },
   };
@@ -314,6 +350,13 @@ function buildProviderSummaryViewModel(
     name: provider.name,
     categoryLabel: getCategoryLabel(provider.categoryId),
     description: provider.description,
+    approximateLocation: provider.approximateLocation
+      ? {
+          label: provider.approximateLocation.label,
+          latitude: provider.approximateLocation.latitude,
+          longitude: provider.approximateLocation.longitude,
+        }
+      : undefined,
     locationLabel: provider.approximateLocationLabel,
     serviceAreaLabel: provider.serviceAreaLabel,
     distanceLabel:
@@ -403,6 +446,88 @@ function buildProfileSections(profile: ResourceProviderProfile) {
   });
 
   return sections;
+}
+
+function buildProfileQuickFacts(profile: ResourceProviderProfile) {
+  const facts: ResourceProviderProfileViewModel["quickFacts"] = [
+    {
+      iconName: "map-marker",
+      label: "Zona",
+      value: profile.approximateLocationLabel,
+    },
+    {
+      iconName: "map-marker-radius",
+      label: "Cobertura",
+      value: profile.serviceAreaLabel,
+    },
+  ];
+
+  if (
+    profile.hoursLabel !== undefined &&
+    profile.hoursLabel.trim().length > 0
+  ) {
+    facts.splice(1, 0, {
+      iconName: "clock-outline",
+      label: "Horario",
+      value: profile.hoursLabel,
+    });
+  }
+
+  if (profile.isOpenNow === true) {
+    facts.unshift({
+      iconName: "check-circle",
+      label: "Estado",
+      tone: "success",
+      value: "Abierto ahora",
+    });
+  } else if (profile.isOpenNow === false) {
+    facts.unshift({
+      iconName: "clock-alert-outline",
+      label: "Estado",
+      tone: "warning",
+      value: "Confirmar horario",
+    });
+  }
+
+  return facts;
+}
+
+function buildProviderProfileMediaItems(profile: ResourceProviderProfile) {
+  const items: ResourceProviderProfileViewModel["mediaItems"] = [];
+  const seenUrls = new Set<string>();
+
+  for (const media of profile.media ?? []) {
+    const url = media.url.trim();
+
+    if (url.length === 0 || seenUrls.has(url)) {
+      continue;
+    }
+
+    seenUrls.add(url);
+    const accessibilityLabel = media.alt?.trim();
+
+    items.push({
+      accessibilityLabel:
+        accessibilityLabel !== undefined && accessibilityLabel.length > 0
+          ? accessibilityLabel
+          : `Foto de ${profile.name}`,
+      id: media.id,
+      url,
+    });
+  }
+
+  const photoUrl = profile.photoUrl?.trim();
+
+  if (photoUrl && !seenUrls.has(photoUrl)) {
+    seenUrls.add(photoUrl);
+    items.unshift({
+      accessibilityLabel: `Foto principal de ${profile.name}`,
+      id: `${profile.id}:photo`,
+      url: photoUrl,
+    });
+  }
+
+  return items;
 }
 
 function buildProfileLinks(profile: ResourceProviderProfile) {
@@ -574,6 +699,21 @@ function buildDirectoryNotice(
 
 function getCategoryLabel(categoryId: ResourceCategoryId) {
   return categoryLabels.get(categoryId) ?? "Otros";
+}
+
+function buildResultSummaryLabel(
+  resultCount: number,
+  selectedCategoryLabels: readonly string[],
+) {
+  const countLabel =
+    resultCount === 1 ? "1 recurso" : `${resultCount} recursos`;
+  const filterLabel = selectedCategoryLabels.join(", ");
+
+  return `${countLabel} · ${filterLabel}`;
+}
+
+function getProfileCategoryLabel(categoryId: ResourceCategoryId) {
+  return profileCategoryLabels.get(categoryId) ?? getCategoryLabel(categoryId);
 }
 
 function formatDistance(distanceMeters: number) {

@@ -19,7 +19,6 @@ export type {
 export {
   buildResourceProviderProfileViewModel,
   buildResourcesDirectoryViewModel,
-  resourceCategoryOptions,
 } from "./resources-view-model";
 export type {
   ResourceProviderProfileViewModel,

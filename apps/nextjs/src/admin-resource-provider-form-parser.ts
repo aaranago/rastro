@@ -465,7 +465,10 @@ function getLinksFormValue(
   const rowIndices =
     structuredIndices.length > 0
       ? structuredIndices.slice(0, adminResourceProviderMaxLinks)
-      : Array.from({ length: adminResourceProviderMaxLinks }, (_, index) => index);
+      : Array.from(
+          { length: adminResourceProviderMaxLinks },
+          (_, index) => index,
+        );
   const isStructured = structuredIndices.length > 0;
 
   for (const index of rowIndices) {
@@ -507,7 +510,10 @@ function getLinksFormValue(
   return links;
 }
 
-function getStructuredFieldArrayIndices(formData: FormData, fieldArrayName: string) {
+function getStructuredFieldArrayIndices(
+  formData: FormData,
+  fieldArrayName: string,
+) {
   const indices = new Set<number>();
   const fieldPrefix = `${fieldArrayName}.`;
 
@@ -575,7 +581,15 @@ function getOptionalStringFormValue(formData: FormData, key: string) {
 }
 
 function getNullableOptionalStringFormValue(formData: FormData, key: string) {
-  return getOptionalStringFormValue(formData, key) ?? null;
+  const value = getStringFormValue(formData, key);
+
+  if (value === null) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function getOptionalNumberFormValue(formData: FormData, key: string) {
