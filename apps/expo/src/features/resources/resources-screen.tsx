@@ -400,8 +400,9 @@ export function ResourcesScreen({
   );
 
   return (
-    <View style={styles.root}>
+    <View style={styles.root} testID="resources-screen">
       <LegendList
+        testID="resources-list"
         data={listData}
         renderItem={renderProvider}
         keyExtractor={providerKeyExtractor}
@@ -658,6 +659,7 @@ function ResourcesSearchSection({
             placeholderTextColor={resourcesColors.muted}
             returnKeyType="search"
             style={styles.searchInput}
+            testID="resources-search-input"
             value={manualSearchText}
           />
         </View>
@@ -666,6 +668,7 @@ function ResourcesSearchSection({
           accessibilityLabel="Usar ubicación actual"
           disabled={isResolvingLocation}
           onPress={onUseCurrentLocationPress}
+          testID="resources-current-location"
           style={({ pressed }) => [
             styles.iconButton,
             pressed ? styles.pressed : null,
@@ -744,6 +747,7 @@ function ResourceCategoryFilterRow({
           accessibilityRole="button"
           accessibilityState={{ selected: hasAllCategoriesSelected }}
           onPress={onSelectAllCategories}
+          testID="resources-category-all"
           style={({ pressed }) => [
             styles.categoryChip,
             hasAllCategoriesSelected ? styles.categoryChipSelected : null,
@@ -862,6 +866,7 @@ function ModeButton({
     <Pressable
       accessibilityRole="button"
       onPress={handlePress}
+      testID={`resources-mode-${mode}`}
       style={({ pressed }) => [
         styles.modeButton,
         isActive ? styles.modeButtonActive : null,
@@ -903,6 +908,7 @@ function CategoryChip({
       accessibilityRole="button"
       accessibilityState={{ selected: isSelected }}
       onPress={handlePress}
+      testID={`resources-category-${id}`}
       style={({ pressed }) => [
         styles.categoryChip,
         isSelected ? styles.categoryChipSelected : null,
@@ -939,6 +945,7 @@ function ManualLocationSuggestions({
         </Text>
       ) : null}
       <ScrollView
+        testID="resources-location-suggestions"
         horizontal
         contentContainerStyle={styles.searchSuggestionsContent}
         keyboardShouldPersistTaps="handled"
@@ -971,6 +978,7 @@ function ManualLocationChip({
     <Pressable
       accessibilityRole="button"
       onPress={handlePress}
+      testID={`resources-location-${toTestIdSegment(option.location.label)}`}
       style={({ pressed }) => [
         styles.searchSuggestionChip,
         pressed ? styles.pressed : null,
@@ -1013,7 +1021,7 @@ function ResourcesMapPanel({
 
   if (pins.length === 0) {
     return (
-      <View style={styles.mapEmptyPanel}>
+      <View style={styles.mapEmptyPanel} testID="resources-map-panel">
         <ResourceScreenIcon
           color={resourcesColors.primary}
           name="map-marker-off"
@@ -1030,7 +1038,7 @@ function ResourcesMapPanel({
   }
 
   return (
-    <View style={styles.resourceMapPanel}>
+    <View style={styles.resourceMapPanel} testID="resources-map-panel">
       <View style={styles.resourceMapHeader}>
         <View>
           <Text selectable style={styles.resourceMapTitle}>
@@ -1126,6 +1134,7 @@ function ResourcesMapPanel({
               accessibilityState={{ selected: isSelected }}
               key={`map-list:${provider.id}`}
               onPress={() => onSelectProvider(provider.id)}
+              testID={`resources-map-provider-${provider.id}`}
               style={[
                 styles.mapProviderChip,
                 isSelected ? styles.mapProviderChipSelected : null,
@@ -1196,13 +1205,21 @@ function ResourceMapSelectedProvider({
   );
 
   if (!onOpenProvider) {
-    return <View style={styles.mapSelectedProvider}>{content}</View>;
+    return (
+      <View
+        style={styles.mapSelectedProvider}
+        testID="resources-map-selected-provider"
+      >
+        {content}
+      </View>
+    );
   }
 
   return (
     <Pressable
       accessibilityRole="button"
       onPress={handleOpen}
+      testID="resources-map-selected-provider"
       style={({ pressed }) => [
         styles.mapSelectedProvider,
         pressed ? styles.pressed : null,
@@ -1336,6 +1353,15 @@ function ResourceScreenIcon({
   size: number;
 }) {
   return <MaterialCommunityIcons color={color} name={name} size={size} />;
+}
+
+function toTestIdSegment(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function getInitialManualSearchText(location: ResourceSearchLocation) {

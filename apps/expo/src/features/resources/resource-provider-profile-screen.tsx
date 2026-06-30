@@ -480,18 +480,20 @@ function ProviderReportConfirmationModal({
         style={[
           styles.reportModalBackdrop,
           {
-            paddingBottom: Math.max(insets.bottom, 14),
+            paddingBottom: Math.max(insets.bottom + 84, 104),
             paddingLeft: Math.max(insets.left, 12),
             paddingRight: Math.max(insets.right, 12),
             paddingTop: Math.max(insets.top, 12),
           },
         ]}
+        testID="resource-provider-report-modal"
       >
         <Pressable
           accessibilityLabel="Cerrar reporte de proveedor"
           accessibilityRole="button"
           disabled={isSubmitting}
           onPress={onCancel}
+          testID="resource-provider-report-backdrop"
           style={StyleSheet.absoluteFill}
         />
         <View
@@ -513,6 +515,7 @@ function ProviderReportConfirmationModal({
               accessibilityRole="button"
               disabled={isSubmitting}
               onPress={onCancel}
+              testID="resource-provider-report-close"
               style={({ pressed }) => [
                 styles.reportSheetClose,
                 pressed ? styles.pressed : null,
@@ -532,6 +535,7 @@ function ProviderReportConfirmationModal({
                   accessibilityState={{ selected: isSelected }}
                   key={option.value}
                   onPress={() => onChangeReason(option.value)}
+                  testID={`resource-provider-report-reason-${option.value}`}
                   style={({ pressed }) => [
                     styles.reportReasonButton,
                     isSelected ? styles.reportReasonButtonSelected : null,
@@ -566,6 +570,7 @@ function ProviderReportConfirmationModal({
               placeholder={`Ej. ${reasonLabel.toLowerCase()} en ${providerName}`}
               placeholderTextColor={resourcesColors.muted}
               style={styles.reportDetailInput}
+              testID="resource-provider-report-detail"
               value={detail}
             />
           </View>
@@ -585,6 +590,7 @@ function ProviderReportConfirmationModal({
               accessibilityRole="button"
               disabled={isSubmitting}
               onPress={onCancel}
+              testID="resource-provider-report-cancel"
               style={({ pressed }) => [
                 styles.reportSheetButton,
                 styles.reportSheetSecondaryButton,
@@ -599,6 +605,7 @@ function ProviderReportConfirmationModal({
               accessibilityState={{ busy: isSubmitting, disabled: !canSubmit }}
               disabled={!canSubmit}
               onPress={onSubmit}
+              testID="resource-provider-report-submit"
               style={({ pressed }) => [
                 styles.reportSheetButton,
                 styles.reportSheetPrimaryButton,
@@ -730,7 +737,7 @@ const styles = StyleSheet.create({
   reportModalBackdrop: {
     backgroundColor: "rgba(23, 32, 28, 0.42)",
     flex: 1,
-    justifyContent: "flex-end",
+    justifyContent: "center",
   },
   reportReasonButton: {
     alignItems: "center",
@@ -770,6 +777,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     boxShadow: resourcesShadow.soft,
     gap: 14,
+    maxHeight: "86%",
     padding: 16,
   },
   reportSheetActions: {

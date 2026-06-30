@@ -61,9 +61,10 @@ export function ResourceProviderProfile({
       contentInset={{ bottom: scrollBottomInset }}
       scrollIndicatorInsets={{ bottom: scrollBottomInset }}
       style={styles.root}
+      testID="resource-provider-profile-screen"
     >
       <View style={styles.contentFrame}>
-        <View style={styles.summaryCard}>
+        <View style={styles.summaryCard} testID="resource-provider-summary">
           <View style={styles.identityRow}>
             <RemoteImageWithFallback
               accessibilityLabel={`Logo de ${viewModel.name}`}
@@ -199,6 +200,7 @@ export function ResourceProviderProfile({
           <Pressable
             accessibilityRole="button"
             onPress={handleReportProvider}
+            testID="resource-provider-report-button"
             style={({ pressed }) => [
               styles.reportButton,
               pressed ? styles.pressed : null,
@@ -246,6 +248,7 @@ function ProviderMediaGallery({
       <View
         onLayout={handleFrameLayout}
         style={[styles.mediaFrame, styles.mediaFallback]}
+        testID="resource-provider-media"
       >
         <ResourceIcon
           color={resourcesColors.primary}
@@ -271,7 +274,11 @@ function ProviderMediaGallery({
 
     return (
       <View style={styles.mediaGroup}>
-        <View onLayout={handleFrameLayout} style={styles.mediaFrame}>
+        <View
+          onLayout={handleFrameLayout}
+          style={styles.mediaFrame}
+          testID="resource-provider-media"
+        >
           <RemoteImageWithFallback
             accessibilityLabel={item.accessibilityLabel}
             fallback={
@@ -314,6 +321,7 @@ function ProviderMediaGallery({
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         style={styles.mediaFrame}
+        testID="resource-provider-media"
         onLayout={handleFrameLayout}
       >
         {items.map((item, index) => (
@@ -323,6 +331,7 @@ function ProviderMediaGallery({
               styles.mediaSlide,
               frameWidth > 0 ? { width: frameWidth } : null,
             ]}
+            testID={`resource-provider-media-slide-${index}`}
           >
             <RemoteImageWithFallback
               accessibilityLabel={item.accessibilityLabel}
@@ -502,6 +511,7 @@ function SponsorMediaPanel({
     <View
       accessibilityLabel={`Medios de patrocinio de ${providerName}`}
       style={styles.sponsorMediaPanel}
+      testID="resource-provider-sponsor-media"
     >
       {logoUrl ? (
         <RemoteImageWithFallback
@@ -568,6 +578,7 @@ function ProfileActionButton({
       accessibilityLabel={label}
       accessibilityRole="button"
       onPress={handlePress}
+      testID={`resource-provider-contact-${kind}`}
       style={({ pressed }) => [
         styles.primaryAction,
         pressed ? styles.pressed : null,
@@ -638,6 +649,7 @@ function ProfileLink({
     <Pressable
       accessibilityRole="link"
       onPress={handlePress}
+      testID={`resource-provider-link-${toTestIdSegment(label)}`}
       style={({ pressed }) => [styles.linkRow, pressed ? styles.pressed : null]}
     >
       <ResourceIcon
@@ -679,6 +691,15 @@ function ResourceIcon({
       size={size}
     />
   );
+}
+
+function toTestIdSegment(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function getActionIcon(kind: ResourceContactOption["kind"]): ResourceIconName {

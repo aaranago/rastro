@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 
 import type {
@@ -81,7 +82,6 @@ export interface OpenChatSubjectHrefInput {
   subject: ChatSubject;
 }
 
-const bottomInset = 28;
 const defaultPollIntervalMs = 30000;
 const messageTimeFormatter = new Intl.DateTimeFormat("es-BO", {
   hour: "2-digit",
@@ -165,6 +165,9 @@ export function ChatScreen({
   viewerMemberId,
 }: ChatScreenProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const listBottomInset = Math.max(insets.bottom + 156, 180);
+  const composerBottomPadding = Math.max(insets.bottom + 84, 104);
   const [conversation, setConversation] = React.useState<
     ChatScreenConversation | null | undefined
   >(initialConversation);
@@ -382,8 +385,10 @@ export function ChatScreen({
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={styles.screen}
+      testID="chat-screen"
     >
       <FlatList
+        testID="chat-message-list"
         ListEmptyComponent={
           isRefreshing ? (
             <ChatState label="Cargando chat..." loading />
@@ -403,7 +408,7 @@ export function ChatScreen({
           />
         }
         contentContainerStyle={styles.listContent}
-        contentInset={{ bottom: bottomInset }}
+        contentInset={{ bottom: listBottomInset }}
         contentInsetAdjustmentBehavior="automatic"
         data={viewModel.messages}
         keyExtractor={messageKeyExtractor}
@@ -413,10 +418,10 @@ export function ChatScreen({
         }}
         refreshing={isRefreshing}
         renderItem={renderMessage}
-        scrollIndicatorInsets={{ bottom: bottomInset }}
+        scrollIndicatorInsets={{ bottom: listBottomInset }}
         style={styles.list}
       />
-      <View style={styles.composer}>
+      <View style={[styles.composer, { paddingBottom: composerBottomPadding }]}>
         <TextInput
           accessibilityLabel="Mensaje"
           maxFontSizeMultiplier={1.2}
@@ -425,6 +430,7 @@ export function ChatScreen({
           placeholder={viewModel.composerPlaceholder}
           placeholderTextColor={shellColors.muted}
           style={styles.composerInput}
+          testID="chat-message-input"
           value={draftMessage}
         />
         <Pressable
@@ -436,6 +442,7 @@ export function ChatScreen({
           }}
           disabled={!canSend || isSending}
           onPress={handleSendMessage}
+          testID="chat-send-button"
           style={[
             styles.sendButton,
             !canSend || isSending ? styles.disabledButton : null,
@@ -523,6 +530,7 @@ function ChatHeader({
         <Pressable
           accessibilityRole="button"
           onPress={onOpenSubject}
+          testID="chat-subject-link"
           style={styles.subjectCard}
         >
           <View style={styles.subjectCopy}>
@@ -584,6 +592,7 @@ function HeaderAction({
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
+      testID={`chat-header-action-${toTestIdSegment(label)}`}
       style={styles.headerAction}
     >
       <Text maxFontSizeMultiplier={1.05} style={styles.headerActionText}>
@@ -657,6 +666,15 @@ function getOtherParticipant(
   return conversation.participants.find(
     (participant) => participant.memberId !== viewerMemberId,
   );
+}
+
+function toTestIdSegment(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function getCompactSubjectLinkLabel(subject: ChatSubject) {

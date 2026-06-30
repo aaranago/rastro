@@ -531,7 +531,7 @@ function SuccessSponsorPlacement({
   }, [onReport, placement.id, reportState.kind]);
 
   return (
-    <View style={styles.sponsorPlacement}>
+    <View style={styles.sponsorPlacement} testID="report-success-sponsor-card">
       <View style={styles.sponsorHeader}>
         <View style={styles.sponsorIcon}>
           <ReportCreationIcon
@@ -558,7 +558,10 @@ function SuccessSponsorPlacement({
       </View>
       <View style={styles.sponsorCopy}>
         {placement.logoUrl || placement.imageUrl ? (
-          <View style={styles.sponsorMediaRow}>
+          <View
+            style={styles.sponsorMediaRow}
+            testID="report-success-sponsor-media"
+          >
             {placement.logoUrl ? (
               <Image
                 accessibilityLabel={`Logo de ${placement.name}`}
@@ -602,6 +605,7 @@ function SuccessSponsorPlacement({
           accessibilityLabel={`${placement.actionLabel}: ${placement.name}`}
           accessibilityRole="button"
           onPress={openPlacement}
+          testID="report-success-sponsor-open"
           style={styles.sponsorAction}
         >
           <ReportCreationIcon
@@ -622,6 +626,7 @@ function SuccessSponsorPlacement({
           }}
           disabled={reportState.kind === "reporting"}
           onPress={reportPlacement}
+          testID="report-success-sponsor-report"
           style={styles.sponsorReportAction}
         >
           <Text maxFontSizeMultiplier={1.1} style={styles.sponsorReportText}>

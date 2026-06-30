@@ -202,6 +202,7 @@ export function PublicReportDetailContent({
       contentInsetAdjustmentBehavior="automatic"
       scrollIndicatorInsets={{ bottom: bottomInset }}
       style={styles.screen}
+      testID="public-report-detail-screen"
     >
       <ReportMediaGallery viewModel={viewModel} />
 
@@ -233,6 +234,7 @@ export function PublicReportDetailContent({
                 onPress={() => {
                   handleOpenContactAction(action);
                 }}
+                testID={`public-report-contact-${action.kind}-${index}`}
                 style={[
                   styles.primaryAction,
                   isPrimaryAction
@@ -269,6 +271,7 @@ export function PublicReportDetailContent({
           accessibilityLabel={viewModel.locationAction.label}
           accessibilityRole="button"
           onPress={handleOpenLocation}
+          testID="public-report-location-action"
           style={styles.secondaryAction}
         >
           <ShellIcon color={shellColors.primary} name="map.fill" size={18} />
@@ -280,6 +283,7 @@ export function PublicReportDetailContent({
           accessibilityLabel={`Compartir ${viewModel.title}`}
           accessibilityRole="button"
           onPress={handleShare}
+          testID="public-report-share-action"
           style={styles.secondaryAction}
         >
           <ShellIcon
@@ -333,6 +337,7 @@ export function PublicReportDetailContent({
         accessibilityLabel={viewModel.publicPageLabel}
         accessibilityRole="button"
         onPress={handleOpenPublicPage}
+        testID="public-report-public-page-action"
         style={styles.tertiaryAction}
       >
         <ShellIcon
@@ -417,9 +422,10 @@ function ReportMediaGallery({
   );
 
   return (
-    <View style={styles.gallery}>
+    <View style={styles.gallery} testID="public-report-media-gallery">
       <View
         style={[styles.hero, primaryPhotoUrl ? null : styles.heroFallbackFrame]}
+        testID="public-report-hero-media"
       >
         {primaryPhotoUrl ? (
           <Galeria hidePageIndicators={false} theme="dark" urls={photoUrls}>
@@ -467,6 +473,7 @@ function ReportMediaGallery({
               styles.heroFallback,
               { backgroundColor: viewModel.accentSoftColor },
             ]}
+            testID="public-report-hero-media-fallback"
           >
             <ShellIcon
               color={viewModel.accentColor}
@@ -586,7 +593,7 @@ function ReportMediaGallery({
 
 function PublicReportDetailLoadingState() {
   return (
-    <View style={styles.loadingScreen}>
+    <View style={styles.loadingScreen} testID="public-report-loading">
       <View style={styles.loadingPanel}>
         <ActivityIndicator color={shellColors.primary} />
         <Text selectable style={styles.loadingTitle}>
@@ -602,7 +609,7 @@ function PublicReportDetailLoadingState() {
 
 export function PublicReportDetailUnavailableState() {
   return (
-    <View style={styles.stateScreen}>
+    <View style={styles.stateScreen} testID="public-report-unavailable">
       <View style={styles.statePanel}>
         <View style={styles.stateIcon}>
           <ShellIcon color={shellColors.primary} name="lock.fill" size={24} />

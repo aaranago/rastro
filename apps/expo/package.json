@@ -15,6 +15,7 @@
     "format": "prettier --check . --ignore-path ../../.gitignore --ignore-path .prettierignore",
     "lint": "eslint --flag unstable_native_nodejs_ts_config",
     "test": "vitest run",
+    "test:e2e:mobile:mcp": "node ./e2e/rastro-mobile-mcp-e2e.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

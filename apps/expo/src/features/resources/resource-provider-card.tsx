@@ -64,6 +64,7 @@ export const ResourceProviderCard = memo(function ResourceProviderCard({
       accessibilityRole="button"
       accessibilityLabel={`Abrir ${name}`}
       onPress={handleOpenProvider}
+      testID={`resource-provider-card-${id}`}
       style={({ pressed }) => getCardStyle({ isSponsored, pressed })}
     >
       <ProviderMedia
@@ -143,7 +144,7 @@ function ProviderMedia({
   const shouldShowImage = imageUrl && !didFail;
 
   return (
-    <View style={styles.media}>
+    <View style={styles.media} testID={`resource-provider-card-media-${id}`}>
       {shouldShowImage ? (
         <Image
           source={{ uri: imageUrl }}
@@ -240,6 +241,7 @@ function SponsorMediaRow({
     <View
       accessibilityLabel={`Medios de patrocinio de ${name}`}
       style={styles.sponsorMediaRow}
+      testID={`resource-provider-card-sponsor-media-${id}`}
     >
       {logoUrl ? (
         <SponsorImageWithFallback
@@ -377,6 +379,7 @@ function ProviderActionsRow({
           accessibilityLabel={`Reportar ${name}`}
           hitSlop={8}
           onPress={onReportProvider}
+          testID={`resource-provider-card-report-${nameToTestIdSegment(name)}`}
           style={styles.reportButton}
         >
           <ResourceIcon
@@ -391,6 +394,15 @@ function ProviderActionsRow({
       ) : null}
     </View>
   );
+}
+
+function nameToTestIdSegment(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function VerificationBadge() {

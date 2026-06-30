@@ -2,6 +2,18 @@ import { defineConfig, devices } from "@playwright/test";
 
 const port = 3201;
 const baseURL = `http://127.0.0.1:${port}`;
+const mediaBaseURL =
+  process.env.RASTRO_E2E_MEDIA_BASE_URL ?? `${baseURL}/e2e-media`;
+const e2eAdminEmail =
+  process.env.RASTRO_E2E_ADMIN_EMAIL ?? "rastro-e2e-admin@example.invalid";
+const e2eAdminEmailList = [e2eAdminEmail, process.env.RASTRO_ADMIN_EMAILS ?? ""]
+  .join(" ")
+  .trim();
+const shouldStartWebServer = process.env.RASTRO_E2E_SKIP_WEBSERVER !== "1";
+
+process.env.BETTER_AUTH_URL = baseURL;
+process.env.RASTRO_ADMIN_EMAILS = e2eAdminEmailList;
+process.env.RASTRO_E2E_MEDIA_BASE_URL = mediaBaseURL;
 
 const adminViewportProjects = [
   { height: 900, name: "1440x900", width: 1440 },
@@ -42,11 +54,13 @@ export default defineConfig({
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },
-  webServer: {
-    command: `pnpm with-env next dev -p ${port}`,
-    reuseExistingServer: true,
-    timeout: 120_000,
-    url: baseURL,
-  },
+  webServer: shouldStartWebServer
+    ? {
+        command: `BETTER_AUTH_URL=${baseURL} RASTRO_ADMIN_EMAILS="${e2eAdminEmailList}" RASTRO_E2E_MEDIA_BASE_URL=${mediaBaseURL} pnpm with-env next dev -p ${port}`,
+        reuseExistingServer: true,
+        timeout: 120_000,
+        url: baseURL,
+      }
+    : undefined,
   workers: 1,
 });
