@@ -170,16 +170,20 @@ export function loadExpoEnvFilesFromRepoRoot(
       const env = parseEnv(readFileSync(envPath, "utf8"));
 
       for (const [name, value] of Object.entries(env)) {
-        if (
-          !name.startsWith("EXPO_") ||
-          process.env[name] !== undefined ||
-          typeof value !== "string"
-        ) {
+        if (!name.startsWith("EXPO_") || typeof value !== "string") {
           continue;
         }
 
-        process.env[name] = value;
-        expoEnvFileValues.set(name, value);
+        if (process.env[name] === undefined) {
+          process.env[name] = value;
+          expoEnvFileValues.set(name, value);
+          continue;
+        }
+
+        // Turbo/dotenv can preload repo env files before app.config runs.
+        if (process.env[name] === value) {
+          expoEnvFileValues.set(name, value);
+        }
       }
     }
   }

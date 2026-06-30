@@ -1,6 +1,6 @@
 import type { Href } from "expo-router";
 import type { ComponentProps } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -70,6 +70,10 @@ type ReportState =
       message: string;
     };
 
+type ProfileFeedback = NonNullable<
+  ComponentProps<typeof ResourceProviderProfile>["reportFeedback"]
+>;
+
 interface ProviderReportDraft {
   detail: string;
   providerId: string;
@@ -82,15 +86,22 @@ const providerReportReasonOptions = trustSafetyReportReasonOptions.filter(
 
 export interface ResourceProviderProfileScreenProps {
   adapter?: ResourcesAdapter;
+  initiallyReportProvider?: boolean;
   providerId?: string | string[];
 }
 
-export function buildResourceProviderProfileHref(providerId: string): Href {
-  return `/proveedores/${encodeURIComponent(providerId.trim())}` as Href;
+export function buildResourceProviderProfileHref(
+  providerId: string,
+  options: { report?: boolean } = {},
+): Href {
+  const href = `/proveedores/${encodeURIComponent(providerId.trim())}`;
+
+  return (options.report ? `${href}?report=1` : href) as Href;
 }
 
 export function ResourceProviderProfileScreen({
   adapter = defaultResourcesAdapter,
+  initiallyReportProvider = false,
   providerId,
 }: ResourceProviderProfileScreenProps) {
   const safeAreaInsets = useSafeAreaInsets();
@@ -103,7 +114,11 @@ export function ResourceProviderProfileScreen({
     kind: "loading",
   });
   const [reloadVersion, setReloadVersion] = useState(0);
+  const [linkFeedback, setLinkFeedback] = useState<ProfileFeedback | undefined>(
+    undefined,
+  );
   const reportWorkflow = useProviderReportWorkflow(adapter);
+  const initialReportIntentOpenedRef = useRef(false);
 
   useEffect(() => {
     if (!resolvedProviderId) {
@@ -151,10 +166,24 @@ export function ResourceProviderProfileScreen({
   }, [adapter, reloadVersion, resolvedProviderId]);
 
   const handleRetry = useCallback(() => {
+    initialReportIntentOpenedRef.current = false;
     reportWorkflow.resetReportState();
     setLoadState({ kind: "loading", providerId: resolvedProviderId });
     setReloadVersion((current) => current + 1);
   }, [reportWorkflow, resolvedProviderId]);
+
+  useEffect(() => {
+    if (
+      !initiallyReportProvider ||
+      initialReportIntentOpenedRef.current ||
+      loadState.kind !== "ready"
+    ) {
+      return;
+    }
+
+    initialReportIntentOpenedRef.current = true;
+    reportWorkflow.openReportProvider(loadState.providerId);
+  }, [initiallyReportProvider, loadState, reportWorkflow]);
 
   const handleContactAction = useCallback(
     (action: {
@@ -165,16 +194,24 @@ export function ResourceProviderProfileScreen({
     }) => {
       const url = buildContactUrl(action);
 
-      if (url) {
-        void Linking.openURL(url);
-      }
+      setLinkFeedback(undefined);
+      void openProviderUrl({
+        label: action.label,
+        onFailure: setLinkFeedback,
+        url,
+      });
     },
     [],
   );
 
   const handleOpenLink = useCallback(
-    ({ url }: { providerId: string; label: string; url: string }) => {
-      void Linking.openURL(url);
+    ({ label, url }: { providerId: string; label: string; url: string }) => {
+      setLinkFeedback(undefined);
+      void openProviderUrl({
+        label,
+        onFailure: setLinkFeedback,
+        url,
+      });
     },
     [],
   );
@@ -215,6 +252,11 @@ export function ResourceProviderProfileScreen({
     );
   }
 
+  const reportFeedback = buildReportFeedback(
+    reportWorkflow.reportState,
+    currentLoadState,
+  );
+
   return (
     <>
       <ResourceProviderProfile
@@ -223,10 +265,7 @@ export function ResourceProviderProfileScreen({
         onOpenLink={handleOpenLink}
         onReportProvider={reportWorkflow.openReportProvider}
         profile={currentLoadState.profile}
-        reportFeedback={buildReportFeedback(
-          reportWorkflow.reportState,
-          currentLoadState,
-        )}
+        reportFeedback={reportFeedback ?? linkFeedback}
       />
       <ProviderReportConfirmationModal
         canSubmit={reportWorkflow.canSubmit}
@@ -629,7 +668,7 @@ function ProviderReportConfirmationModal({
 function buildReportFeedback(
   reportState: ReportState,
   loadState: Extract<ProfileLoadState, { kind: "ready" }>,
-) {
+): ProfileFeedback | undefined {
   if (reportState.kind === "reporting") {
     return {
       body: "Estamos enviando el reporte para revisión.",
@@ -663,6 +702,51 @@ function buildReportFeedback(
   }
 
   return undefined;
+}
+
+async function openProviderUrl({
+  label,
+  onFailure,
+  url,
+}: {
+  label: string;
+  onFailure: (feedback: ProfileFeedback) => void;
+  url: string | undefined;
+}) {
+  const targetUrl = url?.trim();
+
+  if (!targetUrl) {
+    onFailure(buildOpenUrlFailureFeedback(label));
+    return;
+  }
+
+  try {
+    if (typeof Linking.canOpenURL === "function") {
+      const canOpen = await Linking.canOpenURL(targetUrl);
+
+      if (!canOpen) {
+        onFailure(buildOpenUrlFailureFeedback(label));
+        return;
+      }
+    }
+
+    await Linking.openURL(targetUrl);
+  } catch {
+    onFailure(buildOpenUrlFailureFeedback(label));
+  }
+}
+
+function buildOpenUrlFailureFeedback(label: string): ProfileFeedback {
+  const targetLabel = label.trim();
+
+  return {
+    body:
+      targetLabel.length > 0
+        ? `No encontramos una app compatible para abrir "${targetLabel}".`
+        : "No encontramos una app compatible para abrir este enlace.",
+    title: "No pudimos abrir el enlace",
+    tone: "error",
+  };
 }
 
 function getProviderReportReasonLabel(reason: ResourceReportReason) {

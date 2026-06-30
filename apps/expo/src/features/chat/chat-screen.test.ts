@@ -57,6 +57,10 @@ vi.mock("react-native", () => ({
   View: "View",
 }));
 
+vi.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ bottom: 0, left: 0, right: 0, top: 0 }),
+}));
+
 describe("ChatScreen view model", () => {
   it("surfaces Spanish report-linked chat labels without unsupported chat surfaces", () => {
     const viewModel = buildChatScreenViewModel({

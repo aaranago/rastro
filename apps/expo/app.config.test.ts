@@ -136,17 +136,65 @@ describe("Expo app config", () => {
     );
   });
 
-  it("marks shell-provided API base URLs as explicit process config", () => {
-    withEnvSnapshot(["EXPO_PUBLIC_API_BASE_URL"], () => {
-      process.env.EXPO_PUBLIC_API_BASE_URL = "https://api.rastro.bo";
+  it("marks preloaded API base URLs that match repo env files as env-file config", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "rastro-expo-env-"));
 
-      const config = createExpoConfig({
-        config: {} as ExpoConfig,
-      } as ConfigContext);
+    writeFileSync(
+      join(repoRoot, ".env"),
+      'EXPO_PUBLIC_API_BASE_URL="http://preloaded-env-file.example.test:3000"\n',
+    );
 
-      expect(config.extra?.apiBaseUrl).toBe("https://api.rastro.bo");
-      expect(config.extra?.apiBaseUrlSource).toBe("process");
-    });
+    withEnvSnapshot(
+      ["EXPO_PUBLIC_API_BASE_URL"],
+      () => {
+        process.env.EXPO_PUBLIC_API_BASE_URL =
+          "http://preloaded-env-file.example.test:3000";
+
+        loadExpoEnvFilesFromRepoRoot(repoRoot);
+        const config = createExpoConfig({
+          config: {} as ExpoConfig,
+        } as ConfigContext);
+
+        expect(config.extra?.apiBaseUrl).toBe(
+          "http://preloaded-env-file.example.test:3000",
+        );
+        expect(config.extra?.apiBaseUrlSource).toBe("env-file");
+      },
+      () => {
+        rmSync(repoRoot, { force: true, recursive: true });
+      },
+    );
+  });
+
+  it("marks shell-provided API base URLs that differ from repo env files as explicit process config", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "rastro-expo-env-"));
+
+    writeFileSync(
+      join(repoRoot, ".env"),
+      'EXPO_PUBLIC_API_BASE_URL="http://127.0.0.1:3000"\n',
+    );
+
+    withEnvSnapshot(
+      ["EXPO_PUBLIC_API_BASE_URL"],
+      () => {
+        process.env.EXPO_PUBLIC_API_BASE_URL =
+          "https://shell-runtime.example.test";
+
+        loadExpoEnvFilesFromRepoRoot(repoRoot);
+
+        const config = createExpoConfig({
+          config: {} as ExpoConfig,
+        } as ConfigContext);
+
+        expect(config.extra?.apiBaseUrl).toBe(
+          "https://shell-runtime.example.test",
+        );
+        expect(config.extra?.apiBaseUrlSource).toBe("process");
+      },
+      () => {
+        rmSync(repoRoot, { force: true, recursive: true });
+      },
+    );
   });
 });
 

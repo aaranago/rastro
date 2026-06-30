@@ -36,6 +36,11 @@ const api = vi.hoisted(() => ({
   },
 }));
 
+const linking = vi.hoisted(() => ({
+  canOpenURL: vi.fn(),
+  openURL: vi.fn(),
+}));
+
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof React>("react");
 
@@ -70,6 +75,16 @@ vi.mock("react", async () => {
       });
     },
     useMemo: <TValue>(factory: () => TValue) => factory(),
+    useRef: <TValue>(initialValue: TValue) => {
+      const index = reactState.cursor;
+      reactState.cursor += 1;
+
+      if (reactState.values.length <= index) {
+        reactState.values[index] = { current: initialValue };
+      }
+
+      return reactState.values[index] as React.MutableRefObject<TValue>;
+    },
     useState: <TValue>(initialValue: TValue | (() => TValue)) => {
       const index = reactState.cursor;
       reactState.cursor += 1;
@@ -121,9 +136,7 @@ vi.mock("@nandorojo/galeria", async () => {
 
 vi.mock("react-native", () => ({
   ActivityIndicator: "ActivityIndicator",
-  Linking: {
-    openURL: () => Promise.resolve(),
-  },
+  Linking: linking,
   Modal: "Modal",
   Pressable: "Pressable",
   ScrollView: "ScrollView",
@@ -153,6 +166,10 @@ describe("Resource Provider profile screen", () => {
     reactState.effects = [];
     reactState.pendingEffects = [];
     reactState.values = [];
+    linking.canOpenURL.mockReset();
+    linking.openURL.mockReset();
+    linking.canOpenURL.mockResolvedValue(true);
+    linking.openURL.mockResolvedValue(undefined);
   });
 
   it("builds the Recursos stack href used by search result cards", () => {
@@ -162,6 +179,9 @@ describe("Resource Provider profile screen", () => {
     expect(buildResourceProviderProfileHref("dra marta gómez")).toBe(
       "/proveedores/dra%20marta%20g%C3%B3mez",
     );
+    expect(
+      buildResourceProviderProfileHref("clinic-san-roque", { report: true }),
+    ).toBe("/proveedores/clinic-san-roque?report=1");
   });
 
   it("renders provider and sponsor images as separate profile media", async () => {
@@ -227,6 +247,81 @@ describe("Resource Provider profile screen", () => {
 
     expect(findText(readyScreen, "Sin foto del proveedor")).toBe(true);
     expect(findText(readyScreen, "Veterinaria")).toBe(true);
+  });
+
+  it("shows inline feedback when the device cannot open a contact URL", async () => {
+    const adapter = createAdapter();
+
+    void renderScreen(createProfileScreen(adapter));
+    await flushEffects();
+    const readyScreen = renderScreen(createProfileScreen(adapter));
+    linking.canOpenURL.mockResolvedValueOnce(false);
+
+    pressByText(readyScreen, "Llamar");
+    await flushPromises();
+
+    const feedbackScreen = renderScreen(createProfileScreen(adapter));
+
+    expect(linking.canOpenURL).toHaveBeenCalledWith("tel:+59122221111");
+    expect(linking.openURL).not.toHaveBeenCalled();
+    expect(findText(feedbackScreen, "No pudimos abrir el enlace")).toBe(true);
+    expect(
+      findText(
+        feedbackScreen,
+        'No encontramos una app compatible para abrir "Llamar".',
+      ),
+    ).toBe(true);
+  });
+
+  it("shows inline feedback when opening a provider link fails", async () => {
+    const adapter = createAdapter({
+      providerProfile: {
+        ...profile,
+        websiteUrl: "https://sanroque.example.bo",
+      },
+    });
+
+    void renderScreen(createProfileScreen(adapter));
+    await flushEffects();
+    const readyScreen = renderScreen(createProfileScreen(adapter));
+    linking.openURL.mockRejectedValueOnce(new Error("No browser available."));
+
+    pressByText(readyScreen, "Sitio web");
+    await flushPromises();
+
+    const feedbackScreen = renderScreen(createProfileScreen(adapter));
+
+    expect(linking.canOpenURL).toHaveBeenCalledWith(
+      "https://sanroque.example.bo",
+    );
+    expect(linking.openURL).toHaveBeenCalledWith("https://sanroque.example.bo");
+    expect(findText(feedbackScreen, "No pudimos abrir el enlace")).toBe(true);
+    expect(
+      findText(
+        feedbackScreen,
+        'No encontramos una app compatible para abrir "Sitio web".',
+      ),
+    ).toBe(true);
+  });
+
+  it("opens the provider report workflow from a route intent", async () => {
+    const adapter = createAdapter();
+
+    void renderScreen(
+      createProfileScreen(adapter, { initiallyReportProvider: true }),
+    );
+    await flushEffects();
+    void renderScreen(
+      createProfileScreen(adapter, { initiallyReportProvider: true }),
+    );
+    await flushEffects();
+
+    const reportScreen = renderScreen(
+      createProfileScreen(adapter, { initiallyReportProvider: true }),
+    );
+
+    expect(findText(reportScreen, "Reportar proveedor")).toBe(true);
+    expect(findText(reportScreen, "Ubicación incorrecta")).toBe(true);
   });
 
   it("waits for backend confirmation before showing provider report success", async () => {
@@ -385,9 +480,15 @@ function createAdapter({
   };
 }
 
-function createProfileScreen(adapter: ResourcesAdapter) {
+function createProfileScreen(
+  adapter: ResourcesAdapter,
+  props: Partial<
+    React.ComponentProps<typeof ResourceProviderProfileScreen>
+  > = {},
+) {
   return React.createElement(ResourceProviderProfileScreen, {
     adapter,
+    ...props,
     providerId: profile.id,
   });
 }
@@ -407,6 +508,12 @@ async function flushEffects() {
     effect();
   }
 
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+async function flushPromises() {
+  await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
 }

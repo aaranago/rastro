@@ -33,7 +33,13 @@ vi.mock("react-native", () => ({
 }));
 
 vi.mock("expo-router", () => ({
-  Link: ({ children }: { children: React.ReactNode }) => children,
+  Link: ({
+    children,
+    href,
+  }: {
+    children: React.ReactNode;
+    href: string;
+  }) => React.createElement("Link", { href }, children),
 }));
 
 vi.mock("../app-states", () => ({
@@ -93,6 +99,18 @@ describe("Profile visitor auth entry", () => {
       sourceHref: "rastro://auth/sign-in?returnTo=/perfil",
     });
   });
+
+  it("only renders profile rows that navigate to real profile routes", () => {
+    const screen = renderFunctionElement(ProfileScreen());
+
+    expect(collectLinkHrefs(screen)).toEqual(
+      expect.arrayContaining(["/mis-mascotas", "/alertas", "/ajustes"]),
+    );
+    expect(findText(screen, "Mis mascotas")).toBe(true);
+    expect(findText(screen, "Alertas")).toBe(true);
+    expect(findText(screen, "Ajustes")).toBe(true);
+    expect(findText(screen, "Mis reportes")).toBe(false);
+  });
 });
 
 type ElementProps = Record<string, unknown> & {
@@ -112,7 +130,7 @@ function renderFunctionElement(node: React.ReactNode): React.ReactNode {
 
   const Component = node.type as (props: ElementProps) => React.ReactNode;
 
-  return Component(node.props);
+  return renderFunctionElement(Component(node.props));
 }
 
 function findElement(
@@ -138,4 +156,40 @@ function findElement(
   }
 
   return undefined;
+}
+
+function collectLinkHrefs(node: React.ReactNode): string[] {
+  const rendered = renderFunctionElement(node);
+
+  if (!React.isValidElement<ElementProps>(rendered)) {
+    return [];
+  }
+
+  const currentHref =
+    rendered.type === "Link" && typeof rendered.props.href === "string"
+      ? [rendered.props.href]
+      : [];
+
+  return [
+    ...currentHref,
+    ...React.Children.toArray(rendered.props.children).flatMap((child) =>
+      collectLinkHrefs(child),
+    ),
+  ];
+}
+
+function findText(node: React.ReactNode, text: string): boolean {
+  const rendered = renderFunctionElement(node);
+
+  if (typeof rendered === "string" || typeof rendered === "number") {
+    return String(rendered) === text;
+  }
+
+  if (!React.isValidElement<ElementProps>(rendered)) {
+    return false;
+  }
+
+  return React.Children.toArray(rendered.props.children).some((child) =>
+    findText(child, text),
+  );
 }

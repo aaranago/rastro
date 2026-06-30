@@ -19,11 +19,19 @@ export default function ResourcesRoute() {
     [router],
   );
 
+  const handleReportProvider = useCallback(
+    (providerId: string) => {
+      router.push(buildResourceProviderProfileHref(providerId, { report: true }));
+    },
+    [router],
+  );
+
   return (
     <ResourcesScreen
       adapter={adapter}
       initialLocation={defaultResourceSearchLocation}
       onOpenProvider={handleOpenProvider}
+      onReportProvider={handleReportProvider}
     />
   );
 }
