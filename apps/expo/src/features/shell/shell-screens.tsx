@@ -16,7 +16,7 @@ import { ShellIcon } from "./shell-overlays";
 import { useRastroShell } from "./shell-provider";
 import { shellColors } from "./shell-theme";
 
-const bottomInset = 140;
+export const shellScreenBottomInset = 208;
 
 export function NearbyScreen() {
   const { copy, session } = useRastroShell();
@@ -25,9 +25,9 @@ export function NearbyScreen() {
   return (
     <ScrollView
       contentContainerStyle={styles.screenContent}
-      contentInset={{ bottom: bottomInset }}
+      contentInset={{ bottom: shellScreenBottomInset }}
       contentInsetAdjustmentBehavior="automatic"
-      scrollIndicatorInsets={{ bottom: bottomInset }}
+      scrollIndicatorInsets={{ bottom: shellScreenBottomInset }}
       style={styles.screen}
     >
       <View style={styles.heroHeader}>
@@ -136,9 +136,9 @@ export function ActivityScreen() {
   return (
     <ScrollView
       contentContainerStyle={styles.screenContent}
-      contentInset={{ bottom: bottomInset }}
+      contentInset={{ bottom: shellScreenBottomInset }}
       contentInsetAdjustmentBehavior="automatic"
-      scrollIndicatorInsets={{ bottom: bottomInset }}
+      scrollIndicatorInsets={{ bottom: shellScreenBottomInset }}
       style={styles.screen}
     >
       <StateCard
@@ -163,9 +163,9 @@ export function ResourcesScreen() {
   return (
     <ScrollView
       contentContainerStyle={styles.screenContent}
-      contentInset={{ bottom: bottomInset }}
+      contentInset={{ bottom: shellScreenBottomInset }}
       contentInsetAdjustmentBehavior="automatic"
-      scrollIndicatorInsets={{ bottom: bottomInset }}
+      scrollIndicatorInsets={{ bottom: shellScreenBottomInset }}
       style={styles.screen}
     >
       <View style={styles.titleGroup}>
@@ -231,9 +231,9 @@ export function ProfileScreen() {
   return (
     <ScrollView
       contentContainerStyle={styles.screenContent}
-      contentInset={{ bottom: bottomInset }}
+      contentInset={{ bottom: shellScreenBottomInset }}
       contentInsetAdjustmentBehavior="automatic"
-      scrollIndicatorInsets={{ bottom: bottomInset }}
+      scrollIndicatorInsets={{ bottom: shellScreenBottomInset }}
       style={styles.screen}
       testID="profile-screen"
     >
@@ -1363,7 +1363,7 @@ const styles = StyleSheet.create({
   screenContent: {
     gap: 18,
     padding: 18,
-    paddingBottom: 32,
+    paddingBottom: shellScreenBottomInset,
   },
   sectionTitle: {
     color: shellColors.text,

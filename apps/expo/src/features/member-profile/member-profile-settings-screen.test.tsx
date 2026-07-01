@@ -6,7 +6,10 @@ import type {
   MemberProfileRepository,
   MemberProfileSettings,
 } from "./member-profile";
-import { MemberProfileSettingsScreen } from "./member-profile-settings-screen";
+import {
+  memberProfileSettingsBottomInset,
+  MemberProfileSettingsScreen,
+} from "./member-profile-settings-screen";
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -211,6 +214,27 @@ describe("MemberProfileSettingsScreen", () => {
 
     expect(onRequestSignIn).toHaveBeenCalledOnce();
     expect(repository.getSettings).not.toHaveBeenCalled();
+  });
+
+  it("keeps the settings form scrollable above native tabs", () => {
+    const repository = createScreenRepository();
+    const screen = renderSettingsScreen({ repository });
+    const scrollView = getElementByTestID(
+      screen,
+      "member-profile-settings-screen",
+    );
+
+    expect(memberProfileSettingsBottomInset).toBeGreaterThanOrEqual(200);
+    expect(scrollView.props.contentInset).toEqual({
+      bottom: memberProfileSettingsBottomInset,
+    });
+    expect(scrollView.props.scrollIndicatorInsets).toEqual({
+      bottom: memberProfileSettingsBottomInset,
+    });
+    expect(
+      (scrollView.props.contentContainerStyle as { paddingBottom?: number })
+        .paddingBottom,
+    ).toBe(memberProfileSettingsBottomInset);
   });
 
   it("shows backend failure copy without replacing the loaded draft", async () => {

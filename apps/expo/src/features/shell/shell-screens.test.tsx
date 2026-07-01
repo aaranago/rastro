@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getShellCopy } from "../../i18n";
 import { createInitialShellState, createShellModel } from "./shell-model";
-import { ProfileScreen } from "./shell-screens";
+import { ProfileScreen, shellScreenBottomInset } from "./shell-screens";
 
 const shellContext = vi.hoisted(() => ({
   requestAuthPrompt: vi.fn(),
@@ -110,6 +110,28 @@ describe("Profile visitor auth entry", () => {
     expect(findText(screen, "Alertas")).toBe(true);
     expect(findText(screen, "Ajustes")).toBe(true);
     expect(findText(screen, "Mis reportes")).toBe(false);
+  });
+
+  it("reserves scroll clearance for native tabs and the report FAB", () => {
+    const screen = renderFunctionElement(ProfileScreen());
+    const scrollView = findElement(
+      screen,
+      (element) =>
+        element.type === "ScrollView" &&
+        element.props.testID === "profile-screen",
+    );
+
+    expect(shellScreenBottomInset).toBeGreaterThanOrEqual(200);
+    expect(scrollView?.props.contentInset).toEqual({
+      bottom: shellScreenBottomInset,
+    });
+    expect(scrollView?.props.scrollIndicatorInsets).toEqual({
+      bottom: shellScreenBottomInset,
+    });
+    expect(
+      (scrollView?.props.contentContainerStyle as { paddingBottom?: number })
+        .paddingBottom,
+    ).toBe(shellScreenBottomInset);
   });
 });
 

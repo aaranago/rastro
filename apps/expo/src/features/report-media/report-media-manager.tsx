@@ -2,8 +2,8 @@ import type { DimensionValue } from "react-native";
 import * as React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 
+import type { MaterialCommunityIconName } from "../icons/safe-material-community-icon";
 import type {
   AcceptedEditedReportImage,
   ReportMediaDraft,
@@ -12,6 +12,7 @@ import type {
   ReportMediaDraftSnapshot,
   SelectedLocalReportImage,
 } from "./report-media-draft";
+import { SafeMaterialCommunityIcon } from "../icons/safe-material-community-icon";
 
 export type ReportMediaSourceFeedback =
   | {
@@ -403,7 +404,7 @@ function ReportMediaCoverBadge({ isVisible }: { isVisible: boolean }) {
 
   return (
     <View pointerEvents="none" style={styles.coverBadge}>
-      <MaterialCommunityIcons color="#FFFFFF" name="star" size={13} />
+      <SafeMaterialCommunityIcon color="#FFFFFF" name="star" size={13} />
       <Text maxFontSizeMultiplier={1.05} style={styles.coverBadgeText}>
         Portada
       </Text>
@@ -576,9 +577,7 @@ function ReportMediaTileError({ message }: { message?: string }) {
   );
 }
 
-type ReportMediaIconName = React.ComponentProps<
-  typeof MaterialCommunityIcons
->["name"];
+type ReportMediaIconName = MaterialCommunityIconName;
 
 function TileIconAction({
   accessibilityLabel,
@@ -606,7 +605,7 @@ function TileIconAction({
         disabled ? styles.disabledAction : null,
       ]}
     >
-      <MaterialCommunityIcons
+      <SafeMaterialCommunityIcon
         color={danger ? "#A33A2A" : "#146C5A"}
         name={iconName}
         size={21}

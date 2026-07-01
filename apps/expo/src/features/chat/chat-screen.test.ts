@@ -6,6 +6,7 @@ import type { ChatScreenRepository } from "./chat-screen";
 import {
   buildChatScreenViewModel,
   ChatScreen,
+  getChatComposerLayoutInsets,
   openChatSubjectHref,
 } from "./chat-screen";
 
@@ -40,6 +41,11 @@ vi.mock("~/features/chat/chat-model", async () =>
 vi.mock("react-native", () => ({
   ActivityIndicator: "ActivityIndicator",
   FlatList: "FlatList",
+  Keyboard: {
+    addListener: () => ({
+      remove: vi.fn(),
+    }),
+  },
   KeyboardAvoidingView: "KeyboardAvoidingView",
   Linking: {
     openURL: () => Promise.resolve(),
@@ -165,6 +171,30 @@ describe("ChatScreen view model", () => {
     expect(sendButton?.props.accessibilityState).toEqual({
       busy: false,
       disabled: true,
+    });
+  });
+
+  it("keeps tab clearance at rest and compacts the composer when the keyboard is visible", () => {
+    expect(
+      getChatComposerLayoutInsets({
+        bottomSafeAreaInset: 0,
+        keyboardBottomInset: 0,
+      }),
+    ).toEqual({
+      composerBottomMargin: 208,
+      composerBottomPadding: 12,
+      listBottomInset: 304,
+    });
+
+    expect(
+      getChatComposerLayoutInsets({
+        bottomSafeAreaInset: 34,
+        keyboardBottomInset: 320,
+      }),
+    ).toEqual({
+      composerBottomMargin: 320,
+      composerBottomPadding: 46,
+      listBottomInset: 452,
     });
   });
 });

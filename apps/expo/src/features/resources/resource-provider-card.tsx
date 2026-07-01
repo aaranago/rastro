@@ -1,12 +1,12 @@
-import type { ComponentProps } from "react";
 import { memo, useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 
+import type { MaterialCommunityIconName } from "../icons/safe-material-community-icon";
+import { SafeMaterialCommunityIcon } from "../icons/safe-material-community-icon";
 import { resourcesColors, resourcesShadow } from "./resources-theme";
 
-type ResourceIconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
+type ResourceIconName = MaterialCommunityIconName;
 
 interface ResourceProviderCardProps {
   id: string;
@@ -446,7 +446,7 @@ function ResourceIcon({
   name: ResourceIconName;
   size: number;
 }) {
-  return <MaterialCommunityIcons color={color} name={name} size={size} />;
+  return <SafeMaterialCommunityIcon color={color} name={name} size={size} />;
 }
 
 function getProviderIconName(categoryLabel: string): ResourceIconName {

@@ -20,7 +20,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { usePathname, useRouter, useSegments } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import type { ReportIntent } from "../../i18n";
 import type {
@@ -37,8 +36,10 @@ import type {
   ShellFirstRunTourStore,
 } from "./shell-onboarding";
 import authWelcomeIllustration from "../../../assets/auth-welcome-illustration.png";
+import type { MaterialCommunityIconName } from "../icons/safe-material-community-icon";
 import { buildReportCreationHref } from "../report-creation/report-creation-routes";
 import { createExpoSecureStoreKeyValueStorage } from "../resilience/storage";
+import { SafeMaterialCommunityIcon } from "../icons/safe-material-community-icon";
 import {
   prepareShellAuthCredentialsForAction,
   prepareShellPasswordResetEmail,
@@ -81,10 +82,6 @@ const androidIconFallbacks: Record<string, string> = {
   sparkles: "*",
   xmark: "x",
 };
-
-type MaterialCommunityIconName = React.ComponentProps<
-  typeof MaterialCommunityIcons
->["name"];
 
 const androidVectorIconNames: Record<string, MaterialCommunityIconName> = {
   "arrow.clockwise": "refresh",
@@ -153,9 +150,10 @@ export function ShellIcon({ name, color, fallback, size = 22 }: IconProps) {
 
   if (Platform.OS !== "ios" && androidIconName) {
     return (
-      <MaterialCommunityIcons
+      <SafeMaterialCommunityIcon
         accessibilityElementsHidden
         color={color}
+        fallback={resolvedFallback}
         importantForAccessibility="no"
         name={androidIconName}
         size={size}

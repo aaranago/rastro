@@ -1,19 +1,18 @@
 import * as React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 
+import type { MaterialCommunityIconName } from "../icons/safe-material-community-icon";
 import type {
   ResourceContactOption,
   ResourceProviderProfile as ResourceProviderProfileData,
 } from "./resource-types";
 import type { ResourceProviderProfileViewModel } from "./resources-view-model";
+import { SafeMaterialCommunityIcon } from "../icons/safe-material-community-icon";
 import { resourcesColors, resourcesShadow } from "./resources-theme";
 import { buildResourceProviderProfileViewModel } from "./resources-view-model";
 
-type ResourceIconName = React.ComponentProps<
-  typeof MaterialCommunityIcons
->["name"];
+type ResourceIconName = MaterialCommunityIconName;
 
 export interface ResourceProviderProfileProps {
   bottomInset?: number;
@@ -38,7 +37,7 @@ export interface ResourceProviderProfileProps {
 }
 
 export function ResourceProviderProfile({
-  bottomInset = 180,
+  bottomInset = 208,
   profile,
   reportFeedback,
   onContactAction,
@@ -683,7 +682,7 @@ function ResourceIcon({
   size?: number;
 }) {
   return (
-    <MaterialCommunityIcons
+    <SafeMaterialCommunityIcon
       accessibilityElementsHidden
       color={color}
       importantForAccessibility="no"

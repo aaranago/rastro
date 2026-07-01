@@ -25,7 +25,7 @@ import {
   validateMemberProfileSettingsDraft,
 } from "./member-profile";
 
-const bottomInset = 180;
+export const memberProfileSettingsBottomInset = 208;
 
 const contactPreferenceOptions = [
   {
@@ -100,9 +100,9 @@ export function MemberProfileSettingsScreen({
   return (
     <ScrollView
       contentContainerStyle={styles.content}
-      contentInset={{ bottom: bottomInset }}
+      contentInset={{ bottom: memberProfileSettingsBottomInset }}
       contentInsetAdjustmentBehavior="automatic"
-      scrollIndicatorInsets={{ bottom: bottomInset }}
+      scrollIndicatorInsets={{ bottom: memberProfileSettingsBottomInset }}
       style={styles.screen}
       testID="member-profile-settings-screen"
     >
@@ -608,7 +608,7 @@ const styles = StyleSheet.create({
   content: {
     gap: 16,
     padding: 20,
-    paddingBottom: bottomInset,
+    paddingBottom: memberProfileSettingsBottomInset,
   },
   eyebrow: {
     color: "#BFE4D7",

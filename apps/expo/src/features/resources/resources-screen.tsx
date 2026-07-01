@@ -1,5 +1,4 @@
 import type { LegendListRenderItemProps } from "@legendapp/list";
-import type { ComponentProps } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,7 +12,6 @@ import {
 } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LegendList } from "@legendapp/list";
 
 import type { ReportMapProviderState } from "../maps/report-map";
@@ -23,6 +21,7 @@ import type {
 } from "../nearby/nearby-location-adapter";
 import type { NearbySearchLocation } from "../nearby/nearby-types";
 import type { ResourceManualLocationOption } from "./resource-location-options";
+import type { MaterialCommunityIconName } from "../icons/safe-material-community-icon";
 import type {
   ResourceCategoryId,
   ResourceCoordinate,
@@ -40,6 +39,7 @@ import type {
   ResourcesAdapter,
 } from "./static-resources-adapter";
 import { getNativeMapProviderState } from "../maps/map-provider-config";
+import { SafeMaterialCommunityIcon } from "../icons/safe-material-community-icon";
 import { expoNearbyLocationAdapter } from "../nearby/nearby-expo-location-adapter";
 import {
   getResourceManualLocationMatches,
@@ -48,14 +48,13 @@ import {
 } from "./resource-location-options";
 import { ResourceProviderCard } from "./resource-provider-card";
 import { defaultApiResourcesAdapter } from "./resources-default-api-adapter";
+import { getResourcesScrollableBottomInset } from "./resources-layout";
 import { resourcesColors, resourcesShadow } from "./resources-theme";
 import { buildResourcesDirectoryViewModel } from "./resources-view-model";
 
 const defaultResourcesAdapter = defaultApiResourcesAdapter;
 
-type ResourceScreenIconName = ComponentProps<
-  typeof MaterialCommunityIcons
->["name"];
+type ResourceScreenIconName = MaterialCommunityIconName;
 
 type ResourceNoticeAction = NonNullable<
   NonNullable<ResourcesDirectoryViewModel["notice"]>["actions"]
@@ -204,7 +203,9 @@ export function ResourcesScreen({
   const listData = getVisibleResults(viewModel);
   const { width } = useWindowDimensions();
   const estimatedItemSize = width > 520 ? 132 : 156;
-  const listBottomInset = Math.max(safeAreaInsets.bottom + 168, 188);
+  const listBottomInset = getResourcesScrollableBottomInset(
+    safeAreaInsets.bottom,
+  );
   const manualLocationMatches = useMemo(
     () =>
       getResourceManualLocationMatches(manualSearchText, manualLocationOptions),
@@ -1352,7 +1353,7 @@ function ResourceScreenIcon({
   name: ResourceScreenIconName;
   size: number;
 }) {
-  return <MaterialCommunityIcons color={color} name={name} size={size} />;
+  return <SafeMaterialCommunityIcon color={color} name={name} size={size} />;
 }
 
 function toTestIdSegment(value: string) {

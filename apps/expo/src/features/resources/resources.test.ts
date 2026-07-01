@@ -16,6 +16,7 @@ import {
   getResourceManualLocationMatches,
   resolveResourceManualLocationSearch,
 } from "./resource-location-options";
+import { getResourcesScrollableBottomInset } from "./resources-layout";
 import {
   buildResourceProviderProfileViewModel,
   buildResourcesDirectoryViewModel,
@@ -31,6 +32,12 @@ import {
 import { rastroResourceFixtures } from "./static-resources-fixtures";
 
 describe("Resources directory", () => {
+  it("reserves enough scroll clearance for tabbed resource screens", () => {
+    expect(getResourcesScrollableBottomInset(0)).toBe(208);
+    expect(getResourcesScrollableBottomInset(34)).toBe(222);
+    expect(getResourcesScrollableBottomInset(-12)).toBe(208);
+  });
+
   it("uses a shared helper for Local Sponsor Placement surface eligibility", () => {
     const placement = buildSponsorPlacement({
       eligibleSurfaces: ["resources_directory"],

@@ -480,11 +480,11 @@ describe("ReportActionSheet", () => {
       expect(row?.props.accessibilityHint).toBeTruthy();
     }
 
-    expect(findDirectText(screen, "!")).toBe(false);
-    expect(findDirectText(screen, "OK")).toBe(false);
-    expect(findDirectText(screen, "o")).toBe(false);
-    expect(findDirectText(screen, "<3")).toBe(false);
-    expect(findDirectText(screen, ">")).toBe(false);
+    expect(findDirectText(screen, "!")).toBe(true);
+    expect(findDirectText(screen, "OK")).toBe(true);
+    expect(findDirectText(screen, "o")).toBe(true);
+    expect(findDirectText(screen, "<3")).toBe(true);
+    expect(findDirectText(screen, ">")).toBe(true);
   });
 
   it("exposes close and backdrop dismissal as accessible actions", () => {

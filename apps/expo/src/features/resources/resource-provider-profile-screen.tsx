@@ -15,25 +15,25 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import type {
   ResourceContactOption,
   ResourceProviderProfile as ResourceProviderProfileData,
   ResourceReportReason,
 } from "./resource-types";
+import type { MaterialCommunityIconName } from "../icons/safe-material-community-icon";
 import type { ResourcesAdapter } from "./static-resources-adapter";
+import { SafeMaterialCommunityIcon } from "../icons/safe-material-community-icon";
 import { trustSafetyReportReasonOptions } from "../trust-safety";
 import { ResourceProviderProfile } from "./resource-provider-profile";
 import { defaultApiResourcesAdapter } from "./resources-default-api-adapter";
+import { getResourcesScrollableBottomInset } from "./resources-layout";
 import { resourcesColors, resourcesShadow } from "./resources-theme";
 
 const defaultResourcesAdapter = defaultApiResourcesAdapter;
 const bottomInset = 36;
 
-type ProfileStateIconName = ComponentProps<
-  typeof MaterialCommunityIcons
->["name"];
+type ProfileStateIconName = MaterialCommunityIconName;
 
 type ProfileLoadState =
   | {
@@ -107,7 +107,9 @@ export function ResourceProviderProfileScreen({
   providerId,
 }: ResourceProviderProfileScreenProps) {
   const safeAreaInsets = useSafeAreaInsets();
-  const profileBottomInset = Math.max(safeAreaInsets.bottom + 168, 188);
+  const profileBottomInset = getResourcesScrollableBottomInset(
+    safeAreaInsets.bottom,
+  );
   const resolvedProviderId = useMemo(
     () => normalizeProviderId(providerId),
     [providerId],
@@ -450,7 +452,7 @@ function ResourceProviderProfileStateScreen({
     >
       <View style={styles.statePanel}>
         <View style={styles.stateIcon}>
-          <MaterialCommunityIcons
+          <SafeMaterialCommunityIcon
             color={resourcesColors.primary}
             name={iconName}
             size={30}

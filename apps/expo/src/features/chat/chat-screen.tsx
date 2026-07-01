@@ -3,9 +3,8 @@ import * as React from "react";
 import {
   ActivityIndicator,
   FlatList,
-  KeyboardAvoidingView,
+  Keyboard,
   Linking,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -83,6 +82,15 @@ export interface OpenChatSubjectHrefInput {
 }
 
 const defaultPollIntervalMs = 30000;
+const chatComposerBasePadding = 12;
+const chatComposerTabMargin = 208;
+const chatListTabPadding = 304;
+const chatListKeyboardPadding = 132;
+const chatMinimumComposerTabMargin = 208;
+const chatMinimumComposerTabPadding = 12;
+const chatMinimumComposerKeyboardMargin = 24;
+const chatMinimumListTabInset = 304;
+const chatMinimumListKeyboardInset = 180;
 const messageTimeFormatter = new Intl.DateTimeFormat("es-BO", {
   hour: "2-digit",
   minute: "2-digit",
@@ -166,8 +174,12 @@ export function ChatScreen({
 }: ChatScreenProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const listBottomInset = Math.max(insets.bottom + 156, 180);
-  const composerBottomPadding = Math.max(insets.bottom + 84, 104);
+  const [keyboardBottomInset, setKeyboardBottomInset] = React.useState(0);
+  const { composerBottomMargin, composerBottomPadding, listBottomInset } =
+    getChatComposerLayoutInsets({
+      bottomSafeAreaInset: insets.bottom,
+      keyboardBottomInset,
+    });
   const [conversation, setConversation] = React.useState<
     ChatScreenConversation | null | undefined
   >(initialConversation);
@@ -175,6 +187,20 @@ export function ChatScreen({
   const [errorLabel, setErrorLabel] = React.useState<string | undefined>();
   const [isRefreshing, setIsRefreshing] = React.useState(!initialConversation);
   const [isSending, setIsSending] = React.useState(false);
+
+  React.useEffect(() => {
+    const showSubscription = Keyboard.addListener("keyboardDidShow", (event) => {
+      setKeyboardBottomInset(Math.max(event.endCoordinates.height, 0));
+    });
+    const hideSubscription = Keyboard.addListener("keyboardDidHide", () => {
+      setKeyboardBottomInset(0);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   const refreshConversation = React.useCallback(
     async ({ silent = false }: { silent?: boolean } = {}) => {
@@ -382,11 +408,7 @@ export function ChatScreen({
   const canSend = draftMessage.trim().length > 0 && !!conversation;
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={styles.screen}
-      testID="chat-screen"
-    >
+    <View style={styles.screen} testID="chat-screen">
       <FlatList
         testID="chat-message-list"
         ListEmptyComponent={
@@ -421,7 +443,15 @@ export function ChatScreen({
         scrollIndicatorInsets={{ bottom: listBottomInset }}
         style={styles.list}
       />
-      <View style={[styles.composer, { paddingBottom: composerBottomPadding }]}>
+      <View
+        style={[
+          styles.composer,
+          {
+            marginBottom: composerBottomMargin,
+            paddingBottom: composerBottomPadding,
+          },
+        ]}
+      >
         <TextInput
           accessibilityLabel="Mensaje"
           maxFontSizeMultiplier={1.2}
@@ -457,7 +487,7 @@ export function ChatScreen({
           )}
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -497,6 +527,49 @@ export function openChatSubjectHref({
     openExternalUrl,
     routerPush,
   });
+}
+
+export function getChatComposerLayoutInsets({
+  bottomSafeAreaInset,
+  keyboardBottomInset,
+}: {
+  bottomSafeAreaInset: number;
+  keyboardBottomInset: number;
+}) {
+  const safeBottomInset = Math.max(bottomSafeAreaInset, 0);
+  const safeKeyboardInset = Math.max(keyboardBottomInset, 0);
+
+  if (safeKeyboardInset > 0) {
+    return {
+      composerBottomMargin: Math.max(
+        safeKeyboardInset,
+        chatMinimumComposerKeyboardMargin,
+      ),
+      composerBottomPadding: Math.max(
+        safeBottomInset + chatComposerBasePadding,
+        chatMinimumComposerTabPadding,
+      ),
+      listBottomInset: Math.max(
+        safeKeyboardInset + chatListKeyboardPadding,
+        chatMinimumListKeyboardInset,
+      ),
+    };
+  }
+
+  return {
+    composerBottomMargin: Math.max(
+      safeBottomInset + chatComposerTabMargin,
+      chatMinimumComposerTabMargin,
+    ),
+    composerBottomPadding: Math.max(
+      safeBottomInset + chatComposerBasePadding,
+      chatMinimumComposerTabPadding,
+    ),
+    listBottomInset: Math.max(
+      safeBottomInset + chatListTabPadding,
+      chatMinimumListTabInset,
+    ),
+  };
 }
 
 function ChatHeader({
