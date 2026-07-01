@@ -71,6 +71,10 @@ vi.mock("react-native", () => ({
   View: "View",
 }));
 
+vi.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ bottom: 0, left: 0, right: 0, top: 0 }),
+}));
+
 vi.mock("../shell/shell-overlays", () => ({
   ShellIcon: "ShellIcon",
 }));
@@ -134,7 +138,7 @@ describe("AlertSubscriptionSettingsScreen backend behavior", () => {
     expect(repository.registerPushToken).not.toHaveBeenCalled();
     expect(feedback).toEqual({
       message:
-        "Alertas activas. Falta configurar EAS projectId para probar push real.",
+        "Tu suscripción quedó activa. Falta configurar EAS projectId para probar push real.",
       tone: "warning",
     });
   });
@@ -166,7 +170,7 @@ describe("AlertSubscriptionSettingsScreen backend behavior", () => {
       token: "ExponentPushToken[abc123]",
     });
     expect(feedback).toEqual({
-      message: "Alertas activas y notificaciones listas.",
+      message: "Suscripción activa y notificaciones listas.",
       tone: "success",
     });
   });
@@ -188,10 +192,12 @@ describe("AlertSubscriptionSettingsScreen backend behavior", () => {
     expect(repository.getAlertSubscription).toHaveBeenCalledWith(member);
     expect(findText(screen, "Alertas activas")).toBe(true);
     expect(findText(screen, "Pausar alertas")).toBe(true);
-    expect(findText(screen, "Desuscribirme")).toBe(true);
+    expect(findText(screen, "Dejar de recibir alertas")).toBe(true);
 
     await getPressableOnPress(findPressableByText(screen, "Pausar alertas"))();
-    await getPressableOnPress(findPressableByText(screen, "Desuscribirme"))();
+    await getPressableOnPress(
+      findPressableByText(screen, "Dejar de recibir alertas"),
+    )();
 
     expect(repository.pauseAlertSubscription).toHaveBeenCalledWith(member);
     expect(repository.unsubscribeAlertSubscription).toHaveBeenCalledWith(
@@ -228,7 +234,7 @@ describe("AlertSubscriptionSettingsScreen backend behavior", () => {
     expect(
       findText(
         screen,
-        "Alertas activas, pero no pudimos activar notificaciones push. Intenta actualizar las alertas mas tarde.",
+        "Tu suscripción quedó activa, pero este dispositivo todavía no puede recibir notificaciones. Reintenta cuando los permisos o el proyecto Expo estén listos.",
       ),
     ).toBe(true);
   });

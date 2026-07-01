@@ -80,15 +80,18 @@ export const ResourceProviderCard = memo(function ResourceProviderCard({
           name={name}
         />
 
-        <Text selectable numberOfLines={1} style={styles.location}>
+        <Text ellipsizeMode="tail" numberOfLines={1} style={styles.location}>
           {locationLabel}
         </Text>
         <ProviderServiceArea label={serviceAreaLabel} />
 
-        <ProviderBadgeRow
+        <ProviderMetaLine
           availabilityLabel={availabilityLabel}
           categoryLabel={categoryLabel}
           emergencyLabel={emergencyLabel}
+        />
+
+        <ProviderTrustBadges
           isSponsored={isSponsored}
           isVerified={isVerified}
           sponsorLabel={sponsorLabel}
@@ -172,7 +175,7 @@ function ProviderServiceArea({ label }: { label?: string }) {
   }
 
   return (
-    <Text selectable numberOfLines={2} style={styles.serviceArea}>
+    <Text ellipsizeMode="tail" numberOfLines={1} style={styles.serviceArea}>
       Cobertura: {label}
     </Text>
   );
@@ -208,10 +211,10 @@ function ProviderCardHeader({
   return (
     <View style={styles.topRow}>
       <View style={styles.titleColumn}>
-        <Text selectable numberOfLines={2} style={styles.name}>
+        <Text ellipsizeMode="tail" numberOfLines={2} style={styles.name}>
           {name}
         </Text>
-        <Text selectable numberOfLines={1} style={styles.description}>
+        <Text ellipsizeMode="tail" numberOfLines={1} style={styles.description}>
           {description}
         </Text>
       </View>
@@ -312,32 +315,56 @@ function DistancePill({ label }: { label: string }) {
   );
 }
 
-function ProviderBadgeRow({
+function ProviderMetaLine({
   availabilityLabel,
   categoryLabel,
   emergencyLabel,
-  isSponsored,
-  isVerified,
-  sponsorLabel,
 }: {
   availabilityLabel?: string;
   categoryLabel: string;
   emergencyLabel?: string;
+}) {
+  const labels = [categoryLabel, emergencyLabel, availabilityLabel].filter(
+    Boolean,
+  );
+
+  if (!labels.length) {
+    return null;
+  }
+
+  return (
+    <View style={styles.metaLine}>
+      <ResourceIcon
+        color={resourcesColors.primary}
+        name={getProviderIconName(categoryLabel)}
+        size={14}
+      />
+      <Text ellipsizeMode="tail" numberOfLines={1} style={styles.metaText}>
+        {labels.join(" · ")}
+      </Text>
+    </View>
+  );
+}
+
+function ProviderTrustBadges({
+  isSponsored,
+  isVerified,
+  sponsorLabel,
+}: {
   isSponsored: boolean;
   isVerified: boolean;
   sponsorLabel?: string;
 }) {
+  if (!isSponsored && !isVerified) {
+    return null;
+  }
+
   return (
-    <View style={styles.badgeRow}>
-      <Badge label={categoryLabel} tone="neutral" />
+    <View style={styles.trustBadgeRow}>
       {isSponsored ? (
         <SponsorBadge label={sponsorLabel ?? "Patrocinado"} />
       ) : null}
       {isVerified ? <VerificationBadge /> : null}
-      {emergencyLabel ? <Badge label={emergencyLabel} tone="blue" /> : null}
-      {availabilityLabel ? (
-        <Badge label={availabilityLabel} tone="green" />
-      ) : null}
     </View>
   );
 }
@@ -419,7 +446,7 @@ function Badge({
   iconName,
 }: {
   label: string;
-  tone: "neutral" | "blue" | "green" | "sponsor";
+  tone: "blue" | "sponsor";
   iconName?: ResourceIconName;
 }) {
   return (
@@ -472,21 +499,13 @@ function getProviderIconName(categoryLabel: string): ResourceIconName {
 }
 
 const badgeTextColors = {
-  neutral: resourcesColors.primary,
   blue: resourcesColors.tertiary,
-  green: resourcesColors.secondary,
   sponsor: resourcesColors.primary,
 };
 
 const badgeToneStyles = StyleSheet.create({
-  neutral: {
-    backgroundColor: resourcesColors.primarySoft,
-  },
   blue: {
     backgroundColor: "#E1EFF5",
-  },
-  green: {
-    backgroundColor: "#E7F3EB",
   },
   sponsor: {
     backgroundColor: resourcesColors.warningSoft,
@@ -496,12 +515,12 @@ const badgeToneStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
-    gap: 14,
+    gap: 12,
     borderWidth: 1,
     borderColor: resourcesColors.border,
     borderRadius: 18,
     borderCurve: "continuous",
-    padding: 14,
+    padding: 12,
     backgroundColor: resourcesColors.surface,
     boxShadow: resourcesShadow.soft,
   },
@@ -528,7 +547,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    gap: 8,
+    gap: 6,
     minWidth: 0,
   },
   topRow: {
@@ -542,25 +561,25 @@ const styles = StyleSheet.create({
   },
   name: {
     color: resourcesColors.text,
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 17,
+    lineHeight: 21,
     fontWeight: "800",
   },
   description: {
     color: resourcesColors.primary,
-    fontSize: 14,
-    lineHeight: 19,
+    fontSize: 13,
+    lineHeight: 17,
     fontWeight: "600",
   },
   location: {
     color: resourcesColors.muted,
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 17,
   },
   serviceArea: {
     color: resourcesColors.text,
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 17,
     fontWeight: "600",
   },
   sponsorDisclosure: {
@@ -585,7 +604,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontVariant: ["tabular-nums"],
   },
-  badgeRow: {
+  metaLine: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 5,
+    minWidth: 0,
+  },
+  metaText: {
+    color: resourcesColors.primary,
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 16,
+  },
+  trustBadgeRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 6,
@@ -595,8 +627,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
     borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
   },
   badgeText: {
     fontSize: 12,
@@ -644,13 +676,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",
-    gap: 7,
+    gap: 6,
   },
   contactPill: {
     borderRadius: 999,
     backgroundColor: resourcesColors.surfaceMuted,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
   },
   contactText: {
     color: resourcesColors.primary,
@@ -659,14 +691,14 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   reportButton: {
-    minHeight: 32,
+    minHeight: 28,
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     justifyContent: "center",
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
   },
   reportText: {
     color: resourcesColors.muted,

@@ -1,6 +1,7 @@
 import type { Href } from "expo-router";
 import * as React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Link } from "expo-router";
 
 import type {
@@ -222,18 +223,27 @@ export function ProfileScreen() {
     session,
     signOutMember,
   } = useRastroShell();
+  const safeAreaInsets = useSafeAreaInsets();
   const screen = copy.screens.profile;
   const profile = React.useMemo(
     () => createShellProfileModel({ copy, session }),
     [copy, session],
   );
 
+  const bottomInset = shellScreenBottomInset + safeAreaInsets.bottom;
+
   return (
     <ScrollView
-      contentContainerStyle={styles.screenContent}
-      contentInset={{ bottom: shellScreenBottomInset }}
+      contentContainerStyle={[
+        styles.screenContent,
+        {
+          paddingBottom: bottomInset,
+          paddingTop: Math.max(18, safeAreaInsets.top + 12),
+        },
+      ]}
+      contentInset={{ bottom: bottomInset }}
       contentInsetAdjustmentBehavior="automatic"
-      scrollIndicatorInsets={{ bottom: shellScreenBottomInset }}
+      scrollIndicatorInsets={{ bottom: bottomInset }}
       style={styles.screen}
       testID="profile-screen"
     >

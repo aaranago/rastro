@@ -14,6 +14,7 @@ import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LegendList } from "@legendapp/list";
 
+import type { MaterialCommunityIconName } from "../icons/safe-material-community-icon";
 import type { ReportMapProviderState } from "../maps/report-map";
 import type {
   NearbyForegroundLocationResult,
@@ -21,7 +22,6 @@ import type {
 } from "../nearby/nearby-location-adapter";
 import type { NearbySearchLocation } from "../nearby/nearby-types";
 import type { ResourceManualLocationOption } from "./resource-location-options";
-import type { MaterialCommunityIconName } from "../icons/safe-material-community-icon";
 import type {
   ResourceCategoryId,
   ResourceCoordinate,
@@ -38,8 +38,8 @@ import type {
   ResourceProviderDirectoryResult,
   ResourcesAdapter,
 } from "./static-resources-adapter";
-import { getNativeMapProviderState } from "../maps/map-provider-config";
 import { SafeMaterialCommunityIcon } from "../icons/safe-material-community-icon";
+import { getNativeMapProviderState } from "../maps/map-provider-config";
 import { expoNearbyLocationAdapter } from "../nearby/nearby-expo-location-adapter";
 import {
   getResourceManualLocationMatches,
@@ -309,11 +309,11 @@ export function ResourcesScreen({
 
   const handleToggleCategory = useCallback((categoryId: ResourceCategoryId) => {
     setSelectedCategoryIds((current) => {
-      if (current.includes(categoryId)) {
-        return current.filter((id) => id !== categoryId);
+      if (current.length === 1 && current[0] === categoryId) {
+        return [];
       }
 
-      return [...current, categoryId];
+      return [categoryId];
     });
   }, []);
 
@@ -425,7 +425,10 @@ export function ResourcesScreen({
         }
         contentContainerStyle={[
           styles.listContent,
-          { paddingBottom: listBottomInset },
+          {
+            paddingBottom: listBottomInset,
+            paddingTop: Math.max(16, safeAreaInsets.top + 10),
+          },
         ]}
         contentInsetAdjustmentBehavior="automatic"
         refreshing={status === "loading"}
@@ -504,9 +507,7 @@ function ResourcesHeader({
         onUseCurrentLocationPress={onUseCurrentLocationPress}
       />
 
-      <DirectoryPresentation viewModel={viewModel} />
-
-      <SearchBoundaryPanel viewModel={viewModel} />
+      <ResourcesTrustSummary viewModel={viewModel} />
 
       <ResourcesModeSelector activeMode={mode} onModeChange={onModeChange} />
       <ResourceCategoryFilterRow
@@ -765,23 +766,17 @@ function ResourceCategoryFilterRow({
             Todos
           </Text>
         </Pressable>
-        <ScrollView
-          horizontal
-          contentContainerStyle={styles.categoryListContent}
-          showsHorizontalScrollIndicator={false}
-        >
+        <View style={styles.categoryList}>
           {categories.map((category) => (
-            <View key={category.id} style={styles.categoryChipWrap}>
-              <CategoryChip
-                id={category.id}
-                label={category.label}
-                isSelected={category.isSelected}
-                onToggleCategory={onToggleCategory}
-              />
-              <CategorySeparator />
-            </View>
+            <CategoryChip
+              key={category.id}
+              id={category.id}
+              label={category.label}
+              isSelected={category.isSelected}
+              onToggleCategory={onToggleCategory}
+            />
           ))}
-        </ScrollView>
+        </View>
       </View>
 
       <Text selectable style={styles.resultSummary}>
@@ -791,55 +786,25 @@ function ResourceCategoryFilterRow({
   );
 }
 
-function DirectoryPresentation({
+function ResourcesTrustSummary({
   viewModel,
 }: {
   viewModel: ResourcesDirectoryViewModel;
 }) {
+  const accessCopy = viewModel.access.requiresSignIn
+    ? "Algunas acciones requieren iniciar sesión."
+    : "Puedes consultarlos sin iniciar sesión.";
+
   return (
     <View style={styles.directoryPanel}>
       <View style={styles.directoryHeaderRow}>
         <Text selectable style={styles.directoryLabel}>
           {viewModel.presentation.sectionLabel}
         </Text>
-        <Text selectable style={styles.directoryAccessLabel}>
-          {viewModel.access.requiresSignIn
-            ? "Requiere iniciar sesión"
-            : "Disponible sin iniciar sesión"}
-        </Text>
       </View>
-      <Text selectable style={styles.directoryTitle}>
-        {viewModel.presentation.resultKindLabel}
-      </Text>
       <Text selectable style={styles.directoryBody}>
-        {viewModel.presentation.recoverySeparationCopy}
-      </Text>
-    </View>
-  );
-}
-
-function SearchBoundaryPanel({
-  viewModel,
-}: {
-  viewModel: ResourcesDirectoryViewModel;
-}) {
-  return (
-    <View style={styles.boundaryPanel}>
-      <View style={styles.boundaryTitleRow}>
-        <ResourceScreenIcon
-          color={resourcesColors.tertiary}
-          name="crosshairs-gps"
-          size={16}
-        />
-        <Text selectable style={styles.boundaryTitle}>
-          {viewModel.searchBoundary.title}
-        </Text>
-      </View>
-      <Text selectable style={styles.boundaryBody}>
-        {viewModel.searchBoundary.body}
-      </Text>
-      <Text selectable style={styles.boundaryPrecision}>
-        {viewModel.searchBoundary.precisionLabel}
+        {accessCopy} Lista y mapa usan el mismo radio de Rastro con zonas
+        aproximadas; no cambian la prioridad de recuperación.
       </Text>
     </View>
   );
@@ -1340,10 +1305,6 @@ function ProviderSeparator() {
   return <View style={styles.providerSeparator} />;
 }
 
-function CategorySeparator() {
-  return <View style={styles.categorySeparator} />;
-}
-
 function ResourceScreenIcon({
   color,
   name,
@@ -1552,7 +1513,7 @@ const styles = StyleSheet.create({
   },
   searchSuggestionsContent: {
     gap: 8,
-    paddingRight: 2,
+    paddingRight: 16,
   },
   searchSuggestionChip: {
     alignItems: "center",
@@ -1587,7 +1548,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: resourcesColors.border,
     backgroundColor: resourcesColors.surface,
-    padding: 14,
+    padding: 12,
     boxShadow: resourcesShadow.soft,
   },
   directoryHeaderRow: {
@@ -1607,22 +1568,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 5,
   },
-  directoryAccessLabel: {
-    color: resourcesColors.secondary,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "800",
-  },
-  directoryTitle: {
-    color: resourcesColors.text,
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: "900",
-  },
   directoryBody: {
     color: resourcesColors.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
   },
   boundaryPanel: {
     gap: 7,
@@ -1714,19 +1663,22 @@ const styles = StyleSheet.create({
   },
   categoriesBlock: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
+    flexWrap: "wrap",
     gap: 8,
   },
   categorySection: {
     gap: 8,
   },
-  categoryListContent: {
-    paddingRight: 2,
-  },
-  categoryChipWrap: {
+  categoryList: {
     flexDirection: "row",
+    flexWrap: "wrap",
+    flexShrink: 1,
+    gap: 8,
+    minWidth: 0,
   },
   categoryChip: {
+    flexShrink: 0,
     minHeight: 40,
     justifyContent: "center",
     borderRadius: 999,
@@ -1751,9 +1703,6 @@ const styles = StyleSheet.create({
   },
   providerSeparator: {
     height: 12,
-  },
-  categorySeparator: {
-    width: 8,
   },
   resultSummary: {
     color: resourcesColors.primary,

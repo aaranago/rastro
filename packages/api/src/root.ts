@@ -4,6 +4,7 @@ import { alertsRouter } from "./router/alerts";
 import { authRouter } from "./router/auth";
 import { chatRouter } from "./router/chat";
 import { memberProfileRouter } from "./router/member-profile";
+import { petProfilesRouter } from "./router/pet-profiles";
 import { postRouter } from "./router/post";
 import { reportRouter } from "./router/report";
 import { resourcesRouter } from "./router/resources";
@@ -16,6 +17,7 @@ export const appRouter = createTRPCRouter({
   auth: authRouter,
   chat: chatRouter,
   memberProfile: memberProfileRouter,
+  petProfiles: petProfilesRouter,
   post: postRouter,
   report: reportRouter,
   resources: resourcesRouter,

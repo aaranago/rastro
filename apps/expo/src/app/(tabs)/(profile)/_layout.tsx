@@ -16,8 +16,11 @@ export default function ProfileStackLayout() {
         headerTintColor: shellColors.primary,
       }}
     >
-      <Stack.Screen name="index" options={{ title: copy.tabs.profile }} />
-      <Stack.Screen name="mis-mascotas" options={{ title: "Mis mascotas" }} />
+      <Stack.Screen
+        name="index"
+        options={{ headerShown: false, title: copy.tabs.profile }}
+      />
+      <Stack.Screen name="mis-mascotas" options={{ title: "" }} />
       <Stack.Screen name="alertas" options={{ title: "Alertas" }} />
       <Stack.Screen name="ajustes" options={{ title: "Ajustes" }} />
     </Stack>

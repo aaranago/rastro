@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { LegendList } from "@legendapp/list";
 
@@ -110,6 +111,7 @@ function useNearbyScreenController({
     NearbyCoordinates | undefined
   >();
   const [isManualMapPickerOpen, setIsManualMapPickerOpen] = useState(false);
+  const [isLocationChooserOpen, setIsLocationChooserOpen] = useState(false);
   const [manualMapCoordinate, setManualMapCoordinate] =
     useState<NearbyCoordinates>(defaultManualMapCoordinate);
   const [reloadKey, setReloadKey] = useState(0);
@@ -229,6 +231,7 @@ function useNearbyScreenController({
           searchLocation?.coordinates ?? defaultManualMapCoordinate,
         );
         setIsManualMapPickerOpen(true);
+        setIsLocationChooserOpen(true);
 
         return;
       }
@@ -237,6 +240,10 @@ function useNearbyScreenController({
         setInternalLocationState(
           applyManualNearbySearchLocation(selectedLocation),
         );
+      }
+
+      if (selectedLocation) {
+        setIsLocationChooserOpen(false);
       }
 
       onManualLocationPress?.(selectedLocation);
@@ -253,6 +260,7 @@ function useNearbyScreenController({
       }
 
       setIsManualMapPickerOpen(false);
+      setIsLocationChooserOpen(false);
       onManualLocationPress?.(selectedLocation);
     },
     [locationState, onManualLocationPress],
@@ -274,10 +282,15 @@ function useNearbyScreenController({
       if (!locationState) {
         setInternalLocationState(nextLocationState);
       }
+      setIsLocationChooserOpen(false);
     } finally {
       setIsResolvingLocation(false);
     }
   }, [locationAdapter, locationState]);
+
+  const handleToggleLocationChooser = useCallback(() => {
+    setIsLocationChooserOpen((isOpen) => !isOpen);
+  }, []);
 
   const handleReportPress = useCallback(
     (reportId: string) => {
@@ -328,6 +341,8 @@ function useNearbyScreenController({
     handleMapRecenter,
     handleRetry,
     handleUseCurrentLocationPress,
+    handleToggleLocationChooser,
+    isLocationChooserOpen,
     isResolvingLocation,
     isManualMapPickerOpen,
     manualMapCoordinate,
@@ -359,7 +374,9 @@ function NearbyScreenContent({
   handleManualMapPinConfirm,
   handleMapRecenter,
   handleRetry,
+  handleToggleLocationChooser,
   handleUseCurrentLocationPress,
+  isLocationChooserOpen,
   isManualMapPickerOpen,
   isResolvingLocation,
   manualMapCoordinate,
@@ -381,12 +398,17 @@ function NearbyScreenContent({
   setSelectedReportId,
   viewModel,
 }: ReturnType<typeof useNearbyScreenController>) {
+  const safeAreaInsets = useSafeAreaInsets();
+  const topInset = Math.max(16, safeAreaInsets.top + 8);
+  const bottomInset = 156 + safeAreaInsets.bottom;
+
   if (
     viewModel.kind === "location-denied" ||
     viewModel.kind === "location-needed"
   ) {
     return (
       <LocationFallbackState
+        bottomInset={bottomInset}
         isManualMapPickerOpen={isManualMapPickerOpen}
         isResolvingLocation={isResolvingLocation}
         manualMapCoordinate={manualMapCoordinate}
@@ -397,6 +419,7 @@ function NearbyScreenContent({
         onManualMapCoordinateChange={setManualMapCoordinate}
         onManualLocationPress={handleManualLocationPress}
         onUseCurrentLocationPress={handleUseCurrentLocationPress}
+        topInset={topInset}
         viewModel={viewModel}
       />
     );
@@ -405,15 +428,31 @@ function NearbyScreenContent({
   if (viewModel.mode === "map" && viewModel.kind === "ready") {
     return (
       <ScrollView
-        contentContainerStyle={styles.mapContent}
+        contentContainerStyle={[
+          styles.mapContent,
+          { paddingBottom: bottomInset, paddingTop: topInset },
+        ]}
+        contentInset={{ bottom: bottomInset }}
         contentInsetAdjustmentBehavior="automatic"
+        scrollIndicatorInsets={{ bottom: bottomInset }}
         style={styles.screen}
       >
         <Header
+          isLocationChooserOpen={isLocationChooserOpen}
+          isManualMapPickerOpen={isManualMapPickerOpen}
+          isResolvingLocation={isResolvingLocation}
+          manualLocationOptions={manualLocationOptions}
+          manualMapCoordinate={manualMapCoordinate}
           mode={mode}
           onCategoryToggle={handleCategoryToggle}
+          onManualLocationPress={handleManualLocationPress}
+          onManualMapCoordinateChange={setManualMapCoordinate}
+          onManualMapPinCancel={handleManualMapPinCancel}
+          onManualMapPinConfirm={handleManualMapPinConfirm}
           onModeChange={setMode}
           onRadiusChange={setRadiusKm}
+          onToggleLocationChooser={handleToggleLocationChooser}
+          onUseCurrentLocationPress={handleUseCurrentLocationPress}
           radiusKm={radiusKm}
           reportFeedback={reportFeedback}
           selectedCategories={selectedCategories}
@@ -443,7 +482,10 @@ function NearbyScreenContent({
 
   return (
     <LegendList
-      contentContainerStyle={styles.listContent}
+      contentContainerStyle={[
+        styles.listContent,
+        { paddingBottom: bottomInset, paddingTop: topInset },
+      ]}
       contentInsetAdjustmentBehavior="automatic"
       data={viewModel.kind === "ready" ? viewModel.cards : []}
       estimatedItemSize={280}
@@ -452,11 +494,22 @@ function NearbyScreenContent({
       ListEmptyComponent={content}
       ListHeaderComponent={
         <Header
+          isLocationChooserOpen={isLocationChooserOpen}
+          isManualMapPickerOpen={isManualMapPickerOpen}
+          isResolvingLocation={isResolvingLocation}
+          manualLocationOptions={manualLocationOptions}
+          manualMapCoordinate={manualMapCoordinate}
           mode={mode}
           onCategoryToggle={handleCategoryToggle}
           onEnableAlerts={onEnableAlerts}
+          onManualLocationPress={handleManualLocationPress}
+          onManualMapCoordinateChange={setManualMapCoordinate}
+          onManualMapPinCancel={handleManualMapPinCancel}
+          onManualMapPinConfirm={handleManualMapPinConfirm}
           onModeChange={setMode}
           onRadiusChange={setRadiusKm}
+          onToggleLocationChooser={handleToggleLocationChooser}
+          onUseCurrentLocationPress={handleUseCurrentLocationPress}
           radiusKm={radiusKm}
           reportFeedback={reportFeedback}
           selectedCategories={selectedCategories}
@@ -464,6 +517,7 @@ function NearbyScreenContent({
         />
       }
       renderItem={renderCard}
+      scrollIndicatorInsets={{ bottom: bottomInset }}
       style={styles.screen}
     />
   );
@@ -475,11 +529,22 @@ type NearbyHeaderViewModel = Exclude<
 >;
 
 interface HeaderProps {
+  isLocationChooserOpen: boolean;
+  isManualMapPickerOpen: boolean;
+  isResolvingLocation: boolean;
+  manualLocationOptions: readonly NearbySearchLocation[];
+  manualMapCoordinate: NearbyCoordinates;
   mode: NearbyBrowseMode;
   onCategoryToggle: (category: NearbyPublicReportKind) => void;
   onEnableAlerts?: () => void;
+  onManualLocationPress: (selectedLocation?: NearbySearchLocation) => void;
+  onManualMapCoordinateChange: (coordinate: NearbyCoordinates) => void;
+  onManualMapPinCancel: () => void;
+  onManualMapPinConfirm: (selectedLocation: NearbySearchLocation) => void;
   onModeChange: (mode: NearbyBrowseMode) => void;
   onRadiusChange: (radiusKm: NearbyRadiusKm) => void;
+  onToggleLocationChooser: () => void;
+  onUseCurrentLocationPress: () => void;
   radiusKm: NearbyRadiusKm;
   reportFeedback?: string;
   selectedCategories: readonly NearbyPublicReportKind[];
@@ -487,11 +552,22 @@ interface HeaderProps {
 }
 
 function Header({
+  isLocationChooserOpen,
+  isManualMapPickerOpen,
+  isResolvingLocation,
+  manualLocationOptions,
+  manualMapCoordinate,
   mode,
   onCategoryToggle,
   onEnableAlerts,
+  onManualLocationPress,
+  onManualMapCoordinateChange,
+  onManualMapPinCancel,
+  onManualMapPinConfirm,
   onModeChange,
   onRadiusChange,
+  onToggleLocationChooser,
+  onUseCurrentLocationPress,
   radiusKm,
   reportFeedback,
   selectedCategories,
@@ -500,34 +576,55 @@ function Header({
   return (
     <View style={styles.header}>
       <HeaderContextRow
+        isLocationChooserOpen={isLocationChooserOpen}
         onEnableAlerts={onEnableAlerts}
+        onToggleLocationChooser={onToggleLocationChooser}
         radiusKm={radiusKm}
         viewModel={viewModel}
       />
+      {isLocationChooserOpen ? (
+        <ReadyLocationChooser
+          isManualMapPickerOpen={isManualMapPickerOpen}
+          isResolvingLocation={isResolvingLocation}
+          manualLocationOptions={manualLocationOptions}
+          manualMapCoordinate={manualMapCoordinate}
+          onManualLocationPress={onManualLocationPress}
+          onManualMapCoordinateChange={onManualMapCoordinateChange}
+          onManualMapPinCancel={onManualMapPinCancel}
+          onManualMapPinConfirm={onManualMapPinConfirm}
+          onUseCurrentLocationPress={onUseCurrentLocationPress}
+        />
+      ) : null}
       <HeaderStatusMessages
         reportFeedback={reportFeedback}
         viewModel={viewModel}
       />
       <View style={styles.controls}>
-        <ModeSwitch mode={mode} onModeChange={onModeChange} />
-        <FilterStrip
-          onCategoryToggle={onCategoryToggle}
+        <RadiusControl
           onRadiusChange={onRadiusChange}
           radiusKm={radiusKm}
           radiusOptionsKm={viewModel.radiusOptionsKm}
+        />
+        <CategoryFilterStrip
+          onCategoryToggle={onCategoryToggle}
           selectedCategories={selectedCategories}
         />
+        <ModeSwitch mode={mode} onModeChange={onModeChange} />
       </View>
     </View>
   );
 }
 
 function HeaderContextRow({
+  isLocationChooserOpen,
   onEnableAlerts,
+  onToggleLocationChooser,
   radiusKm,
   viewModel,
 }: {
+  isLocationChooserOpen: boolean;
   onEnableAlerts?: () => void;
+  onToggleLocationChooser: () => void;
   radiusKm: NearbyRadiusKm;
   viewModel: NearbyHeaderViewModel;
 }) {
@@ -544,15 +641,97 @@ function HeaderContextRow({
           Radio de {radiusKm} km
         </Text>
       </View>
-      {onEnableAlerts ? (
+      <View style={styles.contextActions}>
         <Pressable
-          accessibilityLabel="Activar alertas cercanas"
+          accessibilityLabel={
+            isLocationChooserOpen
+              ? "Ocultar cambio de ubicación"
+              : "Cambiar ubicación de búsqueda"
+          }
           accessibilityRole="button"
-          onPress={onEnableAlerts}
-          style={styles.alertIconButton}
+          onPress={onToggleLocationChooser}
+          style={styles.changeLocationButton}
+          testID="nearby-change-location-button"
         >
-          <Text style={styles.alertIconText}>!</Text>
+          <Text style={styles.changeLocationText}>
+            {isLocationChooserOpen ? "Listo" : "Cambiar zona"}
+          </Text>
         </Pressable>
+        {onEnableAlerts ? (
+          <Pressable
+            accessibilityLabel="Activar alertas cercanas"
+            accessibilityRole="button"
+            onPress={onEnableAlerts}
+            style={styles.alertIconButton}
+          >
+            <Text style={styles.alertIconText}>!</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function ReadyLocationChooser({
+  isManualMapPickerOpen,
+  isResolvingLocation,
+  manualLocationOptions,
+  manualMapCoordinate,
+  onManualLocationPress,
+  onManualMapCoordinateChange,
+  onManualMapPinCancel,
+  onManualMapPinConfirm,
+  onUseCurrentLocationPress,
+}: {
+  isManualMapPickerOpen: boolean;
+  isResolvingLocation: boolean;
+  manualLocationOptions: readonly NearbySearchLocation[];
+  manualMapCoordinate: NearbyCoordinates;
+  onManualLocationPress: (selectedLocation?: NearbySearchLocation) => void;
+  onManualMapCoordinateChange: (coordinate: NearbyCoordinates) => void;
+  onManualMapPinCancel: () => void;
+  onManualMapPinConfirm: (selectedLocation: NearbySearchLocation) => void;
+  onUseCurrentLocationPress: () => void;
+}) {
+  return (
+    <View style={styles.locationChooser} testID="nearby-location-chooser">
+      <Pressable
+        accessibilityRole="button"
+        disabled={isResolvingLocation}
+        onPress={onUseCurrentLocationPress}
+        style={[
+          styles.locationChooserPrimary,
+          isResolvingLocation ? styles.locationChooserDisabled : null,
+        ]}
+        testID="nearby-use-current-location"
+      >
+        <Text style={styles.locationChooserPrimaryText}>
+          {isResolvingLocation ? "Buscando ubicación" : "Usar mi ubicación"}
+        </Text>
+      </Pressable>
+      <View style={styles.readyManualOptions}>
+        {manualLocationOptions.map((option) => (
+          <Pressable
+            accessibilityRole="button"
+            key={option.label}
+            onPress={() => onManualLocationPress(option)}
+            style={styles.readyManualOption}
+            testID={`nearby-location-${toNearbyTestIdSegment(option.label)}`}
+          >
+            <Text numberOfLines={1} style={styles.readyManualOptionText}>
+              {getNearbyManualLocationOptionLabel(option)}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      {isManualMapPickerOpen ? (
+        <ManualLocationPickerMap
+          onCancel={onManualMapPinCancel}
+          onConfirm={onManualMapPinConfirm}
+          onSelectedCoordinateChange={onManualMapCoordinateChange}
+          providerState={getNativeMapProviderState()}
+          selectedCoordinate={manualMapCoordinate}
+        />
       ) : null}
     </View>
   );
@@ -637,49 +816,55 @@ function SegmentButton({
   );
 }
 
-function FilterStrip({
-  onCategoryToggle,
+function RadiusControl({
   onRadiusChange,
   radiusKm,
   radiusOptionsKm,
-  selectedCategories,
 }: {
-  onCategoryToggle: (category: NearbyPublicReportKind) => void;
   onRadiusChange: (radiusKm: NearbyRadiusKm) => void;
   radiusKm: NearbyRadiusKm;
   radiusOptionsKm: readonly NearbyRadiusKm[];
+}) {
+  return (
+    <View style={styles.radiusControl}>
+      {radiusOptionsKm.map((option) => (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: option === radiusKm }}
+          key={option}
+          onPress={() => onRadiusChange(option)}
+          style={[
+            styles.radiusButton,
+            option === radiusKm ? styles.radiusButtonActive : null,
+          ]}
+        >
+          <Text
+            style={[
+              styles.radiusText,
+              option === radiusKm ? styles.radiusTextActive : null,
+            ]}
+          >
+            {option} km
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+function CategoryFilterStrip({
+  onCategoryToggle,
+  selectedCategories,
+}: {
+  onCategoryToggle: (category: NearbyPublicReportKind) => void;
   selectedCategories: readonly NearbyPublicReportKind[];
 }) {
   return (
     <ScrollView
       horizontal
+      contentContainerStyle={styles.categoryFilterContent}
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.filterStripContent}
     >
-      <View style={styles.radiusControl}>
-        {radiusOptionsKm.map((option) => (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ selected: option === radiusKm }}
-            key={option}
-            onPress={() => onRadiusChange(option)}
-            style={[
-              styles.radiusButton,
-              option === radiusKm ? styles.radiusButtonActive : null,
-            ]}
-          >
-            <Text
-              style={[
-                styles.radiusText,
-                option === radiusKm ? styles.radiusTextActive : null,
-              ]}
-            >
-              {option} km
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      <View style={styles.filterDivider} />
       <CategoryFilterControl
         onCategoryToggle={onCategoryToggle}
         selectedCategories={selectedCategories}
@@ -1131,6 +1316,7 @@ function formatMapSearchOriginLabel(location: NearbySearchLocation) {
 }
 
 function LocationFallbackState({
+  bottomInset,
   isManualMapPickerOpen,
   isResolvingLocation,
   manualMapCoordinate,
@@ -1141,8 +1327,10 @@ function LocationFallbackState({
   onManualMapPinConfirm,
   onManualLocationPress,
   onUseCurrentLocationPress,
+  topInset,
   viewModel,
 }: {
+  bottomInset: number;
   isManualMapPickerOpen: boolean;
   isResolvingLocation: boolean;
   manualMapCoordinate: NearbyCoordinates;
@@ -1153,6 +1341,7 @@ function LocationFallbackState({
   onManualMapPinConfirm: (selectedLocation: NearbySearchLocation) => void;
   onManualLocationPress: (selectedLocation?: NearbySearchLocation) => void;
   onUseCurrentLocationPress: () => void;
+  topInset: number;
   viewModel: Extract<
     NearbyLostReportsViewModel,
     { kind: "location-denied" | "location-needed" }
@@ -1160,8 +1349,13 @@ function LocationFallbackState({
 }) {
   return (
     <ScrollView
-      contentContainerStyle={styles.fallbackContent}
+      contentContainerStyle={[
+        styles.fallbackContent,
+        { paddingBottom: bottomInset, paddingTop: topInset },
+      ]}
+      contentInset={{ bottom: bottomInset }}
       contentInsetAdjustmentBehavior="automatic"
+      scrollIndicatorInsets={{ bottom: bottomInset }}
       style={styles.screen}
     >
       <BoliviaSearchIllustration />
@@ -1361,6 +1555,15 @@ function getLocationQueryKey(location: NearbySearchLocation | undefined) {
   ].join(":");
 }
 
+function toNearbyTestIdSegment(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 const colors = {
   bg: "#f6faf7",
   card: "#ffffff",
@@ -1482,6 +1685,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
   },
+  categoryFilterContent: {
+    paddingRight: 24,
+  },
   categoryText: {
     color: colors.inkMuted,
     fontSize: 13,
@@ -1549,10 +1755,14 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   contextRow: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexDirection: "row",
     gap: 12,
     justifyContent: "space-between",
+  },
+  contextActions: {
+    alignItems: "flex-end",
+    gap: 8,
   },
   contextTitle: {
     color: colors.ink,
@@ -1560,16 +1770,20 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     lineHeight: 27,
   },
-  filterDivider: {
-    alignSelf: "center",
-    backgroundColor: colors.line,
-    height: 28,
-    width: 1,
-  },
-  filterStripContent: {
+  changeLocationButton: {
     alignItems: "center",
-    gap: 10,
-    paddingRight: 16,
+    backgroundColor: colors.card,
+    borderColor: colors.line,
+    borderRadius: 999,
+    borderWidth: 1,
+    minHeight: 36,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  changeLocationText: {
+    color: colors.inkStrong,
+    fontSize: 12,
+    fontWeight: "900",
   },
   distancePill: {
     backgroundColor: colors.card,
@@ -1729,6 +1943,30 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: "center",
   },
+  locationChooser: {
+    backgroundColor: colors.card,
+    borderColor: colors.line,
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 10,
+    padding: 12,
+  },
+  locationChooserDisabled: {
+    opacity: 0.62,
+  },
+  locationChooserPrimary: {
+    alignItems: "center",
+    backgroundColor: colors.inkStrong,
+    borderRadius: 999,
+    minHeight: 42,
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  locationChooserPrimaryText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: "900",
+  },
   mapContent: {
     gap: 12,
     padding: 16,
@@ -1840,6 +2078,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     minHeight: 38,
     justifyContent: "center",
+    flex: 1,
     paddingHorizontal: 14,
   },
   radiusButtonActive: {
@@ -1898,6 +2137,26 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontSize: 14,
     fontWeight: "900",
+  },
+  readyManualOption: {
+    backgroundColor: colors.chip,
+    borderColor: colors.line,
+    borderRadius: 999,
+    borderWidth: 1,
+    maxWidth: "100%",
+    minHeight: 38,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  readyManualOptionText: {
+    color: colors.inkStrong,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  readyManualOptions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
   shareText: {
     color: colors.inkStrong,

@@ -22,6 +22,7 @@ import { Image } from "expo-image";
 import { usePathname, useRouter, useSegments } from "expo-router";
 
 import type { ReportIntent } from "../../i18n";
+import type { MaterialCommunityIconName } from "../icons/safe-material-community-icon";
 import type {
   ShellAuthActionResult,
   ShellAuthCredentials,
@@ -36,10 +37,9 @@ import type {
   ShellFirstRunTourStore,
 } from "./shell-onboarding";
 import authWelcomeIllustration from "../../../assets/auth-welcome-illustration.png";
-import type { MaterialCommunityIconName } from "../icons/safe-material-community-icon";
+import { SafeMaterialCommunityIcon } from "../icons/safe-material-community-icon";
 import { buildReportCreationHref } from "../report-creation/report-creation-routes";
 import { createExpoSecureStoreKeyValueStorage } from "../resilience/storage";
-import { SafeMaterialCommunityIcon } from "../icons/safe-material-community-icon";
 import {
   prepareShellAuthCredentialsForAction,
   prepareShellPasswordResetEmail,
@@ -392,6 +392,10 @@ export function shouldDisplayGlobalReportFab({
   sessionKind: "member" | "visitor";
 }) {
   if (!shouldShowGlobalFabForSegments(segments)) {
+    return false;
+  }
+
+  if (segments.includes("(resources)") || segments.includes("(profile)")) {
     return false;
   }
 

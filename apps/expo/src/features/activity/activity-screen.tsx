@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { LegendList } from "@legendapp/list";
 
@@ -114,7 +115,7 @@ type ActivityInboxLoadState =
   | { kind: "loading" }
   | { inbox: ActivityInbox; kind: "ready" };
 
-const bottomInset = 118;
+const bottomInset = 156;
 const defaultEstimatedItemSize = 96;
 const activityDateFormatter = new Intl.DateTimeFormat("es-BO", {
   day: "2-digit",
@@ -145,6 +146,7 @@ export function ActivityScreen({
   repository,
 }: ActivityScreenProps) {
   const { requestAuthPrompt, session } = useRastroShell();
+  const safeAreaInsets = useSafeAreaInsets();
   const router = useRouter();
   const [loadState, setLoadState] = React.useState<ActivityInboxLoadState>({
     kind: "idle",
@@ -191,6 +193,8 @@ export function ActivityScreen({
   const handleRetry = React.useCallback(() => {
     setRequestVersion((version) => version + 1);
   }, []);
+  const listBottomInset = bottomInset + safeAreaInsets.bottom;
+  const listTopInset = Math.max(14, safeAreaInsets.top + 10);
 
   const openHref = React.useCallback(
     (href: string) => {
@@ -268,7 +272,13 @@ export function ActivityScreen({
   return (
     <View style={styles.screen} testID="activity-screen">
       <LegendList
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          {
+            paddingBottom: listBottomInset,
+            paddingTop: listTopInset,
+          },
+        ]}
         contentInsetAdjustmentBehavior="automatic"
         data={data}
         estimatedItemSize={defaultEstimatedItemSize}
@@ -280,6 +290,7 @@ export function ActivityScreen({
         ListHeaderComponent={header}
         recycleItems
         renderItem={renderItem}
+        scrollIndicatorInsets={{ bottom: listBottomInset }}
         style={styles.list}
         testID="activity-list"
       />

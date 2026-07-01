@@ -22,6 +22,7 @@ import type {
   ReportMediaSourceAdapter,
   ReportMediaStepController,
 } from "../report-media";
+import type { ShellMemberCreationSession } from "../shell/shell-model";
 import type { SightingReportPublishConfirmation } from "../sighting-report-creation/sighting-report-publish-adapter";
 import { trpcClient } from "../../utils/api";
 import { AdoptionListingCreationScreen } from "../adoption-listing-creation/adoption-listing-creation-screen";
@@ -34,6 +35,7 @@ import { createApiLostReportPublishHandler } from "../lost-report-creation/lost-
 import { expoNearbyLocationAdapter } from "../nearby/nearby-expo-location-adapter";
 import { buildNearbyReportRouteTarget } from "../nearby/nearby-navigation";
 import { shareNearbyLostReport } from "../nearby/nearby-share";
+import { createApiPetProfileRepository } from "../pet-profiles/api-pet-profile-repository";
 import {
   createApiReportMediaUploadSessionClient,
   createNativeReportMediaEditAdapter,
@@ -152,6 +154,15 @@ export function ReportCreationRouteScreen({
   const memberCreationSession = toShellMemberCreationSession(session);
   const creationSession =
     memberCreationSession ?? ({ kind: "visitor" } as const);
+  const petProfileRepository = React.useMemo(
+    () => createApiPetProfileRepository({ client: trpcClient }),
+    [],
+  );
+  const petProfileLoadState = useReportCreationPetProfiles({
+    intent,
+    memberSession: memberCreationSession,
+    repository: petProfileRepository,
+  });
   const sponsorResourcesAdapter = React.useMemo(
     () => createApiResourcesAdapter({ client: trpcClient }),
     [],
@@ -324,6 +335,41 @@ export function ReportCreationRouteScreen({
     return null;
   }
 
+  if (petProfileLoadState.status === "loading") {
+    return (
+      <AppStateScreen
+        descriptor={{
+          body: "Estamos preparando tus perfiles guardados antes de iniciar el reporte.",
+          kind: "loading",
+          progressLabel: "Cargando mascotas",
+          title: "Cargando tus mascotas",
+        }}
+      />
+    );
+  }
+
+  if (petProfileLoadState.status === "error") {
+    return (
+      <AppStateScreen
+        descriptor={{
+          actions: [
+            {
+              iconName: "arrow.clockwise",
+              id: "retry-pet-profiles",
+              label: "Reintentar",
+            },
+          ],
+          body: "No pudimos cargar tus mascotas guardadas. Reintenta antes de crear el reporte para poder reutilizar sus datos.",
+          kind: "error",
+          preservesWork: true,
+          title: "No pudimos cargar tus mascotas",
+        }}
+        onActionPress={petProfileLoadState.retry}
+      />
+    );
+  }
+
+  const petProfiles = petProfileLoadState.profiles;
   let creationScreen: React.ReactNode;
 
   if (intent === "lost") {
@@ -339,6 +385,7 @@ export function ReportCreationRouteScreen({
         onPublishLostReport={publishLostReport}
         onReportSponsorPlacement={handleReportSponsorPlacement}
         onSharePublishedReport={sharePublishedLostReport}
+        petProfiles={petProfiles}
         renderReportMediaManager={renderReportMediaManager}
       />
     );
@@ -385,6 +432,7 @@ export function ReportCreationRouteScreen({
         onOpenPublishedListing={openPublishedAdoptionListing}
         onPublishAdoptionListing={publishAdoptionListing}
         onSharePublishedListing={sharePublishedAdoptionListing}
+        petProfiles={petProfiles}
         renderReportMediaManager={renderReportMediaManager}
         session={creationSession}
       />
@@ -402,6 +450,96 @@ export function ReportCreationRouteScreen({
       ) : null}
     </>
   );
+}
+
+type ReportCreationPetProfilesState =
+  | {
+      key: string;
+      profiles: Awaited<
+        ReturnType<
+          ReturnType<typeof createApiPetProfileRepository>["listPetProfiles"]
+        >
+      >;
+      status: "ready";
+    }
+  | {
+      key: string;
+      retry: () => void;
+      status: "error";
+    }
+  | {
+      key: string;
+      status: "loading";
+    };
+
+function useReportCreationPetProfiles({
+  intent,
+  memberSession,
+  repository,
+}: {
+  intent: ReportIntent;
+  memberSession: ShellMemberCreationSession | null;
+  repository: ReturnType<typeof createApiPetProfileRepository>;
+}): ReportCreationPetProfilesState {
+  const [retryVersion, setRetryVersion] = React.useState(0);
+  const requiredKey = getRequiredPetProfileLoadKey(intent, memberSession);
+  const [state, setState] = React.useState<ReportCreationPetProfilesState>(
+    () =>
+      requiredKey
+        ? { key: requiredKey, status: "loading" }
+        : { key: "not-required", profiles: [], status: "ready" },
+  );
+  const retry = React.useCallback(() => {
+    setRetryVersion((current) => current + 1);
+  }, []);
+
+  React.useEffect(() => {
+    if (!requiredKey || !memberSession) {
+      setState({ key: "not-required", profiles: [], status: "ready" });
+      return;
+    }
+
+    const requestState = { isActive: true };
+
+    setState({ key: requiredKey, status: "loading" });
+    void repository
+      .listPetProfiles(memberSession)
+      .then((profiles) => {
+        if (requestState.isActive) {
+          setState({ key: requiredKey, profiles, status: "ready" });
+        }
+      })
+      .catch(() => {
+        if (requestState.isActive) {
+          setState({ key: requiredKey, retry, status: "error" });
+        }
+      });
+
+    return () => {
+      requestState.isActive = false;
+    };
+  }, [memberSession, repository, requiredKey, retry, retryVersion]);
+
+  if (!requiredKey) {
+    return state.status === "ready" && state.key === "not-required"
+      ? state
+      : { key: "not-required", profiles: [], status: "ready" };
+  }
+
+  return state.key === requiredKey
+    ? state
+    : { key: requiredKey, status: "loading" };
+}
+
+function getRequiredPetProfileLoadKey(
+  intent: ReportIntent,
+  memberSession: ShellMemberCreationSession | null,
+) {
+  if (!memberSession || (intent !== "lost" && intent !== "adoption")) {
+    return null;
+  }
+
+  return `${intent}:${memberSession.memberId}`;
 }
 
 interface ReportMediaManagerRenderProps {

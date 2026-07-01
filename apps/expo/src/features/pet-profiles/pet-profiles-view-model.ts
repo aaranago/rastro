@@ -107,9 +107,9 @@ export function buildMisMascotasViewModel({
   if (session.kind === "visitor") {
     return {
       canCreate: false,
-      createActionLabel: "Inicia sesion para crear",
+      createActionLabel: "Inicia sesión para crear",
       explanationBody:
-        "Como visitante puedes conocer para que sirven los perfiles de mascota. Inicia sesion como miembro para crear y reutilizarlos en reportes.",
+        "Como visitante puedes conocer para qué sirven los perfiles de mascota. Inicia sesión como miembro para crear y reutilizarlos en reportes.",
       explanationTitle: "Guarda datos una sola vez",
       kind: "visitor",
       title: "Mis mascotas",
@@ -128,7 +128,7 @@ export function buildMisMascotasViewModel({
       cards.length === 0
         ? {
             body: "Crea un perfil para reutilizar fotos y datos cuando necesites iniciar reportes.",
-            title: "Aun no tienes mascotas",
+            title: "Aún no tienes mascotas",
           }
         : undefined,
     kind: "member",
@@ -195,7 +195,7 @@ export function buildPetProfileFormViewModel({
   const canAddPhoto = draft.photos.length < petProfilePhotoLimit;
 
   return {
-    addPhotoLabel: canAddPhoto ? "Agregar foto" : "Limite alcanzado",
+    addPhotoLabel: canAddPhoto ? "Agregar foto" : "Límite alcanzado",
     canAddPhoto,
     canSubmit: normalizedName.length > 0 && hasValidType,
     fields: {
@@ -205,8 +205,8 @@ export function buildPetProfileFormViewModel({
         value: draft.breed,
       },
       description: {
-        label: "Descripcion y marcas",
-        placeholder: "Color, collar, manchas o senas visibles",
+        label: "Descripción y marcas",
+        placeholder: "Color, collar, manchas o señas visibles",
         value: draft.description,
       },
       name: {
@@ -219,7 +219,7 @@ export function buildPetProfileFormViewModel({
     mode,
     photoCountLabel: formatPhotoCount(draft.photos.length),
     photoHelpLabel:
-      "Al subir fotos, Rastro prepara miniaturas y retira datos de ubicacion.",
+      "Agrega fotos solo cuando ayuden a reconocer mejor a tu mascota.",
     photos: draft.photos,
     submitLabel: mode === "create" ? "Guardar perfil" : "Guardar cambios",
     title:
@@ -302,13 +302,13 @@ function relatedKindLabel(
 ) {
   switch (kind) {
     case "lost-report":
-      return "Reporte de perdida";
+      return "Reporte de pérdida";
     case "found-report":
       return "Reporte de encontrada";
     case "sighting-report":
       return "Avistamiento";
     case "adoption-listing":
-      return "Adopcion";
+      return "Adopción";
   }
 }
 

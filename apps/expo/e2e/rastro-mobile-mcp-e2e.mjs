@@ -1,7 +1,7 @@
 import { execFile, spawn } from "node:child_process";
-import { createWriteStream } from "node:fs";
 import {
   copyFileSync,
+  createWriteStream,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -161,7 +161,10 @@ async function captureFixtureSnapshot() {
 }
 
 async function captureRootFullSuiteEvidence() {
-  const commandManifestPath = join(artifactRoot, "root-full-suite-command.json");
+  const commandManifestPath = join(
+    artifactRoot,
+    "root-full-suite-command.json",
+  );
 
   writeFileSync(
     commandManifestPath,
@@ -209,12 +212,7 @@ async function writeAdbOutput(fileName, args) {
   writeFileSync(join(artifactRoot, fileName), `${stdout}${stderr}`);
 }
 
-async function writeCommandOutput({
-  args,
-  command,
-  cwd = appRoot,
-  fileName,
-}) {
+async function writeCommandOutput({ args, command, cwd = appRoot, fileName }) {
   const { stdout, stderr } = await execFileAsync(command, args, {
     cwd,
     timeout: 30000,
@@ -267,7 +265,11 @@ function startLogcatCapture() {
   child.on("error", (error) => {
     output.write(`\n[logcat spawn error] ${String(error)}\n`);
   });
-  checks.push({ id: "logcat-capture-started", ok: true, outputPath: logcatPath });
+  checks.push({
+    id: "logcat-capture-started",
+    ok: true,
+    outputPath: logcatPath,
+  });
 
   return { child, output };
 }
@@ -295,7 +297,11 @@ async function stopLogcatCapture(capture) {
 
   output.end();
   await delay(200);
-  checks.push({ id: "logcat-capture-stopped", ok: true, outputPath: logcatPath });
+  checks.push({
+    id: "logcat-capture-stopped",
+    ok: true,
+    outputPath: logcatPath,
+  });
 }
 
 async function captureUiDump(fileName) {
@@ -323,7 +329,8 @@ function assertLogcatClean() {
   const failureMatchers = [
     {
       id: "android-runtime",
-      pattern: /AndroidRuntime|FATAL EXCEPTION|Fatal signal|Process: bo\.rastro\.app/,
+      pattern:
+        /AndroidRuntime|FATAL EXCEPTION|Fatal signal|Process: bo\.rastro\.app/,
     },
     {
       id: "json-parse",
@@ -365,6 +372,7 @@ function assertLogcatClean() {
 
 function writeReadinessManifest() {
   const summary = buildRunSummary();
+  const readinessGate = buildReadinessGateManifest(summary);
 
   writeFileSync(
     join(artifactRoot, "mobile-mcp-summary.json"),
@@ -375,14 +383,22 @@ function writeReadinessManifest() {
     JSON.stringify(
       {
         ...summary,
-        readinessGate: buildReadinessGateManifest(summary),
+        readinessGate,
       },
       null,
       2,
     ),
   );
 
-  console.log(JSON.stringify(summary, null, 2));
+  console.log(JSON.stringify({ ...summary, readinessGate }, null, 2));
+
+  if (!readinessGate.passed) {
+    throw new Error(
+      `Mobile readiness gate missing required evidence: ${readinessGate.missingEvidence.join(
+        ", ",
+      )}`,
+    );
+  }
 }
 
 function buildRunSummary() {
@@ -401,7 +417,7 @@ function buildRunSummary() {
 }
 
 function buildReadinessGateManifest(summary) {
-  const requiredEvidence = [
+  const baselineRequiredEvidence = [
     "member-profile-settings-backend-save",
     "auth-sign-in-fixture-viewer",
     "auth-session-recovered",
@@ -415,6 +431,32 @@ function buildReadinessGateManifest(summary) {
     "alerts-backend-persistence",
     "activity-inbox-backend-navigation",
     "logcat-readiness-scan",
+  ];
+  const strictRequiredEvidence = [
+    {
+      id: "pet-profiles-create-edit-backend-save",
+      rationale:
+        "Mis mascotas must create, edit, reload, and prove backend persistence instead of fixture/local state.",
+    },
+    {
+      id: "location-switching-cerca-postgis",
+      rationale:
+        "Cerca must prove ready-state switching between current, last, manual city, and map-pin locations.",
+    },
+    {
+      id: "safe-area-and-overlap-pass",
+      rationale:
+        "Screenshots and UI bounds must prove no tab bar, FAB, CTA, card, label, or map marker is clipped or overlapped.",
+    },
+    {
+      id: "resources-state-matrix",
+      rationale:
+        "Recursos must prove loading, list, map, empty, error/retry, offline/stale, and provider states.",
+    },
+  ];
+  const requiredEvidence = [
+    ...baselineRequiredEvidence,
+    ...strictRequiredEvidence.map((item) => item.id),
   ];
   const passedEvidence = new Set(
     summary.checks
@@ -433,13 +475,18 @@ function buildReadinessGateManifest(summary) {
     },
     missingEvidence,
     passed: missingEvidence.length === 0,
+    pendingStrictEvidence: strictRequiredEvidence
+      .filter((item) => !passedEvidence.has(item.id))
+      .map((item) => ({ ...item, status: "pending-hard-required" })),
     readinessScore:
       Math.round(
         ((requiredEvidence.length - missingEvidence.length) /
           requiredEvidence.length) *
           100,
       ) / 10,
+    baselineRequiredEvidence,
     requiredEvidence,
+    strictRequiredEvidence,
   };
 }
 
@@ -2074,7 +2121,9 @@ async function scrollUntilVisibleText(text, options = {}) {
     }
 
     if (attempt === maxSwipes) {
-      throw new Error(`Could not scroll to visible text on ${context}: ${text}`);
+      throw new Error(
+        `Could not scroll to visible text on ${context}: ${text}`,
+      );
     }
 
     await adb(["shell", "input", "swipe", "540", "1980", "540", "900", "350"]);
@@ -2416,7 +2465,9 @@ async function waitForVisibleNodeByText(text, options = {}) {
     await delay(500);
   }
 
-  throw new Error(`Expected visible node on ${options.context ?? text}: ${text}`);
+  throw new Error(
+    `Expected visible node on ${options.context ?? text}: ${text}`,
+  );
 }
 
 async function findVisibleNodeByText(text, options = {}) {

@@ -32,14 +32,13 @@ vi.mock("react-native", () => ({
   View: "View",
 }));
 
+vi.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ bottom: 0, left: 0, right: 0, top: 0 }),
+}));
+
 vi.mock("expo-router", () => ({
-  Link: ({
-    children,
-    href,
-  }: {
-    children: React.ReactNode;
-    href: string;
-  }) => React.createElement("Link", { href }, children),
+  Link: ({ children, href }: { children: React.ReactNode; href: string }) =>
+    React.createElement("Link", { href }, children),
 }));
 
 vi.mock("../app-states", () => ({
@@ -128,10 +127,11 @@ describe("Profile visitor auth entry", () => {
     expect(scrollView?.props.scrollIndicatorInsets).toEqual({
       bottom: shellScreenBottomInset,
     });
-    expect(
-      (scrollView?.props.contentContainerStyle as { paddingBottom?: number })
-        .paddingBottom,
-    ).toBe(shellScreenBottomInset);
+    expect(scrollView?.props.contentContainerStyle).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ paddingBottom: shellScreenBottomInset }),
+      ]),
+    );
   });
 });
 

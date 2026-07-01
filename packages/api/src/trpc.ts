@@ -22,6 +22,7 @@ import type { ChatRepository } from "./chat-repository";
 import type { MediaStorage, MediaStorageConfig } from "./media-storage";
 import type { MemberProfileRepository } from "./member-profile-repository";
 import type { MemberSuspensionRepository } from "./member-suspension-repository";
+import type { PetProfileRepository } from "./pet-profile-repository";
 import type { ReportMediaRepository } from "./report-media-repository";
 import type { ReportModerationRepository } from "./report-moderation-repository";
 import type { ReportRepository } from "./report-repository";
@@ -41,6 +42,7 @@ import {
 } from "./media-storage";
 import { createDrizzleMemberProfileRepository } from "./member-profile-repository";
 import { createDrizzleMemberSuspensionRepository } from "./member-suspension-repository";
+import { createDrizzlePetProfileRepository } from "./pet-profile-repository";
 import { createDrizzleReportMediaRepository } from "./report-media-repository";
 import { createDrizzleReportModerationRepository } from "./report-moderation-repository";
 import { createDrizzleReportRepository } from "./report-repository";
@@ -79,6 +81,7 @@ export const createTRPCContext = async (opts: {
   mediaStorage: MediaStorage;
   memberProfileRepository: MemberProfileRepository;
   memberSuspensionRepository: MemberSuspensionRepository;
+  petProfileRepository: PetProfileRepository;
   reportModerationRepository: ReportModerationRepository;
   reportRepository: ReportRepository;
   resourceProviderModerationRepository: ResourceProviderModerationRepository;
@@ -121,6 +124,7 @@ export const createTRPCContext = async (opts: {
       : createUnavailableMediaStorage(),
     memberProfileRepository: createDrizzleMemberProfileRepository(db),
     memberSuspensionRepository: createDrizzleMemberSuspensionRepository(db),
+    petProfileRepository: createDrizzlePetProfileRepository(db),
     reportModerationRepository: createDrizzleReportModerationRepository(db),
     reportRepository: createDrizzleReportRepository(db, {
       deliveryBaseUrl: mediaDeliveryBaseUrl,

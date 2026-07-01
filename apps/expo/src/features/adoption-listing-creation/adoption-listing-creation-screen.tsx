@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { PublishAdoptionListingInput } from "../adoption-listings/adoption-listings";
 import type { NearbyLocationAdapter } from "../nearby/nearby-location-adapter";
+import type { PetProfileSummary } from "../pet-profiles/pet-profile-types";
 import type {
   ReportCreationJourney,
   ReportCreationJourneyStepId,
@@ -113,7 +114,10 @@ export interface AdoptionListingCreationScreenProps {
   onSharePublishedListing?: (
     confirmation: AdoptionListingPublishConfirmation,
   ) => Promise<void> | void;
-  petProfiles?: readonly AdoptionListingPetProfileOption[];
+  petProfiles?: readonly (
+    | AdoptionListingPetProfileOption
+    | PetProfileSummary
+  )[];
   pickAdoptionListingPhoto?: () =>
     | AdoptionListingPhoto
     | Promise<AdoptionListingPhoto | undefined>

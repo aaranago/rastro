@@ -114,6 +114,10 @@ export {
   type MemberProfileRepository,
 } from "./member-profile-repository";
 export {
+  createDrizzlePetProfileRepository,
+  type PetProfileRepository,
+} from "./pet-profile-repository";
+export {
   buildLocalSponsorPlacementPolicy,
   buildNearbyResourceProvidersCondition,
   buildNearbyResourceProvidersDistance,

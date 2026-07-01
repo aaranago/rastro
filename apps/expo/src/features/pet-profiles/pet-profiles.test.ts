@@ -65,7 +65,7 @@ describe("Mis mascotas Pet Profile view models", () => {
     assertMisMascotasKind(viewModel, "visitor");
     expect(viewModel.explanationBody).toContain("visitante");
     expect(viewModel.explanationBody).not.toMatch(/Pet Profiles/i);
-    expect(viewModel.createActionLabel).toBe("Inicia sesion para crear");
+    expect(viewModel.createActionLabel).toBe("Inicia sesión para crear");
   });
 
   it("shows an empty member state with creation enabled", () => {
@@ -81,7 +81,7 @@ describe("Mis mascotas Pet Profile view models", () => {
       createActionLabel: "Crear perfil de mascota",
     });
     assertMisMascotasKind(viewModel, "member");
-    expect(viewModel.emptyState?.title).toBe("Aun no tienes mascotas");
+    expect(viewModel.emptyState?.title).toBe("Aún no tienes mascotas");
     expect(viewModel.emptyState?.body).toContain("reportes");
   });
 

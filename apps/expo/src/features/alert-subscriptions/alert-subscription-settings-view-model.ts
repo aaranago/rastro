@@ -57,9 +57,9 @@ export function buildAlertSubscriptionSettingsViewModel({
     return {
       action: {
         id: "sign-in",
-        label: "Iniciar sesion",
+        label: "Iniciar sesión",
       },
-      body: "Inicia sesion para recibir alertas de nuevas mascotas perdidas cerca de tu zona.",
+      body: "Inicia sesión para recibir alertas de nuevas mascotas perdidas cerca de tu zona.",
       canManage: false,
       enabled: false,
       locationPolicyRows: [
@@ -67,14 +67,14 @@ export function buildAlertSubscriptionSettingsViewModel({
         "Puedes explorar Cerca sin activar alertas.",
       ],
       movingAlerts: {
-        body: "Disponible solo para miembros y siempre como ajuste explicito.",
+        body: "Disponible solo para miembros y siempre como ajuste explícito.",
         enabled: false,
         statusLabel: "No disponible",
         title: "Alertas mientras me muevo",
       },
       radiusOptions: buildRadiusOptions(radiusKm ?? 5),
-      refreshActionLabel: "Actualizar area",
-      statusLabel: "Sesion requerida",
+      refreshActionLabel: "Actualizar área",
+      statusLabel: "Sesión requerida",
       title: "Alertas cercanas",
     };
   }
@@ -92,7 +92,7 @@ export function buildAlertSubscriptionSettingsViewModel({
       : undefined,
     body: enabled
       ? `Te avisaremos de nuevas mascotas perdidas activas en un radio de ${selectedRadiusKm} km.`
-      : "Activa alertas para enterarte de nuevas mascotas perdidas cerca de tu area dinamica.",
+      : "Activa alertas para enterarte de nuevas mascotas perdidas cerca de tu área dinámica.",
     canManage: true,
     enabled,
     locationPolicyRows: [
@@ -102,7 +102,7 @@ export function buildAlertSubscriptionSettingsViewModel({
     ],
     movingAlerts: formatMovingAlerts(subscription),
     radiusOptions: buildRadiusOptions(selectedRadiusKm),
-    refreshActionLabel: "Actualizar area",
+    refreshActionLabel: "Actualizar área",
     statusLabel: enabled ? "Alertas activas" : "Alertas desactivadas",
     title: "Alertas cercanas",
   };
@@ -126,8 +126,8 @@ export function toAlertSubscriptionLocationSnapshot(
     detectedAt: snapshot.coordinates.capturedAt,
     label:
       source === "current"
-        ? "Ubicacion actual en Bolivia"
-        : "Ultima ubicacion detectada en Bolivia",
+        ? "Ubicación actual en Bolivia"
+        : "Última ubicación detectada en Bolivia",
     locationCellLabel: "Bolivia",
     source,
   };
@@ -151,8 +151,8 @@ function formatDynamicAlertArea(
     meta: `${location.locationCellLabel} · zona aproximada`,
     sourceLabel:
       location.source === "current"
-        ? "Ubicacion actual"
-        : "Ultima ubicacion detectada",
+        ? "Ubicación actual"
+        : "Última ubicación detectada",
   };
 }
 
@@ -161,7 +161,7 @@ function formatMovingAlerts(
 ): AlertSubscriptionSettingsViewModel["movingAlerts"] {
   if (!subscription) {
     return {
-      body: "Primero activa alertas cercanas. Luego podras pedir este permiso opcional.",
+      body: "Primero activa alertas cercanas. Luego podrás pedir este permiso opcional.",
       enabled: false,
       statusLabel: "Requiere alertas activas",
       title: "Alertas mientras me muevo",
@@ -179,7 +179,7 @@ function formatMovingAlerts(
 
   if (subscription.movingAlerts.status === "needs-background-permission") {
     return {
-      body: "Necesita permiso de ubicacion en segundo plano. Rastro todavia no inicia seguimiento continuo.",
+      body: "Necesita permiso de ubicación en segundo plano. Rastro todavía no inicia seguimiento continuo.",
       enabled: true,
       statusLabel: "Necesita permiso",
       title: subscription.movingAlerts.label,

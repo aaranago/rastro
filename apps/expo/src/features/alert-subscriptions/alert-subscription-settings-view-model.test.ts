@@ -39,13 +39,13 @@ describe("Alert Subscription settings view model", () => {
     expect(viewModel).toMatchObject({
       action: {
         id: "sign-in",
-        label: "Iniciar sesion",
+        label: "Iniciar sesión",
       },
       canManage: false,
-      statusLabel: "Sesion requerida",
+      statusLabel: "Sesión requerida",
       title: "Alertas cercanas",
     });
-    expect(viewModel.body).toContain("Inicia sesion");
+    expect(viewModel.body).toContain("Inicia sesión");
   });
 
   it("shows enabled member alerts with radius, Dynamic Alert Area, and battery policy copy", async () => {
@@ -79,9 +79,9 @@ describe("Alert Subscription settings view model", () => {
         label: "Pausar alertas",
       },
       area: {
-        label: "Ubicacion actual en Bolivia",
+        label: "Ubicación actual en Bolivia",
         meta: "Bolivia · zona aproximada",
-        sourceLabel: "Ubicacion actual",
+        sourceLabel: "Ubicación actual",
       },
       enabled: true,
       movingAlerts: {
@@ -111,7 +111,7 @@ describe("Alert Subscription settings view model", () => {
       },
       countryCode: "BO",
       detectedAt: "2026-06-18T12:00:00.000Z",
-      label: "Ubicacion actual en Bolivia",
+      label: "Ubicación actual en Bolivia",
       locationCellLabel: "Bolivia",
       source: "current",
     });
@@ -122,7 +122,7 @@ describe("Alert Subscription settings view model", () => {
         source: "last-detected",
       }),
     ).toMatchObject({
-      label: "Ultima ubicacion detectada en Bolivia",
+      label: "Última ubicación detectada en Bolivia",
       source: "last",
     });
   });

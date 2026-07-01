@@ -16,7 +16,10 @@ export default function ResourcesStackLayout() {
         headerTintColor: shellColors.primary,
       }}
     >
-      <Stack.Screen name="index" options={{ title: copy.tabs.resources }} />
+      <Stack.Screen
+        name="index"
+        options={{ headerShown: false, title: copy.tabs.resources }}
+      />
       <Stack.Screen
         name="proveedores/[providerId]"
         options={{ title: "Proveedor local" }}

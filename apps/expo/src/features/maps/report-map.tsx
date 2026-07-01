@@ -131,26 +131,18 @@ export function ReportMap({
               identifier={group.id}
               key={group.id}
               onPress={() => onSelectReport(group.pins[0]?.id ?? group.id)}
+              pinColor={colors.inkStrong}
               title={group.title}
-            >
-              <View style={styles.markerBubble}>
-                <Text style={styles.markerText}>
-                  {group.pins.length > 1 ? group.pins.length : "1"}
-                </Text>
-              </View>
-            </Marker>
+            />
           ))}
           {currentLocation ? (
             <Marker
               coordinate={currentLocation.coordinate}
               identifier="current-location"
               key="current-location"
+              pinColor={colors.currentLocation}
               title={currentLocation.label}
-            >
-              <View style={styles.currentLocationMarker}>
-                <View style={styles.currentLocationDot} />
-              </View>
-            </Marker>
+            />
           ) : null}
         </MapView>
         {providerState.kind === "loading" ? (
@@ -397,6 +389,7 @@ const colors = {
   card: "#FFFFFF",
   danger: "#BD2F2F",
   dangerSoft: "#FFE8E2",
+  currentLocation: "#2F80ED",
   ink: "#1F2A25",
   inkMuted: "#66736D",
   inkStrong: "#0F7665",
@@ -407,22 +400,6 @@ const colors = {
 const styles = StyleSheet.create({
   container: {
     gap: 12,
-  },
-  currentLocationDot: {
-    backgroundColor: colors.inkStrong,
-    borderRadius: 6,
-    height: 12,
-    width: 12,
-  },
-  currentLocationMarker: {
-    alignItems: "center",
-    backgroundColor: "rgba(15, 118, 101, 0.18)",
-    borderColor: colors.white,
-    borderRadius: 14,
-    borderWidth: 2,
-    height: 28,
-    justifyContent: "center",
-    width: 28,
   },
   listAlternative: {
     gap: 8,
@@ -497,22 +474,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: 220,
     overflow: "hidden",
-  },
-  markerBubble: {
-    alignItems: "center",
-    backgroundColor: colors.inkStrong,
-    borderColor: colors.white,
-    borderRadius: 18,
-    borderWidth: 2,
-    minHeight: 34,
-    minWidth: 34,
-    justifyContent: "center",
-    paddingHorizontal: 8,
-  },
-  markerText: {
-    color: colors.white,
-    fontSize: 13,
-    fontWeight: "900",
   },
   previewAction: {
     alignItems: "center",

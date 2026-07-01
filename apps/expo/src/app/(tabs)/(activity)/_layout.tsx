@@ -16,7 +16,10 @@ export default function ActivityStackLayout() {
         headerTintColor: shellColors.primary,
       }}
     >
-      <Stack.Screen name="index" options={{ title: copy.tabs.activity }} />
+      <Stack.Screen
+        name="index"
+        options={{ headerShown: false, title: copy.tabs.activity }}
+      />
       <Stack.Screen
         name="chats/report/[reportId]"
         options={{ title: "Chat" }}

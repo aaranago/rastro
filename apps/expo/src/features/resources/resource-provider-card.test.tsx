@@ -67,7 +67,9 @@ describe("ResourceProviderCard", () => {
       true,
     );
     expect(findText(card, "800 m")).toBe(true);
-    expect(findText(card, "Veterinarias")).toBe(true);
+    expect(hasTextContent(card, "Veterinarias · Urgencias · Abierto")).toBe(
+      true,
+    );
     expect(findText(card, "Verificado")).toBe(true);
     expect(findText(card, "Patrocinado")).toBe(true);
     expect(
@@ -76,8 +78,6 @@ describe("ResourceProviderCard", () => {
         "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
       ),
     ).toBe(true);
-    expect(findText(card, "Abierto")).toBe(true);
-    expect(findText(card, "Urgencias")).toBe(true);
     expect(findText(card, "Llamar")).toBe(true);
     expect(findText(card, "WhatsApp")).toBe(true);
     expect(hasTextContent(card, "+1 más")).toBe(true);
@@ -104,7 +104,7 @@ describe("ResourceProviderCard", () => {
     });
 
     expect(findText(card, "Huellas Felices")).toBe(true);
-    expect(findText(card, "Refugios")).toBe(true);
+    expect(hasTextContent(card, "Refugios")).toBe(true);
     expect(findText(card, "Cobertura:")).toBe(false);
     expect(findText(card, "Patrocinado")).toBe(false);
     expect(findText(card, "Verificado")).toBe(false);

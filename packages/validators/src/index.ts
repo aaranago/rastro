@@ -37,6 +37,14 @@ export const petSpeciesSchema = z.enum([
   "other",
 ]);
 
+export const petProfileTypeSchema = z.enum([
+  "Perro",
+  "Gato",
+  "Ave",
+  "Conejo",
+  "Otro",
+]);
+
 export const alertSubscriptionCategorySchema = z.enum(["lost_pet"]);
 
 export const alertPushTokenPlatformSchema = z.enum([
@@ -106,6 +114,96 @@ export const memberProfileOutputSchema = z
 
 export const memberProfileGetOutputSchema = memberProfileOutputSchema;
 export const memberProfileUpdateOutputSchema = memberProfileOutputSchema;
+
+const petProfilePhotoStatusSchema = z.enum([
+  "draft",
+  "ready",
+  "uploading",
+  "error",
+]);
+
+export const petProfilePhotoSchema = z
+  .object({
+    alt: z.string().trim().min(1).max(240).optional(),
+    height: z.number().int().positive().optional(),
+    id: z.string().trim().min(1).max(128),
+    mimeType: z.string().trim().min(3).max(80).optional(),
+    position: z.number().int().min(0).max(4).optional(),
+    sourceUri: z.string().trim().min(1).max(2048).optional(),
+    status: petProfilePhotoStatusSchema.optional(),
+    thumbUri: z.string().trim().min(1).max(2048).optional(),
+    uri: z.string().trim().min(1).max(2048).optional(),
+    width: z.number().int().positive().optional(),
+  })
+  .strict();
+
+export const petProfileRelatedRecordSchema = z
+  .object({
+    id: z.string().trim().min(1).max(128),
+    kind: z.enum([
+      "lost-report",
+      "found-report",
+      "sighting-report",
+      "adoption-listing",
+    ]),
+    outcomeLabel: z.string().trim().min(1).max(120).optional(),
+    status: z.enum(["active", "closed"]),
+    title: z.string().trim().min(1).max(160),
+    updatedAtLabel: z.string().trim().min(1).max(120).optional(),
+  })
+  .strict();
+
+const petProfileMutableFieldsSchema = z.object({
+  breed: z.string().trim().max(120).default(""),
+  description: z.string().trim().max(1000).default(""),
+  name: z.string().trim().min(1).max(80),
+  photos: z.array(petProfilePhotoSchema).max(5).default([]),
+  type: petProfileTypeSchema,
+});
+
+export const petProfileListInputSchema = z.object({}).strict();
+
+export const petProfileIdInputSchema = z
+  .object({
+    id: z.uuid(),
+  })
+  .strict();
+
+export const petProfileCreateInputSchema =
+  petProfileMutableFieldsSchema.strict();
+
+export const petProfileUpdateInputSchema = petProfileIdInputSchema
+  .extend({
+    breed: z.string().trim().max(120).optional(),
+    description: z.string().trim().max(1000).optional(),
+    name: z.string().trim().min(1).max(80).optional(),
+    photos: z.array(petProfilePhotoSchema).max(5).optional(),
+    type: petProfileTypeSchema.optional(),
+  })
+  .strict()
+  .refine(({ id: _id, ...patch }) => Object.keys(patch).length > 0, {
+    message: "At least one pet profile field must change.",
+  });
+
+export const petProfileOutputSchema = z
+  .object({
+    breed: z.string().max(120),
+    caretakerMemberId: z.string().min(1).max(256),
+    createdAt: z.iso.datetime(),
+    description: z.string().max(1000),
+    id: z.uuid(),
+    name: z.string().min(1).max(80),
+    photos: z.array(petProfilePhotoSchema).max(5),
+    relatedRecords: z.array(petProfileRelatedRecordSchema),
+    type: petProfileTypeSchema,
+    updatedAt: z.iso.datetime(),
+  })
+  .strict();
+
+export const petProfileListOutputSchema = z.array(petProfileOutputSchema);
+export const petProfileGetOutputSchema = petProfileOutputSchema.nullable();
+export const petProfileCreateOutputSchema = petProfileOutputSchema;
+export const petProfileUpdateOutputSchema = petProfileOutputSchema;
 
 export const reportMediaInputSchema = z.object({
   mediaId: z.uuid(),
@@ -1143,6 +1241,11 @@ export type ReportType = z.infer<typeof reportTypeSchema>;
 export type ReportStatus = z.infer<typeof reportStatusSchema>;
 export type ReportOutcome = z.infer<typeof reportOutcomeSchema>;
 export type PetSpecies = z.infer<typeof petSpeciesSchema>;
+export type PetProfileType = z.infer<typeof petProfileTypeSchema>;
+export type PetProfilePhoto = z.infer<typeof petProfilePhotoSchema>;
+export type PetProfileRelatedRecord = z.infer<
+  typeof petProfileRelatedRecordSchema
+>;
 export type AlertSubscriptionCategory = z.infer<
   typeof alertSubscriptionCategorySchema
 >;
@@ -1154,6 +1257,11 @@ export type MemberProfile = z.infer<typeof memberProfileOutputSchema>;
 export type UpdateMemberProfileInput = z.infer<
   typeof memberProfileUpdateInputSchema
 >;
+export type PetProfile = z.infer<typeof petProfileOutputSchema>;
+export type CreatePetProfileInput = z.infer<typeof petProfileCreateInputSchema>;
+export type UpdatePetProfileInput = z.infer<typeof petProfileUpdateInputSchema>;
+export type PetProfileIdInput = z.infer<typeof petProfileIdInputSchema>;
+export type PetProfileListInput = z.infer<typeof petProfileListInputSchema>;
 export type ReportMediaInput = z.infer<typeof reportMediaInputSchema>;
 export type CreateUploadSessionInput = z.infer<
   typeof createUploadSessionInputSchema

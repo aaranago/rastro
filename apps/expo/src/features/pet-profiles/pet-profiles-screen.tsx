@@ -1,6 +1,8 @@
 import type { LegendListRenderItemProps } from "@legendapp/list";
-import { useCallback, useMemo, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,6 +23,10 @@ import type {
   PetProfileType,
 } from "./pet-profile-types";
 import type {
+  CreatePetProfileInput,
+  PetProfileRepository,
+} from "./pet-profiles";
+import type {
   MisMascotasViewModel,
   PetProfileCardViewModel,
   PetProfileDetailViewModel,
@@ -35,6 +41,7 @@ import {
   buildMisMascotasViewModel,
   buildPetProfileFormViewModel,
   createPetProfileFromDraft,
+  isPetProfileType,
   petProfilePhotoLimit,
 } from "./pet-profiles-view-model";
 
@@ -45,11 +52,14 @@ export interface MisMascotasScreenProps {
   draftStore?: CreationDraftStore;
   initialProfiles?: readonly PetProfileSummary[];
   onOpenRelatedRecord?: (recordId: string) => void;
-  onRequestAddPhoto?: (draft: PetProfileDraft) => PetProfilePhoto | void;
+  onRequestAddPhoto?: (
+    draft: PetProfileDraft,
+  ) => PetProfilePhoto | Promise<PetProfilePhoto | void> | void;
   onStartReportFromProfile?: (
     profileId: string,
     intent: "lost" | "found" | "sighting" | "adoption",
   ) => void;
+  repository?: PetProfileRepository;
   session: PetProfilesSessionState;
 }
 
@@ -58,6 +68,15 @@ type MemberMisMascotasViewModel = Extract<
   MisMascotasViewModel,
   { kind: "member" }
 >;
+type MemberPetProfilesSession = Extract<
+  PetProfilesSessionState,
+  { kind: "member" }
+>;
+type PetProfileDraftSetter = Dispatch<SetStateAction<PetProfileDraft>>;
+type CommitPetProfileToScreen = (
+  nextProfile: PetProfileSummary,
+  mode: FormMode,
+) => void;
 
 interface MisMascotasController {
   addDraftPhoto: () => void;
@@ -67,8 +86,13 @@ interface MisMascotasController {
   draft: PetProfileDraft;
   draftPersistence: DurableCreationDraftPersistence;
   formViewModel?: PetProfileFormViewModel;
+  isLoadingProfiles: boolean;
+  isSavingProfile: boolean;
   onOpenRelatedRecord?: (recordId: string) => void;
   onStartReportFromProfile?: MisMascotasScreenProps["onStartReportFromProfile"];
+  photoPickerError?: string;
+  profileLoadError?: string;
+  profileSaveError?: string;
   removeDraftPhoto: (photoId: string) => void;
   selectProfile: (profileId: string) => void;
   submitDraft: () => void;
@@ -98,15 +122,29 @@ function useMisMascotasController({
   onOpenRelatedRecord,
   onRequestAddPhoto,
   onStartReportFromProfile,
+  repository,
   session,
 }: MisMascotasScreenProps): MisMascotasController {
-  const [profiles, setProfiles] = useState<PetProfileSummary[]>(() =>
-    cloneProfiles(initialProfiles),
-  );
-  const [selectedProfileId, setSelectedProfileId] = useState(
-    () => initialProfiles[0]?.id,
-  );
+  const {
+    isLoadingProfiles,
+    profileLoadError,
+    profiles,
+    selectedProfileId,
+    setProfiles,
+    setSelectedProfileId,
+  } = usePetProfilesDataSource({
+    initialProfiles,
+    repository,
+    session,
+  });
   const [formMode, setFormMode] = useState<FormMode | null>(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [photoPickerError, setPhotoPickerError] = useState<
+    string | undefined
+  >();
+  const [profileSaveError, setProfileSaveError] = useState<
+    string | undefined
+  >();
   const emptyDraft = useMemo(() => createEmptyDraft(), []);
   const { clearDraft, draft, draftPersistence, restoredDraft, setDraft } =
     useDurableCreationDraft({
@@ -115,13 +153,10 @@ function useMisMascotasController({
       scopeId: draftScopeId,
       store: draftStore,
     });
-  const activeFormMode =
-    formMode ??
-    (restoredDraft === null
-      ? null
-      : restoredDraft.draft.id === undefined
-        ? "create"
-        : "edit");
+  const activeFormMode = resolveActivePetProfileFormMode(
+    formMode,
+    restoredDraft?.draft,
+  );
   const viewModel = useMemo(
     () =>
       buildMisMascotasViewModel({
@@ -145,6 +180,8 @@ function useMisMascotasController({
   const beginCreate = useCallback(() => {
     setDraft(createEmptyDraft());
     setFormMode("create");
+    setPhotoPickerError(undefined);
+    setProfileSaveError(undefined);
   }, [setDraft]);
 
   const beginEdit = useCallback(
@@ -158,8 +195,10 @@ function useMisMascotasController({
       setSelectedProfileId(profileId);
       setDraft(toDraft(profile));
       setFormMode("edit");
+      setPhotoPickerError(undefined);
+      setProfileSaveError(undefined);
     },
-    [profiles, setDraft],
+    [profiles, setDraft, setSelectedProfileId],
   );
 
   const cancelForm = useCallback(() => {
@@ -167,30 +206,12 @@ function useMisMascotasController({
     setFormMode(null);
   }, [clearDraft]);
 
-  const selectProfile = useCallback((profileId: string) => {
-    setSelectedProfileId(profileId);
-  }, []);
-
-  const addDraftPhoto = useCallback(() => {
-    if (!formViewModel?.canAddPhoto) {
-      return;
-    }
-
-    if (onRequestAddPhoto) {
-      const providedPhoto = onRequestAddPhoto(draft);
-
-      if (!providedPhoto) {
-        return;
-      }
-
-      setDraft((current) => appendDraftPhoto(current, providedPhoto));
-      return;
-    }
-
-    setDraft((current) =>
-      appendDraftPhoto(current, createLocalDraftPhoto(current.photos.length)),
-    );
-  }, [draft, formViewModel?.canAddPhoto, onRequestAddPhoto, setDraft]);
+  const selectProfile = useCallback(
+    (profileId: string) => {
+      setSelectedProfileId(profileId);
+    },
+    [setSelectedProfileId],
+  );
 
   const removeDraftPhoto = useCallback(
     (photoId: string) => {
@@ -202,48 +223,33 @@ function useMisMascotasController({
     [setDraft],
   );
 
-  const submitDraft = useCallback(() => {
-    if (session.kind !== "member" || !activeFormMode) {
-      return;
-    }
-
-    const currentForm = buildPetProfileFormViewModel({
-      draft,
-      mode: activeFormMode,
-    });
-
-    if (!currentForm.canSubmit) {
-      return;
-    }
-
-    const id = draft.id ?? `pet-${Date.now()}`;
-    const nextProfile = {
-      ...createPetProfileFromDraft({
-        caretakerMemberId: session.memberId,
-        draft,
-        id,
-      }),
-      updatedAtLabel: "Guardado ahora",
-    };
-
-    setProfiles((current) => {
-      if (activeFormMode === "edit") {
-        return current.map((profile) =>
-          profile.id === id
-            ? {
-                ...nextProfile,
-                relatedRecords: profile.relatedRecords,
-              }
-            : profile,
-        );
-      }
-
-      return [nextProfile, ...current];
-    });
-    setSelectedProfileId(id);
-    setFormMode(null);
-    void clearDraft();
-  }, [activeFormMode, clearDraft, draft, session]);
+  const commitProfileToScreen = useCallback(
+    (nextProfile: PetProfileSummary, mode: FormMode) => {
+      setProfiles((current) =>
+        upsertProfileForScreen(current, nextProfile, mode),
+      );
+      setSelectedProfileId(nextProfile.id);
+      setFormMode(null);
+    },
+    [setProfiles, setSelectedProfileId],
+  );
+  const addDraftPhoto = usePetProfilePhotoAction({
+    canAddPhoto: Boolean(formViewModel?.canAddPhoto),
+    draft,
+    onRequestAddPhoto,
+    setDraft,
+    setPhotoPickerError,
+  });
+  const submitDraft = usePetProfileSubmitAction({
+    activeFormMode,
+    clearDraft,
+    commitProfileToScreen,
+    draft,
+    repository,
+    session,
+    setIsSavingProfile,
+    setProfileSaveError,
+  });
 
   return {
     addDraftPhoto,
@@ -253,13 +259,209 @@ function useMisMascotasController({
     draft,
     draftPersistence,
     formViewModel,
+    isLoadingProfiles,
+    isSavingProfile,
     onOpenRelatedRecord,
     onStartReportFromProfile,
+    photoPickerError,
+    profileLoadError,
+    profileSaveError,
     removeDraftPhoto,
     selectProfile,
     submitDraft,
     updateDraft: setDraft,
     viewModel,
+  };
+}
+
+function resolveActivePetProfileFormMode(
+  formMode: FormMode | null,
+  restoredDraft?: PetProfileDraft,
+): FormMode | null {
+  if (formMode || !restoredDraft) {
+    return formMode;
+  }
+
+  return restoredDraft.id === undefined ? "create" : "edit";
+}
+
+function usePetProfilePhotoAction({
+  canAddPhoto,
+  draft,
+  onRequestAddPhoto,
+  setDraft,
+  setPhotoPickerError,
+}: {
+  canAddPhoto: boolean;
+  draft: PetProfileDraft;
+  onRequestAddPhoto: MisMascotasScreenProps["onRequestAddPhoto"];
+  setDraft: PetProfileDraftSetter;
+  setPhotoPickerError: (message: string | undefined) => void;
+}) {
+  return useCallback(() => {
+    if (!canAddPhoto) {
+      return;
+    }
+
+    setPhotoPickerError(undefined);
+
+    if (onRequestAddPhoto) {
+      void requestAndAppendDraftPhoto({
+        draft,
+        onRequestAddPhoto,
+        setDraft,
+        setPhotoPickerError,
+      });
+      return;
+    }
+
+    setDraft((current) =>
+      appendDraftPhoto(current, createLocalDraftPhoto(current.photos.length)),
+    );
+  }, [canAddPhoto, draft, onRequestAddPhoto, setDraft, setPhotoPickerError]);
+}
+
+function usePetProfileSubmitAction({
+  activeFormMode,
+  clearDraft,
+  commitProfileToScreen,
+  draft,
+  repository,
+  session,
+  setIsSavingProfile,
+  setProfileSaveError,
+}: {
+  activeFormMode: FormMode | null;
+  clearDraft: () => Promise<void>;
+  commitProfileToScreen: CommitPetProfileToScreen;
+  draft: PetProfileDraft;
+  repository?: PetProfileRepository;
+  session: PetProfilesSessionState;
+  setIsSavingProfile: (isSaving: boolean) => void;
+  setProfileSaveError: (message: string | undefined) => void;
+}) {
+  return useCallback(() => {
+    if (session.kind !== "member" || !activeFormMode) {
+      return;
+    }
+
+    const input = buildSubmittablePetProfileInput({
+      draft,
+      mode: activeFormMode,
+    });
+
+    if (!input) {
+      return;
+    }
+
+    if (!repository) {
+      const nextProfile = createLocalScreenProfile(session, draft);
+
+      commitProfileToScreen(nextProfile, activeFormMode);
+      void clearDraft();
+      return;
+    }
+
+    setIsSavingProfile(true);
+    setProfileSaveError(undefined);
+    void saveRepositoryPetProfile({
+      clearDraft,
+      commitProfileToScreen,
+      draft,
+      input,
+      mode: activeFormMode,
+      repository,
+      session,
+      setIsSavingProfile,
+      setProfileSaveError,
+    });
+  }, [
+    activeFormMode,
+    clearDraft,
+    commitProfileToScreen,
+    draft,
+    repository,
+    session,
+    setIsSavingProfile,
+    setProfileSaveError,
+  ]);
+}
+
+function usePetProfilesDataSource({
+  initialProfiles,
+  repository,
+  session,
+}: {
+  initialProfiles: readonly PetProfileSummary[];
+  repository?: PetProfileRepository;
+  session: PetProfilesSessionState;
+}) {
+  const [profiles, setProfiles] = useState<PetProfileSummary[]>(() =>
+    repository ? [] : cloneProfiles(initialProfiles),
+  );
+  const [selectedProfileId, setSelectedProfileId] = useState(() =>
+    repository ? undefined : initialProfiles[0]?.id,
+  );
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(
+    () => repository !== undefined && session.kind === "member",
+  );
+  const [profileLoadError, setProfileLoadError] = useState<
+    string | undefined
+  >();
+  const memberSessionKey =
+    session.kind === "member" ? session.memberId : "visitor";
+
+  useEffect(() => {
+    if (!repository || session.kind !== "member") {
+      return;
+    }
+
+    const requestState = { isActive: true };
+
+    void (async () => {
+      await Promise.resolve();
+
+      if (!isPetProfileRequestActive(requestState)) {
+        return;
+      }
+
+      setIsLoadingProfiles(true);
+      setProfileLoadError(undefined);
+
+      try {
+        const nextProfiles = await repository.listPetProfiles(session);
+
+        if (!isPetProfileRequestActive(requestState)) {
+          return;
+        }
+
+        setProfiles(cloneProfiles(nextProfiles));
+        setSelectedProfileId((current) =>
+          getNextSelectedProfileId(current, nextProfiles),
+        );
+      } catch {
+        if (isPetProfileRequestActive(requestState)) {
+          setProfileLoadError("No pudimos cargar tus mascotas.");
+        }
+      } finally {
+        if (isPetProfileRequestActive(requestState)) {
+          setIsLoadingProfiles(false);
+        }
+      }
+    })();
+
+    return () => {
+      requestState.isActive = false;
+    };
+  }, [memberSessionKey, repository, session]);
+
+  return {
+    isLoadingProfiles,
+    profileLoadError,
+    profiles,
+    selectedProfileId,
+    setProfiles,
+    setSelectedProfileId,
   };
 }
 
@@ -277,7 +479,7 @@ function VisitorMisMascotasScreen({
       style={styles.screen}
     >
       <ScreenHeader
-        body="Consulta como funcionan los perfiles reutilizables antes de iniciar sesion."
+        body="Consulta cómo funcionan los perfiles reutilizables antes de iniciar sesión."
         title={viewModel.title}
       />
       <View style={styles.visitorPanel}>
@@ -340,6 +542,7 @@ function MemberMisMascotasScreen({
           draft={controller.draft}
           draftPersistence={controller.draftPersistence}
           formViewModel={controller.formViewModel}
+          isSavingProfile={controller.isSavingProfile}
           onAddPhoto={controller.addDraftPhoto}
           onCancelForm={controller.cancelForm}
           onDraftChange={controller.updateDraft}
@@ -348,13 +551,17 @@ function MemberMisMascotasScreen({
           onRemovePhoto={controller.removeDraftPhoto}
           onStartReportFromProfile={controller.onStartReportFromProfile}
           onSubmit={controller.submitDraft}
+          photoPickerError={controller.photoPickerError}
           selectedProfile={viewModel.selectedProfile}
         />
       }
       ListHeaderComponent={
         <MemberPetProfilesHeader
           createActionLabel={viewModel.createActionLabel}
+          isLoadingProfiles={controller.isLoadingProfiles}
           onCreate={controller.beginCreate}
+          profileLoadError={controller.profileLoadError}
+          profileSaveError={controller.profileSaveError}
           subtitle={viewModel.subtitle}
           title={viewModel.title}
         />
@@ -384,19 +591,25 @@ function MemberPetProfilesEmptyState({
         "Guarda los datos de una mascota para reutilizarlos despues."
       }
       onCreate={onCreate}
-      title={viewModel.emptyState?.title ?? "Aun no tienes mascotas"}
+      title={viewModel.emptyState?.title ?? "Aún no tienes mascotas"}
     />
   );
 }
 
 function MemberPetProfilesHeader({
   createActionLabel,
+  isLoadingProfiles,
   onCreate,
+  profileLoadError,
+  profileSaveError,
   subtitle,
   title,
 }: {
   createActionLabel: string;
+  isLoadingProfiles: boolean;
   onCreate: () => void;
+  profileLoadError?: string;
+  profileSaveError?: string;
   subtitle: string;
   title: string;
 }) {
@@ -410,6 +623,24 @@ function MemberPetProfilesHeader({
           onPress={onCreate}
         />
       </View>
+      {isLoadingProfiles ? (
+        <View style={styles.inlineStatus}>
+          <ActivityIndicator color={shellColors.primary} size="small" />
+          <Text selectable style={styles.inlineStatusText}>
+            Cargando tus mascotas guardadas
+          </Text>
+        </View>
+      ) : null}
+      {profileLoadError ? (
+        <Text selectable style={styles.inlineError}>
+          {profileLoadError}
+        </Text>
+      ) : null}
+      {profileSaveError ? (
+        <Text selectable style={styles.inlineError}>
+          {profileSaveError}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -418,6 +649,7 @@ function MemberPetProfilesFooter({
   draft,
   draftPersistence,
   formViewModel,
+  isSavingProfile,
   onAddPhoto,
   onCancelForm,
   onDraftChange,
@@ -426,11 +658,13 @@ function MemberPetProfilesFooter({
   onRemovePhoto,
   onStartReportFromProfile,
   onSubmit,
+  photoPickerError,
   selectedProfile,
 }: {
   draft: PetProfileDraft;
   draftPersistence: DurableCreationDraftPersistence;
   formViewModel?: PetProfileFormViewModel;
+  isSavingProfile: boolean;
   onAddPhoto: () => void;
   onCancelForm: () => void;
   onDraftChange: (draft: PetProfileDraft) => void;
@@ -442,6 +676,7 @@ function MemberPetProfilesFooter({
     intent: "lost" | "found" | "sighting" | "adoption",
   ) => void;
   onSubmit: () => void;
+  photoPickerError?: string;
   selectedProfile?: PetProfileDetailViewModel;
 }) {
   return (
@@ -460,11 +695,13 @@ function MemberPetProfilesFooter({
           draft={draft}
           draftPersistence={draftPersistence}
           form={formViewModel}
+          isSaving={isSavingProfile}
           onAddPhoto={onAddPhoto}
           onCancel={onCancelForm}
           onDraftChange={onDraftChange}
           onRemovePhoto={onRemovePhoto}
           onSubmit={onSubmit}
+          photoPickerError={photoPickerError}
         />
       ) : null}
 
@@ -578,7 +815,7 @@ function PetProfileDetailSurface({
 
       <View style={styles.infoBlock}>
         <Text selectable style={styles.sectionLabel}>
-          Descripcion y marcas
+          Descripción y marcas
         </Text>
         <Text selectable style={styles.infoBody}>
           {profile.description.trim() || "Sin descripcion agregada."}
@@ -607,7 +844,7 @@ function PetProfileDetailSurface({
           />
           <SmallActionButton
             iconName="heart.fill"
-            label="Adopcion"
+            label="Adopción"
             onPress={() => onStartReportFromProfile?.(profile.id, "adoption")}
           />
         </View>
@@ -653,7 +890,7 @@ function PetProfileDetailSurface({
         ) : (
           <View style={styles.relatedEmpty}>
             <Text selectable style={styles.relatedEmptyText}>
-              No tiene reportes activos todavia.
+              No tiene reportes activos todavía.
             </Text>
           </View>
         )}
@@ -666,20 +903,24 @@ function PetProfileFormSurface({
   draft,
   draftPersistence,
   form,
+  isSaving,
   onAddPhoto,
   onCancel,
   onDraftChange,
   onRemovePhoto,
   onSubmit,
+  photoPickerError,
 }: {
   draft: PetProfileDraft;
   draftPersistence: DurableCreationDraftPersistence;
   form: PetProfileFormViewModel;
+  isSaving: boolean;
   onAddPhoto: () => void;
   onCancel: () => void;
   onDraftChange: (draft: PetProfileDraft) => void;
   onRemovePhoto: (photoId: string) => void;
   onSubmit: () => void;
+  photoPickerError?: string;
 }) {
   return (
     <View style={styles.formSurface}>
@@ -744,12 +985,17 @@ function PetProfileFormSurface({
         onRemovePhoto={onRemovePhoto}
         photos={form.photos}
       />
+      {photoPickerError ? (
+        <Text selectable style={styles.inlineError}>
+          {photoPickerError}
+        </Text>
+      ) : null}
 
       <View style={styles.formActions}>
         <SecondaryButton label="Cancelar" onPress={onCancel} />
         <PrimaryButton
-          disabled={!form.canSubmit}
-          label={form.submitLabel}
+          disabled={!form.canSubmit || isSaving}
+          label={isSaving ? "Guardando" : form.submitLabel}
           onPress={onSubmit}
         />
       </View>
@@ -805,8 +1051,8 @@ function PermissionNote() {
     <View style={styles.permissionNote}>
       <ShellIcon color={shellColors.sighting} name="camera.fill" size={20} />
       <Text selectable style={styles.permissionText}>
-        Las fotos se piden solo cuando eliges agregarlas. Rastro prepara
-        miniaturas y retira datos de ubicacion antes de subirlas.
+        Las fotos se piden solo cuando eliges agregarlas. Úsalas como
+        referencia visual para reconocer mejor a tu mascota.
       </Text>
     </View>
   );
@@ -877,7 +1123,7 @@ function ReadonlyPhotoStrip({
       ) : (
         <View style={styles.noPhotoPanel}>
           <Text selectable style={styles.noPhotoText}>
-            Sin fotos todavia.
+            Sin fotos todavía.
           </Text>
         </View>
       )}
@@ -1141,6 +1387,130 @@ function CountBadge({ label }: { label: string }) {
   );
 }
 
+function buildSubmittablePetProfileInput({
+  draft,
+  mode,
+}: {
+  draft: PetProfileDraft;
+  mode: FormMode;
+}): CreatePetProfileInput | null {
+  const currentForm = buildPetProfileFormViewModel({
+    draft,
+    mode,
+  });
+
+  if (!currentForm.canSubmit || !isPetProfileType(draft.type)) {
+    return null;
+  }
+
+  return {
+    breed: draft.breed,
+    description: draft.description,
+    name: draft.name,
+    photos: toPetProfilePhotoSources(draft.photos),
+    type: draft.type,
+  };
+}
+
+function createLocalScreenProfile(
+  session: MemberPetProfilesSession,
+  draft: PetProfileDraft,
+): PetProfileSummary {
+  return {
+    ...createPetProfileFromDraft({
+      caretakerMemberId: session.memberId,
+      draft,
+      id: draft.id ?? `pet-${Date.now()}`,
+    }),
+    updatedAtLabel: "Guardado ahora",
+  };
+}
+
+async function savePetProfile({
+  draft,
+  input,
+  mode,
+  repository,
+  session,
+}: {
+  draft: PetProfileDraft;
+  input: CreatePetProfileInput;
+  mode: FormMode;
+  repository: PetProfileRepository;
+  session: MemberPetProfilesSession;
+}): Promise<PetProfileSummary> {
+  const savedProfile =
+    mode === "edit" && draft.id
+      ? await repository.updatePetProfile(session, draft.id, input)
+      : await repository.createPetProfile(session, input);
+
+  return {
+    ...savedProfile,
+    updatedAtLabel: "Guardado ahora",
+  };
+}
+
+async function requestAndAppendDraftPhoto({
+  draft,
+  onRequestAddPhoto,
+  setDraft,
+  setPhotoPickerError,
+}: {
+  draft: PetProfileDraft;
+  onRequestAddPhoto: NonNullable<MisMascotasScreenProps["onRequestAddPhoto"]>;
+  setDraft: PetProfileDraftSetter;
+  setPhotoPickerError: (message: string | undefined) => void;
+}) {
+  try {
+    const providedPhoto = await onRequestAddPhoto(draft);
+
+    if (providedPhoto) {
+      setDraft((current) => appendDraftPhoto(current, providedPhoto));
+    }
+  } catch (error) {
+    setPhotoPickerError(formatPhotoPickerError(error));
+  }
+}
+
+async function saveRepositoryPetProfile({
+  clearDraft,
+  commitProfileToScreen,
+  draft,
+  input,
+  mode,
+  repository,
+  session,
+  setIsSavingProfile,
+  setProfileSaveError,
+}: {
+  clearDraft: () => Promise<void>;
+  commitProfileToScreen: CommitPetProfileToScreen;
+  draft: PetProfileDraft;
+  input: CreatePetProfileInput;
+  mode: FormMode;
+  repository: PetProfileRepository;
+  session: MemberPetProfilesSession;
+  setIsSavingProfile: (isSaving: boolean) => void;
+  setProfileSaveError: (message: string | undefined) => void;
+}) {
+  try {
+    const savedProfile = await savePetProfile({
+      draft,
+      input,
+      mode,
+      repository,
+      session,
+    });
+
+    commitProfileToScreen(savedProfile, mode);
+    await clearDraft();
+  } catch {
+    setProfileSaveError("No pudimos guardar esta mascota.");
+  } finally {
+    setIsSavingProfile(false);
+  }
+}
+
 function createEmptyDraft(): PetProfileDraft {
   return {
     breed: "",
@@ -1204,6 +1574,68 @@ function cloneProfiles(profiles: readonly PetProfileSummary[]) {
     photos: [...profile.photos],
     relatedRecords: [...profile.relatedRecords],
   }));
+}
+
+function getNextSelectedProfileId(
+  current: string | undefined,
+  profiles: readonly PetProfileSummary[],
+) {
+  return current && profiles.some((profile) => profile.id === current)
+    ? current
+    : profiles[0]?.id;
+}
+
+function isPetProfileRequestActive(requestState: { isActive: boolean }) {
+  return requestState.isActive;
+}
+
+function toPetProfilePhotoSources(photos: readonly PetProfilePhoto[]) {
+  return photos.flatMap((photo) => {
+    const uri = photo.sourceUri ?? photo.uri ?? photo.thumbUri;
+
+    if (!uri) {
+      return [];
+    }
+
+    return [
+      {
+        height: photo.height,
+        id: photo.id,
+        mimeType: photo.mimeType,
+        uri,
+        width: photo.width,
+      },
+    ];
+  });
+}
+
+function formatPhotoPickerError(error: unknown) {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return "No pudimos abrir tus fotos. Intenta de nuevo.";
+}
+
+function upsertProfileForScreen(
+  current: readonly PetProfileSummary[],
+  nextProfile: PetProfileSummary,
+  mode: FormMode,
+) {
+  if (mode === "edit") {
+    return current.map((profile) =>
+      profile.id === nextProfile.id
+        ? {
+            ...nextProfile,
+            relatedRecords: nextProfile.relatedRecords.length
+              ? nextProfile.relatedRecords
+              : profile.relatedRecords,
+          }
+        : profile,
+    );
+  }
+
+  return [nextProfile, ...current];
 }
 
 function formatProfileSubtitle(typeLabel: string, breedLabel?: string) {
@@ -1329,6 +1761,26 @@ const styles = StyleSheet.create({
     height: 46,
     justifyContent: "center",
     width: 46,
+  },
+  inlineError: {
+    color: shellColors.lost,
+    fontSize: 13,
+    fontWeight: "900",
+    lineHeight: 18,
+  },
+  inlineStatus: {
+    alignItems: "center",
+    backgroundColor: shellColors.primarySoft,
+    borderRadius: 16,
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  inlineStatusText: {
+    color: shellColors.primary,
+    fontSize: 13,
+    fontWeight: "900",
   },
   infoBlock: {
     gap: 7,

@@ -561,7 +561,7 @@ describe("ReportActionSheet", () => {
 });
 
 describe("ShellFabHost", () => {
-  it("keeps the visitor Activity empty-state CTA clear of the global Reportar button", () => {
+  it("keeps dense top-level tab content clear of the global Reportar button", () => {
     expect(
       shouldDisplayGlobalReportFab({
         isAuthPromptVisible: false,
@@ -581,6 +581,20 @@ describe("ShellFabHost", () => {
         isAuthPromptVisible: false,
         segments: ["(tabs)", "(nearby)"],
         sessionKind: "visitor",
+      }),
+    ).toBe(false);
+    expect(
+      shouldDisplayGlobalReportFab({
+        isAuthPromptVisible: false,
+        segments: ["(tabs)", "(resources)"],
+        sessionKind: "member",
+      }),
+    ).toBe(false);
+    expect(
+      shouldDisplayGlobalReportFab({
+        isAuthPromptVisible: false,
+        segments: ["(tabs)", "(profile)"],
+        sessionKind: "member",
       }),
     ).toBe(false);
   });

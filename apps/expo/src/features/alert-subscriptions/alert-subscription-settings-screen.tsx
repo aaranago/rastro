@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type {
   AlertSubscriptionNativeAdapter,
@@ -30,7 +31,7 @@ import {
 } from "./alert-subscription-settings-view-model";
 import { createInMemoryAlertSubscriptionRepository } from "./alert-subscriptions";
 
-const bottomInset = 44;
+const bottomInset = 180;
 const defaultRepository = createInMemoryAlertSubscriptionRepository({
   now: () => new Date().toISOString(),
 });
@@ -41,7 +42,7 @@ const defaultLastDetectedLocation: AlertSubscriptionLocationSnapshot = {
   },
   countryCode: "BO",
   detectedAt: "2026-06-18T08:00:00.000Z",
-  label: "Ultima ubicacion detectada en La Paz",
+  label: "Última ubicación detectada en La Paz",
   locationCellLabel: "La Paz",
   source: "last",
 };
@@ -55,6 +56,7 @@ export interface AlertSubscriptionSettingsScreenProps {
 type PendingAction =
   | "enable"
   | "moving-alerts"
+  | "notifications"
   | "pause"
   | "radius"
   | "refresh"
@@ -71,6 +73,7 @@ interface AlertSubscriptionSettingsController {
   pauseAlerts: () => Promise<void>;
   pendingAction: PendingAction | null;
   refreshArea: () => Promise<void>;
+  retryNotifications: () => Promise<void>;
   selectRadius: (radiusKm: AlertSubscriptionRadiusKm) => Promise<void>;
   subscription: AlertSubscription | null;
   toggleMovingAlerts: (enabled: boolean) => Promise<void>;
@@ -83,18 +86,23 @@ export function AlertSubscriptionSettingsScreen({
   repository = defaultRepository,
   session,
 }: AlertSubscriptionSettingsScreenProps) {
+  const safeAreaInsets = useSafeAreaInsets();
   const controller = useAlertSubscriptionSettingsController({
     nativeAdapter,
     repository,
     session,
   });
+  const scrollBottomInset = bottomInset + safeAreaInsets.bottom;
 
   return (
     <ScrollView
-      contentContainerStyle={styles.content}
-      contentInset={{ bottom: bottomInset }}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: scrollBottomInset },
+      ]}
+      contentInset={{ bottom: scrollBottomInset }}
       contentInsetAdjustmentBehavior="automatic"
-      scrollIndicatorInsets={{ bottom: bottomInset }}
+      scrollIndicatorInsets={{ bottom: scrollBottomInset }}
       style={styles.screen}
       testID="alert-subscription-settings-screen"
     >
@@ -174,7 +182,7 @@ function useAlertSubscriptionSettingsController({
 
     if (!memberSession) {
       setFeedback({
-        message: "Inicia sesion para activar alertas.",
+        message: "Inicia sesión para activar alertas.",
         tone: "warning",
       });
       return;
@@ -251,6 +259,29 @@ function useAlertSubscriptionSettingsController({
     }
   }, [repository, session]);
 
+  const retryNotifications = React.useCallback(async () => {
+    const memberSession = getMemberSession(session);
+
+    if (!memberSession || !subscription?.enabled) {
+      return;
+    }
+
+    setPendingAction("notifications");
+    setFeedback(null);
+
+    try {
+      setFeedback(
+        await resolvePushRegistrationFeedback({
+          memberSession,
+          nativeAdapter,
+          repository,
+        }),
+      );
+    } finally {
+      setPendingAction(null);
+    }
+  }, [nativeAdapter, repository, session, subscription?.enabled]);
+
   const unsubscribeAlerts = React.useCallback(async () => {
     const memberSession = getMemberSession(session);
 
@@ -312,12 +343,12 @@ function useAlertSubscriptionSettingsController({
       setSubscription(refreshed);
       setLastDetectedLocation(refreshed.dynamicAlertArea?.location ?? location);
       setFeedback({
-        message: "Area de alertas actualizada.",
+        message: "Área de alertas actualizada.",
         tone: "success",
       });
     } catch {
       setFeedback({
-        message: "No pudimos actualizar el area.",
+        message: "No pudimos actualizar el área.",
         tone: "error",
       });
     } finally {
@@ -402,6 +433,7 @@ function useAlertSubscriptionSettingsController({
     pauseAlerts,
     pendingAction,
     refreshArea,
+    retryNotifications,
     selectRadius,
     subscription,
     toggleMovingAlerts,
@@ -453,10 +485,10 @@ function SubscriptionPanel({
       <View style={styles.rowHeader}>
         <View style={styles.rowCopy}>
           <Text selectable style={styles.sectionTitle}>
-            Suscripcion
+            Suscripción
           </Text>
           <Text selectable style={styles.mutedText}>
-            Nuevos reportes de mascotas perdidas cerca de tu area dinamica.
+            Nuevos reportes de mascotas perdidas cerca de tu área dinámica.
           </Text>
         </View>
         <Switch
@@ -478,6 +510,16 @@ function SubscriptionPanel({
             : "alert-subscription-enable-button"
         }
       />
+      {viewModel.enabled ? (
+        <ActionButton
+          disabled={!viewModel.canManage || pendingAction !== null}
+          icon="bell.badge.fill"
+          label={getNotificationRetryActionLabel(pendingAction)}
+          onPress={controller.retryNotifications}
+          testID="alert-subscription-retry-notifications-button"
+          variant="secondary"
+        />
+      ) : null}
       {controller.subscription ? (
         <ActionButton
           disabled={!viewModel.canManage || pendingAction !== null}
@@ -546,7 +588,7 @@ function DynamicAlertAreaPanel({
       <View style={styles.rowHeader}>
         <View style={styles.rowCopy}>
           <Text selectable style={styles.sectionTitle}>
-            Area dinamica
+            Área dinámica
           </Text>
           <DynamicAlertAreaCopy viewModel={viewModel} />
         </View>
@@ -635,7 +677,7 @@ function PolicyPanel({
   return (
     <View style={styles.policyPanel}>
       <Text selectable style={styles.sectionTitle}>
-        Bateria y permisos
+        Batería y permisos
       </Text>
       {viewModel.locationPolicyRows.map((row) => (
         <View key={row} style={styles.policyRow}>
@@ -756,7 +798,7 @@ export async function persistRegisteredAlertSubscriptionPushToken({
   } catch {
     return {
       message:
-        "Alertas activas, pero no pudimos guardar el token push. Intenta actualizar las alertas mas tarde.",
+        "Tu suscripción quedó activa, pero no pudimos guardar el token de notificaciones. Reintenta desde esta pantalla.",
       tone: "warning",
     };
   }
@@ -766,7 +808,7 @@ export async function persistRegisteredAlertSubscriptionPushToken({
 
 const pushRegistrationUnavailableFeedback = {
   message:
-    "Alertas activas, pero no pudimos activar notificaciones push. Intenta actualizar las alertas mas tarde.",
+    "Tu suscripción quedó activa, pero este dispositivo todavía no puede recibir notificaciones. Reintenta cuando los permisos o el proyecto Expo estén listos.",
   tone: "warning",
 } satisfies Feedback;
 
@@ -786,7 +828,15 @@ function getSubscriptionActionLabel(
 }
 
 function getUnsubscribeActionLabel(pendingAction: PendingAction | null) {
-  return pendingAction === "unsubscribe" ? "Desuscribiendo" : "Desuscribirme";
+  return pendingAction === "unsubscribe"
+    ? "Actualizando"
+    : "Dejar de recibir alertas";
+}
+
+function getNotificationRetryActionLabel(pendingAction: PendingAction | null) {
+  return pendingAction === "notifications"
+    ? "Reintentando"
+    : "Reintentar notificaciones";
 }
 
 function getRefreshActionLabel(
@@ -803,7 +853,7 @@ function formatPushRegistrationFeedback(
 ): Feedback {
   if (pushRegistration.kind === "registered") {
     return {
-      message: "Alertas activas y notificaciones listas.",
+      message: "Suscripción activa y notificaciones listas.",
       tone: "success",
     };
   }
@@ -811,7 +861,7 @@ function formatPushRegistrationFeedback(
   if (pushRegistration.kind === "missing-project-id") {
     return {
       message:
-        "Alertas activas. Falta configurar EAS projectId para probar push real.",
+        "Tu suscripción quedó activa. Falta configurar EAS projectId para probar push real.",
       tone: "warning",
     };
   }
@@ -819,14 +869,14 @@ function formatPushRegistrationFeedback(
   if (pushRegistration.kind === "permission-denied") {
     return {
       message:
-        "Alertas activas. El permiso de notificaciones esta denegado; habilitalo en ajustes para recibir avisos push.",
+        "Tu suscripción quedó activa. El permiso de notificaciones está denegado; habilítalo en ajustes para recibir avisos push.",
       tone: "warning",
     };
   }
 
   return {
     message:
-      "Alertas activas. Necesitamos permiso de notificaciones para enviarte avisos push.",
+      "Tu suscripción quedó activa. Necesitamos permiso de notificaciones para enviarte avisos push.",
     tone: "warning",
   };
 }

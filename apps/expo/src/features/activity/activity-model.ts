@@ -490,7 +490,7 @@ function toChatSummaryActivityItem(
     ]),
     occurredAt: summary.occurredAt,
     targetId: summary.conversationId,
-    title: summary.otherParticipant.displayName,
+    title: formatParticipantDisplayName(summary.otherParticipant.displayName),
     tone: "info",
   };
 }
@@ -520,7 +520,7 @@ function toChatActivityItem(
       chat.subjectLink.subtitle,
     ]),
     occurredAt: conversation.updatedAt,
-    title: chat.title,
+    title: formatParticipantDisplayName(chat.title),
     tone: "info",
   };
 }
@@ -567,11 +567,11 @@ function formatChatSummaryBody(
   lastMessage: ActivityChatSummaryLastMessage | null | undefined,
 ) {
   if (!lastMessage) {
-    return "Aun no hay mensajes en este chat.";
+    return "Aún no hay mensajes en este chat.";
   }
 
-  const text = lastMessage.text.trim();
-  const authorLabel = lastMessage.authorLabel?.trim();
+  const text = formatMessagePreview(lastMessage.text);
+  const authorLabel = formatParticipantDisplayName(lastMessage.authorLabel);
 
   if (!text) {
     return authorLabel
@@ -580,6 +580,36 @@ function formatChatSummaryBody(
   }
 
   return authorLabel ? `${authorLabel}: ${text}` : text;
+}
+
+function formatParticipantDisplayName(value: string | undefined) {
+  const trimmed = value?.trim();
+
+  if (!trimmed || isLowValueIdentifier(trimmed)) {
+    return "Miembro de Rastro";
+  }
+
+  return trimmed;
+}
+
+function formatMessagePreview(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed || isLowValueIdentifier(trimmed)) {
+    return "Mensaje reciente";
+  }
+
+  return trimmed;
+}
+
+function isLowValueIdentifier(value: string) {
+  const compact = value.replace(/[\s_-]/g, "");
+
+  return (
+    /^[a-z]+e2e[a-z]*\d{6,}$/i.test(compact) ||
+    /^[0-9a-f]{24,}$/i.test(compact) ||
+    /^[0-9a-f]{8}[0-9a-f-]{18,}$/i.test(value)
+  );
 }
 
 function formatAlertDeliveryStatus(status: string) {

@@ -164,6 +164,65 @@ export const MemberProfile = pgTable("member_profile", (t) => ({
     .notNull(),
 }));
 
+export interface PetProfilePhotoJson {
+  alt?: string;
+  height?: number;
+  id: string;
+  mimeType?: string;
+  position?: number;
+  sourceUri?: string;
+  status?: "draft" | "ready" | "uploading" | "error";
+  thumbUri?: string;
+  uri?: string;
+  width?: number;
+}
+
+export interface PetProfileRelatedRecordJson {
+  id: string;
+  kind: "adoption-listing" | "found-report" | "lost-report" | "sighting-report";
+  outcomeLabel?: string;
+  status: "active" | "closed";
+  title: string;
+  updatedAtLabel?: string;
+}
+
+export const PetProfile = pgTable(
+  "pet_profile",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    caretakerMemberId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: t.varchar({ length: 80 }).notNull(),
+    type: t.varchar({ length: 24 }).notNull(),
+    breed: t.varchar({ length: 120 }).default("").notNull(),
+    description: t.text().default("").notNull(),
+    photos: t
+      .jsonb()
+      .$type<PetProfilePhotoJson[]>()
+      .default(sql`'[]'::jsonb`)
+      .notNull(),
+    relatedRecords: t
+      .jsonb()
+      .$type<PetProfileRelatedRecordJson[]>()
+      .default(sql`'[]'::jsonb`)
+      .notNull(),
+    createdAt: t.timestamp(timestampWithTimezone).defaultNow().notNull(),
+    updatedAt: t
+      .timestamp(timestampWithTimezone)
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  }),
+  (table) => [
+    index("pet_profile_caretaker_updated_idx").on(
+      table.caretakerMemberId,
+      table.updatedAt,
+    ),
+  ],
+);
+
 export const alertSubscriptionCategory = pgEnum("alert_subscription_category", [
   "lost_pet",
 ]);

@@ -5,6 +5,7 @@ import { Image } from "expo-image";
 
 import type { PublishLostPetReportInput } from "../lost-reports/lost-reports";
 import type { NearbyLocationAdapter } from "../nearby/nearby-location-adapter";
+import type { PetProfileSummary } from "../pet-profiles/pet-profile-types";
 import type {
   ReportCreationJourney,
   ReportCreationJourneyStepId,
@@ -108,7 +109,7 @@ export interface LostReportCreationScreenProps {
   onSharePublishedReport?: (
     confirmation: LostReportPublishConfirmation,
   ) => Promise<void> | void;
-  petProfiles?: readonly LostReportPetProfileOption[];
+  petProfiles?: readonly (LostReportPetProfileOption | PetProfileSummary)[];
   pickLostReportPhoto?: () =>
     | LostReportPhoto
     | Promise<LostReportPhoto | undefined>

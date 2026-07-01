@@ -42,6 +42,11 @@ const reactState = vi.hoisted(() => ({
 }));
 const api = vi.hoisted(() => ({
   trpcClient: {
+    petProfiles: {
+      list: {
+        query: vi.fn(),
+      },
+    },
     report: {
       create: {
         mutate: vi.fn(),
@@ -171,6 +176,26 @@ const reportMedia = vi.hoisted(() => {
     ),
   };
 });
+const savedPetProfiles = [
+  {
+    breed: "Mestiza",
+    caretakerMemberId: "member-camila",
+    description: "Tiene collar verde y responde a Kira.",
+    id: "pet-profile-kira",
+    name: "Kira",
+    photos: [
+      {
+        id: "pet-profile-kira-photo",
+        status: "ready",
+        thumbUri: "https://media.rastro.test/kira-thumb.jpg",
+        uri: "https://media.rastro.test/kira.jpg",
+      },
+    ],
+    relatedRecords: [],
+    type: "Perro",
+    updatedAtLabel: "Actualizada hoy",
+  },
+];
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof React>("react");
@@ -357,6 +382,7 @@ beforeEach(() => {
   publishAdapters.createApiAdoptionListingPublishHandler.mockReturnValue(
     publishAdapters.adoptionHandler,
   );
+  api.trpcClient.petProfiles.list.query.mockResolvedValue([]);
   shell.value = createShellValue({
     session: {
       id: "member-camila",
@@ -376,6 +402,7 @@ describe("ReportCreationRouteScreen", () => {
 
     expect(lostScreen?.props.draftScopeId).toBe("member-camila");
     expect(lostScreen?.props.draftStore).toBe(draftPersistence.draftStore);
+    expect(lostScreen?.props.petProfiles).toEqual(savedPetProfiles);
     expect(lostScreen?.props.onOpenSponsorPlacement).toEqual(
       expect.any(Function),
     );
@@ -407,6 +434,47 @@ describe("ReportCreationRouteScreen", () => {
       providerId: "11111111-1111-4111-8111-111111111111",
       reason: "other",
     });
+  });
+
+  it.each([
+    ["lost", "LostReportCreationScreen"],
+    ["adoption", "AdoptionListingCreationScreen"],
+  ] as const)(
+    "passes saved backend pet profiles into %s creation",
+    (intent, screenType) => {
+      const screen = renderScreen(
+        <ReportCreationRouteScreen intent={intent} />,
+      );
+      const creationScreen = findElement(
+        screen,
+        (element) => element.type === screenType,
+      );
+
+      expect(api.trpcClient.petProfiles.list.query).toHaveBeenCalledWith({});
+      expect(creationScreen?.props.petProfiles).toEqual(savedPetProfiles);
+    },
+  );
+
+  it("gates member lost creation while saved pet profiles are loading", () => {
+    const screen = renderScreen(<ReportCreationRouteScreen intent="lost" />, {
+      preloadPetProfiles: false,
+    });
+    const loadingState = findElement(
+      screen,
+      (element) => element.type === "AppStateScreen",
+    );
+
+    expect(api.trpcClient.petProfiles.list.query).toHaveBeenCalledWith({});
+    expect(loadingState?.props.descriptor).toMatchObject({
+      kind: "loading",
+      title: "Cargando tus mascotas",
+    });
+    expect(
+      findElement(
+        screen,
+        (element) => element.type === "LostReportCreationScreen",
+      ),
+    ).toBeUndefined();
   });
 
   it.each([
@@ -1239,10 +1307,43 @@ function createMockReportMediaDraft(id: string) {
   };
 }
 
-function renderScreen(node: React.ReactNode): React.ReactNode {
+function renderScreen(
+  node: React.ReactNode,
+  options: { preloadPetProfiles?: boolean } = {},
+): React.ReactNode {
   reactState.cursor = 0;
 
+  if (options.preloadPetProfiles !== false) {
+    seedReadyPetProfileRouteState(node);
+  }
+
   return renderFunctionElement(node);
+}
+
+function seedReadyPetProfileRouteState(node: React.ReactNode) {
+  if (!React.isValidElement<{ intent?: unknown }>(node)) {
+    return;
+  }
+
+  const intent = node.props.intent;
+  const session = shell.value?.session;
+
+  if (
+    (intent !== "lost" && intent !== "adoption") ||
+    session?.kind !== "member"
+  ) {
+    return;
+  }
+
+  reactState.values[0] ??= false;
+  reactState.values[1] ??= false;
+  reactState.values[2] ??= null;
+  reactState.values[3] = 0;
+  reactState.values[4] = {
+    key: `${intent}:${session.id}`,
+    profiles: savedPetProfiles,
+    status: "ready",
+  };
 }
 
 function renderFunctionElement(node: React.ReactNode): React.ReactNode {
