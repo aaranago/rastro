@@ -9,6 +9,10 @@ import type {
   ReportCreationJourney,
   ReportCreationJourneyStepId,
 } from "../report-creation/report-creation-journey";
+import type {
+  ReportCreationSponsorDeliveryInput,
+  ReportCreationSuccessSponsorPlacement,
+} from "../report-creation/report-creation-success-sponsors";
 import type { ReportCreationFieldViewModel } from "../report-creation/report-creation-ui";
 import type {
   ReportMediaDraftSnapshot,
@@ -19,6 +23,7 @@ import type {
   DurableCreationDraftPersistence,
   DurableCreationDraftRecovery,
 } from "../resilience/use-durable-creation-draft";
+import type { ResourceProviderReportReceipt } from "../resources";
 import type {
   AdoptionListingCreationSession,
   AdoptionListingDraft,
@@ -34,6 +39,7 @@ import {
   retreatReportCreationJourney,
 } from "../report-creation/report-creation-journey";
 import { publishReportCreation } from "../report-creation/report-creation-publish";
+import { ReportCreationSuccessSponsorStack } from "../report-creation/report-creation-success-sponsors";
 import {
   ReportCreationActionButton,
   ReportCreationContactOptionSection,
@@ -105,11 +111,21 @@ export interface AdoptionListingCreationScreenProps {
   onOpenPublishedListing?: (
     confirmation: AdoptionListingPublishConfirmation,
   ) => void;
+  onOpenSponsorPlacement?: (sponsorProviderId: string) => void;
   onPublishAdoptionListing?: (
     input: PublishAdoptionListingInput,
   ) =>
     | AdoptionListingPublishConfirmation
     | Promise<AdoptionListingPublishConfirmation | void>
+    | void;
+  onRecordSponsorPlacementDelivery?: (
+    input: ReportCreationSponsorDeliveryInput,
+  ) => void;
+  onReportSponsorPlacement?: (
+    sponsorProviderId: string,
+  ) =>
+    | Promise<ResourceProviderReportReceipt | void>
+    | ResourceProviderReportReceipt
     | void;
   onSharePublishedListing?: (
     confirmation: AdoptionListingPublishConfirmation,
@@ -129,6 +145,7 @@ export interface AdoptionListingCreationScreenProps {
     photos: readonly AdoptionListingPhoto[];
   }) => React.ReactNode;
   session?: AdoptionListingCreationSession;
+  successSponsorPlacements?: readonly ReportCreationSuccessSponsorPlacement[];
 }
 
 function AdoptionListingCreationIcon({
@@ -152,12 +169,16 @@ export function AdoptionListingCreationScreen({
   onClose,
   onDraftPublished,
   onOpenPublishedListing,
+  onOpenSponsorPlacement,
   onPublishAdoptionListing,
+  onRecordSponsorPlacementDelivery,
+  onReportSponsorPlacement,
   onSharePublishedListing,
   petProfiles = [],
   pickAdoptionListingPhoto,
   renderReportMediaManager,
   session = { kind: "member", memberId: "member-preview" },
+  successSponsorPlacements = [],
 }: AdoptionListingCreationScreenProps) {
   const defaultDraft = React.useMemo(
     () => initialDraft ?? createInitialAdoptionListingDraft({ petProfiles }),
@@ -403,8 +424,12 @@ export function AdoptionListingCreationScreen({
       <AdoptionListingCreationSuccess
         onClose={onClose}
         onOpenPublishedListing={onOpenPublishedListing}
+        onOpenSponsorPlacement={onOpenSponsorPlacement}
+        onRecordSponsorPlacementDelivery={onRecordSponsorPlacementDelivery}
+        onReportSponsorPlacement={onReportSponsorPlacement}
         onSharePublishedListing={onSharePublishedListing}
         publishedListing={publishedListing}
+        successSponsorPlacements={successSponsorPlacements}
         viewModel={viewModel}
       />
     );
@@ -454,18 +479,33 @@ export function AdoptionListingCreationScreen({
 function AdoptionListingCreationSuccess({
   onClose,
   onOpenPublishedListing,
+  onOpenSponsorPlacement,
+  onRecordSponsorPlacementDelivery,
+  onReportSponsorPlacement,
   onSharePublishedListing,
   publishedListing,
+  successSponsorPlacements,
   viewModel,
 }: {
   onClose?: () => void;
   onOpenPublishedListing?: (
     confirmation: AdoptionListingPublishConfirmation,
   ) => void;
+  onOpenSponsorPlacement?: (sponsorProviderId: string) => void;
+  onRecordSponsorPlacementDelivery?: (
+    input: ReportCreationSponsorDeliveryInput,
+  ) => void;
+  onReportSponsorPlacement?: (
+    sponsorProviderId: string,
+  ) =>
+    | Promise<ResourceProviderReportReceipt | void>
+    | ResourceProviderReportReceipt
+    | void;
   onSharePublishedListing?: (
     confirmation: AdoptionListingPublishConfirmation,
   ) => Promise<void> | void;
   publishedListing: AdoptionListingPublishConfirmation | null;
+  successSponsorPlacements: readonly ReportCreationSuccessSponsorPlacement[];
   viewModel: AdoptionListingCreationViewModel;
 }) {
   const { canSharePublishedResult, openPublishedResult, sharePublishedResult } =
@@ -501,6 +541,13 @@ function AdoptionListingCreationSuccess({
           {successCopy.body}
         </Text>
       </View>
+      <ReportCreationSuccessSponsorStack
+        deliveryContextId={publishedListing?.id}
+        onOpen={onOpenSponsorPlacement}
+        onRecordDelivery={onRecordSponsorPlacementDelivery}
+        onReport={onReportSponsorPlacement}
+        placements={successSponsorPlacements}
+      />
       <View style={styles.buttonRow}>
         <ReportCreationActionButton
           accentColor={adoptionAccent}

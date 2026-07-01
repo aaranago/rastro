@@ -16,12 +16,12 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import type { MaterialCommunityIconName } from "../icons/safe-material-community-icon";
 import type {
   ResourceContactOption,
   ResourceProviderProfile as ResourceProviderProfileData,
   ResourceReportReason,
 } from "./resource-types";
-import type { MaterialCommunityIconName } from "../icons/safe-material-community-icon";
 import type { ResourcesAdapter } from "./static-resources-adapter";
 import { SafeMaterialCommunityIcon } from "../icons/safe-material-community-icon";
 import { trustSafetyReportReasonOptions } from "../trust-safety";
@@ -29,6 +29,8 @@ import { ResourceProviderProfile } from "./resource-provider-profile";
 import { defaultApiResourcesAdapter } from "./resources-default-api-adapter";
 import { getResourcesScrollableBottomInset } from "./resources-layout";
 import { resourcesColors, resourcesShadow } from "./resources-theme";
+import { createSponsorDeliverySessionId } from "./sponsor-delivery-session";
+import { getLocalSponsorPlacementForSurface } from "./sponsor-surface-policy";
 
 const defaultResourcesAdapter = defaultApiResourcesAdapter;
 const bottomInset = 36;
@@ -123,6 +125,8 @@ export function ResourceProviderProfileScreen({
   );
   const reportWorkflow = useProviderReportWorkflow(adapter);
   const initialReportIntentOpenedRef = useRef(false);
+  const sponsorDeliverySessionIdRef = useRef(createSponsorDeliverySessionId());
+  const recordedSponsorImpressionRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!resolvedProviderId) {
@@ -189,6 +193,29 @@ export function ResourceProviderProfileScreen({
     reportWorkflow.openReportProvider(loadState.providerId);
   }, [initiallyReportProvider, loadState, reportWorkflow]);
 
+  const currentLoadState = getCurrentLoadState(loadState, resolvedProviderId);
+
+  useEffect(() => {
+    if (currentLoadState.kind !== "ready") {
+      return;
+    }
+
+    const impressionKey = `${currentLoadState.providerId}:provider_details`;
+
+    if (recordedSponsorImpressionRef.current === impressionKey) {
+      return;
+    }
+
+    recordedSponsorImpressionRef.current = impressionKey;
+    recordProviderDetailsSponsorDelivery({
+      adapter,
+      eventType: "impression",
+      idempotencyKey: `provider-details:${sponsorDeliverySessionIdRef.current}:${currentLoadState.providerId}:impression`,
+      profile: currentLoadState.profile,
+      source: "provider-details-profile",
+    });
+  }, [adapter, currentLoadState]);
+
   const handleContactAction = useCallback(
     (action: {
       providerId: string;
@@ -199,28 +226,40 @@ export function ResourceProviderProfileScreen({
       const url = buildContactUrl(action);
 
       setLinkFeedback(undefined);
+      recordProviderDetailsSponsorDelivery({
+        adapter,
+        eventType: "open",
+        profile:
+          currentLoadState.kind === "ready" ? currentLoadState.profile : null,
+        source: `provider-details-contact-${action.kind}`,
+      });
       void openProviderUrl({
         label: action.label,
         onFailure: setLinkFeedback,
         url,
       });
     },
-    [],
+    [adapter, currentLoadState],
   );
 
   const handleOpenLink = useCallback(
     ({ label, url }: { providerId: string; label: string; url: string }) => {
       setLinkFeedback(undefined);
+      recordProviderDetailsSponsorDelivery({
+        adapter,
+        eventType: "open",
+        profile:
+          currentLoadState.kind === "ready" ? currentLoadState.profile : null,
+        source: "provider-details-link",
+      });
       void openProviderUrl({
         label,
         onFailure: setLinkFeedback,
         url,
       });
     },
-    [],
+    [adapter, currentLoadState],
   );
-
-  const currentLoadState = getCurrentLoadState(loadState, resolvedProviderId);
 
   if (currentLoadState.kind === "loading") {
     return (
@@ -409,6 +448,46 @@ async function loadProviderProfile({
     profile: await adapter.getProviderProfile(providerId),
     providerId,
   };
+}
+
+function recordProviderDetailsSponsorDelivery({
+  adapter,
+  eventType,
+  idempotencyKey,
+  profile,
+  source,
+}: {
+  adapter: ResourcesAdapter;
+  eventType: "impression" | "open";
+  idempotencyKey?: string;
+  profile: ResourceProviderProfileData | null;
+  source: string;
+}) {
+  if (!profile || !adapter.recordSponsorDelivery) {
+    return;
+  }
+
+  const sponsorPlacement = getLocalSponsorPlacementForSurface(
+    profile.activeSponsorPlacements ?? profile.sponsorPlacement,
+    "provider_details",
+  );
+
+  if (!sponsorPlacement) {
+    return;
+  }
+
+  void adapter
+    .recordSponsorDelivery({
+      eventType,
+      idempotencyKey,
+      ...(sponsorPlacement.placementId
+        ? { placementId: sponsorPlacement.placementId }
+        : {}),
+      providerId: profile.id,
+      source,
+      surface: "provider_details",
+    })
+    .catch(() => undefined);
 }
 
 function getCurrentLoadState(

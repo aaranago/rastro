@@ -90,6 +90,9 @@ async function applyAdminResourcesForm(
 
   if (result.ok) {
     revalidatePath("/admin/proveedores");
+    if (result.workflow === "sponsor") {
+      revalidatePath("/admin/patrocinios");
+    }
     redirect(buildAdminResourceProviderRedirectUrl(result));
   }
 

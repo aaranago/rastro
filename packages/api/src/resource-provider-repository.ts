@@ -1,5 +1,6 @@
 import type { Database } from "@acme/db/client";
 import type {
+  ActiveLocalSponsorPlacementsInput,
   AdminResourceProviderListFilters,
   AdminResourceProviderListInput,
   AdminResourceProviderMediaState,
@@ -38,6 +39,7 @@ import {
 } from "@acme/db";
 import {
   LocalSponsorPlacement,
+  LocalSponsorPlacementDeliveryEvent,
   ResourceProvider,
   ResourceProviderContactOption,
   ResourceProviderLocation,
@@ -139,10 +141,16 @@ export interface AdminLocalSponsorPlacementSafetyPolicy {
   };
 }
 
+export interface AdminLocalSponsorPlacementDeliveryMetrics {
+  impressionCount: number;
+  openCount: number;
+}
+
 export interface AdminLocalSponsorPlacement {
   category: ResourceProviderCategory;
   city: string;
   department: string;
+  deliveryMetrics: AdminLocalSponsorPlacementDeliveryMetrics;
   disclosure: string;
   endsOn: string;
   imageUrl?: string;
@@ -192,6 +200,9 @@ export type AdminSponsorPlacementListResult = AdminListResult<
 export interface ResourceProviderRepository {
   nearby(
     input: NearbyResourceProvidersInput,
+  ): Promise<PublicResourceProviderSummary[]>;
+  listActiveSponsorPlacements(
+    input: ActiveLocalSponsorPlacementsInput,
   ): Promise<PublicResourceProviderSummary[]>;
   findProfile(
     providerId: string,
@@ -276,6 +287,7 @@ export function buildLocalSponsorPlacementPolicy(
     PersistedLocalSponsorPlacement,
     "disclosure" | "label" | "surface"
   > &
+    Partial<Pick<PersistedLocalSponsorPlacement, "id">> &
     Partial<Pick<PersistedLocalSponsorPlacement, "imageUrl" | "logoUrl">>,
 ) {
   const logoUrl = sanitizePublicSponsorMediaUrl(placement.logoUrl);
@@ -283,6 +295,7 @@ export function buildLocalSponsorPlacementPolicy(
 
   return {
     kind: "Local Sponsor Placement",
+    ...(placement.id ? { placementId: placement.id } : {}),
     label: placement.label,
     disclosure: placement.disclosure,
     ...(logoUrl ? { logoUrl } : {}),
@@ -529,6 +542,69 @@ export function createDrizzleResourceProviderRepository(
       return provider
         ? toPublicResourceProviderProfile(provider, { now: now() })
         : null;
+    },
+    listActiveSponsorPlacements: async (input) => {
+      const currentNow = now();
+      const rotationSeed = `${input.surface}:${currentNow.toISOString().slice(0, 10)}`;
+      const rows = await db
+        .select({
+          placementId: LocalSponsorPlacement.id,
+          providerId: LocalSponsorPlacement.providerId,
+        })
+        .from(LocalSponsorPlacement)
+        .innerJoin(
+          ResourceProvider,
+          eq(ResourceProvider.id, LocalSponsorPlacement.providerId),
+        )
+        .where(
+          and(
+            eq(LocalSponsorPlacement.surface, input.surface),
+            isNull(ResourceProvider.deletedAt),
+            lte(LocalSponsorPlacement.startsAt, currentNow),
+            gte(LocalSponsorPlacement.endsAt, currentNow),
+          ),
+        )
+        .orderBy(
+          sql`md5(${LocalSponsorPlacement.id}::text || ${rotationSeed})`,
+          asc(LocalSponsorPlacement.id),
+        )
+        .limit(input.limit);
+      const summaries: PublicResourceProviderSummary[] = [];
+      const seenProviderIds = new Set<string>();
+
+      for (const row of rows) {
+        if (seenProviderIds.has(row.providerId)) {
+          continue;
+        }
+
+        const provider = await findPersistedProviderById(row.providerId);
+
+        if (!provider) {
+          continue;
+        }
+
+        const summary = toPublicResourceProviderSummary(provider, {
+          now: currentNow,
+        });
+        const surfaceSponsorPlacements = (
+          summary.activeSponsorPlacements ?? []
+        ).filter((placement) =>
+          placement.eligibleSurfaces.includes(input.surface),
+        );
+
+        if (surfaceSponsorPlacements.length === 0) {
+          continue;
+        }
+
+        summaries.push({
+          ...summary,
+          sponsorPlacement: surfaceSponsorPlacements[0],
+          activeSponsorPlacements: surfaceSponsorPlacements,
+        });
+        seenProviderIds.add(row.providerId);
+      }
+
+      return summaries;
     },
     listProviders: async (input) => {
       const currentNow = now();
@@ -828,6 +904,14 @@ export function createDrizzleResourceProviderRepository(
       );
     },
     updateSponsorPlacement: async ({ sponsorPlacement }) => {
+      const provider = await findPersistedProviderById(
+        sponsorPlacement.providerId,
+      );
+
+      if (!provider) {
+        return null;
+      }
+
       const startsAt = startOfDateOnlyUtc(sponsorPlacement.startsOn);
       const endsAt = endOfDateOnlyUtc(sponsorPlacement.endsOn);
       const [existing] = await db
@@ -883,6 +967,12 @@ export function createDrizzleResourceProviderRepository(
         : null;
     },
     detachSponsor: async (input) => {
+      const provider = await findPersistedProviderById(input.providerId);
+
+      if (!provider) {
+        return null;
+      }
+
       const [deleted] = await db
         .delete(LocalSponsorPlacement)
         .where(
@@ -1284,6 +1374,7 @@ export function toAdminLocalSponsorPlacements(
         category: provider.categoryId,
         city: provider.city,
         department: provider.department,
+        deliveryMetrics: emptySponsorPlacementDeliveryMetrics(),
         disclosure: placement.disclosure,
         endsOn: placement.endsOn,
         imageUrl: placement.imageUrl,
@@ -1317,6 +1408,9 @@ const adminSponsorPlacementSelectFields = {
   category: ResourceProvider.category,
   city: ResourceProviderLocation.city,
   department: ResourceProviderLocation.department,
+  sponsorImpressionCount:
+    sponsorPlacementDeliveryEventCountExpression("impression"),
+  sponsorOpenCount: sponsorPlacementDeliveryEventCountExpression("open"),
   disclosure: LocalSponsorPlacement.disclosure,
   endsAt: LocalSponsorPlacement.endsAt,
   imageUrl: LocalSponsorPlacement.imageUrl,
@@ -1334,6 +1428,8 @@ interface AdminSponsorPlacementQueryRow {
   category: ResourceProviderCategory;
   city: string;
   department: string;
+  sponsorImpressionCount: number;
+  sponsorOpenCount: number;
   disclosure: string;
   endsAt: Date;
   imageUrl: string | null;
@@ -1367,6 +1463,10 @@ function toAdminLocalSponsorPlacementFromQueryRow(
     category: row.category,
     city: row.city,
     department: row.department,
+    deliveryMetrics: {
+      impressionCount: Number(row.sponsorImpressionCount),
+      openCount: Number(row.sponsorOpenCount),
+    },
     disclosure: row.disclosure,
     endsOn: toDateOnly(row.endsAt),
     imageUrl: row.imageUrl ?? undefined,
@@ -1386,6 +1486,26 @@ function toAdminLocalSponsorPlacementFromQueryRow(
     },
     startsOn: toDateOnly(row.startsAt),
     surface: row.surface,
+  };
+}
+
+function sponsorPlacementDeliveryEventCountExpression(
+  eventType: "impression" | "open",
+) {
+  return sql<number>`coalesce((
+    select count(*)::int
+    from ${LocalSponsorPlacementDeliveryEvent}
+    where ${LocalSponsorPlacementDeliveryEvent.placementId} = ${LocalSponsorPlacement.id}
+      and ${LocalSponsorPlacementDeliveryEvent.providerId} = ${ResourceProvider.id}
+      and ${LocalSponsorPlacementDeliveryEvent.surface} = ${LocalSponsorPlacement.surface}
+      and ${LocalSponsorPlacementDeliveryEvent.eventType} = ${eventType}
+  ), 0)`;
+}
+
+function emptySponsorPlacementDeliveryMetrics(): AdminLocalSponsorPlacementDeliveryMetrics {
+  return {
+    impressionCount: 0,
+    openCount: 0,
   };
 }
 

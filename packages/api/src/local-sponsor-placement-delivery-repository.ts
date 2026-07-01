@@ -24,6 +24,7 @@ export interface RecordLocalSponsorPlacementDeliveryEventInput {
   eventType: LocalSponsorPlacementDeliveryEventType;
   idempotencyKey?: string;
   memberId?: string;
+  placementId?: string;
   providerId: string;
   source?: string;
   surface: LocalSponsorPlacementSurface;
@@ -69,6 +70,7 @@ export function createDrizzleLocalSponsorPlacementDeliveryRepository(
       const occurredAt = now();
       const placement = await findActivePlacementForDeliveryEvent(db, {
         occurredAt,
+        placementId: input.placementId,
         providerId: input.providerId,
         surface: input.surface,
       });
@@ -153,6 +155,7 @@ async function findActivePlacementForDeliveryEvent(
   db: Database,
   input: {
     occurredAt: Date;
+    placementId?: string;
     providerId: string;
     surface: LocalSponsorPlacementSurface;
   },
@@ -167,6 +170,9 @@ async function findActivePlacementForDeliveryEvent(
     .where(
       and(
         eq(LocalSponsorPlacement.providerId, input.providerId),
+        input.placementId
+          ? eq(LocalSponsorPlacement.id, input.placementId)
+          : undefined,
         eq(LocalSponsorPlacement.surface, input.surface),
         isNull(ResourceProvider.deletedAt),
         lte(LocalSponsorPlacement.startsAt, input.occurredAt),

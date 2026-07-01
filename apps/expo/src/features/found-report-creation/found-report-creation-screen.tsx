@@ -7,6 +7,10 @@ import type {
   ReportCreationJourney,
   ReportCreationJourneyStepId,
 } from "../report-creation/report-creation-journey";
+import type {
+  ReportCreationSponsorDeliveryInput,
+  ReportCreationSuccessSponsorPlacement,
+} from "../report-creation/report-creation-success-sponsors";
 import type { ReportLocationDraft } from "../report-creation/report-location-draft";
 import type {
   ReportMediaDraftSnapshot,
@@ -17,6 +21,7 @@ import type {
   DurableCreationDraftPersistence,
   DurableCreationDraftRecovery,
 } from "../resilience/use-durable-creation-draft";
+import type { ResourceProviderReportReceipt } from "../resources";
 import type {
   FoundReportCreationSession,
   FoundReportCreationVisitorAction,
@@ -26,6 +31,7 @@ import type {
 } from "./found-report-creation-types";
 import { createReportCreationJourney } from "../report-creation/report-creation-journey";
 import { publishReportCreation } from "../report-creation/report-creation-publish";
+import { ReportCreationSuccessSponsorStack } from "../report-creation/report-creation-success-sponsors";
 import {
   ReportCreationActionButton,
   ReportCreationContactOptionSection,
@@ -94,11 +100,21 @@ export interface FoundReportCreationScreenProps {
   onOpenPublishedReport?: (
     confirmation: FoundReportPublishConfirmation,
   ) => void;
+  onOpenSponsorPlacement?: (sponsorProviderId: string) => void;
   onPublishFoundReport?: (
     input: PublishFoundPetReportInput,
   ) =>
     | FoundReportPublishConfirmation
     | Promise<FoundReportPublishConfirmation | void>
+    | void;
+  onRecordSponsorPlacementDelivery?: (
+    input: ReportCreationSponsorDeliveryInput,
+  ) => void;
+  onReportSponsorPlacement?: (
+    sponsorProviderId: string,
+  ) =>
+    | Promise<ResourceProviderReportReceipt | void>
+    | ResourceProviderReportReceipt
     | void;
   onRequestMemberSignIn?: (action: FoundReportCreationVisitorAction) => void;
   onSharePublishedReport?: (
@@ -115,6 +131,7 @@ export interface FoundReportCreationScreenProps {
     photos: readonly FoundReportPhoto[];
   }) => React.ReactNode;
   session?: FoundReportCreationSession;
+  successSponsorPlacements?: readonly ReportCreationSuccessSponsorPlacement[];
 }
 
 function FoundReportCreationIcon({
@@ -138,12 +155,16 @@ export function FoundReportCreationScreen({
   onClose,
   onDraftPublished,
   onOpenPublishedReport,
+  onOpenSponsorPlacement,
   onPublishFoundReport,
+  onRecordSponsorPlacementDelivery,
+  onReportSponsorPlacement,
   onRequestMemberSignIn,
   onSharePublishedReport,
   pickFoundReportPhoto,
   renderReportMediaManager,
   session = { kind: "member", memberId: "member-preview" },
+  successSponsorPlacements = [],
 }: FoundReportCreationScreenProps) {
   const defaultDraft = React.useMemo(
     () => initialDraft ?? createFoundReportDraft(),
@@ -319,8 +340,12 @@ export function FoundReportCreationScreen({
       <FoundReportCreationSuccess
         onClose={onClose}
         onOpenPublishedReport={onOpenPublishedReport}
+        onOpenSponsorPlacement={onOpenSponsorPlacement}
+        onRecordSponsorPlacementDelivery={onRecordSponsorPlacementDelivery}
+        onReportSponsorPlacement={onReportSponsorPlacement}
         onSharePublishedReport={onSharePublishedReport}
         publishedReport={publishedReport}
+        successSponsorPlacements={successSponsorPlacements}
         viewModel={quietViewModel}
       />
     );
@@ -448,18 +473,33 @@ function FoundReportVisitorHandoff({
 function FoundReportCreationSuccess({
   onClose,
   onOpenPublishedReport,
+  onOpenSponsorPlacement,
+  onRecordSponsorPlacementDelivery,
+  onReportSponsorPlacement,
   onSharePublishedReport,
   publishedReport,
+  successSponsorPlacements,
   viewModel,
 }: {
   onClose?: () => void;
   onOpenPublishedReport?: (
     confirmation: FoundReportPublishConfirmation,
   ) => void;
+  onOpenSponsorPlacement?: (sponsorProviderId: string) => void;
+  onRecordSponsorPlacementDelivery?: (
+    input: ReportCreationSponsorDeliveryInput,
+  ) => void;
+  onReportSponsorPlacement?: (
+    sponsorProviderId: string,
+  ) =>
+    | Promise<ResourceProviderReportReceipt | void>
+    | ResourceProviderReportReceipt
+    | void;
   onSharePublishedReport?: (
     confirmation: FoundReportPublishConfirmation,
   ) => Promise<void> | void;
   publishedReport: FoundReportPublishConfirmation | null;
+  successSponsorPlacements: readonly ReportCreationSuccessSponsorPlacement[];
   viewModel: FoundReportCreationViewModel;
 }) {
   const { canSharePublishedResult, openPublishedResult, sharePublishedResult } =
@@ -490,6 +530,13 @@ function FoundReportCreationSuccess({
           {viewModel.success.body}
         </Text>
       </View>
+      <ReportCreationSuccessSponsorStack
+        deliveryContextId={publishedReport?.id}
+        onOpen={onOpenSponsorPlacement}
+        onRecordDelivery={onRecordSponsorPlacementDelivery}
+        onReport={onReportSponsorPlacement}
+        placements={successSponsorPlacements}
+      />
       <View style={styles.buttonRow}>
         <ReportCreationActionButton
           accentColor={foundAccent}

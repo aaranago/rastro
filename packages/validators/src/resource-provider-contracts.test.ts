@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { CreateResourceProviderInput } from "./index";
 import {
+  activeLocalSponsorPlacementsInputSchema,
   adminMediaAssetPurposeSchema,
   adminMediaAssetStatusSchema,
   adminResourceProviderListInputSchema,
@@ -753,6 +754,37 @@ describe("resource provider validation contracts", () => {
         filters: {
           activeOn: "07/15/2026",
         },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("validates public active sponsor placement surface queries", () => {
+    expect(
+      activeLocalSponsorPlacementsInputSchema.parse({
+        surface: "launch_home_banner",
+      }),
+    ).toEqual({
+      limit: 5,
+      surface: "launch_home_banner",
+    });
+    expect(
+      activeLocalSponsorPlacementsInputSchema.parse({
+        limit: 10,
+        surface: "contextual_care_resources",
+      }),
+    ).toEqual({
+      limit: 10,
+      surface: "contextual_care_resources",
+    });
+    expect(
+      activeLocalSponsorPlacementsInputSchema.safeParse({
+        limit: 11,
+        surface: "launch_home_banner",
+      }).success,
+    ).toBe(false);
+    expect(
+      activeLocalSponsorPlacementsInputSchema.safeParse({
+        surface: "admin_only",
       }).success,
     ).toBe(false);
   });

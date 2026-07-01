@@ -8,7 +8,11 @@ import type {
   ReportCreationJourney,
   ReportCreationJourneyStepId,
 } from "../report-creation/report-creation-journey";
-import type { LocalSponsorPlacementSurface } from "../resources/resource-types";
+import type {
+  LocalSponsorPlacementSurface,
+  ResourceCategoryId,
+  ResourceProviderSummary,
+} from "../resources/resource-types";
 import type {
   LostReportContactDraft,
   LostReportContactOption,
@@ -39,6 +43,7 @@ import {
 } from "../report-creation/report-creation-pet-selection";
 import { getReportCreationMinimumDescriptionError } from "../report-creation/report-creation-text-validation";
 import { toReportLocationPublishInput } from "../report-creation/report-location-draft";
+import { getLocalSponsorPlacementForSurface } from "../resources/sponsor-surface-policy";
 import { lostReportPetTypeOptions } from "./lost-report-creation-types";
 
 export { lostReportPetTypeOptions };
@@ -146,6 +151,7 @@ export interface LostReportCreationViewModel {
   success: {
     body: string;
     localSponsorPlacement?: LostReportSuccessLocalSponsorPlacement;
+    localSponsorPlacements: LostReportSuccessLocalSponsorPlacement[];
     primaryActionLabel: string;
     shareActionLabel: string;
     title: string;
@@ -163,9 +169,11 @@ export interface LostReportSuccessLocalSponsorPlacement {
   logoUrl?: string;
   name: string;
   paidDisclosure: string;
+  placementId?: string;
   recoveryPriorityDisclosure: string;
   reportActionLabel: string;
   sponsorLabel: string;
+  surface: LocalSponsorPlacementSurface;
   title: string;
 }
 
@@ -263,7 +271,8 @@ export function buildLostReportCreationViewModel({
   journey,
   petProfiles,
   session: _session,
-  successSponsorPlacement = lostReportSuccessLocalSponsorPlacement,
+  successSponsorPlacement,
+  successSponsorPlacements,
   successSponsorSurface = "report_success",
   validationDisplay,
 }: {
@@ -272,6 +281,9 @@ export function buildLostReportCreationViewModel({
   petProfiles: readonly (LostReportPetProfileOption | PetProfileSummary)[];
   session?: unknown;
   successSponsorPlacement?: LostReportSuccessLocalSponsorPlacement | null;
+  successSponsorPlacements?:
+    | readonly LostReportSuccessLocalSponsorPlacement[]
+    | null;
   successSponsorSurface?: LocalSponsorPlacementSurface;
   validationDisplay?: LostReportCreationValidationDisplayInput;
 }): LostReportCreationViewModel {
@@ -302,6 +314,13 @@ export function buildLostReportCreationViewModel({
     "details",
   );
   const lastSeenAtError = getLastSeenAtError(draft.lostDetails.lastSeenAtLabel);
+  const localSponsorPlacements = toLostReportSuccessLocalSponsorPlacements({
+    placements:
+      successSponsorPlacements ??
+      (successSponsorPlacement
+        ? [{ ...successSponsorPlacement, surface: successSponsorSurface }]
+        : []),
+  });
 
   return {
     canPublish,
@@ -395,10 +414,8 @@ export function buildLostReportCreationViewModel({
     steps: buildSteps({ canPublish, draft, readyPhotos, selectedPet }),
     success: {
       body: "Tu reporte de mascota perdida ya puede mostrarse cerca de la zona aproximada y compartirse con la comunidad.",
-      localSponsorPlacement: toLostReportSuccessLocalSponsorPlacement({
-        placement: successSponsorPlacement,
-        surface: successSponsorSurface,
-      }),
+      localSponsorPlacement: localSponsorPlacements[0],
+      localSponsorPlacements,
       primaryActionLabel: "Ver reporte",
       shareActionLabel: "Compartir",
       title: "Reporte publicado",
@@ -412,50 +429,89 @@ export function buildLostReportCreationViewModel({
   };
 }
 
-const lostReportSuccessLocalSponsorPlacement: LostReportSuccessLocalSponsorPlacement =
-  {
-    actionLabel: "Ver recurso",
-    body: "Atencion veterinaria y orientacion local para primeros cuidados mientras compartes el reporte.",
-    categoryLabel: "Veterinaria",
-    eligibleSurfaces: ["report_success", "contextual_care_resources"],
-    id: "11111111-1111-4111-8111-111111111111",
-    imageUrl: "https://example.com/sponsor-san-roque-banner.png",
-    logoUrl: "https://example.com/sponsor-san-roque-logo.png",
-    name: "Clinica Veterinaria San Roque",
-    paidDisclosure: "Colocacion pagada",
-    recoveryPriorityDisclosure:
-      "No cambia la prioridad de tu reporte ni donde aparece.",
-    reportActionLabel: "Reportar",
-    sponsorLabel: "Patrocinado",
-    title: "Recurso local cercano",
-  };
+function toLostReportSuccessLocalSponsorPlacements({
+  placements,
+}: {
+  placements: readonly LostReportSuccessLocalSponsorPlacement[];
+}): LostReportSuccessLocalSponsorPlacement[] {
+  return placements.flatMap((placement) => {
+    if (!placement.eligibleSurfaces.includes(placement.surface)) {
+      return [];
+    }
 
-function toLostReportSuccessLocalSponsorPlacement({
-  placement,
+    return [
+      {
+        actionLabel: placement.actionLabel,
+        body: placement.body,
+        categoryLabel: placement.categoryLabel,
+        eligibleSurfaces: [...placement.eligibleSurfaces],
+        id: placement.id,
+        ...(placement.imageUrl ? { imageUrl: placement.imageUrl } : {}),
+        ...(placement.logoUrl ? { logoUrl: placement.logoUrl } : {}),
+        name: placement.name,
+        paidDisclosure: placement.paidDisclosure,
+        recoveryPriorityDisclosure: placement.recoveryPriorityDisclosure,
+        reportActionLabel: placement.reportActionLabel,
+        sponsorLabel: placement.sponsorLabel,
+        surface: placement.surface,
+        title: placement.title,
+      },
+    ];
+  });
+}
+
+export function toLostReportSuccessLocalSponsorPlacementFromProvider({
+  provider,
   surface,
 }: {
-  placement?: LostReportSuccessLocalSponsorPlacement | null;
+  provider: ResourceProviderSummary;
   surface: LocalSponsorPlacementSurface;
 }): LostReportSuccessLocalSponsorPlacement | undefined {
-  if (!placement?.eligibleSurfaces.includes(surface)) {
+  const placement = getLocalSponsorPlacementForSurface(
+    provider.activeSponsorPlacements ?? provider.sponsorPlacement,
+    surface,
+  );
+
+  if (!placement) {
     return undefined;
   }
 
   return {
-    actionLabel: placement.actionLabel,
-    body: placement.body,
-    categoryLabel: placement.categoryLabel,
+    actionLabel: "Ver recurso",
+    body: provider.description,
+    categoryLabel: getReportSuccessResourceCategoryLabel(provider.categoryId),
     eligibleSurfaces: [...placement.eligibleSurfaces],
-    id: placement.id,
-    ...(placement.imageUrl ? { imageUrl: placement.imageUrl } : {}),
-    ...(placement.logoUrl ? { logoUrl: placement.logoUrl } : {}),
-    name: placement.name,
-    paidDisclosure: placement.paidDisclosure,
-    recoveryPriorityDisclosure: placement.recoveryPriorityDisclosure,
-    reportActionLabel: placement.reportActionLabel,
-    sponsorLabel: placement.sponsorLabel,
-    title: placement.title,
+    id: provider.id,
+    imageUrl: placement.imageUrl ?? provider.photoUrl,
+    logoUrl: placement.logoUrl ?? provider.logoUrl,
+    name: provider.name,
+    paidDisclosure: placement.disclosure,
+    placementId: placement.placementId,
+    recoveryPriorityDisclosure:
+      "No cambia la prioridad de tu reporte ni donde aparece.",
+    reportActionLabel: "Reportar",
+    sponsorLabel: placement.label,
+    surface,
+    title:
+      surface === "contextual_care_resources"
+        ? "Recurso de cuidado"
+        : "Recurso local recomendado",
   };
+}
+
+function getReportSuccessResourceCategoryLabel(categoryId: ResourceCategoryId) {
+  const labels = {
+    groomer: "Peluqueria",
+    other: "Recurso local",
+    pet_food: "Alimentos",
+    pet_store: "Tienda",
+    shelter: "Refugio",
+    trainer: "Entrenamiento",
+    transport: "Transporte",
+    veterinary: "Veterinaria",
+  } satisfies Record<ResourceCategoryId, string>;
+
+  return labels[categoryId];
 }
 
 export function toPublishLostPetReportInput({

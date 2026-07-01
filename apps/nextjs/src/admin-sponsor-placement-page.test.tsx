@@ -61,6 +61,9 @@ describe("admin sponsor placement page", () => {
     });
     expect(html).toContain("Gestión de patrocinios locales");
     expect(html).toContain("Clinica Veterinaria San Roque");
+    expect(html).toContain("Impresiones");
+    expect(html).toContain("Aperturas");
+    expect(html).toContain("Tasa de apertura: 7,5%");
     expect(html).toContain("Política de seguridad respaldada por datos");
     expect(html).toContain("<table");
     expect(html).toContain("/admin/patrocinios?pageSize=10&amp;sortBy=");
@@ -77,7 +80,7 @@ describe("admin sponsor placement page", () => {
       resourceProviderApi.listAdminResourceProviderProfiles,
     ).toHaveBeenCalledWith({
       page: 1,
-      pageSize: 10,
+      pageSize: 100,
     });
   });
 
@@ -146,7 +149,7 @@ describe("admin sponsor placement page", () => {
       resourceProviderApi.listAdminResourceProviderProfiles,
     ).toHaveBeenCalledWith({
       page: 1,
-      pageSize: 10,
+      pageSize: 100,
     });
     expect(html).toContain("Búsqueda: San Roque");
     expect(html).toContain("Estado: Activo");
@@ -182,6 +185,10 @@ function sponsorPlacement(): AdminSponsorPlacementRecord {
     category: "veterinary",
     city: "La Paz",
     department: "La Paz",
+    deliveryMetrics: {
+      impressionCount: 1280,
+      openCount: 96,
+    },
     disclosure: "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
     endsOn: "2026-07-31",
     isActive: true,

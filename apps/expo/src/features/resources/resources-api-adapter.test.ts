@@ -178,6 +178,64 @@ describe("createApiResourcesAdapter", () => {
     expect(result).toEqual({ providers: [] });
   });
 
+  it("loads active sponsor placements for a requested paid surface without admin media fields", async () => {
+    const activeSponsorPlacements = vi.fn().mockResolvedValue({
+      generatedAt: "2026-07-15T12:00:00.000Z",
+      results: [
+        {
+          ...apiProvider,
+          sponsorPlacement: {
+            ...apiProvider.sponsorPlacement,
+            eligibleSurfaces: ["launch_home_banner" as const],
+            imageAssetId: "33333333-3333-4333-8333-333333333333",
+            logoAssetId: "22222222-2222-4222-8222-222222222222",
+          } as unknown as typeof apiProvider.sponsorPlacement,
+          activeSponsorPlacements: [
+            {
+              ...apiProvider.sponsorPlacement,
+              eligibleSurfaces: ["launch_home_banner" as const],
+              imageAssetId: "33333333-3333-4333-8333-333333333333",
+              logoAssetId: "22222222-2222-4222-8222-222222222222",
+            } as unknown as typeof apiProvider.sponsorPlacement,
+          ],
+        },
+      ],
+      surface: "launch_home_banner",
+    });
+    const adapter = createApiResourcesAdapter({
+      client: createClient({ activeSponsorPlacements }),
+    });
+
+    const result = await adapter.getActiveSponsorPlacements?.({
+      limit: 3,
+      surface: "launch_home_banner",
+    });
+
+    expect(activeSponsorPlacements).toHaveBeenCalledWith({
+      limit: 3,
+      surface: "launch_home_banner",
+    });
+    expect(result).toMatchObject({
+      generatedAt: "2026-07-15T12:00:00.000Z",
+      providers: [
+        {
+          activeSponsorPlacements: [
+            {
+              eligibleSurfaces: ["launch_home_banner"],
+              imageUrl: "https://example.com/sponsor-banner.png",
+              label: "Patrocinado",
+              logoUrl: "https://example.com/sponsor-logo.png",
+            },
+          ],
+          id: "11111111-1111-4111-8111-111111111111",
+        },
+      ],
+      surface: "launch_home_banner",
+    });
+    expect(JSON.stringify(result)).not.toContain("logoAssetId");
+    expect(JSON.stringify(result)).not.toContain("imageAssetId");
+  });
+
   it("loads provider profiles by UUID through the detail API", async () => {
     const detail = vi.fn().mockResolvedValue(apiProvider);
     const adapter = createApiResourcesAdapter({
@@ -320,11 +378,13 @@ describe("createApiResourcesAdapter", () => {
 });
 
 function createClient({
+  activeSponsorPlacements = vi.fn(),
   detail = vi.fn(),
   nearby = vi.fn(),
   recordSponsorDelivery = vi.fn(),
   reportProvider = vi.fn(),
 }: {
+  activeSponsorPlacements?: ResourcesApiClient["resources"]["activeSponsorPlacements"]["query"];
   detail?: ResourcesApiClient["resources"]["detail"]["query"];
   nearby?: ResourcesApiClient["resources"]["nearby"]["query"];
   recordSponsorDelivery?: ResourcesApiClient["resources"]["recordSponsorDelivery"]["mutate"];
@@ -332,6 +392,9 @@ function createClient({
 } = {}): ResourcesApiClient {
   return {
     resources: {
+      activeSponsorPlacements: {
+        query: activeSponsorPlacements,
+      },
       detail: {
         query: detail,
       },

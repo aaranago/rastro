@@ -21,6 +21,32 @@ const profiles: PetProfileSummary[] = [
   },
 ];
 
+const reportSuccessSponsorPlacement: LostReportSuccessLocalSponsorPlacement = {
+  actionLabel: "Ver recurso",
+  body: "Atencion veterinaria y orientacion local para los primeros cuidados.",
+  categoryLabel: "Veterinaria",
+  eligibleSurfaces: ["report_success", "contextual_care_resources"],
+  id: "11111111-1111-4111-8111-111111111111",
+  imageUrl: "https://example.com/sponsor-san-roque-banner.png",
+  logoUrl: "https://example.com/sponsor-san-roque-logo.png",
+  name: "Clinica Veterinaria San Roque",
+  paidDisclosure: "Colocacion pagada",
+  recoveryPriorityDisclosure:
+    "No cambia la prioridad de tu reporte ni donde aparece.",
+  reportActionLabel: "Reportar",
+  sponsorLabel: "Patrocinado",
+  surface: "report_success",
+  title: "Recurso local cercano",
+};
+
+const contextualCareSponsorPlacement: LostReportSuccessLocalSponsorPlacement = {
+  ...reportSuccessSponsorPlacement,
+  id: "22222222-2222-4222-8222-222222222222",
+  name: "Farmacia Veterinaria Calacoto",
+  surface: "contextual_care_resources",
+  title: "Recurso de cuidado",
+};
+
 describe("Lost Pet Report creation view model", () => {
   it("starts members on an existing Pet Profile with Spanish privacy and photo requirements", () => {
     const draft = createInitialLostReportDraft({ petProfiles: profiles });
@@ -571,15 +597,20 @@ describe("Lost Pet Report creation view model", () => {
     );
   });
 
-  it("surfaces a sponsored local care resource after publishing without recovery priority language", () => {
+  it("surfaces active sponsored care resources after publishing without recovery priority language", () => {
     const draft = createInitialLostReportDraft({ petProfiles: profiles });
 
     const viewModel = buildLostReportCreationViewModel({
       draft,
       petProfiles: profiles,
       session: { kind: "member", memberId: "member-camila" },
+      successSponsorPlacements: [
+        reportSuccessSponsorPlacement,
+        contextualCareSponsorPlacement,
+      ],
     });
 
+    expect(viewModel.success.localSponsorPlacements).toHaveLength(2);
     expect(viewModel.success.localSponsorPlacement).toMatchObject({
       actionLabel: "Ver recurso",
       categoryLabel: "Veterinaria",
@@ -590,7 +621,13 @@ describe("Lost Pet Report creation view model", () => {
       paidDisclosure: "Colocacion pagada",
       reportActionLabel: "Reportar",
       sponsorLabel: "Patrocinado",
+      surface: "report_success",
       title: "Recurso local cercano",
+    });
+    expect(viewModel.success.localSponsorPlacements[1]).toMatchObject({
+      id: "22222222-2222-4222-8222-222222222222",
+      surface: "contextual_care_resources",
+      title: "Recurso de cuidado",
     });
     expect(viewModel.success.localSponsorPlacement?.body).toContain(
       "orientacion local",
@@ -635,6 +672,7 @@ describe("Lost Pet Report creation view model", () => {
         "No cambia la prioridad de tu reporte ni donde aparece.",
       reportActionLabel: "Reportar",
       sponsorLabel: "Patrocinado",
+      surface: "report_success",
       title: "Recurso local cercano",
     } as unknown as LostReportSuccessLocalSponsorPlacement;
 

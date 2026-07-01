@@ -58,6 +58,7 @@ export interface AdminSponsorProviderOption {
 
 export interface AdminSponsorPlacementViewModel {
   dateWindowLabel: string;
+  deliveryMetrics: AdminSponsorPlacementDeliveryMetricsViewModel;
   disclosure: string;
   endsOn: string;
   imageUrl?: string;
@@ -76,6 +77,12 @@ export interface AdminSponsorPlacementViewModel {
   surfaceLabel: string;
 }
 
+export interface AdminSponsorPlacementDeliveryMetricsViewModel {
+  impressionCount: number;
+  openCount: number;
+  openRateLabel: string;
+}
+
 export interface AdminSponsorPlacementSafetyPolicyViewModel {
   eligibleSurfaceLabels: string[];
   pushNotifications: {
@@ -91,6 +98,8 @@ export interface AdminSponsorPlacementSafetyPolicyViewModel {
 export interface AdminSponsorPlacementStatsViewModel {
   activeCount: number;
   expiredCount: number;
+  impressionCount: number;
+  openCount: number;
   placementCount: number;
   providerCount: number;
   scheduledCount: number;
@@ -207,6 +216,9 @@ function toSponsorPlacementViewModel(
 
   return {
     dateWindowLabel: `${placement.startsOn} a ${placement.endsOn}`,
+    deliveryMetrics: buildSponsorPlacementDeliveryMetrics(
+      placement.deliveryMetrics,
+    ),
     disclosure: placement.disclosure,
     endsOn: placement.endsOn,
     imageUrl: placement.imageUrl,
@@ -224,6 +236,26 @@ function toSponsorPlacementViewModel(
     surface: placement.surface,
     surfaceLabel: getSurfaceLabel(placement.surface),
   };
+}
+
+function buildSponsorPlacementDeliveryMetrics(
+  metrics: AdminSponsorPlacementRecord["deliveryMetrics"],
+): AdminSponsorPlacementDeliveryMetricsViewModel {
+  return {
+    impressionCount: metrics.impressionCount,
+    openCount: metrics.openCount,
+    openRateLabel:
+      metrics.impressionCount > 0
+        ? formatDeliveryOpenRate(metrics.openCount / metrics.impressionCount)
+        : "Sin impresiones",
+  };
+}
+
+function formatDeliveryOpenRate(value: number): string {
+  return new Intl.NumberFormat("es-BO", {
+    maximumFractionDigits: 1,
+    style: "percent",
+  }).format(value);
 }
 
 function buildSponsorSafetyPolicy(
@@ -274,12 +306,26 @@ function getPlacementStateLabel(
 function buildStats(
   placements: readonly AdminSponsorPlacementViewModel[],
 ): AdminSponsorPlacementStatsViewModel {
+  const deliveryTotals = placements.reduce(
+    (totals, placement) => ({
+      impressionCount:
+        totals.impressionCount + placement.deliveryMetrics.impressionCount,
+      openCount: totals.openCount + placement.deliveryMetrics.openCount,
+    }),
+    {
+      impressionCount: 0,
+      openCount: 0,
+    },
+  );
+
   return {
     activeCount: placements.filter((placement) => placement.state === "active")
       .length,
     expiredCount: placements.filter(
       (placement) => placement.state === "expired",
     ).length,
+    impressionCount: deliveryTotals.impressionCount,
+    openCount: deliveryTotals.openCount,
     placementCount: placements.length,
     providerCount: new Set(placements.map((placement) => placement.providerId))
       .size,

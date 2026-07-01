@@ -3,14 +3,15 @@ import { Pressable, Text, View } from "react-native";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { NearbyLocationAdapter } from "../nearby/nearby-location-adapter";
-import type { ReportMediaDraftSnapshot } from "../report-media";
-import type { LostReportDraft } from "./lost-report-creation-types";
-import { lostReportCreationFixtures } from "./lost-report-creation-fixtures";
 import {
   getSponsorPlacementReportFailureMessage,
   getSponsorPlacementReportReceiptMessage,
-  LostReportCreationScreen,
-} from "./lost-report-creation-screen";
+} from "../report-creation/report-creation-success-sponsors";
+import type { ReportMediaDraftSnapshot } from "../report-media";
+import type { LostReportDraft } from "./lost-report-creation-types";
+import type { LostReportSuccessLocalSponsorPlacement } from "./lost-report-creation-view-model";
+import { lostReportCreationFixtures } from "./lost-report-creation-fixtures";
+import { LostReportCreationScreen } from "./lost-report-creation-screen";
 import {
   createInitialLostReportDraft,
   createLostReportDraft,
@@ -57,6 +58,23 @@ const reactState = vi.hoisted(() => ({
   refs: [] as { current: unknown }[],
   values: [] as unknown[],
 }));
+const successSponsorPlacement: LostReportSuccessLocalSponsorPlacement = {
+  actionLabel: "Ver recurso",
+  body: "Atencion veterinaria local para reportes recientes.",
+  categoryLabel: "Veterinaria",
+  eligibleSurfaces: ["report_success", "contextual_care_resources"],
+  id: "11111111-1111-4111-8111-111111111111",
+  imageUrl: "https://example.com/sponsor-san-roque-banner.png",
+  logoUrl: "https://example.com/sponsor-san-roque-logo.png",
+  name: "Clinica Veterinaria San Roque",
+  paidDisclosure: "Colocacion pagada",
+  recoveryPriorityDisclosure:
+    "No cambia la prioridad de tu reporte ni donde aparece.",
+  reportActionLabel: "Reportar",
+  sponsorLabel: "Patrocinado",
+  surface: "report_success",
+  title: "Recurso local recomendado",
+};
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof React>("react");
@@ -130,6 +148,7 @@ vi.mock("react", async () => {
 
 vi.mock("react-native", () => ({
   ActivityIndicator: "ActivityIndicator",
+  FlatList: "FlatList",
   KeyboardAvoidingView: "KeyboardAvoidingView",
   Platform: {
     OS: "ios",
@@ -699,6 +718,8 @@ describe("LostReportCreationScreen", () => {
     });
     const draftPublished = vi.fn();
     const openPublishedReport = vi.fn();
+    const openSponsorPlacement = vi.fn();
+    const recordSponsorDelivery = vi.fn();
     const reportSponsorPlacement = vi.fn().mockResolvedValue({
       moderationItem: {},
       status: "created",
@@ -709,10 +730,13 @@ describe("LostReportCreationScreen", () => {
       <LostReportCreationScreen
         onDraftPublished={draftPublished}
         onOpenPublishedReport={openPublishedReport}
+        onOpenSponsorPlacement={openSponsorPlacement}
         onPublishLostReport={publishLostReport}
+        onRecordSponsorPlacementDelivery={recordSponsorDelivery}
         onReportSponsorPlacement={reportSponsorPlacement}
         onSharePublishedReport={sharePublishedReport}
         petProfiles={lostReportCreationFixtures.petProfiles}
+        successSponsorPlacements={[successSponsorPlacement]}
       />,
     );
     const publishButton = findElement(
@@ -729,10 +753,13 @@ describe("LostReportCreationScreen", () => {
       <LostReportCreationScreen
         onDraftPublished={draftPublished}
         onOpenPublishedReport={openPublishedReport}
+        onOpenSponsorPlacement={openSponsorPlacement}
         onPublishLostReport={publishLostReport}
+        onRecordSponsorPlacementDelivery={recordSponsorDelivery}
         onReportSponsorPlacement={reportSponsorPlacement}
         onSharePublishedReport={sharePublishedReport}
         petProfiles={lostReportCreationFixtures.petProfiles}
+        successSponsorPlacements={[successSponsorPlacement]}
       />,
     );
     const confirmPublishButton = findElement(
@@ -754,10 +781,13 @@ describe("LostReportCreationScreen", () => {
       <LostReportCreationScreen
         onDraftPublished={draftPublished}
         onOpenPublishedReport={openPublishedReport}
+        onOpenSponsorPlacement={openSponsorPlacement}
         onPublishLostReport={publishLostReport}
+        onRecordSponsorPlacementDelivery={recordSponsorDelivery}
         onReportSponsorPlacement={reportSponsorPlacement}
         onSharePublishedReport={sharePublishedReport}
         petProfiles={lostReportCreationFixtures.petProfiles}
+        successSponsorPlacements={[successSponsorPlacement]}
       />,
     );
     const shareButton = findElement(
@@ -770,14 +800,29 @@ describe("LostReportCreationScreen", () => {
       (element) =>
         element.type === "Pressable" && findText(element, "Ver reporte"),
     );
+    expect(
+      findElement(
+        successScreen,
+        (element) => element.props.testID === "report-success-sponsor-stack",
+      ),
+    ).toBeTruthy();
+    expect(recordSponsorDelivery).not.toHaveBeenCalled();
+
+    recordVisibleSponsorItems(successScreen, [0]);
     const sponsorReportButton = findElement(
       successScreen,
       (element) =>
         element.type === "Pressable" && findText(element, "Reportar"),
     );
+    const sponsorOpenButton = findElement(
+      successScreen,
+      (element) =>
+        element.type === "Pressable" && findText(element, "Ver recurso"),
+    );
 
     void getPressableOnPress(shareButton)();
     void getPressableOnPress(viewReportButton)();
+    void getPressableOnPress(sponsorOpenButton)();
     await getPressableOnPress(sponsorReportButton)();
 
     expect(publishLostReport).toHaveBeenCalledTimes(1);
@@ -790,6 +835,23 @@ describe("LostReportCreationScreen", () => {
     expect(openPublishedReport).toHaveBeenCalledWith({
       id: "report-lost-backend-1",
       status: "active",
+    });
+    expect(openSponsorPlacement).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+    );
+    expect(recordSponsorDelivery).toHaveBeenCalledWith({
+      eventType: "impression",
+      idempotencyKey:
+        "report-success:report-lost-backend-1:11111111-1111-4111-8111-111111111111:report_success:impression",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      source: "report-success-sponsor-card",
+      surface: "report_success",
+    });
+    expect(recordSponsorDelivery).toHaveBeenCalledWith({
+      eventType: "open",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      source: "report-success-sponsor-card",
+      surface: "report_success",
     });
     expect(reportSponsorPlacement).toHaveBeenCalledWith(
       "11111111-1111-4111-8111-111111111111",
@@ -1033,7 +1095,7 @@ function findText(node: React.ReactNode, text: string): boolean {
     return true;
   }
 
-  return React.Children.toArray(rendered.props.children).some((child) =>
+  return getSearchChildren(rendered).some((child) =>
     findText(child, text),
   );
 }
@@ -1052,7 +1114,7 @@ function findElement(
     return rendered;
   }
 
-  for (const child of React.Children.toArray(rendered.props.children)) {
+  for (const child of getSearchChildren(rendered)) {
     const found = findElement(child, predicate);
 
     if (found) {
@@ -1063,6 +1125,36 @@ function findElement(
   return undefined;
 }
 
+function getSearchChildren(element: TestElement) {
+  const children = React.Children.toArray(element.props.children);
+
+  if (element.type !== "FlatList") {
+    return children;
+  }
+
+  const props = element.props as ElementProps & {
+    data?: readonly unknown[];
+    renderItem?: (input: { index: number; item: unknown }) => React.ReactNode;
+  };
+
+  if (!props.data?.length || typeof props.renderItem !== "function") {
+    return children;
+  }
+
+  return [
+    ...children,
+    ...props.data.flatMap((item, index) => {
+      const renderedItem = props.renderItem?.({ index, item });
+
+      return renderedItem === null ||
+        renderedItem === undefined ||
+        typeof renderedItem === "boolean"
+        ? []
+        : [renderedItem];
+    }),
+  ];
+}
+
 function getPressableOnPress(element: TestElement | undefined) {
   const onPress = element?.props.onPress;
 
@@ -1071,6 +1163,52 @@ function getPressableOnPress(element: TestElement | undefined) {
   }
 
   return onPress as () => Promise<void> | void;
+}
+
+function recordVisibleSponsorItems(
+  node: React.ReactNode,
+  indices: readonly number[],
+) {
+  const sponsorList = findElement(
+    node,
+    (element) => element.props.testID === "report-success-sponsor-list",
+  );
+  const onViewableItemsChanged = sponsorList?.props.onViewableItemsChanged;
+  const data = sponsorList?.props.data;
+
+  if (
+    !isUnknownArray(data) ||
+    typeof onViewableItemsChanged !== "function"
+  ) {
+    throw new Error("Expected report success sponsor FlatList.");
+  }
+
+  const recordViewability =
+    onViewableItemsChanged as SponsorViewabilityCallback;
+
+  recordViewability({
+    changed: [],
+    viewableItems: indices.map((index) => ({
+      index,
+      isViewable: true,
+      item: data[index],
+      key: String(index),
+    })),
+  });
+}
+
+type SponsorViewabilityCallback = (input: {
+  changed: unknown[];
+  viewableItems: {
+    index: number;
+    isViewable: boolean;
+    item: unknown;
+    key: string;
+  }[];
+}) => void;
+
+function isUnknownArray(value: unknown): value is unknown[] {
+  return Array.isArray(value);
 }
 
 function elementContainsText(element: TestElement, text: string): boolean {

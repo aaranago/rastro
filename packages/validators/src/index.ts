@@ -970,6 +970,13 @@ export const nearbyResourceProvidersInputSchema = z.object({
   strategy: z.literal("postgis_radius").default("postgis_radius"),
 });
 
+export const activeLocalSponsorPlacementsInputSchema = z
+  .object({
+    limit: z.number().int().min(1).max(10).default(5),
+    surface: localSponsorPlacementSurfaceSchema,
+  })
+  .strict();
+
 export const updateResourceProviderVerificationInputSchema = z.object({
   providerId: z.uuid(),
   status: resourceProviderVerificationStatusSchema,
@@ -1034,6 +1041,7 @@ export const recordLocalSponsorPlacementDeliveryInputSchema = z
   .object({
     eventType: localSponsorPlacementDeliveryEventTypeSchema,
     idempotencyKey: z.string().trim().min(1).max(191).optional(),
+    placementId: z.uuid().optional(),
     providerId: z.uuid(),
     source: z.string().trim().min(1).max(80).optional(),
     surface: localSponsorPlacementSurfaceSchema,
@@ -1150,6 +1158,7 @@ export const adminSponsorPlacementListInputSchema = adminListBaseInputSchema
 
 export const localSponsorPlacementPolicySchema = z.object({
   kind: z.literal("Local Sponsor Placement"),
+  placementId: z.uuid().optional(),
   label: z.string().min(1).max(80),
   disclosure: z.string().min(1).max(240),
   logoUrl: z.url().optional(),
@@ -1325,6 +1334,9 @@ export type CreateResourceProviderReportInput = z.infer<
 >;
 export type NearbyResourceProvidersInput = z.infer<
   typeof nearbyResourceProvidersInputSchema
+>;
+export type ActiveLocalSponsorPlacementsInput = z.infer<
+  typeof activeLocalSponsorPlacementsInputSchema
 >;
 export type UpdateResourceProviderVerificationInput = z.infer<
   typeof updateResourceProviderVerificationInputSchema

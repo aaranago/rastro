@@ -18,6 +18,7 @@ import { createInMemoryTrustSafetyRepository } from "../trust-safety";
 import {
   cloneLocalSponsorPlacement,
   cloneLocalSponsorPlacements,
+  getLocalSponsorPlacementsForSurface,
 } from "./sponsor-surface-policy";
 import { rastroResourceFixtures } from "./static-resources-fixtures";
 
@@ -69,6 +70,17 @@ export interface ResourceProviderProfileResult {
   providerId: string;
 }
 
+export interface ActiveSponsorPlacementsQuery {
+  limit?: number;
+  surface: LocalSponsorPlacementSurface;
+}
+
+export interface ActiveSponsorPlacementsResult {
+  generatedAt?: string;
+  providers: readonly ResourceProviderSummary[];
+  surface: LocalSponsorPlacementSurface;
+}
+
 export interface ResourceProviderReportInput {
   detail: string;
   providerId: string;
@@ -93,6 +105,7 @@ export interface ResourceProviderReportReceipt {
 export interface ResourceSponsorDeliveryInput {
   eventType: "impression" | "open";
   idempotencyKey?: string;
+  placementId?: string;
   providerId: string;
   source?: string;
   surface: LocalSponsorPlacementSurface;
@@ -103,6 +116,7 @@ export interface ResourceSponsorDeliveryReceipt {
     eventType: "impression" | "open";
     id: string;
     occurredAt: Date | string;
+    placementId?: string;
     providerId: string;
     source?: string;
     surface: LocalSponsorPlacementSurface;
@@ -111,6 +125,9 @@ export interface ResourceSponsorDeliveryReceipt {
 }
 
 export interface ResourcesAdapter {
+  getActiveSponsorPlacements?: (
+    query: ActiveSponsorPlacementsQuery,
+  ) => Promise<ActiveSponsorPlacementsResult>;
   getProviderProfileDetail?: (
     providerId: string,
   ) => Promise<ResourceProviderProfileResult>;
@@ -258,6 +275,35 @@ export function createStaticResourcesAdapter(
     });
 
   return {
+    getActiveSponsorPlacements(query) {
+      const providers = fixtures.providers
+        .flatMap((provider) => {
+          const surfacePlacements = getLocalSponsorPlacementsForSurface(
+            provider.activeSponsorPlacements ?? provider.sponsorPlacement,
+            query.surface,
+            { limit: 5 },
+          );
+
+          if (surfacePlacements.length === 0) {
+            return [];
+          }
+
+          return [
+            {
+              ...cloneResourceProviderSummary(provider),
+              sponsorPlacement: surfacePlacements[0],
+              activeSponsorPlacements: surfacePlacements,
+            },
+          ];
+        })
+        .slice(0, query.limit ?? 5);
+
+      return Promise.resolve({
+        generatedAt: new Date().toISOString(),
+        providers,
+        surface: query.surface,
+      });
+    },
     getProviderProfileDetail,
     searchProviderDirectory,
     searchProviders(query) {
@@ -385,6 +431,16 @@ export function createCachedResourcesAdapter({
   return {
     ...source,
     getProviderProfileDetail,
+    getActiveSponsorPlacements(query) {
+      if (source.getActiveSponsorPlacements === undefined) {
+        return Promise.resolve({
+          providers: [],
+          surface: query.surface,
+        });
+      }
+
+      return source.getActiveSponsorPlacements(query);
+    },
     getProviderProfile(providerId) {
       return getProviderProfileDetail(providerId).then(
         (result) => result.profile,
@@ -505,6 +561,22 @@ function toResourceProviderSearchSummary({
     sponsorPlacement: cloneLocalSponsorPlacement(summary.sponsorPlacement),
     activeSponsorPlacements: cloneLocalSponsorPlacements(
       summary.activeSponsorPlacements,
+    ),
+  };
+}
+
+function cloneResourceProviderSummary(
+  provider: ResourceProviderSummary,
+): ResourceProviderSummary {
+  return {
+    ...provider,
+    approximateLocation: provider.approximateLocation
+      ? { ...provider.approximateLocation }
+      : undefined,
+    contactOptions: provider.contactOptions.map((contact) => ({ ...contact })),
+    sponsorPlacement: cloneLocalSponsorPlacement(provider.sponsorPlacement),
+    activeSponsorPlacements: cloneLocalSponsorPlacements(
+      provider.activeSponsorPlacements,
     ),
   };
 }

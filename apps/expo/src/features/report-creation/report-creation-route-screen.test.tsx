@@ -67,6 +67,8 @@ const nearby = vi.hoisted(() => ({
 }));
 const resourcesAdapter = vi.hoisted(() => ({
   createApiResourcesAdapter: vi.fn(),
+  getActiveSponsorPlacements: vi.fn(),
+  recordSponsorDelivery: vi.fn(),
   reportProvider: vi.fn(),
 }));
 const publishAdapters = vi.hoisted(() => ({
@@ -367,7 +369,15 @@ beforeEach(() => {
   );
   reportMedia.createReportMediaDraft.mockReturnValue(reportMedia.draft);
   resourcesAdapter.createApiResourcesAdapter.mockReturnValue({
+    getActiveSponsorPlacements: resourcesAdapter.getActiveSponsorPlacements,
+    recordSponsorDelivery: resourcesAdapter.recordSponsorDelivery,
     reportProvider: resourcesAdapter.reportProvider,
+  });
+  resourcesAdapter.getActiveSponsorPlacements.mockResolvedValue({
+    providers: [],
+  });
+  resourcesAdapter.recordSponsorDelivery.mockResolvedValue({
+    status: "recorded",
   });
   resourcesAdapter.reportProvider.mockResolvedValue({
     moderationItem: {},
@@ -409,8 +419,19 @@ describe("ReportCreationRouteScreen", () => {
     expect(lostScreen?.props.onReportSponsorPlacement).toEqual(
       expect.any(Function),
     );
+    expect(lostScreen?.props.onRecordSponsorPlacementDelivery).toEqual(
+      expect.any(Function),
+    );
     expect(resourcesAdapter.createApiResourcesAdapter).toHaveBeenCalledWith({
       client: api.trpcClient,
+    });
+    expect(resourcesAdapter.getActiveSponsorPlacements).toHaveBeenCalledWith({
+      limit: 3,
+      surface: "report_success",
+    });
+    expect(resourcesAdapter.getActiveSponsorPlacements).toHaveBeenCalledWith({
+      limit: 3,
+      surface: "contextual_care_resources",
     });
 
     const reportSponsorPlacement: unknown =
@@ -433,6 +454,38 @@ describe("ReportCreationRouteScreen", () => {
       detail: "Reporte enviado desde una colocacion patrocinada.",
       providerId: "11111111-1111-4111-8111-111111111111",
       reason: "other",
+    });
+
+    const recordSponsorDelivery: unknown =
+      lostScreen?.props.onRecordSponsorPlacementDelivery;
+
+    if (typeof recordSponsorDelivery !== "function") {
+      throw new Error("Expected sponsor delivery callback.");
+    }
+
+    const recordSponsorDeliveryCallback = recordSponsorDelivery as (input: {
+      eventType: "impression" | "open";
+      idempotencyKey?: string;
+      providerId: string;
+      source: string;
+      surface: "report_success";
+    }) => void;
+
+    recordSponsorDeliveryCallback({
+      eventType: "impression",
+      idempotencyKey:
+        "report-success:report-lost-backend-1:11111111-1111-4111-8111-111111111111:report_success:impression",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      source: "report-success-sponsor-card",
+      surface: "report_success",
+    });
+    expect(resourcesAdapter.recordSponsorDelivery).toHaveBeenCalledWith({
+      eventType: "impression",
+      idempotencyKey:
+        "report-success:report-lost-backend-1:11111111-1111-4111-8111-111111111111:report_success:impression",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      source: "report-success-sponsor-card",
+      surface: "report_success",
     });
   });
 
@@ -495,6 +548,37 @@ describe("ReportCreationRouteScreen", () => {
 
       expect(creationScreen?.props.locationAdapter).toBe(
         nearby.expoNearbyLocationAdapter,
+      );
+    },
+  );
+
+  it.each([
+    ["lost", "LostReportCreationScreen"],
+    ["found", "FoundReportCreationScreen"],
+    ["sighting", "SightingReportCreationScreen"],
+    ["adoption", "AdoptionListingCreationScreen"],
+  ] as const)(
+    "passes report-success sponsor callbacks to %s creation",
+    (intent, screenType) => {
+      const screen = renderScreen(
+        <ReportCreationRouteScreen intent={intent} />,
+      );
+      const creationScreen = findElement(
+        screen,
+        (element) => element.type === screenType,
+      );
+
+      expect(creationScreen?.props.onOpenSponsorPlacement).toEqual(
+        expect.any(Function),
+      );
+      expect(creationScreen?.props.onReportSponsorPlacement).toEqual(
+        expect.any(Function),
+      );
+      expect(creationScreen?.props.onRecordSponsorPlacementDelivery).toEqual(
+        expect.any(Function),
+      );
+      expect(creationScreen?.props.successSponsorPlacements).toEqual(
+        expect.any(Array),
       );
     },
   );

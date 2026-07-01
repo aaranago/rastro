@@ -182,7 +182,18 @@ function sponsorPlacementRows(provider: PersistedResourceProvider) {
   }));
 }
 
-function sponsorPlacementQueryRow(provider: PersistedResourceProvider) {
+interface SponsorPlacementDeliveryMetricsFixture {
+  impressionCount?: number;
+  openCount?: number;
+}
+
+function sponsorPlacementQueryRow(
+  provider: PersistedResourceProvider,
+  deliveryMetricsByPlacementId: Record<
+    string,
+    SponsorPlacementDeliveryMetricsFixture
+  > = {},
+) {
   const [placement] = provider.sponsorPlacements;
 
   if (!placement) {
@@ -191,10 +202,14 @@ function sponsorPlacementQueryRow(provider: PersistedResourceProvider) {
     );
   }
 
+  const deliveryMetrics = deliveryMetricsByPlacementId[placement.id];
+
   return {
     category: provider.category,
     city: provider.location.city,
     department: provider.location.department,
+    sponsorImpressionCount: deliveryMetrics?.impressionCount ?? 0,
+    sponsorOpenCount: deliveryMetrics?.openCount ?? 0,
     disclosure: placement.disclosure,
     endsAt: placement.endsAt,
     imageUrl: placement.imageUrl,
@@ -326,6 +341,10 @@ function createAdminProviderListDb(input: {
 }
 
 function createAdminSponsorPlacementListDb(input: {
+  deliveryMetricsByPlacementId?: Record<
+    string,
+    SponsorPlacementDeliveryMetricsFixture
+  >;
   pageProviders: PersistedResourceProvider[];
   total: number;
 }) {
@@ -342,7 +361,12 @@ function createAdminSponsorPlacementListDb(input: {
         }
 
         if (fields && "placementId" in fields) {
-          return input.pageProviders.map(sponsorPlacementQueryRow);
+          return input.pageProviders.map((provider) =>
+            sponsorPlacementQueryRow(
+              provider,
+              input.deliveryMetricsByPlacementId,
+            ),
+          );
         }
 
         return [];
@@ -369,6 +393,75 @@ function createAdminSponsorPlacementListDb(input: {
             throw new Error(
               "Sponsor placement list must not hydrate providers.",
             );
+          },
+        },
+      },
+      select,
+    },
+  };
+}
+
+function createActiveSponsorPlacementDb(input: {
+  providers: PersistedResourceProvider[];
+}) {
+  const calls = {
+    findProviderRows: 0,
+    limits: [] as number[],
+  };
+  let activeProviderIndex = 0;
+  let loadingProviderId: string | undefined;
+  const select = (fields?: Record<string, unknown>) => {
+    return createSelectChain(
+      ({ fromTable }) => {
+        if (fields && "placementId" in fields) {
+          return input.providers.map((provider) => ({
+            placementId: provider.sponsorPlacements[0]?.id,
+            providerId: provider.id,
+          }));
+        }
+
+        if (!loadingProviderId) {
+          return [];
+        }
+
+        const provider = input.providers.find(
+          (candidate) => candidate.id === loadingProviderId,
+        );
+
+        if (!provider) {
+          return [];
+        }
+
+        if (fromTable === ResourceProviderContactOption) {
+          return contactOptionRows(provider);
+        }
+
+        if (fromTable === LocalSponsorPlacement) {
+          return sponsorPlacementRows(provider);
+        }
+
+        return [];
+      },
+      {
+        onLimit(value) {
+          calls.limits.push(value);
+        },
+      },
+    );
+  };
+
+  return {
+    calls,
+    db: {
+      query: {
+        ResourceProvider: {
+          findFirst: () => {
+            const provider = input.providers[activeProviderIndex];
+            activeProviderIndex += 1;
+            loadingProviderId = provider?.id;
+            calls.findProviderRows += provider ? 1 : 0;
+
+            return Promise.resolve(provider ? providerRow(provider) : null);
           },
         },
       },
@@ -589,6 +682,7 @@ describe("resource provider repository", () => {
 
     expect(summary.sponsorPlacement).toEqual({
       kind: "Local Sponsor Placement",
+      placementId: "22222222-2222-4222-8222-222222222222",
       label: "Patrocinado",
       disclosure:
         "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
@@ -685,6 +779,7 @@ describe("resource provider repository", () => {
     expect(summary.activeSponsorPlacements).toEqual([
       {
         kind: "Local Sponsor Placement",
+        placementId: "22222222-2222-4222-8222-222222222222",
         label: "Patrocinado",
         disclosure:
           "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
@@ -714,6 +809,97 @@ describe("resource provider repository", () => {
     expect(summary.activeSponsorPlacements).toBeUndefined();
   });
 
+  it("lists active sponsor placements for a requested surface across multiple providers", async () => {
+    const providers = [
+      persistedProvider({
+        id: testUuid(1),
+        name: "Clinica San Roque",
+        sponsorPlacements: [
+          {
+            id: testUuid(101),
+            surface: "launch_home_banner",
+            label: "Portada",
+            disclosure:
+              "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+            logoUrl: "https://example.com/launch-logo-1.png",
+            imageUrl: "https://example.com/launch-banner-1.png",
+            startsAt: new Date("2026-07-01T00:00:00.000Z"),
+            endsAt: new Date("2026-07-31T23:59:59.999Z"),
+          },
+          {
+            id: testUuid(102),
+            surface: "resources_directory",
+            label: "Recursos",
+            disclosure:
+              "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+            logoUrl: null,
+            imageUrl: null,
+            startsAt: new Date("2026-07-01T00:00:00.000Z"),
+            endsAt: new Date("2026-07-31T23:59:59.999Z"),
+          },
+        ],
+      }),
+      persistedProvider({
+        id: testUuid(2),
+        name: "Farmacia Veterinaria Calacoto",
+        sponsorPlacements: [
+          {
+            id: testUuid(201),
+            surface: "launch_home_banner",
+            label: "Portada",
+            disclosure:
+              "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+            logoUrl: "https://example.com/launch-logo-2.png",
+            imageUrl: "https://example.com/launch-banner-2.png",
+            startsAt: new Date("2026-07-01T00:00:00.000Z"),
+            endsAt: new Date("2026-07-31T23:59:59.999Z"),
+          },
+        ],
+      }),
+    ];
+    const { calls, db } = createActiveSponsorPlacementDb({ providers });
+    const repository = createDrizzleResourceProviderRepository(db as never, {
+      now: () => new Date("2026-07-15T12:00:00.000Z"),
+    });
+
+    const result = await repository.listActiveSponsorPlacements({
+      limit: 2,
+      surface: "launch_home_banner",
+    });
+
+    expect(calls.limits).toEqual([2]);
+    expect(calls.findProviderRows).toBe(2);
+    expect(result.map((provider) => provider.name)).toEqual([
+      "Clinica San Roque",
+      "Farmacia Veterinaria Calacoto",
+    ]);
+    expect(result[0]).toMatchObject({
+      activeSponsorPlacements: [
+        {
+          eligibleSurfaces: ["launch_home_banner"],
+          imageUrl: "https://example.com/launch-banner-1.png",
+          label: "Portada",
+        },
+      ],
+      sponsorPlacement: {
+        eligibleSurfaces: ["launch_home_banner"],
+      },
+    });
+    expect(result[1]).toMatchObject({
+      activeSponsorPlacements: [
+        {
+          eligibleSurfaces: ["launch_home_banner"],
+          imageUrl: "https://example.com/launch-banner-2.png",
+          label: "Portada",
+        },
+      ],
+      sponsorPlacement: {
+        eligibleSurfaces: ["launch_home_banner"],
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain("resources_directory");
+  });
+
   it("maps profile-only fields without exposing private location details", () => {
     const profile = toPublicResourceProviderProfile(persistedProvider(), {
       now: new Date("2026-07-15T12:00:00.000Z"),
@@ -733,7 +919,7 @@ describe("resource provider repository", () => {
     });
     expect(JSON.stringify(profile)).not.toContain("exact");
     expect(JSON.stringify(profile)).not.toContain("Plaza Abaroa");
-    expect(JSON.stringify(profile)).not.toContain(
+    expect(profile.sponsorPlacement?.placementId).toBe(
       "22222222-2222-4222-8222-222222222222",
     );
     expect(JSON.stringify(profile)).not.toContain(
@@ -1116,6 +1302,60 @@ describe("resource provider repository", () => {
     expect(calls.limits).toEqual([10]);
     expect(calls.offsets).toEqual([10]);
     expect(calls.findManyWasCalled).toBe(false);
+  });
+
+  it("returns delivery metrics per admin sponsor placement", async () => {
+    const providers = [
+      persistedProvider({
+        id: "11111111-1111-4111-8111-111111111111",
+        name: "Clinica Veterinaria San Roque",
+        sponsorPlacements: [
+          {
+            id: "22222222-2222-4222-8222-222222222222",
+            surface: "resources_directory",
+            label: "Patrocinado",
+            disclosure:
+              "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+            logoUrl: "https://example.com/logo.png",
+            imageUrl: "https://example.com/banner.png",
+            startsAt: new Date("2026-07-01T00:00:00.000Z"),
+            endsAt: new Date("2026-07-31T23:59:59.999Z"),
+          },
+        ],
+      }),
+    ];
+    const { db } = createAdminSponsorPlacementListDb({
+      deliveryMetricsByPlacementId: {
+        "22222222-2222-4222-8222-222222222222": {
+          impressionCount: 1280,
+          openCount: 96,
+        },
+      },
+      pageProviders: providers,
+      total: providers.length,
+    });
+    const repository = createDrizzleResourceProviderRepository(db as never, {
+      now: () => new Date("2026-07-15T12:00:00.000Z"),
+    });
+
+    const result = await repository.listSponsorPlacements({
+      filters: {
+        state: "active",
+      },
+      page: 1,
+      pageSize: 10,
+    });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      deliveryMetrics: {
+        impressionCount: 1280,
+        openCount: 96,
+      },
+      placementId: "22222222-2222-4222-8222-222222222222",
+      providerName: "Clinica Veterinaria San Roque",
+      surface: "resources_directory",
+    });
   });
 
   it("provides field-specific sponsor placement overlap errors", () => {

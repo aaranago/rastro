@@ -144,6 +144,49 @@ describe("admin sponsor placement actions", () => {
     expect(api.createAdminSponsorPlacement).not.toHaveBeenCalled();
   });
 
+  it("keeps API sponsor overlap field errors attached to the submitted form", async () => {
+    const overlapError = new Error("overlap") as Error & {
+      cause: {
+        fieldErrors: Record<string, string[]>;
+      };
+    };
+    overlapError.cause = {
+      fieldErrors: {
+        startsOn: ["La ventana se cruza con otro patrocinio local activo."],
+        surface: ["La superficie ya tiene un patrocinio local en esa ventana."],
+      },
+    };
+    api.createAdminSponsorPlacement.mockRejectedValueOnce(overlapError);
+
+    const result = await applyAdminSponsorPlacementAction(
+      sponsorFormData({
+        sponsorAction: "create_sponsor_placement",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      action: "create_sponsor_placement",
+      ok: false,
+      providerId: "11111111-1111-4111-8111-111111111111",
+    });
+    expect(result.fieldErrors).toEqual(
+      expect.arrayContaining([
+        {
+          field: "startsOn",
+          message: "La ventana se cruza con otro patrocinio local activo.",
+        },
+        {
+          field: "surface",
+          message: "La superficie ya tiene un patrocinio local en esa ventana.",
+        },
+      ]),
+    );
+    expect(result.submittedValues).toMatchObject({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      surface: "resources_directory",
+    });
+  });
+
   it("builds redirect feedback and notices for successful updates", () => {
     const result = {
       action: "update_sponsor_placement" as const,

@@ -8,6 +8,7 @@ import type {
   UpdateResourceProviderInput,
 } from "@acme/validators";
 import {
+  activeLocalSponsorPlacementsInputSchema,
   adminMediaAssetIdInputSchema,
   adminResourceProviderListInputSchema,
   adminSponsorPlacementListInputSchema,
@@ -525,6 +526,18 @@ export const resourcesRouter = createTRPCRouter({
       }
 
       return profile;
+    }),
+  activeSponsorPlacements: publicProcedure
+    .input(activeLocalSponsorPlacementsInputSchema)
+    .query(async ({ ctx, input }) => {
+      const results =
+        await ctx.resourceProviderRepository.listActiveSponsorPlacements(input);
+
+      return {
+        generatedAt: new Date().toISOString(),
+        results,
+        surface: input.surface,
+      };
     }),
   reportProvider: protectedProcedure
     .input(createResourceProviderReportInputSchema)

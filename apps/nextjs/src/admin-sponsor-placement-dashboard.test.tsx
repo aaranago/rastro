@@ -33,6 +33,9 @@ describe("admin sponsor placement dashboard", () => {
     expect(html).toContain("Patitas La Paz");
     expect(html).toContain("Directorio de recursos");
     expect(html).toContain("Perfil del proveedor");
+    expect(html).toContain("Impresiones");
+    expect(html).toContain("Aperturas");
+    expect(html).toContain("Tasa de apertura: 25%");
     expect(html).toContain("Activo");
     expect(html).toContain("Expirado");
     expect(html).toContain("No afecta prioridad de recuperación");
@@ -167,7 +170,12 @@ function dashboardViewModel(): AdminSponsorPlacementDashboardViewModel {
     today: "2026-07-15",
     providers: [],
     placements: [
-      sponsorPlacement(),
+      sponsorPlacement({
+        deliveryMetrics: {
+          impressionCount: 120,
+          openCount: 30,
+        },
+      }),
       sponsorPlacement({
         endsOn: "2026-06-30",
         placementId: "33333333-3333-4333-8333-333333333333",
@@ -186,6 +194,10 @@ function sponsorPlacement(
     category: "veterinary",
     city: "La Paz",
     department: "La Paz",
+    deliveryMetrics: overrides.deliveryMetrics ?? {
+      impressionCount: 0,
+      openCount: 0,
+    },
     disclosure: "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
     endsOn: "2026-07-31",
     isActive: true,
@@ -208,6 +220,12 @@ function sponsorPlacement(
     },
     startsOn: "2026-07-01",
     surface: "resources_directory",
-    ...overrides,
+    ...omitDeliveryMetrics(overrides),
   };
+}
+
+function omitDeliveryMetrics(placement: Partial<AdminSponsorPlacementRecord>) {
+  const { deliveryMetrics: _deliveryMetrics, ...rest } = placement;
+
+  return rest;
 }

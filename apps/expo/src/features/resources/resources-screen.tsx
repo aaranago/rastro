@@ -1,4 +1,5 @@
 import type { LegendListRenderItemProps } from "@legendapp/list";
+import type { ComponentProps } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -51,6 +52,7 @@ import { defaultApiResourcesAdapter } from "./resources-default-api-adapter";
 import { getResourcesScrollableBottomInset } from "./resources-layout";
 import { resourcesColors, resourcesShadow } from "./resources-theme";
 import { buildResourcesDirectoryViewModel } from "./resources-view-model";
+import { createSponsorDeliverySessionId } from "./sponsor-delivery-session";
 
 const defaultResourcesAdapter = defaultApiResourcesAdapter;
 
@@ -118,9 +120,7 @@ export function ResourcesScreen({
   const [isOfflineContent, setIsOfflineContent] = useState(false);
   const [isStaleContent, setIsStaleContent] = useState(false);
   const [reloadVersion, setReloadVersion] = useState(0);
-  const sponsorDeliverySessionIdRef = useRef(
-    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
-  );
+  const sponsorDeliverySessionIdRef = useRef(createSponsorDeliverySessionId());
   const recordedSponsorImpressionsRef = useRef(new Set<string>());
 
   const searchQuery = useMemo(
@@ -354,10 +354,13 @@ export function ResourcesScreen({
         return;
       }
 
+      const placementId = provider.sponsorPlacement?.placementId;
+
       void adapter
         .recordSponsorDelivery({
           eventType,
           idempotencyKey,
+          ...(placementId ? { placementId } : {}),
           providerId: provider.id,
           source,
           surface: "resources_directory",
@@ -367,20 +370,16 @@ export function ResourcesScreen({
     [adapter],
   );
 
-  useEffect(() => {
-    if (viewModel.state !== "ready") {
-      return;
-    }
-
-    for (const provider of listData) {
-      if (!provider.isSponsored) {
-        continue;
+  const recordSponsorImpression = useCallback(
+    (provider: ResourceProviderSummaryViewModel) => {
+      if (viewModel.state !== "ready" || !provider.isSponsored) {
+        return;
       }
 
       const impressionKey = `${mode}:${provider.id}`;
 
       if (recordedSponsorImpressionsRef.current.has(impressionKey)) {
-        continue;
+        return;
       }
 
       recordedSponsorImpressionsRef.current.add(impressionKey);
@@ -390,8 +389,9 @@ export function ResourcesScreen({
         `resources-${mode}`,
         `resources:${sponsorDeliverySessionIdRef.current}:${impressionKey}`,
       );
-    }
-  }, [listData, mode, recordSponsorDelivery, viewModel.state]);
+    },
+    [mode, recordSponsorDelivery, viewModel.state],
+  );
 
   const handleOpenProvider = useCallback(
     (providerId: string) => {
@@ -410,7 +410,7 @@ export function ResourcesScreen({
 
   const renderProvider = useCallback(
     ({ item }: LegendListRenderItemProps<ResourceProviderSummaryViewModel>) => (
-      <ResourceProviderCard
+      <ImpressionTrackedResourceProviderCard
         id={item.id}
         name={item.name}
         categoryLabel={item.categoryLabel}
@@ -428,11 +428,18 @@ export function ResourcesScreen({
         emergencyLabel={item.emergencyLabel}
         imageUrl={item.logoUrl ?? item.photoUrl}
         contactLabels={item.contactLabels}
+        onImpression={recordSponsorImpression}
         onOpenProvider={onOpenProvider ? handleOpenProvider : undefined}
         onReportProvider={onReportProvider}
+        provider={item}
       />
     ),
-    [handleOpenProvider, onOpenProvider, onReportProvider],
+    [
+      handleOpenProvider,
+      onOpenProvider,
+      onReportProvider,
+      recordSponsorImpression,
+    ],
   );
 
   const header = (
@@ -1416,6 +1423,21 @@ function shouldRenderResourcesStateInResults(
 
 function providerKeyExtractor(provider: ResourceProviderSummaryViewModel) {
   return provider.id;
+}
+
+function ImpressionTrackedResourceProviderCard({
+  onImpression,
+  provider,
+  ...props
+}: ComponentProps<typeof ResourceProviderCard> & {
+  onImpression: (provider: ResourceProviderSummaryViewModel) => void;
+  provider: ResourceProviderSummaryViewModel;
+}) {
+  useEffect(() => {
+    onImpression(provider);
+  }, [onImpression, provider]);
+
+  return <ResourceProviderCard {...props} />;
 }
 
 function ProviderSeparator() {

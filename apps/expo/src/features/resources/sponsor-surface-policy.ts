@@ -81,6 +81,7 @@ function cloneRequiredLocalSponsorPlacement(
 ): LocalSponsorPlacement {
   return {
     kind: placement.kind,
+    placementId: placement.placementId,
     label: placement.label,
     disclosure: placement.disclosure,
     ...(placement.logoUrl ? { logoUrl: placement.logoUrl } : {}),

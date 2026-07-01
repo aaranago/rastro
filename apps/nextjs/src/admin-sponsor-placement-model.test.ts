@@ -10,7 +10,12 @@ describe("admin sponsor placement model", () => {
       today: "2026-07-15",
       providers: [providerProfile()],
       placements: [
-        sponsorPlacement(),
+        sponsorPlacement({
+          deliveryMetrics: {
+            impressionCount: 120,
+            openCount: 30,
+          },
+        }),
         sponsorPlacement({
           endsOn: "2026-06-30",
           placementId: "33333333-3333-4333-8333-333333333333",
@@ -28,6 +33,8 @@ describe("admin sponsor placement model", () => {
     expect(viewModel.stats).toEqual({
       activeCount: 1,
       expiredCount: 1,
+      impressionCount: 120,
+      openCount: 30,
       placementCount: 3,
       providerCount: 1,
       scheduledCount: 1,
@@ -36,6 +43,11 @@ describe("admin sponsor placement model", () => {
       viewModel.placements.map((placement) => placement.stateLabel),
     ).toEqual(["Activo", "Expirado", "Programado"]);
     expect(viewModel.placements[0]).toMatchObject({
+      deliveryMetrics: {
+        impressionCount: 120,
+        openCount: 30,
+        openRateLabel: "25%",
+      },
       logoUrl: "https://example.com/sponsor-logo.png",
       imageUrl: "https://example.com/sponsor-banner.png",
     });
@@ -64,6 +76,10 @@ function sponsorPlacement(
     category: "veterinary",
     city: "La Paz",
     department: "La Paz",
+    deliveryMetrics: overrides.deliveryMetrics ?? {
+      impressionCount: 0,
+      openCount: 0,
+    },
     disclosure: "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
     endsOn: "2026-07-31",
     isActive: true,
@@ -86,8 +102,14 @@ function sponsorPlacement(
     },
     startsOn: "2026-07-01",
     surface: "resources_directory",
-    ...overrides,
+    ...omitDeliveryMetrics(overrides),
   };
+}
+
+function omitDeliveryMetrics(placement: Partial<AdminSponsorPlacementRecord>) {
+  const { deliveryMetrics: _deliveryMetrics, ...rest } = placement;
+
+  return rest;
 }
 
 function providerProfile(): AdminResourceProviderProfile {

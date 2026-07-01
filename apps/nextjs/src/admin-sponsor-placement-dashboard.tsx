@@ -92,6 +92,8 @@ export interface AdminSponsorPlacementDashboardProps {
 const emptyAdminSponsorPlacementActionState: AdminSponsorPlacementActionState =
   {};
 
+const sponsorMetricNumberFormatter = new Intl.NumberFormat("es-BO");
+
 export function AdminSponsorPlacementDashboard(
   props: AdminSponsorPlacementDashboardProps,
 ) {
@@ -182,13 +184,15 @@ function SponsorStats(props: {
   return (
     <section
       aria-label="Resumen de patrocinios"
-      className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
+      className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7"
     >
       <SummaryStat label="Patrocinios" value={stats.placementCount} />
       <SummaryStat label="Activos" value={stats.activeCount} />
       <SummaryStat label="Programados" value={stats.scheduledCount} />
       <SummaryStat label="Expirados" value={stats.expiredCount} />
       <SummaryStat label="Proveedores" value={stats.providerCount} />
+      <SummaryStat label="Impresiones" value={stats.impressionCount} />
+      <SummaryStat label="Aperturas" value={stats.openCount} />
     </section>
   );
 }
@@ -199,11 +203,46 @@ function SummaryStat(props: { label: string; value: number }) {
       <CardHeader className="gap-1 pb-2">
         <CardDescription>{props.label}</CardDescription>
         <CardTitle className="text-3xl tracking-normal">
-          {props.value}
+          {formatSponsorMetricNumber(props.value)}
         </CardTitle>
       </CardHeader>
     </Card>
   );
+}
+
+function SponsorDeliveryMetrics(props: {
+  metrics: AdminSponsorPlacementViewModel["deliveryMetrics"];
+}) {
+  return (
+    <div className="grid min-w-0 gap-1 text-sm">
+      <MetricLine
+        label="Impresiones"
+        value={formatSponsorMetricNumber(props.metrics.impressionCount)}
+      />
+      <MetricLine
+        label="Aperturas"
+        value={formatSponsorMetricNumber(props.metrics.openCount)}
+      />
+      <p className="text-muted-foreground text-xs">
+        Tasa de apertura: {props.metrics.openRateLabel}
+      </p>
+    </div>
+  );
+}
+
+function MetricLine(props: { label: string; value: string }) {
+  return (
+    <p className="flex min-w-0 items-baseline justify-between gap-3">
+      <span className="text-muted-foreground truncate">{props.label}</span>
+      <span className="text-foreground font-semibold tabular-nums">
+        {props.value}
+      </span>
+    </p>
+  );
+}
+
+function formatSponsorMetricNumber(value: number) {
+  return sponsorMetricNumberFormatter.format(value);
 }
 
 function SponsorSafetyPolicy(props: {
@@ -359,6 +398,7 @@ function SponsorPlacementCard(props: {
             </PlacementStateBadge>
           </div>
           <p className="text-sm">{props.placement.dateWindowLabel}</p>
+          <SponsorDeliveryMetrics metrics={props.placement.deliveryMetrics} />
         </div>
 
         <div className="grid min-w-0 gap-2">
@@ -408,6 +448,13 @@ function getSponsorPlacementColumns(
       header: "Superficie",
       id: "surface",
       sort: getSponsorSort(list, "surface"),
+    },
+    {
+      cell: (placement) => (
+        <SponsorDeliveryMetrics metrics={placement.deliveryMetrics} />
+      ),
+      header: "Entrega",
+      id: "delivery",
     },
     {
       cell: (placement) => (

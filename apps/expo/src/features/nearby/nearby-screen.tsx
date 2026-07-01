@@ -1,6 +1,8 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import type { ViewToken } from "react-native";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Pressable,
   ScrollView,
   Share,
@@ -17,6 +19,7 @@ import type {
   ReportMapPreview,
   ReportMapProviderState,
 } from "../maps/report-map";
+import type { ResourceProviderSummary } from "../resources";
 import type { NearbyLocationAdapter } from "./nearby-location-adapter";
 import type { NearbyReportRouteTarget } from "./nearby-navigation";
 import type {
@@ -38,6 +41,8 @@ import type {
 import { ManualLocationPickerMap } from "../maps/location-picker-map";
 import { getNativeMapProviderState } from "../maps/map-provider-config";
 import { ReportMap } from "../maps/report-map";
+import { createSponsorDeliverySessionId } from "../resources/sponsor-delivery-session";
+import { getLocalSponsorPlacementForSurface } from "../resources/sponsor-surface-policy";
 import { expoNearbyLocationAdapter } from "./nearby-expo-location-adapter";
 import {
   applyManualNearbySearchLocation,
@@ -51,19 +56,36 @@ import { shareNearbyLostReport } from "./nearby-share";
 import { nearbyCategoryFilters, nearbyRadiusOptionsKm } from "./nearby-types";
 import { buildNearbyLostReportsViewModel } from "./nearby-view-model";
 
+const sponsorImpressionViewabilityConfig = {
+  itemVisiblePercentThreshold: 60,
+  minimumViewTime: 600,
+};
+
 export interface NearbyScreenProps {
   adapter: NearbyLostReportsAdapter;
   initialLocationState?: NearbyLocationState;
   initialMode?: NearbyBrowseMode;
   initialRadiusKm?: NearbyRadiusKm;
+  launchSponsorProviders?: readonly ResourceProviderSummary[];
   locationAdapter?: NearbyLocationAdapter;
   locationState?: NearbyLocationState;
   manualLocationOptions?: readonly NearbySearchLocation[];
+  onOpenSponsorProvider?: (providerId: string) => void;
   onOpenReport?: (target: NearbyReportRouteTarget) => void;
+  onRecordSponsorDelivery?: (input: NearbySponsorDeliveryInput) => void;
   onReport?: (reportId: string) => void;
   onShareReport?: (reportId: string) => void;
   onEnableAlerts?: () => void;
   onManualLocationPress?: (selectedLocation?: NearbySearchLocation) => void;
+}
+
+export interface NearbySponsorDeliveryInput {
+  eventType: "impression" | "open";
+  idempotencyKey?: string;
+  placementId?: string;
+  providerId: string;
+  source: string;
+  surface: "launch_home_banner";
 }
 
 const defaultInitialLocationState: NearbyLocationState = {
@@ -88,12 +110,15 @@ function useNearbyScreenController({
   initialLocationState = defaultInitialLocationState,
   initialMode = "list",
   initialRadiusKm = 5,
+  launchSponsorProviders = [],
   locationAdapter = expoNearbyLocationAdapter,
   locationState,
   manualLocationOptions = nearbyManualLocationOptions,
   onEnableAlerts,
   onManualLocationPress,
+  onOpenSponsorProvider,
   onOpenReport,
+  onRecordSponsorDelivery,
   onReport,
   onShareReport,
 }: NearbyScreenProps) {
@@ -344,13 +369,16 @@ function useNearbyScreenController({
     handleToggleLocationChooser,
     isLocationChooserOpen,
     isResolvingLocation,
+    launchSponsorProviders,
     isManualMapPickerOpen,
     manualMapCoordinate,
     manualLocationOptions,
     mapCameraCenter,
     mode,
     onEnableAlerts,
+    onOpenSponsorProvider,
     onOpenReport,
+    onRecordSponsorDelivery,
     radiusKm,
     renderCard,
     reportFeedback,
@@ -379,12 +407,15 @@ function NearbyScreenContent({
   isLocationChooserOpen,
   isManualMapPickerOpen,
   isResolvingLocation,
+  launchSponsorProviders,
   manualMapCoordinate,
   manualLocationOptions,
   mapCameraCenter,
   mode,
   onEnableAlerts,
+  onOpenSponsorProvider,
   onOpenReport,
+  onRecordSponsorDelivery,
   radiusKm,
   renderCard,
   reportFeedback,
@@ -441,10 +472,13 @@ function NearbyScreenContent({
           isLocationChooserOpen={isLocationChooserOpen}
           isManualMapPickerOpen={isManualMapPickerOpen}
           isResolvingLocation={isResolvingLocation}
+          launchSponsorProviders={launchSponsorProviders}
           manualLocationOptions={manualLocationOptions}
           manualMapCoordinate={manualMapCoordinate}
           mode={mode}
           onCategoryToggle={handleCategoryToggle}
+          onOpenSponsorProvider={onOpenSponsorProvider}
+          onRecordSponsorDelivery={onRecordSponsorDelivery}
           onManualLocationPress={handleManualLocationPress}
           onManualMapCoordinateChange={setManualMapCoordinate}
           onManualMapPinCancel={handleManualMapPinCancel}
@@ -497,11 +531,14 @@ function NearbyScreenContent({
           isLocationChooserOpen={isLocationChooserOpen}
           isManualMapPickerOpen={isManualMapPickerOpen}
           isResolvingLocation={isResolvingLocation}
+          launchSponsorProviders={launchSponsorProviders}
           manualLocationOptions={manualLocationOptions}
           manualMapCoordinate={manualMapCoordinate}
           mode={mode}
           onCategoryToggle={handleCategoryToggle}
           onEnableAlerts={onEnableAlerts}
+          onOpenSponsorProvider={onOpenSponsorProvider}
+          onRecordSponsorDelivery={onRecordSponsorDelivery}
           onManualLocationPress={handleManualLocationPress}
           onManualMapCoordinateChange={setManualMapCoordinate}
           onManualMapPinCancel={handleManualMapPinCancel}
@@ -532,11 +569,14 @@ interface HeaderProps {
   isLocationChooserOpen: boolean;
   isManualMapPickerOpen: boolean;
   isResolvingLocation: boolean;
+  launchSponsorProviders: readonly ResourceProviderSummary[];
   manualLocationOptions: readonly NearbySearchLocation[];
   manualMapCoordinate: NearbyCoordinates;
   mode: NearbyBrowseMode;
   onCategoryToggle: (category: NearbyPublicReportKind) => void;
   onEnableAlerts?: () => void;
+  onOpenSponsorProvider?: (providerId: string) => void;
+  onRecordSponsorDelivery?: (input: NearbySponsorDeliveryInput) => void;
   onManualLocationPress: (selectedLocation?: NearbySearchLocation) => void;
   onManualMapCoordinateChange: (coordinate: NearbyCoordinates) => void;
   onManualMapPinCancel: () => void;
@@ -555,11 +595,14 @@ function Header({
   isLocationChooserOpen,
   isManualMapPickerOpen,
   isResolvingLocation,
+  launchSponsorProviders,
   manualLocationOptions,
   manualMapCoordinate,
   mode,
   onCategoryToggle,
   onEnableAlerts,
+  onOpenSponsorProvider,
+  onRecordSponsorDelivery,
   onManualLocationPress,
   onManualMapCoordinateChange,
   onManualMapPinCancel,
@@ -598,6 +641,11 @@ function Header({
       <HeaderStatusMessages
         reportFeedback={reportFeedback}
         viewModel={viewModel}
+      />
+      <LaunchSponsorBanner
+        onOpenSponsorProvider={onOpenSponsorProvider}
+        onRecordSponsorDelivery={onRecordSponsorDelivery}
+        providers={launchSponsorProviders}
       />
       <View style={styles.controls}>
         <RadiusControl
@@ -939,6 +987,161 @@ function UrgentAlert({ alert }: { alert: NearbyUrgentLostPetAlertViewModel }) {
         </Text>
       </View>
     </View>
+  );
+}
+
+function LaunchSponsorBanner({
+  onOpenSponsorProvider,
+  onRecordSponsorDelivery,
+  providers,
+}: {
+  onOpenSponsorProvider?: (providerId: string) => void;
+  onRecordSponsorDelivery?: (input: NearbySponsorDeliveryInput) => void;
+  providers: readonly ResourceProviderSummary[];
+}) {
+  const recordedImpressionsRef = useRef<Set<string>>(new Set());
+  const sponsorDeliverySessionIdRef = useRef(createSponsorDeliverySessionId());
+  const sponsors = useMemo(
+    () =>
+      providers.flatMap((provider) => {
+        const placement = getLocalSponsorPlacementForSurface(
+          provider.activeSponsorPlacements ?? provider.sponsorPlacement,
+          "launch_home_banner",
+        );
+
+        return placement ? [{ placement, provider }] : [];
+      }),
+    [providers],
+  );
+  const recordSponsorImpression = useCallback(
+    (sponsor: LaunchSponsorItem) => {
+      if (!onRecordSponsorDelivery) {
+        return;
+      }
+
+      const impressionKey = `${sponsor.provider.id}:${sponsor.placement.placementId ?? sponsor.placement.label}`;
+
+      if (recordedImpressionsRef.current.has(impressionKey)) {
+        return;
+      }
+
+      recordedImpressionsRef.current.add(impressionKey);
+      onRecordSponsorDelivery({
+        eventType: "impression",
+        idempotencyKey: `launch-home:${sponsorDeliverySessionIdRef.current}:${sponsor.provider.id}:impression`,
+        ...(sponsor.placement.placementId
+          ? { placementId: sponsor.placement.placementId }
+          : {}),
+        providerId: sponsor.provider.id,
+        source: "nearby-launch-banner",
+        surface: "launch_home_banner",
+      });
+    },
+    [onRecordSponsorDelivery],
+  );
+  const handleViewableSponsorItemsChanged = useCallback(
+    ({
+      viewableItems,
+    }: {
+      viewableItems: ViewToken<LaunchSponsorItem>[];
+    }) => {
+      for (const viewableItem of viewableItems) {
+        if (viewableItem.isViewable) {
+          recordSponsorImpression(viewableItem.item);
+        }
+      }
+    },
+    [recordSponsorImpression],
+  );
+
+  if (sponsors.length === 0) {
+    return null;
+  }
+
+  return (
+    <View style={styles.launchSponsorSection}>
+      <Text selectable style={styles.launchSponsorSectionTitle}>
+        Patrocinadores locales
+      </Text>
+      <FlatList
+        data={sponsors}
+        horizontal
+        contentContainerStyle={styles.launchSponsorContent}
+        keyExtractor={({ placement, provider }) =>
+          `${provider.id}:${placement.placementId ?? placement.label}`
+        }
+        onViewableItemsChanged={handleViewableSponsorItemsChanged}
+        renderItem={({ item: { placement, provider } }) => (
+          <LaunchSponsorCard
+            onOpenSponsorProvider={onOpenSponsorProvider}
+            onRecordSponsorDelivery={onRecordSponsorDelivery}
+            placement={placement}
+            provider={provider}
+          />
+        )}
+        showsHorizontalScrollIndicator={false}
+        testID="nearby-launch-sponsor-list"
+        viewabilityConfig={sponsorImpressionViewabilityConfig}
+      />
+    </View>
+  );
+}
+
+interface LaunchSponsorItem {
+  placement: NonNullable<ResourceProviderSummary["sponsorPlacement"]>;
+  provider: ResourceProviderSummary;
+}
+
+function LaunchSponsorCard({
+  onOpenSponsorProvider,
+  onRecordSponsorDelivery,
+  placement,
+  provider,
+}: {
+  onOpenSponsorProvider?: (providerId: string) => void;
+  onRecordSponsorDelivery?: (input: NearbySponsorDeliveryInput) => void;
+  placement: LaunchSponsorItem["placement"];
+  provider: ResourceProviderSummary;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={`Abrir patrocinador ${provider.name}`}
+      accessibilityRole="button"
+      onPress={() => {
+        onRecordSponsorDelivery?.({
+          eventType: "open",
+          ...(placement.placementId ? { placementId: placement.placementId } : {}),
+          providerId: provider.id,
+          source: "nearby-launch-banner",
+          surface: "launch_home_banner",
+        });
+        onOpenSponsorProvider?.(provider.id);
+      }}
+      style={({ pressed }) => [
+        styles.launchSponsorCard,
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      {(placement.imageUrl ?? provider.photoUrl) ? (
+        <Image
+          accessibilityLabel={`Imagen de patrocinio de ${provider.name}`}
+          contentFit="cover"
+          source={{ uri: placement.imageUrl ?? provider.photoUrl }}
+          style={styles.launchSponsorImage}
+        />
+      ) : null}
+      <View style={styles.launchSponsorCopy}>
+        <Text numberOfLines={1} style={styles.launchSponsorPill}>
+          {placement.label}
+        </Text>
+        <Text numberOfLines={1} style={styles.launchSponsorName}>
+          {provider.name}
+        </Text>
+        <Text numberOfLines={2} style={styles.launchSponsorDisclosure}>
+          {placement.disclosure}
+        </Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -1903,6 +2106,70 @@ const styles = StyleSheet.create({
   listSeparator: {
     height: 18,
   },
+  launchSponsorCard: {
+    backgroundColor: colors.card,
+    borderColor: colors.line,
+    borderCurve: "continuous",
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 92,
+    overflow: "hidden",
+    padding: 10,
+    width: 286,
+  },
+  launchSponsorContent: {
+    gap: 10,
+    paddingRight: 2,
+  },
+  launchSponsorCopy: {
+    flex: 1,
+    gap: 4,
+    justifyContent: "center",
+    minWidth: 0,
+  },
+  launchSponsorDisclosure: {
+    color: colors.inkMuted,
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 17,
+  },
+  launchSponsorImage: {
+    backgroundColor: colors.chip,
+    borderCurve: "continuous",
+    borderRadius: 14,
+    height: 72,
+    width: 72,
+  },
+  launchSponsorName: {
+    color: colors.ink,
+    fontSize: 15,
+    fontWeight: "900",
+    lineHeight: 19,
+  },
+  launchSponsorPill: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.chip,
+    borderRadius: 999,
+    color: colors.inkStrong,
+    fontSize: 11,
+    fontWeight: "900",
+    maxWidth: "100%",
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    textTransform: "uppercase",
+  },
+  launchSponsorSection: {
+    gap: 8,
+  },
+  launchSponsorSectionTitle: {
+    color: colors.inkStrong,
+    fontSize: 13,
+    fontWeight: "900",
+    lineHeight: 17,
+    textTransform: "uppercase",
+  },
   locationCopy: {
     color: colors.inkStrong,
     fontSize: 14,
@@ -2051,6 +2318,10 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 16,
     fontWeight: "900",
+  },
+  pressed: {
+    opacity: 0.76,
+    transform: [{ scale: 0.98 }],
   },
   priorityPill: {
     backgroundColor: colors.dangerSoft,

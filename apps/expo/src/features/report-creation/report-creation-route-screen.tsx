@@ -9,6 +9,7 @@ import type { ReportIntent } from "../../i18n";
 import type { AdoptionListingPublishConfirmation } from "../adoption-listing-creation/adoption-listing-creation-screen";
 import type { FoundReportPublishConfirmation } from "../found-report-creation/found-report-creation-screen";
 import type { LostReportPublishConfirmation } from "../lost-report-creation/lost-report-creation-screen";
+import type { LostReportSuccessLocalSponsorPlacement } from "../lost-report-creation/lost-report-creation-view-model";
 import type {
   NearbyPublicReportKind,
   PublicReportShareTarget,
@@ -24,6 +25,7 @@ import type {
 } from "../report-media";
 import type { ShellMemberCreationSession } from "../shell/shell-model";
 import type { SightingReportPublishConfirmation } from "../sighting-report-creation/sighting-report-publish-adapter";
+import type { ReportCreationSponsorDeliveryInput } from "./report-creation-success-sponsors";
 import { trpcClient } from "../../utils/api";
 import { AdoptionListingCreationScreen } from "../adoption-listing-creation/adoption-listing-creation-screen";
 import { createApiAdoptionListingPublishHandler } from "../adoption-listing-creation/adoption-listing-publish-adapter";
@@ -31,6 +33,7 @@ import { AppStateScreen } from "../app-states";
 import { FoundReportCreationScreen } from "../found-report-creation/found-report-creation-screen";
 import { createApiFoundReportPublishHandler } from "../found-report-creation/found-report-publish-adapter";
 import { LostReportCreationScreen } from "../lost-report-creation/lost-report-creation-screen";
+import { toLostReportSuccessLocalSponsorPlacementFromProvider } from "../lost-report-creation/lost-report-creation-view-model";
 import { createApiLostReportPublishHandler } from "../lost-report-creation/lost-report-publish-adapter";
 import { expoNearbyLocationAdapter } from "../nearby/nearby-expo-location-adapter";
 import { buildNearbyReportRouteTarget } from "../nearby/nearby-navigation";
@@ -108,6 +111,8 @@ export function ReportCreationRouteScreen({
     () => createApiResourcesAdapter({ client: trpcClient }),
     [],
   );
+  const [successSponsorPlacements, setSuccessSponsorPlacements] =
+    React.useState<LostReportSuccessLocalSponsorPlacement[]>([]);
   const publishSightingReport = React.useMemo(
     () => createApiSightingReportPublishHandler({ client: trpcClient }),
     [],
@@ -124,6 +129,63 @@ export function ReportCreationRouteScreen({
     () => createApiAdoptionListingPublishHandler({ client: trpcClient }),
     [],
   );
+
+  React.useEffect(() => {
+    if (!sponsorResourcesAdapter.getActiveSponsorPlacements) {
+      setSuccessSponsorPlacements([]);
+      return;
+    }
+
+    let isCurrent = true;
+
+    Promise.all([
+      sponsorResourcesAdapter.getActiveSponsorPlacements({
+        limit: 3,
+        surface: "report_success",
+      }),
+      sponsorResourcesAdapter.getActiveSponsorPlacements({
+        limit: 3,
+        surface: "contextual_care_resources",
+      }),
+    ])
+      .then(([reportSuccess, contextualCare]) => {
+        if (!isCurrent) {
+          return;
+        }
+
+        setSuccessSponsorPlacements(
+          [
+            ...reportSuccess.providers.flatMap((provider) => {
+              const placement =
+                toLostReportSuccessLocalSponsorPlacementFromProvider({
+                  provider,
+                  surface: "report_success",
+                });
+
+              return placement ? [placement] : [];
+            }),
+            ...contextualCare.providers.flatMap((provider) => {
+              const placement =
+                toLostReportSuccessLocalSponsorPlacementFromProvider({
+                  provider,
+                  surface: "contextual_care_resources",
+                });
+
+              return placement ? [placement] : [];
+            }),
+          ].slice(0, 4),
+        );
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setSuccessSponsorPlacements([]);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [sponsorResourcesAdapter]);
   const reportMediaReportType = getReportMediaReportType(intent);
   const renderReportMediaManager = React.useCallback(
     ({
@@ -154,21 +216,29 @@ export function ReportCreationRouteScreen({
   }, [intent, requestAuthPrompt]);
   const markDraftPublished = clearReportMediaDraftCache;
   const handleOpenSponsorPlacement = React.useCallback(
-    (sponsorPlacementId: string) => {
+    (sponsorProviderId: string) => {
       openHrefAfterClosingReportCreationRoute(
         router,
-        buildResourceProviderProfileHref(sponsorPlacementId),
+        buildResourceProviderProfileHref(sponsorProviderId),
       );
     },
     [router],
   );
   const handleReportSponsorPlacement = React.useCallback(
-    (sponsorPlacementId: string) => {
+    (sponsorProviderId: string) => {
       return sponsorResourcesAdapter.reportProvider({
         detail: "Reporte enviado desde una colocacion patrocinada.",
-        providerId: sponsorPlacementId,
+        providerId: sponsorProviderId,
         reason: "other",
       });
+    },
+    [sponsorResourcesAdapter],
+  );
+  const handleRecordSponsorPlacementDelivery = React.useCallback(
+    (input: ReportCreationSponsorDeliveryInput) => {
+      void sponsorResourcesAdapter
+        .recordSponsorDelivery?.(input)
+        .catch(() => undefined);
     },
     [sponsorResourcesAdapter],
   );
@@ -319,10 +389,12 @@ export function ReportCreationRouteScreen({
         onOpenPublishedReport={openPublishedLostReport}
         onOpenSponsorPlacement={handleOpenSponsorPlacement}
         onPublishLostReport={publishLostReport}
+        onRecordSponsorPlacementDelivery={handleRecordSponsorPlacementDelivery}
         onReportSponsorPlacement={handleReportSponsorPlacement}
         onSharePublishedReport={sharePublishedLostReport}
         petProfiles={petProfiles}
         renderReportMediaManager={renderReportMediaManager}
+        successSponsorPlacements={successSponsorPlacements}
       />
     );
   } else if (intent === "found") {
@@ -334,11 +406,15 @@ export function ReportCreationRouteScreen({
         onClose={closeRoute}
         onDraftPublished={markDraftPublished}
         onOpenPublishedReport={openPublishedFoundReport}
+        onOpenSponsorPlacement={handleOpenSponsorPlacement}
         onPublishFoundReport={publishFoundReport}
+        onRecordSponsorPlacementDelivery={handleRecordSponsorPlacementDelivery}
+        onReportSponsorPlacement={handleReportSponsorPlacement}
         onRequestMemberSignIn={requestMemberSignIn}
         onSharePublishedReport={sharePublishedFoundReport}
         renderReportMediaManager={renderReportMediaManager}
         session={creationSession}
+        successSponsorPlacements={successSponsorPlacements}
       />
     );
   } else if (intent === "sighting") {
@@ -350,11 +426,15 @@ export function ReportCreationRouteScreen({
         onClose={closeRoute}
         onDraftPublished={markDraftPublished}
         onOpenPublishedReport={openPublishedSightingReport}
+        onOpenSponsorPlacement={handleOpenSponsorPlacement}
         onPublishSightingReport={publishSightingReport}
+        onRecordSponsorPlacementDelivery={handleRecordSponsorPlacementDelivery}
+        onReportSponsorPlacement={handleReportSponsorPlacement}
         onRequestMemberSignIn={requestMemberSignIn}
         onSharePublishedReport={sharePublishedSightingReport}
         renderReportMediaManager={renderReportMediaManager}
         session={creationSession}
+        successSponsorPlacements={successSponsorPlacements}
       />
     );
   } else {
@@ -366,11 +446,15 @@ export function ReportCreationRouteScreen({
         onClose={closeRoute}
         onDraftPublished={markDraftPublished}
         onOpenPublishedListing={openPublishedAdoptionListing}
+        onOpenSponsorPlacement={handleOpenSponsorPlacement}
         onPublishAdoptionListing={publishAdoptionListing}
+        onRecordSponsorPlacementDelivery={handleRecordSponsorPlacementDelivery}
+        onReportSponsorPlacement={handleReportSponsorPlacement}
         onSharePublishedListing={sharePublishedAdoptionListing}
         petProfiles={petProfiles}
         renderReportMediaManager={renderReportMediaManager}
         session={creationSession}
+        successSponsorPlacements={successSponsorPlacements}
       />
     );
   }

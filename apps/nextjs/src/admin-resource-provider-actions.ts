@@ -1,4 +1,5 @@
 import type { AdminResourceProviderFormFieldError } from "./admin-resource-provider-form-parser";
+import { getMutationFieldErrors } from "./admin-action-field-errors";
 import {
   attachAdminResourceProviderSponsor,
   createAdminResourceProvider,
@@ -355,7 +356,7 @@ async function applyApiAction(input: {
     console.error("Admin resource provider mutation failed.", error);
     return buildActionError({
       action: input.action,
-      fieldErrors: [],
+      fieldErrors: getResourceProviderMutationFieldErrors(error),
       formData: input.formData,
       providerId: input.providerId,
       providerName: input.providerName,
@@ -397,6 +398,12 @@ function toWorkflowFeedback(
   }
 
   return feedback;
+}
+
+function getResourceProviderMutationFieldErrors(
+  error: unknown,
+): AdminResourceProviderFormFieldError[] {
+  return getMutationFieldErrors(error);
 }
 
 function buildParsedActionError(

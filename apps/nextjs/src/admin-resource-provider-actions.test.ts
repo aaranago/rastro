@@ -177,6 +177,58 @@ describe("admin resource provider actions", () => {
     expect(api.attachAdminResourceProviderSponsor).not.toHaveBeenCalled();
   });
 
+  it("keeps API sponsor overlap field errors on provider sponsor actions", async () => {
+    const overlapError = new Error("overlap") as Error & {
+      cause: {
+        fieldErrors: Record<string, string[]>;
+      };
+    };
+    overlapError.cause = {
+      fieldErrors: {
+        startsOn: ["La ventana se cruza con otro patrocinio local activo."],
+        surface: ["La superficie ya tiene un patrocinio local en esa ventana."],
+      },
+    };
+    api.attachAdminResourceProviderSponsor.mockRejectedValueOnce(overlapError);
+
+    const result = await applyAdminResourceProviderAction(
+      formData({
+        providerId: "11111111-1111-4111-8111-111111111111",
+        providerName: "Clinica Veterinaria San Roque",
+        resourceAction: "attach_sponsor",
+        sponsorSurface: "resources_directory",
+        sponsorLabel: "Patrocinado",
+        sponsorDisclosure:
+          "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+        startsOn: "2026-07-01",
+        endsOn: "2026-07-31",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      action: "attach_sponsor",
+      ok: false,
+      providerId: "11111111-1111-4111-8111-111111111111",
+      workflow: "sponsor",
+    });
+    expect(result.fieldErrors).toEqual(
+      expect.arrayContaining([
+        {
+          field: "startsOn",
+          message: "La ventana se cruza con otro patrocinio local activo.",
+        },
+        {
+          field: "surface",
+          message: "La superficie ya tiene un patrocinio local en esa ventana.",
+        },
+      ]),
+    );
+    expect(result.submittedValues).toMatchObject({
+      providerId: "11111111-1111-4111-8111-111111111111",
+      sponsorSurface: "resources_directory",
+    });
+  });
+
   it("returns sponsor detach field errors without calling the API", async () => {
     const result = await applyAdminResourceProviderAction(
       formData({

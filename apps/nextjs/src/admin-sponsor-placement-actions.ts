@@ -4,6 +4,7 @@ import type {
   AdminSponsorPlacementSurface,
   AdminSponsorPlacementUpdateInput,
 } from "./admin-sponsor-placement-model";
+import { getMutationFieldErrors } from "./admin-action-field-errors";
 import {
   createAdminSponsorPlacement,
   detachAdminSponsorPlacement,
@@ -114,10 +115,11 @@ export async function applyAdminSponsorPlacementAction(
     };
   } catch (error) {
     console.error("Admin sponsor placement mutation failed.", error);
+    const fieldErrors = getSponsorPlacementMutationFieldErrors(error);
 
     return buildActionError({
       action,
-      fieldErrors: [],
+      fieldErrors,
       formData,
       placementId: parsed.placementId,
       providerId: parsed.providerId,
@@ -439,6 +441,12 @@ function toSponsorPlacementFeedback(
   }
 
   return feedback;
+}
+
+function getSponsorPlacementMutationFieldErrors(
+  error: unknown,
+): AdminSponsorPlacementFieldError[] {
+  return getMutationFieldErrors(error);
 }
 
 function getSuccessTitle(action: AdminSponsorPlacementAction) {

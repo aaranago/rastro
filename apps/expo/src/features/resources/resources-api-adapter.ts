@@ -6,6 +6,8 @@ import type {
   ResourceProviderSummary,
 } from "./resource-types";
 import type {
+  ActiveSponsorPlacementsQuery,
+  ActiveSponsorPlacementsResult,
   ResourceProviderDirectoryResult,
   ResourceProviderProfileResult,
   ResourceProviderReportInput,
@@ -23,6 +25,10 @@ export type ResourceProviderReportApiInput =
   RouterInputs["resources"]["reportProvider"];
 export type ResourceProviderReportApiOutput =
   RouterOutputs["resources"]["reportProvider"];
+export type ActiveSponsorPlacementsApiInput =
+  RouterInputs["resources"]["activeSponsorPlacements"];
+export type ActiveSponsorPlacementsApiOutput =
+  RouterOutputs["resources"]["activeSponsorPlacements"];
 export type ResourceSponsorDeliveryApiInput =
   RouterInputs["resources"]["recordSponsorDelivery"];
 export type ResourceSponsorDeliveryApiOutput =
@@ -40,6 +46,11 @@ export interface ResourcesApiClient {
       mutate: (
         input: ResourceProviderReportApiInput,
       ) => Promise<ResourceProviderReportApiOutput>;
+    };
+    activeSponsorPlacements: {
+      query: (
+        input: ActiveSponsorPlacementsApiInput,
+      ) => Promise<ActiveSponsorPlacementsApiOutput>;
     };
     recordSponsorDelivery: {
       mutate: (
@@ -103,6 +114,20 @@ export function createApiResourcesAdapter({
 
   return {
     getProviderProfileDetail,
+    async getActiveSponsorPlacements(
+      query: ActiveSponsorPlacementsQuery,
+    ): Promise<ActiveSponsorPlacementsResult> {
+      const response = await client.resources.activeSponsorPlacements.query({
+        limit: query.limit,
+        surface: query.surface,
+      });
+
+      return {
+        generatedAt: response.generatedAt,
+        providers: response.results.map(toResourceProviderSummary),
+        surface: response.surface,
+      };
+    },
     searchProviderDirectory,
     searchProviders(query) {
       return searchProviderDirectory(query).then((result) => result.providers);
@@ -163,6 +188,7 @@ function toLocalSponsorPlacement(
 ) {
   return {
     kind: placement.kind,
+    placementId: placement.placementId,
     label: placement.label,
     disclosure: placement.disclosure,
     logoUrl: placement.logoUrl,

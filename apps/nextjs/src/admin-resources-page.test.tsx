@@ -1,3 +1,4 @@
+import { isValidElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -23,12 +24,26 @@ const envMock = vi.hoisted(() => ({
   },
 }));
 
+const nextCache = vi.hoisted(() => ({
+  revalidatePath: vi.fn(),
+}));
+
+const nextNavigation = vi.hoisted(() => ({
+  redirect: vi.fn(),
+}));
+
 vi.mock("~/auth/server", () => authServer);
 vi.mock("~/env", () => envMock);
 vi.mock(
   "~/admin-resource-provider-api-adapter",
   () => adminResourceProviderApi,
 );
+vi.mock(
+  "./admin-resource-provider-api-adapter",
+  () => adminResourceProviderApi,
+);
+vi.mock("next/cache", () => nextCache);
+vi.mock("next/navigation", () => nextNavigation);
 
 const forbiddenTerms = new RegExp(
   [
@@ -44,6 +59,14 @@ describe("admin resources page", () => {
     vi.resetModules();
     authServer.getSession.mockReset();
     adminResourceProviderApi.listAdminResourceProviderProfiles.mockReset();
+    adminResourceProviderApi.createAdminResourceProvider.mockReset();
+    adminResourceProviderApi.updateAdminResourceProvider.mockReset();
+    adminResourceProviderApi.deleteAdminResourceProvider.mockReset();
+    adminResourceProviderApi.updateAdminResourceProviderVerification.mockReset();
+    adminResourceProviderApi.attachAdminResourceProviderSponsor.mockReset();
+    adminResourceProviderApi.detachAdminResourceProviderSponsor.mockReset();
+    nextCache.revalidatePath.mockReset();
+    nextNavigation.redirect.mockReset();
     envMock.env.RASTRO_ADMIN_EMAILS = "admin@rastro.bo";
   });
 
@@ -226,7 +249,70 @@ describe("admin resources page", () => {
     expect(html).not.toMatch(forbiddenTerms);
     expect(html).not.toMatch(marketplaceTerms);
   });
+
+  it("revalidates the sponsor dashboard after provider-side sponsor changes", async () => {
+    authServer.getSession.mockResolvedValue({
+      user: {
+        email: "admin@rastro.bo",
+        id: "member-admin-la-paz",
+        name: "Admin Rastro",
+      },
+    });
+    adminResourceProviderApi.listAdminResourceProviderProfiles.mockResolvedValue(
+      adminProviderListResult([providerProfile()]),
+    );
+    adminResourceProviderApi.attachAdminResourceProviderSponsor.mockResolvedValue(
+      {},
+    );
+    const { default: AdminResourcesPage } = await import(
+      "./app/admin/proveedores/page"
+    );
+
+    const page = await AdminResourcesPage();
+    if (!isValidElement<AdminResourcesPageElementProps>(page)) {
+      throw new Error("Expected admin resources page element.");
+    }
+
+    await page.props.formAction?.(
+      {},
+      formData({
+        endsOn: "2026-07-31",
+        providerId: "11111111-1111-4111-8111-111111111111",
+        providerName: "Clinica Veterinaria San Roque",
+        resourceAction: "attach_sponsor",
+        sponsorDisclosure:
+          "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+        sponsorLabel: "Patrocinado",
+        sponsorSurface: "resources_directory",
+        startsOn: "2026-07-01",
+      }),
+    );
+
+    expect(
+      adminResourceProviderApi.attachAdminResourceProviderSponsor,
+    ).toHaveBeenCalledWith({
+      disclosure:
+        "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+      endsOn: "2026-07-31",
+      label: "Patrocinado",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      startsOn: "2026-07-01",
+      surface: "resources_directory",
+    });
+    expect(nextCache.revalidatePath).toHaveBeenCalledWith("/admin/proveedores");
+    expect(nextCache.revalidatePath).toHaveBeenCalledWith("/admin/patrocinios");
+    expect(nextNavigation.redirect).toHaveBeenCalledWith(
+      expect.stringContaining("/admin/proveedores?"),
+    );
+  });
 });
+
+interface AdminResourcesPageElementProps {
+  formAction?: (
+    state: Record<string, unknown>,
+    formData: FormData,
+  ) => Promise<unknown>;
+}
 
 function providerProfile(
   overrides: Partial<AdminResourceProviderProfile> = {},
@@ -372,4 +458,14 @@ function adminProviderListResult(
     pageSize,
     total,
   };
+}
+
+function formData(values: Record<string, string>) {
+  const data = new FormData();
+
+  for (const [key, value] of Object.entries(values)) {
+    data.set(key, value);
+  }
+
+  return data;
 }

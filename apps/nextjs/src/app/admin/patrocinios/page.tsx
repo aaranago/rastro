@@ -55,7 +55,7 @@ export default async function AdminSponsorPlacementsPage(
     listAdminSponsorPlacements(listInput),
     listAdminResourceProviderProfiles({
       page: 1,
-      pageSize: 10,
+      pageSize: 100,
     }),
   ]);
   const workflowFeedback = buildAdminSponsorPlacementFeedback(searchParams);

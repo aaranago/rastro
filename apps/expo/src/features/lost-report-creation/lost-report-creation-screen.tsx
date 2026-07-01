@@ -29,6 +29,7 @@ import type {
 import type {
   LostReportCreationJourneyInput,
   LostReportCreationValidationDisplayInput,
+  LostReportSuccessLocalSponsorPlacement,
 } from "./lost-report-creation-view-model";
 import {
   advanceReportCreationJourney,
@@ -55,6 +56,8 @@ import {
   ReportCreationToggleRow,
   useReportCreationPublishedResultActions,
 } from "../report-creation/report-creation-ui";
+import type { ReportCreationSponsorDeliveryInput } from "../report-creation/report-creation-success-sponsors";
+import { ReportCreationSuccessSponsorStack } from "../report-creation/report-creation-success-sponsors";
 import { ReportLocationPickerScreen } from "../report-location-picker";
 import { useReportLocationPickerDraft } from "../report-location-picker/use-report-location-picker";
 import { reportMediaSnapshotToCreationPhotos } from "../report-media";
@@ -93,7 +96,7 @@ export interface LostReportCreationScreenProps {
   onClose?: () => void;
   onDraftPublished?: () => void;
   onOpenPublishedReport?: (confirmation: LostReportPublishConfirmation) => void;
-  onOpenSponsorPlacement?: (sponsorPlacementId: string) => void;
+  onOpenSponsorPlacement?: (sponsorProviderId: string) => void;
   onPublishLostReport?: (
     input: PublishLostPetReportInput,
   ) =>
@@ -101,11 +104,14 @@ export interface LostReportCreationScreenProps {
     | Promise<LostReportPublishConfirmation | void>
     | void;
   onReportSponsorPlacement?: (
-    sponsorPlacementId: string,
+    sponsorProviderId: string,
   ) =>
     | Promise<ResourceProviderReportReceipt | void>
     | ResourceProviderReportReceipt
     | void;
+  onRecordSponsorPlacementDelivery?: (
+    input: LostReportSponsorDeliveryInput,
+  ) => void;
   onSharePublishedReport?: (
     confirmation: LostReportPublishConfirmation,
   ) => Promise<void> | void;
@@ -120,7 +126,10 @@ export interface LostReportCreationScreenProps {
     onSnapshotChange: (snapshot: ReportMediaDraftSnapshot) => void;
     photos: readonly LostReportPhoto[];
   }) => React.ReactNode;
+  successSponsorPlacements?: readonly LostReportSuccessLocalSponsorPlacement[];
 }
+
+export type LostReportSponsorDeliveryInput = ReportCreationSponsorDeliveryInput;
 
 type PublishState = "confirming" | "editing" | "publishing" | "success";
 export interface LostReportPublishConfirmation {
@@ -142,11 +151,13 @@ export function LostReportCreationScreen({
   onOpenPublishedReport,
   onOpenSponsorPlacement,
   onPublishLostReport,
+  onRecordSponsorPlacementDelivery,
   onReportSponsorPlacement,
   onSharePublishedReport,
   petProfiles = [],
   pickLostReportPhoto,
   renderReportMediaManager,
+  successSponsorPlacements = [],
 }: LostReportCreationScreenProps) {
   const defaultDraft = React.useMemo(
     () => initialDraft ?? createInitialLostReportDraft({ petProfiles }),
@@ -217,9 +228,10 @@ export function LostReportCreationScreen({
         draft,
         journey,
         petProfiles,
+        successSponsorPlacements,
         validationDisplay,
       }),
-    [draft, journey, petProfiles, validationDisplay],
+    [draft, journey, petProfiles, successSponsorPlacements, validationDisplay],
   );
 
   const addPhoto = React.useCallback(async () => {
@@ -342,6 +354,7 @@ export function LostReportCreationScreen({
         onClose={onClose}
         onOpenPublishedReport={onOpenPublishedReport}
         onOpenSponsorPlacement={onOpenSponsorPlacement}
+        onRecordSponsorPlacementDelivery={onRecordSponsorPlacementDelivery}
         onReportSponsorPlacement={onReportSponsorPlacement}
         onSharePublishedReport={onSharePublishedReport}
         publishedReport={publishedReport}
@@ -393,6 +406,7 @@ function LostReportCreationSuccess({
   onClose,
   onOpenPublishedReport,
   onOpenSponsorPlacement,
+  onRecordSponsorPlacementDelivery,
   onReportSponsorPlacement,
   onSharePublishedReport,
   publishedReport,
@@ -400,9 +414,12 @@ function LostReportCreationSuccess({
 }: {
   onClose?: () => void;
   onOpenPublishedReport?: (confirmation: LostReportPublishConfirmation) => void;
-  onOpenSponsorPlacement?: (sponsorPlacementId: string) => void;
+  onOpenSponsorPlacement?: (sponsorProviderId: string) => void;
+  onRecordSponsorPlacementDelivery?: (
+    input: LostReportSponsorDeliveryInput,
+  ) => void;
   onReportSponsorPlacement?: (
-    sponsorPlacementId: string,
+    sponsorProviderId: string,
   ) =>
     | Promise<ResourceProviderReportReceipt | void>
     | ResourceProviderReportReceipt
@@ -413,7 +430,7 @@ function LostReportCreationSuccess({
   publishedReport: LostReportPublishConfirmation | null;
   viewModel: LostReportCreationViewModel;
 }) {
-  const sponsorPlacement = viewModel.success.localSponsorPlacement;
+  const sponsorPlacements = viewModel.success.localSponsorPlacements;
   const { canSharePublishedResult, openPublishedResult, sharePublishedResult } =
     useReportCreationPublishedResultActions({
       onClose,
@@ -442,13 +459,13 @@ function LostReportCreationSuccess({
           {viewModel.success.body}
         </Text>
       </View>
-      {sponsorPlacement ? (
-        <SuccessSponsorPlacement
-          onOpen={onOpenSponsorPlacement}
-          onReport={onReportSponsorPlacement}
-          placement={sponsorPlacement}
-        />
-      ) : null}
+      <ReportCreationSuccessSponsorStack
+        deliveryContextId={publishedReport?.id}
+        onOpen={onOpenSponsorPlacement}
+        onRecordDelivery={onRecordSponsorPlacementDelivery}
+        onReport={onReportSponsorPlacement}
+        placements={sponsorPlacements}
+      />
       <View style={styles.buttonRow}>
         <ActionButton
           disabled={!canSharePublishedResult}
@@ -465,279 +482,6 @@ function LostReportCreationSuccess({
       </View>
     </ReportCreationScreenFrame>
   );
-}
-
-function SuccessSponsorPlacement({
-  onOpen,
-  onReport,
-  placement,
-}: {
-  onOpen?: (sponsorPlacementId: string) => void;
-  onReport?: (
-    sponsorPlacementId: string,
-  ) =>
-    | Promise<ResourceProviderReportReceipt | void>
-    | ResourceProviderReportReceipt
-    | void;
-  placement: NonNullable<
-    LostReportCreationViewModel["success"]["localSponsorPlacement"]
-  >;
-}) {
-  const [reportState, setReportState] =
-    React.useState<SponsorPlacementReportState>({ kind: "idle" });
-  const openPlacement = React.useCallback(() => {
-    onOpen?.(placement.id);
-  }, [onOpen, placement.id]);
-  const reportPlacement = React.useCallback(async () => {
-    if (reportState.kind === "reporting") {
-      return;
-    }
-
-    if (!onReport) {
-      setReportState({
-        kind: "error",
-        message:
-          "No pudimos confirmar el reporte del proveedor. Intenta de nuevo.",
-      });
-      return;
-    }
-
-    setReportState({
-      kind: "reporting",
-      message: "Enviando reporte a moderacion.",
-    });
-
-    try {
-      const receipt = await onReport(placement.id);
-
-      if (!receipt) {
-        setReportState({
-          kind: "error",
-          message:
-            "No pudimos confirmar el reporte del proveedor. Intenta de nuevo.",
-        });
-        return;
-      }
-
-      setReportState({
-        kind: "reported",
-        message: getSponsorPlacementReportReceiptMessage(receipt),
-      });
-    } catch (error) {
-      setReportState({
-        kind: "error",
-        message: getSponsorPlacementReportFailureMessage(error),
-      });
-    }
-  }, [onReport, placement.id, reportState.kind]);
-
-  return (
-    <View style={styles.sponsorPlacement} testID="report-success-sponsor-card">
-      <View style={styles.sponsorHeader}>
-        <View style={styles.sponsorIcon}>
-          <ReportCreationIcon
-            color={shellColors.primary}
-            name="cross.case.fill"
-            size={22}
-          />
-        </View>
-        <View style={styles.optionCopy}>
-          <View style={styles.sponsorLabelRow}>
-            <View style={styles.sponsorPill}>
-              <Text maxFontSizeMultiplier={1.1} style={styles.sponsorPillText}>
-                {placement.sponsorLabel}
-              </Text>
-            </View>
-            <Text maxFontSizeMultiplier={1.1} style={styles.sponsorDisclosure}>
-              {placement.paidDisclosure}
-            </Text>
-          </View>
-          <Text maxFontSizeMultiplier={1.15} style={styles.itemTitle}>
-            {placement.title}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.sponsorCopy}>
-        {placement.logoUrl || placement.imageUrl ? (
-          <View
-            style={styles.sponsorMediaRow}
-            testID="report-success-sponsor-media"
-          >
-            {placement.logoUrl ? (
-              <Image
-                accessibilityLabel={`Logo de ${placement.name}`}
-                contentFit="cover"
-                source={{ uri: placement.logoUrl }}
-                style={styles.sponsorLogoImage}
-              />
-            ) : null}
-            {placement.imageUrl ? (
-              <Image
-                accessibilityLabel={`Imagen de ${placement.name}`}
-                contentFit="cover"
-                source={{ uri: placement.imageUrl }}
-                style={styles.sponsorBannerImage}
-              />
-            ) : null}
-          </View>
-        ) : null}
-        <Text maxFontSizeMultiplier={1.15} style={styles.sponsorName}>
-          {placement.name}
-        </Text>
-        <Text maxFontSizeMultiplier={1.1} style={styles.sponsorCategory}>
-          {placement.categoryLabel}
-        </Text>
-        <Text maxFontSizeMultiplier={1.2} style={styles.metaText}>
-          {placement.body}
-        </Text>
-      </View>
-      <View style={styles.priorityDisclosure}>
-        <ReportCreationIcon
-          color={shellColors.primaryDark}
-          name="info.circle.fill"
-          size={16}
-        />
-        <Text maxFontSizeMultiplier={1.15} style={styles.priorityText}>
-          {placement.recoveryPriorityDisclosure}
-        </Text>
-      </View>
-      <View style={styles.sponsorActions}>
-        <Pressable
-          accessibilityLabel={`${placement.actionLabel}: ${placement.name}`}
-          accessibilityRole="button"
-          onPress={openPlacement}
-          testID="report-success-sponsor-open"
-          style={styles.sponsorAction}
-        >
-          <ReportCreationIcon
-            color={shellColors.primary}
-            name="arrow.up.right"
-            size={14}
-          />
-          <Text maxFontSizeMultiplier={1.1} style={styles.sponsorActionText}>
-            {placement.actionLabel}
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityLabel={`${placement.reportActionLabel} ${placement.name}`}
-          accessibilityRole="button"
-          accessibilityState={{
-            busy: reportState.kind === "reporting",
-            disabled: reportState.kind === "reporting",
-          }}
-          disabled={reportState.kind === "reporting"}
-          onPress={reportPlacement}
-          testID="report-success-sponsor-report"
-          style={styles.sponsorReportAction}
-        >
-          <Text maxFontSizeMultiplier={1.1} style={styles.sponsorReportText}>
-            {reportState.kind === "reporting"
-              ? "Enviando"
-              : placement.reportActionLabel}
-          </Text>
-        </Pressable>
-      </View>
-      {reportState.kind === "idle" ? null : (
-        <View
-          accessibilityLiveRegion="polite"
-          accessibilityRole="alert"
-          style={[
-            styles.sponsorReportFeedback,
-            reportState.kind === "error"
-              ? styles.sponsorReportFeedbackError
-              : null,
-          ]}
-        >
-          <Text
-            maxFontSizeMultiplier={1.1}
-            style={styles.sponsorReportFeedbackText}
-          >
-            {reportState.message}
-          </Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
-type SponsorPlacementReportState =
-  | { kind: "idle" }
-  | { kind: "reporting"; message: string }
-  | { kind: "reported"; message: string }
-  | { kind: "error"; message: string };
-
-export function getSponsorPlacementReportReceiptMessage(
-  receipt: ResourceProviderReportReceipt,
-) {
-  if (receipt.status === "already_reported") {
-    return "Ya recibimos tu reporte sobre este proveedor. Moderacion lo mantiene en revision.";
-  }
-
-  return "Reporte enviado. Moderacion revisara este proveedor con la informacion recibida.";
-}
-
-export function getSponsorPlacementReportFailureMessage(error: unknown) {
-  const code = getSponsorPlacementReportErrorCode(error);
-  const message = getSponsorPlacementReportErrorMessage(error).toLowerCase();
-
-  if (code === "UNAUTHORIZED") {
-    return "Inicia sesion para reportar este proveedor.";
-  }
-
-  if (
-    code === "PRECONDITION_FAILED" &&
-    (message.includes("suspend") || message.includes("suspendido"))
-  ) {
-    return "Tu cuenta esta suspendida y no puede reportar proveedores.";
-  }
-
-  if (code === "BAD_REQUEST") {
-    return "No pudimos enviar el reporte porque el proveedor o el detalle no paso validacion.";
-  }
-
-  if (code === "NOT_FOUND") {
-    return "No encontramos este proveedor para reportarlo.";
-  }
-
-  return "No pudimos enviar el reporte del proveedor. Intenta de nuevo.";
-}
-
-function getSponsorPlacementReportErrorCode(
-  error: unknown,
-): string | undefined {
-  if (!isRecord(error)) {
-    return undefined;
-  }
-
-  if (typeof error.code === "string") {
-    return error.code;
-  }
-
-  if (isRecord(error.data) && typeof error.data.code === "string") {
-    return error.data.code;
-  }
-
-  return getSponsorPlacementReportErrorCode(error.cause);
-}
-
-function getSponsorPlacementReportErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  if (typeof error === "string") {
-    return error;
-  }
-
-  if (isRecord(error) && typeof error.message === "string") {
-    return error.message;
-  }
-
-  return "";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function buildLostReportPublishConfirmationRows(
@@ -2078,135 +1822,6 @@ const styles = StyleSheet.create({
   screen: {
     backgroundColor: shellColors.background,
     flex: 1,
-  },
-  sponsorAction: {
-    alignItems: "center",
-    backgroundColor: shellColors.primarySoft,
-    borderColor: shellColors.border,
-    borderCurve: "continuous",
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 6,
-    minHeight: 36,
-    paddingHorizontal: 12,
-  },
-  sponsorActionText: {
-    color: shellColors.primary,
-    fontSize: 13,
-    fontWeight: "900",
-  },
-  sponsorActions: {
-    alignItems: "center",
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  sponsorCategory: {
-    color: shellColors.primary,
-    fontSize: 12,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  sponsorCopy: {
-    gap: 4,
-  },
-  sponsorBannerImage: {
-    backgroundColor: shellColors.surfaceMuted,
-    borderRadius: 8,
-    flex: 1,
-    height: 64,
-  },
-  sponsorDisclosure: {
-    color: shellColors.muted,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  sponsorHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 12,
-  },
-  sponsorIcon: {
-    alignItems: "center",
-    backgroundColor: shellColors.primarySoft,
-    borderCurve: "continuous",
-    borderRadius: 16,
-    height: 42,
-    justifyContent: "center",
-    width: 42,
-  },
-  sponsorLabelRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  sponsorLogoImage: {
-    backgroundColor: shellColors.surfaceMuted,
-    borderRadius: 8,
-    height: 64,
-    width: 64,
-  },
-  sponsorMediaRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 6,
-  },
-  sponsorName: {
-    color: shellColors.text,
-    fontSize: 16,
-    fontWeight: "900",
-  },
-  sponsorPill: {
-    backgroundColor: "#FFF4DA",
-    borderCurve: "continuous",
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  sponsorPillText: {
-    color: "#8A5A12",
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  sponsorPlacement: {
-    backgroundColor: shellColors.surface,
-    borderColor: shellColors.border,
-    borderCurve: "continuous",
-    borderRadius: 18,
-    borderWidth: 1,
-    gap: 10,
-    padding: 14,
-  },
-  sponsorReportAction: {
-    justifyContent: "center",
-    minHeight: 36,
-    paddingHorizontal: 6,
-  },
-  sponsorReportFeedback: {
-    backgroundColor: "#EEF8F3",
-    borderColor: "#8EC9A8",
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  sponsorReportFeedbackError: {
-    backgroundColor: "#FFF2F1",
-    borderColor: "#E3A19C",
-  },
-  sponsorReportFeedbackText: {
-    color: shellColors.primaryDark,
-    fontSize: 12,
-    fontWeight: "800",
-    lineHeight: 17,
-  },
-  sponsorReportText: {
-    color: shellColors.muted,
-    fontSize: 13,
-    fontWeight: "800",
   },
   section: {
     backgroundColor: shellColors.surface,

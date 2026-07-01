@@ -8,6 +8,10 @@ import type {
   ReportCreationJourneyStepId,
   ReportCreationJourneyValidationResult,
 } from "../report-creation/report-creation-journey";
+import type {
+  ReportCreationSponsorDeliveryInput,
+  ReportCreationSuccessSponsorPlacement,
+} from "../report-creation/report-creation-success-sponsors";
 import type { ReportLocationDraft } from "../report-creation/report-location-draft";
 import type {
   ReportMediaDraftSnapshot,
@@ -18,6 +22,7 @@ import type {
   DurableCreationDraftPersistence,
   DurableCreationDraftRecovery,
 } from "../resilience/use-durable-creation-draft";
+import type { ResourceProviderReportReceipt } from "../resources";
 import type {
   PublishSightingReportInput,
   SightingReportCreationSession,
@@ -35,6 +40,7 @@ import {
   retreatReportCreationJourney,
 } from "../report-creation/report-creation-journey";
 import { publishReportCreation } from "../report-creation/report-creation-publish";
+import { ReportCreationSuccessSponsorStack } from "../report-creation/report-creation-success-sponsors";
 import {
   ReportCreationActionButton,
   ReportCreationContactOptionSection,
@@ -92,11 +98,21 @@ export interface SightingReportCreationScreenProps {
   onOpenPublishedReport?: (
     confirmation: SightingReportPublishConfirmation,
   ) => void;
+  onOpenSponsorPlacement?: (sponsorProviderId: string) => void;
   onPublishSightingReport?: (
     input: PublishSightingReportInput,
   ) =>
     | Promise<SightingReportPublishConfirmation | void>
     | SightingReportPublishConfirmation
+    | void;
+  onRecordSponsorPlacementDelivery?: (
+    input: ReportCreationSponsorDeliveryInput,
+  ) => void;
+  onReportSponsorPlacement?: (
+    sponsorProviderId: string,
+  ) =>
+    | Promise<ResourceProviderReportReceipt | void>
+    | ResourceProviderReportReceipt
     | void;
   onRequestMemberSignIn?: (action: SightingReportCreationVisitorAction) => void;
   onSharePublishedReport?: (
@@ -113,6 +129,7 @@ export interface SightingReportCreationScreenProps {
     photos: readonly SightingReportPhoto[];
   }) => React.ReactNode;
   session?: SightingReportCreationSession;
+  successSponsorPlacements?: readonly ReportCreationSuccessSponsorPlacement[];
 }
 
 function SightingReportCreationIcon({
@@ -136,12 +153,16 @@ export function SightingReportCreationScreen({
   onClose,
   onDraftPublished,
   onOpenPublishedReport,
+  onOpenSponsorPlacement,
   onPublishSightingReport,
+  onRecordSponsorPlacementDelivery,
+  onReportSponsorPlacement,
   onRequestMemberSignIn,
   onSharePublishedReport,
   pickSightingReportPhoto,
   renderReportMediaManager,
   session = { kind: "member", memberId: "member-preview" },
+  successSponsorPlacements = [],
 }: SightingReportCreationScreenProps) {
   const defaultDraft = React.useMemo(
     () => initialDraft ?? createSightingReportDraft(),
@@ -383,8 +404,12 @@ export function SightingReportCreationScreen({
       <SightingReportCreationSuccess
         onClose={onClose}
         onOpenPublishedReport={onOpenPublishedReport}
+        onOpenSponsorPlacement={onOpenSponsorPlacement}
+        onRecordSponsorPlacementDelivery={onRecordSponsorPlacementDelivery}
+        onReportSponsorPlacement={onReportSponsorPlacement}
         onSharePublishedReport={onSharePublishedReport}
         publishedReport={publishedReport}
+        successSponsorPlacements={successSponsorPlacements}
         viewModel={viewModel}
       />
     );
@@ -511,18 +536,33 @@ function SightingReportVisitorHandoff({
 function SightingReportCreationSuccess({
   onClose,
   onOpenPublishedReport,
+  onOpenSponsorPlacement,
+  onRecordSponsorPlacementDelivery,
+  onReportSponsorPlacement,
   onSharePublishedReport,
   publishedReport,
+  successSponsorPlacements,
   viewModel,
 }: {
   onClose?: () => void;
   onOpenPublishedReport?: (
     confirmation: SightingReportPublishConfirmation,
   ) => void;
+  onOpenSponsorPlacement?: (sponsorProviderId: string) => void;
+  onRecordSponsorPlacementDelivery?: (
+    input: ReportCreationSponsorDeliveryInput,
+  ) => void;
+  onReportSponsorPlacement?: (
+    sponsorProviderId: string,
+  ) =>
+    | Promise<ResourceProviderReportReceipt | void>
+    | ResourceProviderReportReceipt
+    | void;
   onSharePublishedReport?: (
     confirmation: SightingReportPublishConfirmation,
   ) => Promise<void> | void;
   publishedReport: SightingReportPublishConfirmation | null;
+  successSponsorPlacements: readonly ReportCreationSuccessSponsorPlacement[];
   viewModel: SightingReportCreationViewModel;
 }) {
   const { canSharePublishedResult, openPublishedResult, sharePublishedResult } =
@@ -553,6 +593,13 @@ function SightingReportCreationSuccess({
           {viewModel.success.body}
         </Text>
       </View>
+      <ReportCreationSuccessSponsorStack
+        deliveryContextId={publishedReport?.id}
+        onOpen={onOpenSponsorPlacement}
+        onRecordDelivery={onRecordSponsorPlacementDelivery}
+        onReport={onReportSponsorPlacement}
+        placements={successSponsorPlacements}
+      />
       <View style={styles.buttonRow}>
         <ReportCreationActionButton
           accentColor={sightingAccent}

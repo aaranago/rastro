@@ -225,6 +225,72 @@ describe("resources router", () => {
     expect(findProfileWasCalled).toBe(false);
   });
 
+  it("returns active sponsor placements by public surface without exact provider coordinates", async () => {
+    let activePlacementInput: unknown;
+    const caller = createCaller({
+      resourceProviderRepository: {
+        listActiveSponsorPlacements: (input: unknown) => {
+          activePlacementInput = input;
+
+          return Promise.resolve([
+            providerProfile({
+              activeSponsorPlacements: [
+                {
+                  kind: "Local Sponsor Placement",
+                  placementId: "22222222-2222-4222-8222-222222222222",
+                  label: "Patrocinado",
+                  disclosure:
+                    "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+                  logoUrl: "https://example.com/sponsor-logo.png",
+                  imageUrl: "https://example.com/sponsor-banner.png",
+                  eligibleSurfaces: ["launch_home_banner"],
+                  safetyPolicy: {
+                    recoveryPriority: {
+                      label: "Recovery Priority",
+                      canAffect: false,
+                    },
+                    pushNotifications: {
+                      eligible: false,
+                    },
+                  },
+                },
+              ],
+            }),
+          ]);
+        },
+      },
+      session: null,
+    });
+
+    const result = await caller.resources.activeSponsorPlacements({
+      limit: 3,
+      surface: "launch_home_banner",
+    });
+
+    expect(activePlacementInput).toEqual({
+      limit: 3,
+      surface: "launch_home_banner",
+    });
+    expect(result).toMatchObject({
+      results: [
+        {
+          activeSponsorPlacements: [
+            {
+              eligibleSurfaces: ["launch_home_banner"],
+              imageUrl: "https://example.com/sponsor-banner.png",
+              label: "Patrocinado",
+              placementId: "22222222-2222-4222-8222-222222222222",
+            },
+          ],
+          id: "11111111-1111-4111-8111-111111111111",
+        },
+      ],
+      surface: "launch_home_banner",
+    });
+    expect(JSON.stringify(result)).not.toContain("-16.510231");
+    expect(JSON.stringify(result)).not.toContain("-68.123881");
+  });
+
   it("records sponsor delivery events through backend-resolved active placements", async () => {
     const calls: unknown[] = [];
     const caller = createCaller({
@@ -258,6 +324,7 @@ describe("resources router", () => {
       eventType: "impression",
       idempotencyKey:
         "resources_directory:11111111-1111-4111-8111-111111111111:2026-07-01",
+      placementId: "22222222-2222-4222-8222-222222222222",
       providerId: "11111111-1111-4111-8111-111111111111",
       source: "resources-map-card",
       surface: "resources_directory",
@@ -278,6 +345,7 @@ describe("resources router", () => {
         idempotencyKey:
           "resources_directory:11111111-1111-4111-8111-111111111111:2026-07-01",
         memberId: "member-ana",
+        placementId: "22222222-2222-4222-8222-222222222222",
         providerId: "11111111-1111-4111-8111-111111111111",
         source: "resources-map-card",
         surface: "resources_directory",
@@ -285,12 +353,12 @@ describe("resources router", () => {
     ]);
   });
 
-  it("rejects sponsor delivery placement IDs from public clients", async () => {
-    let recordWasCalled = false;
+  it("accepts sponsor delivery placement IDs for exact attribution", async () => {
+    const calls: unknown[] = [];
     const caller = createCaller({
       localSponsorPlacementDeliveryRepository: {
-        record: () => {
-          recordWasCalled = true;
+        record: (input: unknown) => {
+          calls.push(input);
 
           return Promise.resolve({
             status: "no_active_placement",
@@ -300,17 +368,21 @@ describe("resources router", () => {
       session: null,
     });
 
-    await expect(
-      caller.resources.recordSponsorDelivery({
+    await caller.resources.recordSponsorDelivery({
+      eventType: "impression",
+      placementId: "22222222-2222-4222-8222-222222222222",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      surface: "resources_directory",
+    });
+    expect(calls).toEqual([
+      {
         eventType: "impression",
         placementId: "22222222-2222-4222-8222-222222222222",
+        memberId: undefined,
         providerId: "11111111-1111-4111-8111-111111111111",
         surface: "resources_directory",
-      } as never),
-    ).rejects.toMatchObject({
-      code: "BAD_REQUEST",
-    });
-    expect(recordWasCalled).toBe(false);
+      },
+    ]);
   });
 
   it("no-ops sponsor delivery events when no active placement is available", async () => {
@@ -1754,6 +1826,10 @@ describe("resources router", () => {
     });
     expect(placements.items).toEqual([
       expect.objectContaining({
+        deliveryMetrics: {
+          impressionCount: 120,
+          openCount: 30,
+        },
         placementId: "22222222-2222-4222-8222-222222222222",
         providerName: "Clinica Veterinaria San Roque",
       }),
@@ -2152,6 +2228,10 @@ interface SponsorPlacementFixture {
   category: "veterinary" | "shelter";
   city: string;
   department: string;
+  deliveryMetrics: {
+    impressionCount: number;
+    openCount: number;
+  };
   disclosure: string;
   endsOn: string;
   isActive: boolean;
@@ -2190,6 +2270,10 @@ function buildSponsorPlacement(): SponsorPlacementFixture {
     category: "veterinary",
     city: "La Paz",
     department: "La Paz",
+    deliveryMetrics: {
+      impressionCount: 120,
+      openCount: 30,
+    },
     disclosure: "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
     endsOn: "2026-07-31",
     isActive: true,

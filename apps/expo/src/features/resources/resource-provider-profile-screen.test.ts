@@ -210,6 +210,46 @@ describe("Resource Provider profile screen", () => {
     ).toBe(true);
   });
 
+  it("records provider-details sponsor impressions and contact opens", async () => {
+    const recordSponsorDelivery = vi
+      .fn<NonNullable<ResourcesAdapter["recordSponsorDelivery"]>>()
+      .mockResolvedValue({
+        status: "recorded",
+      });
+    const adapter = createAdapter({ recordSponsorDelivery });
+
+    void renderScreen(createProfileScreen(adapter));
+    await flushEffects();
+    const readyScreen = renderScreen(createProfileScreen(adapter));
+    await flushEffects();
+
+    const impressionDelivery = recordSponsorDelivery.mock.calls[0]?.[0];
+    if (!impressionDelivery) {
+      throw new Error("Expected provider-details sponsor impression.");
+    }
+
+    expect(impressionDelivery).toEqual({
+      eventType: "impression",
+      idempotencyKey: impressionDelivery.idempotencyKey,
+      providerId: "11111111-1111-4111-8111-111111111111",
+      source: "provider-details-profile",
+      surface: "provider_details",
+    });
+    expect(impressionDelivery.idempotencyKey).toMatch(
+      /^provider-details:[^:]+:11111111-1111-4111-8111-111111111111:impression$/,
+    );
+
+    pressByText(readyScreen, "Llamar");
+    await flushPromises();
+
+    expect(recordSponsorDelivery).toHaveBeenCalledWith({
+      eventType: "open",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      source: "provider-details-contact-phone",
+      surface: "provider_details",
+    });
+  });
+
   it("shows a compact fallback when an attached provider image fails", async () => {
     const adapter = createAdapter({
       providerProfile: {
@@ -479,9 +519,11 @@ const profile: ResourceProviderProfileData = {
 
 function createAdapter({
   providerProfile = profile,
+  recordSponsorDelivery,
   reportProvider = vi.fn<ResourcesAdapter["reportProvider"]>(),
 }: {
   providerProfile?: ResourceProviderProfileData;
+  recordSponsorDelivery?: ResourcesAdapter["recordSponsorDelivery"];
   reportProvider?: ResourcesAdapter["reportProvider"];
 } = {}): ResourcesAdapter {
   return {
@@ -491,6 +533,7 @@ function createAdapter({
         profile: providerProfile,
         providerId,
       }),
+    recordSponsorDelivery,
     reportProvider,
     searchProviders: () => Promise.resolve([]),
   };
