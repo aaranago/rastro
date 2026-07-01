@@ -1,4 +1,5 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { createWriteStream } from "node:fs";
 import {
   existsSync,
   mkdirSync,
@@ -27,6 +28,9 @@ const artifactRoot = join(
   new Date().toISOString().replace(/[:.]/g, "-"),
   "mcp-e2e",
 );
+const artifactLogsDir = join(artifactRoot, "logs");
+const artifactUiDir = join(artifactRoot, "ui");
+const logcatPath = join(artifactLogsDir, "logcat.txt");
 
 const manifestPath =
   process.env.RASTRO_E2E_FIXTURE_MANIFEST ?? defaultManifestPath;
@@ -65,6 +69,8 @@ if (!existsSync(manifestPath)) {
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 
 mkdirSync(artifactRoot, { recursive: true });
+mkdirSync(artifactLogsDir, { recursive: true });
+mkdirSync(artifactUiDir, { recursive: true });
 
 const platform = "android";
 const deviceId = await AutomationFactory.getBootedDeviceIdAsync(platform);
@@ -79,31 +85,275 @@ const automation = AutomationFactory.create(platform, {
   verbose: process.env.RASTRO_E2E_MOBILE_VERBOSE === "1",
 });
 
-await grantAndroidRuntimePermissions();
-await openDevelopmentBuild();
-const memberEmail = await verifyMemberProfileSettingsWorkflow();
-await verifyResourcesDirectory();
-await verifyProviderProfile({ memberEmail });
-await verifyReportDetails();
-const latestChatMessageText = await verifyChatWorkflow();
-await verifyAlertSubscriptionWorkflow();
-await verifyActivityInboxWorkflow({ latestChatMessageText });
+await captureDeviceMetadata();
+await clearLogcat();
+const logcatCapture = startLogcatCapture();
+let logcatStopped = false;
 
-const summary = {
-  appId,
-  artifactRoot,
-  checks,
-  deviceId,
-  manifestPath,
-  platform,
-};
+try {
+  await grantAndroidRuntimePermissions();
+  await openDevelopmentBuild();
+  const memberEmail = await verifyMemberProfileSettingsWorkflow();
+  await verifyResourcesDirectory();
+  await verifyProviderProfile({ memberEmail });
+  await verifyReportDetails();
+  const latestChatMessageText = await verifyChatWorkflow();
+  await verifyAlertSubscriptionWorkflow();
+  await verifyActivityInboxWorkflow({ latestChatMessageText });
+  await captureUiDump("final-window.xml");
+  await stopLogcatCapture(logcatCapture);
+  logcatStopped = true;
+  assertLogcatClean();
+  writeReadinessManifest();
+} finally {
+  if (!logcatStopped) {
+    await stopLogcatCapture(logcatCapture);
+  }
+}
 
-writeFileSync(
-  join(artifactRoot, "mobile-mcp-summary.json"),
-  JSON.stringify(summary, null, 2),
-);
+async function captureDeviceMetadata() {
+  await writeCommandOutput({
+    args: ["devices"],
+    command: "adb",
+    fileName: "adb-devices.txt",
+  });
+  await writeAdbOutput("device-size.txt", ["shell", "wm", "size"]);
+  await writeAdbOutput("device-density.txt", ["shell", "wm", "density"]);
+  await writeAdbOutput("android-version.txt", [
+    "shell",
+    "getprop",
+    "ro.build.version.release",
+  ]);
+  await writeCommandOutput({
+    args: ["-F", "@acme/expo", "exec", "expo", "config", "--type", "public"],
+    command: "pnpm",
+    cwd: workspaceRoot,
+    fileName: "expo-config.txt",
+  });
+  checks.push({
+    id: "qa-device-metadata",
+    ok: true,
+    outputDir: artifactRoot,
+  });
+}
 
-console.log(JSON.stringify(summary, null, 2));
+async function writeAdbOutput(fileName, args) {
+  const { stdout, stderr } = await adb(args);
+
+  writeFileSync(join(artifactRoot, fileName), `${stdout}${stderr}`);
+}
+
+async function writeCommandOutput({
+  args,
+  command,
+  cwd = appRoot,
+  fileName,
+}) {
+  const { stdout, stderr } = await execFileAsync(command, args, {
+    cwd,
+    timeout: 30000,
+  });
+
+  writeFileSync(join(artifactRoot, fileName), `${stdout}${stderr}`);
+}
+
+async function clearLogcat() {
+  await adb(["logcat", "-c"]);
+  checks.push({ id: "logcat-cleared", ok: true });
+}
+
+function startLogcatCapture() {
+  const output = createWriteStream(logcatPath, { flags: "w" });
+  const child = spawn(
+    "adb",
+    [
+      "-s",
+      deviceId,
+      "logcat",
+      "-v",
+      "time",
+      "ReactNativeJS:V",
+      "Expo:V",
+      "AndroidRuntime:E",
+      "*:W",
+    ],
+    { cwd: appRoot, stdio: ["ignore", "pipe", "pipe"] },
+  );
+
+  child.stdout.pipe(output);
+  child.stderr.pipe(output);
+  child.on("error", (error) => {
+    output.write(`\n[logcat spawn error] ${String(error)}\n`);
+  });
+  checks.push({ id: "logcat-capture-started", ok: true, outputPath: logcatPath });
+
+  return { child, output };
+}
+
+async function stopLogcatCapture(capture) {
+  if (!capture) {
+    return;
+  }
+
+  const { child, output } = capture;
+
+  if (child.exitCode === null && !child.killed) {
+    child.kill("SIGINT");
+    await Promise.race([
+      new Promise((resolve) => {
+        child.once("exit", resolve);
+      }),
+      delay(1200),
+    ]);
+  }
+
+  if (child.exitCode === null && !child.killed) {
+    child.kill("SIGKILL");
+  }
+
+  output.end();
+  await delay(200);
+  checks.push({ id: "logcat-capture-stopped", ok: true, outputPath: logcatPath });
+}
+
+async function captureUiDump(fileName) {
+  const devicePath = "/sdcard/rastro-window.xml";
+  const outputPath = join(artifactUiDir, fileName);
+
+  await adb(["shell", "uiautomator", "dump", "--compressed", devicePath]);
+  await execFileAsync("adb", ["-s", deviceId, "pull", devicePath, outputPath], {
+    cwd: appRoot,
+    timeout: 30000,
+  });
+
+  const size = statSync(outputPath).size;
+
+  if (size < 1000) {
+    throw new Error(`UI dump looks empty: ${outputPath} (${size} bytes)`);
+  }
+
+  checks.push({ id: `ui-dump:${fileName}`, ok: true, outputPath, size });
+}
+
+function assertLogcatClean() {
+  const logcat = readFileSync(logcatPath, "utf8");
+  const lines = logcat.split(/\r?\n/);
+  const failureMatchers = [
+    {
+      id: "android-runtime",
+      pattern: /AndroidRuntime|FATAL EXCEPTION|Fatal signal|Process: bo\.rastro\.app/,
+    },
+    {
+      id: "json-parse",
+      pattern: /JSON Parse error|Unexpected token '<'|Unexpected character/i,
+    },
+    {
+      id: "logbox",
+      pattern: /\bLogBox\b/,
+    },
+    {
+      id: "react-host-soft-exception",
+      pattern: /onNewIntent.*Tried to access/i,
+    },
+    {
+      id: "stale-base-url",
+      pattern: /(ngrok|localhost:3000|127\.0\.0\.1:3000|0\.0\.0\.0:3000)/i,
+    },
+  ];
+  const failures = failureMatchers.flatMap(({ id, pattern }) =>
+    lines
+      .filter((line) => pattern.test(line))
+      .slice(0, 5)
+      .map((line) => ({ id, line })),
+  );
+
+  if (failures.length > 0) {
+    throw new Error(
+      `Logcat readiness scan failed: ${JSON.stringify(failures, null, 2)}`,
+    );
+  }
+
+  checks.push({
+    id: "logcat-readiness-scan",
+    ok: true,
+    outputPath: logcatPath,
+    scannedLines: lines.length,
+  });
+}
+
+function writeReadinessManifest() {
+  const summary = buildRunSummary();
+
+  writeFileSync(
+    join(artifactRoot, "mobile-mcp-summary.json"),
+    JSON.stringify(summary, null, 2),
+  );
+  writeFileSync(
+    join(artifactRoot, "readiness-manifest.json"),
+    JSON.stringify(
+      {
+        ...summary,
+        readinessGate: buildReadinessGateManifest(summary),
+      },
+      null,
+      2,
+    ),
+  );
+
+  console.log(JSON.stringify(summary, null, 2));
+}
+
+function buildRunSummary() {
+  return {
+    appId,
+    artifactRoot,
+    checks,
+    deviceId,
+    manifestPath,
+    platform,
+    qaArtifacts: {
+      logcatPath,
+      uiDumpDir: artifactUiDir,
+    },
+  };
+}
+
+function buildReadinessGateManifest(summary) {
+  const requiredEvidence = [
+    "member-profile-settings-backend-save",
+    "provider-report-modal-submit",
+    "provider-report-admin-moderation-receipt",
+    "chat-backend-persistence",
+    "alerts-backend-persistence",
+    "activity-inbox-backend-navigation",
+    "logcat-readiness-scan",
+  ];
+  const passedEvidence = new Set(
+    summary.checks
+      .filter((check) => check.ok === true)
+      .map((check) => check.id),
+  );
+  const missingEvidence = requiredEvidence.filter(
+    (id) => !passedEvidence.has(id),
+  );
+
+  return {
+    commands: {
+      expectedRootDevCommand: "TURBO_UI=true pnpm dev",
+      mobileMcpCommand:
+        "RASTRO_E2E_EXPO_DEV_SERVER_URL=http://127.0.0.1:8081 RASTRO_E2E_MOBILE_NEXT_BASE_URL=http://10.0.2.2:3000 node apps/expo/e2e/rastro-mobile-mcp-e2e.mjs",
+    },
+    missingEvidence,
+    passed: missingEvidence.length === 0,
+    readinessScore:
+      Math.round(
+        ((requiredEvidence.length - missingEvidence.length) /
+          requiredEvidence.length) *
+          100,
+      ) / 10,
+    requiredEvidence,
+  };
+}
 
 async function verifyResourcesDirectory() {
   await openDeepLinkUntilVisible(
@@ -860,6 +1110,8 @@ async function openDevelopmentBuild() {
     "http://localhost:8081";
   const deviceReachableUrl = toDeviceReachableUrl(devServerUrl);
 
+  await adb(["shell", "am", "force-stop", appId]);
+  await delay(1000);
   await adb([
     "shell",
     "am",
@@ -874,12 +1126,53 @@ async function openDevelopmentBuild() {
     appId,
   ]);
   await delay(4000);
+  await waitForDevelopmentBuildReady();
   checks.push({
     devServerUrl,
     deviceReachableUrl,
     id: "open:development-build",
     ok: true,
   });
+}
+
+async function waitForDevelopmentBuildReady() {
+  const timeoutMs = 90000;
+  const startedAt = Date.now();
+  let lastUiDump = "";
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const { stdout } = await adb([
+      "exec-out",
+      "uiautomator",
+      "dump",
+      "--compressed",
+      "/dev/tty",
+    ]);
+
+    lastUiDump = stdout;
+
+    if (
+      !stdout.includes("Reloading...") &&
+      [
+        "Cerca",
+        "Actividad",
+        "Recursos",
+        "Perfil",
+        "profile-screen",
+        "resources-screen",
+        "activity-screen",
+      ].some((value) => stdout.includes(value))
+    ) {
+      checks.push({ id: "development-build-ready", ok: true });
+      return;
+    }
+
+    await delay(1000);
+  }
+
+  throw new Error(
+    `Development build did not finish loading: ${lastUiDump.slice(0, 1000)}`,
+  );
 }
 
 async function grantAndroidRuntimePermissions() {
@@ -1172,6 +1465,7 @@ async function deleteFocusedText(maxCharacters) {
 
 async function screenshot(fileName) {
   const outputPath = join(artifactRoot, fileName);
+  const uiDumpName = fileName.replace(/\.[^.]+$/, ".xml");
 
   await automation.takeFullScreenshotAsync({ outputPath });
 
@@ -1182,6 +1476,7 @@ async function screenshot(fileName) {
   }
 
   checks.push({ id: `screenshot:${fileName}`, ok: true, outputPath, size });
+  await captureUiDump(uiDumpName);
 }
 
 async function assertNoBrokenMediaFallbacks(context) {
