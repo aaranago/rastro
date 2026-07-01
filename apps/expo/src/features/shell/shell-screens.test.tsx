@@ -18,6 +18,12 @@ vi.mock("react", async () => {
     memo: <TComponent,>(component: TComponent) => component,
     useCallback: <TCallback,>(callback: TCallback) => callback,
     useMemo: <TValue,>(factory: () => TValue) => factory(),
+    useState: <TValue,>(initialValue: TValue | (() => TValue)) => [
+      typeof initialValue === "function"
+        ? (initialValue as () => TValue)()
+        : initialValue,
+      vi.fn(),
+    ],
   };
 });
 
@@ -53,7 +59,7 @@ vi.mock("./shell-provider", () => ({
   useRastroShell: () => shellContext.value,
 }));
 
-describe("Profile visitor auth entry", () => {
+describe("Profile screen", () => {
   beforeEach(() => {
     const copy = getShellCopy();
     const session = { kind: "visitor" as const };
@@ -99,16 +105,61 @@ describe("Profile visitor auth entry", () => {
     });
   });
 
-  it("only renders profile rows that navigate to real profile routes", () => {
+  it("keeps member-only profile routes hidden from visitors", () => {
+    const screen = renderFunctionElement(ProfileScreen());
+
+    expect(collectLinkHrefs(screen)).not.toEqual(
+      expect.arrayContaining([
+        "/mis-mascotas",
+        "/mis-reportes",
+        "/mis-conversaciones",
+        "/alertas",
+        "/ajustes",
+      ]),
+    );
+    expect(findText(screen, "Mis mascotas")).toBe(false);
+    expect(findText(screen, "Mis reportes")).toBe(false);
+    expect(findText(screen, "Mis conversaciones")).toBe(false);
+    expect(findText(screen, "Alertas")).toBe(false);
+    expect(findText(screen, "Ajustes")).toBe(false);
+  });
+
+  it("exposes member profile rows that navigate to real profile routes", () => {
+    const copy = getShellCopy();
+    const session = {
+      email: "ana@example.com",
+      id: "member_ana",
+      kind: "member" as const,
+      name: "Ana",
+    };
+
+    shellContext.value = {
+      copy,
+      initiateAccountDeletion: vi.fn(),
+      model: createShellModel({ copy, session }),
+      requestAuthPrompt: shellContext.requestAuthPrompt,
+      requestMemberPasswordReset: vi.fn(),
+      session,
+      signOutMember: vi.fn(),
+      state: createInitialShellState(),
+    };
+
     const screen = renderFunctionElement(ProfileScreen());
 
     expect(collectLinkHrefs(screen)).toEqual(
-      expect.arrayContaining(["/mis-mascotas", "/alertas", "/ajustes"]),
+      expect.arrayContaining([
+        "/mis-mascotas",
+        "/mis-reportes",
+        "/mis-conversaciones",
+        "/alertas",
+        "/ajustes",
+      ]),
     );
     expect(findText(screen, "Mis mascotas")).toBe(true);
+    expect(findText(screen, "Mis reportes")).toBe(true);
+    expect(findText(screen, "Mis conversaciones")).toBe(true);
     expect(findText(screen, "Alertas")).toBe(true);
     expect(findText(screen, "Ajustes")).toBe(true);
-    expect(findText(screen, "Mis reportes")).toBe(false);
   });
 
   it("reserves scroll clearance for native tabs and the report FAB", () => {

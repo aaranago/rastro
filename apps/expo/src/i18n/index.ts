@@ -101,6 +101,7 @@ export interface ShellCopy {
       memberBody: string;
       pets: string;
       reports: string;
+      conversations: string;
       alerts: string;
       settings: string;
       account: {
@@ -425,6 +426,7 @@ const esBO: ShellCopy = {
       memberBody: "Miembro en La Paz con alertas cercanas activas.",
       pets: "Mis mascotas",
       reports: "Mis reportes",
+      conversations: "Mis conversaciones",
       alerts: "Alertas",
       settings: "Ajustes",
       account: {

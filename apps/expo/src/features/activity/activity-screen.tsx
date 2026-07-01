@@ -23,6 +23,7 @@ import type {
   ActivityItemViewModel,
   ActivityMemberViewModel,
   ActivityRepository,
+  ActivitySectionId,
   BuildActivityViewModelInput,
 } from "./activity-model";
 import {
@@ -96,10 +97,13 @@ type ActivityListItem =
   | ActivityItemForScreen;
 
 export interface ActivityScreenProps {
+  focus?: ActivityScreenFocus;
   inboxLimit?: number;
   onOpenHref?: (href: string) => void;
   repository: ActivityRepository;
 }
+
+export type ActivityScreenFocus = "all" | "conversations" | "reports";
 
 export interface OpenActivityHrefInput {
   href: string;
@@ -123,6 +127,50 @@ const activityDateFormatter = new Intl.DateTimeFormat("es-BO", {
   minute: "2-digit",
   month: "short",
 });
+const allActivitySectionIds = [
+  "nearby-alerts",
+  "chats",
+  "report-updates",
+  "moderation-events",
+  "candidate-matches",
+] as const satisfies readonly ActivitySectionId[];
+
+interface ActivityScreenFocusConfig {
+  empty?: {
+    body: string;
+    title: string;
+  };
+  sectionIds: readonly ActivitySectionId[];
+  subtitle?: string;
+  title?: string;
+}
+
+const activityScreenFocusConfig: Record<
+  ActivityScreenFocus,
+  ActivityScreenFocusConfig
+> = {
+  all: {
+    sectionIds: allActivitySectionIds,
+  },
+  conversations: {
+    empty: {
+      body: "Tus chats sobre reportes aparecerán aquí cuando tengas conversaciones activas.",
+      title: "Sin conversaciones todavía",
+    },
+    sectionIds: ["chats"],
+    subtitle: "Chats sobre reportes y recuperaciones",
+    title: "Mis conversaciones",
+  },
+  reports: {
+    empty: {
+      body: "Los cambios y recordatorios de tus reportes aparecerán aquí.",
+      title: "Sin actualizaciones de reportes",
+    },
+    sectionIds: ["report-updates"],
+    subtitle: "Actualizaciones y recordatorios de tus reportes",
+    title: "Mis reportes",
+  },
+};
 
 const activityKeyExtractor = (item: ActivityListItem | undefined) =>
   item?.id ?? "activity-transition-item";
@@ -141,6 +189,7 @@ function ListSeparator() {
 }
 
 export function ActivityScreen({
+  focus = "all",
   inboxLimit,
   onOpenHref,
   repository,
@@ -186,8 +235,9 @@ export function ActivityScreen({
       buildScreenViewModel(
         session,
         loadState.kind === "ready" ? loadState.inbox : undefined,
+        focus,
       ),
-    [loadState, session],
+    [focus, loadState, session],
   );
   const data = React.useMemo(() => buildListData(viewModel), [viewModel]);
   const handleRetry = React.useCallback(() => {
@@ -609,6 +659,7 @@ const ActivityErrorState = React.memo(function ActivityErrorState({
 function buildScreenViewModel(
   session: ShellSession,
   inbox?: ActivityInbox,
+  focus: ActivityScreenFocus = "all",
 ): ActivityScreenViewModel {
   const rawViewModel = buildActivityViewModel(
     getActivityModelInput(session, inbox),
@@ -619,7 +670,7 @@ function buildScreenViewModel(
   }
 
   if (rawViewModel.kind === "member") {
-    return normalizeMemberViewModel(rawViewModel);
+    return normalizeMemberViewModel(rawViewModel, focus);
   }
 
   return {
@@ -639,18 +690,24 @@ function buildScreenViewModel(
 
 function normalizeMemberViewModel(
   viewModel: ActivityMemberViewModel,
+  focus: ActivityScreenFocus,
 ): Extract<ActivityScreenViewModel, { kind: "member" }> {
-  return {
-    empty: viewModel.emptyState,
-    kind: "member",
-    offlineLabel: viewModel.offlineLabel,
-    sections: viewModel.sections.map((section) => ({
+  const focusConfig = activityScreenFocusConfig[focus];
+  const sections = viewModel.sections
+    .filter((section) => focusConfig.sectionIds.includes(section.id))
+    .map((section) => ({
       id: section.id,
       items: section.items.map(toActivityItemForScreen),
       title: section.title,
-    })),
-    subtitle: viewModel.subtitle,
-    title: viewModel.title,
+    }));
+
+  return {
+    empty: focusConfig.empty ?? viewModel.emptyState,
+    kind: "member",
+    offlineLabel: viewModel.offlineLabel,
+    sections,
+    subtitle: focusConfig.subtitle ?? viewModel.subtitle,
+    title: focusConfig.title ?? viewModel.title,
   };
 }
 

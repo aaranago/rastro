@@ -403,6 +403,53 @@ describe("Activity screen links", () => {
     ]);
   });
 
+  it("renders the report-focused Activity screen with report updates only", async () => {
+    shellContext.session = createMemberSession();
+    const repository = createScreenRepository(
+      Promise.resolve(createMixedActivityInbox()),
+    );
+
+    void renderActivityScreen({ focus: "reports", repository });
+    await runPendingEffects();
+    const screen = renderActivityScreen({ focus: "reports", repository });
+    const listProps = getLegendListProps<{
+      ListHeaderComponent: React.ReactNode;
+      data: Record<string, unknown>[];
+    }>(screen);
+
+    expect(findText(listProps.ListHeaderComponent, "Mis reportes")).toBe(true);
+    expect(listProps.data.map((item) => item.testID)).toEqual([
+      "activity-section-report-updates",
+      "activity-item-report-update-report-update-1",
+    ]);
+  });
+
+  it("renders the conversation-focused Activity screen with chats only", async () => {
+    shellContext.session = createMemberSession();
+    const repository = createScreenRepository(
+      Promise.resolve(createMixedActivityInbox()),
+    );
+
+    void renderActivityScreen({ focus: "conversations", repository });
+    await runPendingEffects();
+    const screen = renderActivityScreen({
+      focus: "conversations",
+      repository,
+    });
+    const listProps = getLegendListProps<{
+      ListHeaderComponent: React.ReactNode;
+      data: Record<string, unknown>[];
+    }>(screen);
+
+    expect(findText(listProps.ListHeaderComponent, "Mis conversaciones")).toBe(
+      true,
+    );
+    expect(listProps.data.map((item) => item.testID)).toEqual([
+      "activity-section-chats",
+      "activity-item-chat-chat-conversation-1",
+    ]);
+  });
+
   it("shows the stale cached inbox label while rendering cached Activity", async () => {
     shellContext.session = createMemberSession();
     const repository = createScreenRepository(
@@ -517,6 +564,89 @@ function createScreenRepository(
 ): ActivityRepository {
   return {
     getInbox: vi.fn<ActivityRepository["getInbox"]>(() => result),
+  };
+}
+
+function createMixedActivityInbox(): ActivityInbox {
+  return {
+    alertDeliveries: [
+      {
+        body: "Toby fue reportado cerca de Sopocachi.",
+        deliveryId: "alert-delivery-1",
+        href: "rastro://reportes/perdidos/lost-report-1",
+        id: "activity-alert-1",
+        occurredAt: "2026-06-30T13:00:00.000Z",
+        reportId: "lost-report-1",
+        status: "delivered",
+        title: "Mascota perdida cerca de ti",
+      },
+    ],
+    chatSummaries: [
+      {
+        conversationId: "chat-conversation-1",
+        href: "rastro://chats/chat-conversation-1",
+        id: "activity-chat-1",
+        lastMessage: {
+          authorLabel: "Diego",
+          id: "chat-message-1",
+          text: "Lo vi cerca de la plaza.",
+        },
+        occurredAt: "2026-06-30T13:04:00.000Z",
+        otherParticipant: {
+          displayName: "Diego",
+          memberId: "member-diego",
+        },
+        subject: {
+          href: "rastro://reportes/perdidos/lost-report-1",
+          id: "lost-report-1",
+          kind: "lost-pet-report",
+          subtitle: "Sopocachi",
+          title: "Toby",
+        },
+      },
+    ],
+    moderationEvents: [
+      {
+        action: "hide",
+        adminId: "member-admin",
+        id: "moderation-event-1",
+        note: "Ubicación sensible.",
+        occurredAt: "2026-06-30T13:06:00.000Z",
+        reason: "Ubicación exacta expuesta",
+        report: {
+          availability: "hidden",
+          href: "rastro://reportes/perdidos/lost-report-1",
+          id: "lost-report-1",
+          kind: "lost-pet-report",
+          outcome: null,
+          status: "active",
+          title: "Toby",
+          type: "lost_pet",
+        },
+      },
+    ],
+    reportUpdates: [
+      {
+        actorMemberId: "member_ana",
+        eventType: "resolved",
+        fromStatus: "active",
+        id: "report-update-1",
+        note: null,
+        occurredAt: "2026-06-30T13:05:00.000Z",
+        outcome: "reunited",
+        report: {
+          availability: "available",
+          href: "rastro://reportes/perdidos/lost-report-1",
+          id: "lost-report-1",
+          kind: "lost-pet-report",
+          outcome: "reunited",
+          status: "closed",
+          title: "Toby",
+          type: "lost_pet",
+        },
+        toStatus: "closed",
+      },
+    ],
   };
 }
 

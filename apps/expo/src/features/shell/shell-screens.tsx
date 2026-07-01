@@ -265,23 +265,35 @@ export function ProfileScreen() {
           }
         />
       ) : null}
-      <View style={styles.profileList}>
-        <ProfileRow
-          href="/mis-mascotas"
-          icon="pawprint.fill"
-          label={screen.pets}
-        />
-        <ProfileRow
-          href={"/alertas" as Href}
-          icon="bell.fill"
-          label={screen.alerts}
-        />
-        <ProfileRow
-          href={"/ajustes" as Href}
-          icon="gearshape.fill"
-          label={screen.settings}
-        />
-      </View>
+      {profile.isMember ? (
+        <View style={styles.profileList}>
+          <ProfileRow
+            href="/mis-mascotas"
+            icon="pawprint.fill"
+            label={screen.pets}
+          />
+          <ProfileRow
+            href={"/mis-reportes" as Href}
+            icon="doc.text.image.fill"
+            label={screen.reports}
+          />
+          <ProfileRow
+            href={"/mis-conversaciones" as Href}
+            icon="message.fill"
+            label={screen.conversations}
+          />
+          <ProfileRow
+            href={"/alertas" as Href}
+            icon="bell.fill"
+            label={screen.alerts}
+          />
+          <ProfileRow
+            href={"/ajustes" as Href}
+            icon="gearshape.fill"
+            label={screen.settings}
+          />
+        </View>
+      ) : null}
       {profile.accountSettings ? (
         <AccountSettingsPanel
           actionFailedLabel={screen.account.actionFailed}

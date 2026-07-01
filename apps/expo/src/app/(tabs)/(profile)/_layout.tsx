@@ -21,6 +21,11 @@ export default function ProfileStackLayout() {
         options={{ headerShown: false, title: copy.tabs.profile }}
       />
       <Stack.Screen name="mis-mascotas" options={{ title: "" }} />
+      <Stack.Screen name="mis-reportes" options={{ title: "Mis reportes" }} />
+      <Stack.Screen
+        name="mis-conversaciones"
+        options={{ title: "Mis conversaciones" }}
+      />
       <Stack.Screen name="alertas" options={{ title: "Alertas" }} />
       <Stack.Screen name="ajustes" options={{ title: "Ajustes" }} />
     </Stack>
