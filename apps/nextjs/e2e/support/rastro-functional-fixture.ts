@@ -671,7 +671,7 @@ function buildProviderContacts(index: number) {
     {
       kind: "directions" as const,
       label: "Mapa",
-      value: `geo:${sopocachi.latitude},${sopocachi.longitude}`,
+      value: `https://maps.google.com/?q=${sopocachi.latitude},${sopocachi.longitude}`,
     },
     {
       kind: "website" as const,

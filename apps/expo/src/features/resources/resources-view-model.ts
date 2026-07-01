@@ -8,7 +8,10 @@ import type {
   ResourcesDirectoryStatus,
   ResourceSearchLocation,
 } from "./resource-types";
-import { getLocalSponsorPlacementForSurface } from "./sponsor-surface-policy";
+import {
+  cloneLocalSponsorPlacement,
+  getLocalSponsorPlacementForSurface,
+} from "./sponsor-surface-policy";
 
 export interface ResourceCategoryOption {
   id: ResourceCategoryId;
@@ -250,7 +253,7 @@ export function buildResourceProviderProfileViewModel(
   profile: ResourceProviderProfile,
 ): ResourceProviderProfileViewModel {
   const sponsorPlacement = getLocalSponsorPlacementForSurface(
-    profile.sponsorPlacement,
+    profile.activeSponsorPlacements ?? profile.sponsorPlacement,
     "provider_details",
   );
   const badges: ResourceProviderProfileViewModel["badges"] = [
@@ -341,7 +344,7 @@ function buildProviderSummaryViewModel(
   provider: ResourceProviderSummary,
 ): ResourceProviderSummaryViewModel {
   const sponsorPlacement = getLocalSponsorPlacementForSurface(
-    provider.sponsorPlacement,
+    provider.activeSponsorPlacements ?? provider.sponsorPlacement,
     "resources_directory",
   );
 
@@ -378,27 +381,6 @@ function buildProviderSummaryViewModel(
     contactLabels: getVisibleContactOptions(provider.contactOptions).map(
       (contact) => contact.label,
     ),
-  };
-}
-
-function cloneLocalSponsorPlacement(
-  placement: LocalSponsorPlacement | undefined,
-) {
-  if (placement === undefined) {
-    return undefined;
-  }
-
-  return {
-    kind: placement.kind,
-    label: placement.label,
-    disclosure: placement.disclosure,
-    logoUrl: placement.logoUrl,
-    imageUrl: placement.imageUrl,
-    eligibleSurfaces: [...placement.eligibleSurfaces],
-    safetyPolicy: {
-      recoveryPriority: { ...placement.safetyPolicy.recoveryPriority },
-      pushNotifications: { ...placement.safetyPolicy.pushNotifications },
-    },
   };
 }
 

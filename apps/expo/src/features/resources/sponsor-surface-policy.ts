@@ -11,10 +11,61 @@ export function isLocalSponsorPlacementEligibleForSurface(
 }
 
 export function getLocalSponsorPlacementForSurface(
-  placement: LocalSponsorPlacement | undefined,
+  placement:
+    | LocalSponsorPlacement
+    | readonly LocalSponsorPlacement[]
+    | undefined,
   surface: LocalSponsorPlacementSurface,
 ) {
+  if (isLocalSponsorPlacementList(placement)) {
+    return placement.find((candidate) =>
+      isLocalSponsorPlacementEligibleForSurface(candidate, surface),
+    );
+  }
+
   return isLocalSponsorPlacementEligibleForSurface(placement, surface)
     ? placement
     : undefined;
+}
+
+export function cloneLocalSponsorPlacement(
+  placement: LocalSponsorPlacement | undefined,
+) {
+  if (placement === undefined) {
+    return undefined;
+  }
+
+  return cloneRequiredLocalSponsorPlacement(placement);
+}
+
+export function cloneLocalSponsorPlacements(
+  placements: readonly LocalSponsorPlacement[] | undefined,
+) {
+  return placements?.map(cloneRequiredLocalSponsorPlacement);
+}
+
+function isLocalSponsorPlacementList(
+  placement:
+    | LocalSponsorPlacement
+    | readonly LocalSponsorPlacement[]
+    | undefined,
+): placement is readonly LocalSponsorPlacement[] {
+  return Array.isArray(placement);
+}
+
+function cloneRequiredLocalSponsorPlacement(
+  placement: LocalSponsorPlacement,
+): LocalSponsorPlacement {
+  return {
+    kind: placement.kind,
+    label: placement.label,
+    disclosure: placement.disclosure,
+    ...(placement.logoUrl ? { logoUrl: placement.logoUrl } : {}),
+    ...(placement.imageUrl ? { imageUrl: placement.imageUrl } : {}),
+    eligibleSurfaces: [...placement.eligibleSurfaces],
+    safetyPolicy: {
+      recoveryPriority: { ...placement.safetyPolicy.recoveryPriority },
+      pushNotifications: { ...placement.safetyPolicy.pushNotifications },
+    },
+  };
 }

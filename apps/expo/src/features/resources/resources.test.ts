@@ -291,6 +291,45 @@ describe("Resources directory", () => {
     expect(viewModel.results[0]?.sponsorPlacement).toBeUndefined();
   });
 
+  it("selects directory sponsor placement from multi-surface active placements", () => {
+    const provider = buildProviderSummary({
+      activeSponsorPlacements: [
+        buildSponsorPlacement({
+          eligibleSurfaces: ["provider_details"],
+          imageUrl: "https://example.com/profile-only-banner.png",
+          label: "Perfil",
+          logoUrl: "https://example.com/profile-only-logo.png",
+        }),
+        buildSponsorPlacement({
+          eligibleSurfaces: ["resources_directory"],
+          imageUrl: "https://example.com/directory-banner.png",
+          label: "Directorio",
+          logoUrl: "https://example.com/directory-logo.png",
+        }),
+      ],
+    });
+
+    const viewModel = buildResourcesDirectoryViewModel({
+      providers: [provider],
+      location: {
+        kind: "manual",
+        label: "La Paz",
+      },
+      mode: "list",
+      status: "ready",
+    });
+
+    expect(viewModel.results[0]).toMatchObject({
+      isSponsored: true,
+      sponsorImageUrl: "https://example.com/directory-banner.png",
+      sponsorLabel: "Directorio",
+      sponsorLogoUrl: "https://example.com/directory-logo.png",
+    });
+    expect(viewModel.results[0]?.sponsorPlacement?.eligibleSurfaces).toEqual([
+      "resources_directory",
+    ]);
+  });
+
   it("keeps correct-surface directory sponsor media optional and policy explicit", () => {
     const provider = buildProviderSummary({
       sponsorPlacement: buildSponsorPlacement({
@@ -667,6 +706,41 @@ describe("Resources directory", () => {
         value: "Atiende La Paz y El Alto",
       },
     ]);
+  });
+
+  it("selects provider-details sponsor placement from multi-surface active placements", () => {
+    const profile = buildProviderProfile({
+      activeSponsorPlacements: [
+        buildSponsorPlacement({
+          eligibleSurfaces: ["resources_directory"],
+          imageUrl: "https://example.com/directory-banner.png",
+          label: "Directorio",
+          logoUrl: "https://example.com/directory-logo.png",
+        }),
+        buildSponsorPlacement({
+          eligibleSurfaces: ["provider_details"],
+          imageUrl: "https://example.com/profile-banner.png",
+          label: "Perfil",
+          logoUrl: "https://example.com/profile-logo.png",
+        }),
+      ],
+    });
+
+    const viewModel = buildResourceProviderProfileViewModel(profile);
+
+    expect(viewModel.badges).toContainEqual({
+      label: "Perfil",
+      tone: "sponsor",
+    });
+    expect(viewModel.sponsorPlacement?.eligibleSurfaces).toEqual([
+      "provider_details",
+    ]);
+    expect(viewModel.sponsorImageUrl).toBe(
+      "https://example.com/profile-banner.png",
+    );
+    expect(viewModel.sponsorLogoUrl).toBe(
+      "https://example.com/profile-logo.png",
+    );
   });
 
   it("omits missing provider profile optional fields without leaving empty sections", () => {

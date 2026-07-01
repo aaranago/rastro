@@ -241,6 +241,17 @@ type ResourceProviderRow = typeof ResourceProvider.$inferSelect & {
 
 type ContactOptionRow = typeof ResourceProviderContactOption.$inferSelect;
 type SponsorPlacementRow = typeof LocalSponsorPlacement.$inferSelect;
+type PublicLocalSponsorPlacement = NonNullable<
+  PublicResourceProviderSummary["sponsorPlacement"]
+>;
+
+const publicSponsorPlacementSurfaceOrder: LocalSponsorPlacementSurface[] = [
+  "resources_directory",
+  "provider_details",
+  "launch_home_banner",
+  "report_success",
+  "contextual_care_resources",
+];
 
 export function buildNearbyResourceProvidersOrigin(
   input: NearbyResourceProvidersInput,
@@ -267,12 +278,15 @@ export function buildLocalSponsorPlacementPolicy(
   > &
     Partial<Pick<PersistedLocalSponsorPlacement, "imageUrl" | "logoUrl">>,
 ) {
+  const logoUrl = sanitizePublicSponsorMediaUrl(placement.logoUrl);
+  const imageUrl = sanitizePublicSponsorMediaUrl(placement.imageUrl);
+
   return {
     kind: "Local Sponsor Placement",
     label: placement.label,
     disclosure: placement.disclosure,
-    ...(placement.logoUrl ? { logoUrl: placement.logoUrl } : {}),
-    ...(placement.imageUrl ? { imageUrl: placement.imageUrl } : {}),
+    ...(logoUrl ? { logoUrl } : {}),
+    ...(imageUrl ? { imageUrl } : {}),
     eligibleSurfaces: [placement.surface],
     safetyPolicy: {
       recoveryPriority: {
@@ -286,13 +300,25 @@ export function buildLocalSponsorPlacementPolicy(
   } satisfies PublicResourceProviderSummary["sponsorPlacement"];
 }
 
+function buildActiveLocalSponsorPlacementPolicies(
+  sponsorPlacements: readonly PersistedLocalSponsorPlacement[],
+  now: Date,
+): PublicLocalSponsorPlacement[] {
+  return sponsorPlacements
+    .filter((placement) => isSponsorPlacementActive(placement, now))
+    .sort(comparePublicSponsorPlacements)
+    .map(buildLocalSponsorPlacementPolicy);
+}
+
 export function toPublicResourceProviderSummary(
   provider: PersistedResourceProvider,
   options: { distanceMeters?: number; now?: Date } = {},
 ): PublicResourceProviderSummary {
-  const activeSponsorPlacement = provider.sponsorPlacements.find((placement) =>
-    isSponsorPlacementActive(placement, options.now ?? new Date()),
+  const activeSponsorPlacements = buildActiveLocalSponsorPlacementPolicies(
+    provider.sponsorPlacements,
+    options.now ?? new Date(),
   );
+  const legacySponsorPlacement = activeSponsorPlacements[0];
 
   return {
     id: provider.id,
@@ -310,15 +336,54 @@ export function toPublicResourceProviderSummary(
     serviceAreaLabel: provider.serviceAreaLabel,
     distanceMeters: options.distanceMeters,
     isVerified: provider.verificationStatus === "verified",
-    sponsorPlacement: activeSponsorPlacement
-      ? buildLocalSponsorPlacementPolicy(activeSponsorPlacement)
-      : undefined,
+    sponsorPlacement: legacySponsorPlacement,
+    activeSponsorPlacements:
+      activeSponsorPlacements.length > 0 ? activeSponsorPlacements : undefined,
     isOpenNow: provider.isOpenNow,
     emergencyAvailable: provider.emergencyAvailable,
     logoUrl: provider.logoUrl ?? undefined,
     photoUrl: provider.photoUrl ?? undefined,
     contactOptions: provider.contactOptions.map((contact) => ({ ...contact })),
   };
+}
+
+function sanitizePublicSponsorMediaUrl(value: string | null | undefined) {
+  const trimmed = value?.trim();
+
+  if (!trimmed || !/^https?:\/\/\S+$/i.test(trimmed)) {
+    return undefined;
+  }
+
+  return trimmed;
+}
+
+function comparePublicSponsorPlacements(
+  left: PersistedLocalSponsorPlacement,
+  right: PersistedLocalSponsorPlacement,
+) {
+  const surfaceComparison =
+    getPublicSponsorPlacementSurfaceRank(left.surface) -
+    getPublicSponsorPlacementSurfaceRank(right.surface);
+
+  if (surfaceComparison !== 0) {
+    return surfaceComparison;
+  }
+
+  const startsComparison = left.startsAt.getTime() - right.startsAt.getTime();
+
+  if (startsComparison !== 0) {
+    return startsComparison;
+  }
+
+  return left.id.localeCompare(right.id);
+}
+
+function getPublicSponsorPlacementSurfaceRank(
+  surface: LocalSponsorPlacementSurface,
+) {
+  const index = publicSponsorPlacementSurfaceOrder.indexOf(surface);
+
+  return index === -1 ? publicSponsorPlacementSurfaceOrder.length : index;
 }
 
 export function toPublicResourceProviderProfile(

@@ -129,6 +129,138 @@ describe("resource provider validation contracts", () => {
     });
   });
 
+  it("normalizes provider contact values and managed external URLs by contact kind", () => {
+    const result = createResourceProviderInputSchema.parse({
+      ...createProviderInput,
+      contactOptions: [
+        {
+          kind: "phone",
+          label: "  Llamar  ",
+          value: "2 222-1111",
+        },
+        {
+          kind: "whatsapp",
+          label: "WhatsApp",
+          value: "7000 0001",
+        },
+        {
+          kind: "website",
+          label: "Web",
+          value: "sanroque.example.com/contacto",
+        },
+        {
+          kind: "email",
+          label: "Correo",
+          value: "mailto:CONTACTO@SANROQUE.EXAMPLE?subject=Rastro",
+        },
+        {
+          kind: "directions",
+          label: "Como llegar",
+          value: "maps.example.com/sanroque",
+        },
+        {
+          kind: "social",
+          label: "Instagram",
+          value: "instagram.example.com/sanroque",
+        },
+      ],
+      websiteUrl: "sanroque.example.com",
+      socialLinks: [
+        {
+          label: " Instagram ",
+          url: "instagram.example.com/sanroque",
+        },
+      ],
+      externalLinks: [
+        {
+          label: "Ficha municipal",
+          url: "HTTP://municipio.example.com/sanroque",
+        },
+      ],
+    });
+
+    expect(result.contactOptions).toEqual([
+      {
+        kind: "phone",
+        label: "Llamar",
+        value: "+59122221111",
+      },
+      {
+        kind: "whatsapp",
+        label: "WhatsApp",
+        value: "+59170000001",
+      },
+      {
+        kind: "website",
+        label: "Web",
+        value: "https://sanroque.example.com/contacto",
+      },
+      {
+        kind: "email",
+        label: "Correo",
+        value: "contacto@sanroque.example",
+      },
+      {
+        kind: "directions",
+        label: "Como llegar",
+        value: "https://maps.example.com/sanroque",
+      },
+      {
+        kind: "social",
+        label: "Instagram",
+        value: "https://instagram.example.com/sanroque",
+      },
+    ]);
+    expect(result.websiteUrl).toBe("https://sanroque.example.com");
+    expect(result.socialLinks).toEqual([
+      {
+        label: "Instagram",
+        url: "https://instagram.example.com/sanroque",
+      },
+    ]);
+    expect(result.externalLinks).toEqual([
+      {
+        label: "Ficha municipal",
+        url: "http://municipio.example.com/sanroque",
+      },
+    ]);
+  });
+
+  it("rejects provider contact values that do not match their selected contact kind", () => {
+    const result = createResourceProviderInputSchema.safeParse({
+      ...createProviderInput,
+      contactOptions: [
+        {
+          kind: "phone",
+          label: "Llamar",
+          value: "telefono",
+        },
+        {
+          kind: "email",
+          label: "Correo",
+          value: "sanroque.example.com",
+        },
+        {
+          kind: "directions",
+          label: "Como llegar",
+          value: "maps example",
+        },
+      ],
+      websiteUrl: "ftp://sanroque.example.com",
+      socialLinks: [
+        {
+          label: "Instagram",
+          url: "instagram example",
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    expect(JSON.stringify(result.error?.issues)).toContain("contactOptions");
+    expect(JSON.stringify(result.error?.issues)).toContain("websiteUrl");
+    expect(JSON.stringify(result.error?.issues)).toContain("socialLinks");
+  });
+
   it("accepts admin provider media asset IDs without exposing them publicly", () => {
     const result = createResourceProviderInputSchema.safeParse({
       ...createProviderInput,
@@ -402,6 +534,71 @@ describe("resource provider validation contracts", () => {
         endsOn: "2026-07-31",
       }).success,
     ).toBe(false);
+  });
+
+  it("accepts active sponsor placement lists so consumers can select by eligible surface", () => {
+    const profile = publicResourceProviderProfileSchema.parse({
+      id: "11111111-1111-4111-8111-111111111111",
+      name: "Clinica Veterinaria San Roque",
+      categoryId: "veterinary",
+      description: "Veterinaria local con atencion general y urgencias.",
+      approximateLocationLabel: "Sopocachi, La Paz",
+      serviceAreaLabel: "Atiende La Paz y El Alto",
+      hoursLabel: "Lun - Dom: 24 horas",
+      shortDescription:
+        "Atencion veterinaria general y orientacion para familias cuidadoras.",
+      contactOptions: [
+        {
+          kind: "phone",
+          label: "Llamar",
+          value: "+59122221111",
+        },
+      ],
+      activeSponsorPlacements: [
+        {
+          kind: "Local Sponsor Placement",
+          label: "Patrocinado",
+          disclosure:
+            "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+          eligibleSurfaces: ["resources_directory"],
+          safetyPolicy: {
+            recoveryPriority: {
+              label: "Recovery Priority",
+              canAffect: false,
+            },
+            pushNotifications: {
+              eligible: false,
+            },
+          },
+        },
+        {
+          kind: "Local Sponsor Placement",
+          label: "Aliado local",
+          disclosure:
+            "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+          imageUrl: "https://example.com/provider-details-sponsor.png",
+          eligibleSurfaces: ["provider_details"],
+          safetyPolicy: {
+            recoveryPriority: {
+              label: "Recovery Priority",
+              canAffect: false,
+            },
+            pushNotifications: {
+              eligible: false,
+            },
+          },
+        },
+      ],
+    });
+
+    expect(
+      profile.activeSponsorPlacements?.map((placement) => placement.label),
+    ).toEqual(["Patrocinado", "Aliado local"]);
+    expect(
+      profile.activeSponsorPlacements?.find((placement) =>
+        placement.eligibleSurfaces.includes("provider_details"),
+      )?.imageUrl,
+    ).toBe("https://example.com/provider-details-sponsor.png");
   });
 
   it("accepts admin sponsor media asset IDs while keeping manual URL fallback explicit", () => {

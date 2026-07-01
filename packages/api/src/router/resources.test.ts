@@ -944,29 +944,44 @@ describe("resources router", () => {
         {
           kind: "phone",
           label: "Llamar",
-          value: "+591 2 222 1111",
+          value: "2 222-1111",
         },
         {
           kind: "whatsapp",
           label: "WhatsApp",
-          value: "+591 70000001",
+          value: "7000 0001",
         },
         {
           kind: "email",
           label: "Correo",
-          value: "contacto@sanroque.example",
+          value: "mailto:CONTACTO@SANROQUE.EXAMPLE?subject=Rastro",
+        },
+        {
+          kind: "website",
+          label: "Web",
+          value: "sanroque.example.com/contacto",
+        },
+        {
+          kind: "directions",
+          label: "Como llegar",
+          value: "maps.example.com/sanroque",
+        },
+        {
+          kind: "social",
+          label: "Instagram",
+          value: "instagram.example.com/sanroque",
         },
       ],
       socialLinks: [
         {
           label: "Instagram",
-          url: "https://instagram.example.com/sanroque",
+          url: "instagram.example.com/sanroque",
         },
       ],
       externalLinks: [
         {
           label: "Ficha municipal",
-          url: "https://municipio.example.com/sanroque",
+          url: "HTTP://municipio.example.com/sanroque",
         },
       ],
     });
@@ -980,14 +995,32 @@ describe("resources router", () => {
         {
           kind: "phone",
           label: "Llamar",
+          value: "+59122221111",
         },
         {
           kind: "whatsapp",
           label: "WhatsApp",
+          value: "+59170000001",
         },
         {
           kind: "email",
           label: "Correo",
+          value: "contacto@sanroque.example",
+        },
+        {
+          kind: "website",
+          label: "Web",
+          value: "https://sanroque.example.com/contacto",
+        },
+        {
+          kind: "directions",
+          label: "Como llegar",
+          value: "https://maps.example.com/sanroque",
+        },
+        {
+          kind: "social",
+          label: "Instagram",
+          value: "https://instagram.example.com/sanroque",
         },
       ],
       logoUrl: "https://example.com/logo.png",
@@ -1002,7 +1035,7 @@ describe("resources router", () => {
       externalLinks: [
         {
           label: "Ficha municipal",
-          url: "https://municipio.example.com/sanroque",
+          url: "http://municipio.example.com/sanroque",
         },
       ],
     });
@@ -1204,7 +1237,7 @@ describe("resources router", () => {
         {
           kind: "whatsapp",
           label: "WhatsApp",
-          value: "+591 70000001",
+          value: "+59170000001",
         },
       ],
     });

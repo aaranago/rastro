@@ -1,9 +1,12 @@
 import type {
-  LocalSponsorPlacement,
   ResourceProviderFixture,
   ResourceProviderProfile,
   ResourceProviderSummary,
 } from "./resource-types";
+import {
+  cloneLocalSponsorPlacement,
+  cloneLocalSponsorPlacements,
+} from "./sponsor-surface-policy";
 
 const clinicSanRoque: ResourceProviderFixture = {
   id: "clinic-san-roque",
@@ -417,30 +420,12 @@ function toPublicProviderSummary(
     },
     contactOptions: summary.contactOptions.map((contact) => ({ ...contact })),
     sponsorPlacement: cloneLocalSponsorPlacement(summary.sponsorPlacement),
+    activeSponsorPlacements: cloneLocalSponsorPlacements(
+      summary.activeSponsorPlacements,
+    ),
   };
 }
 
 function toApproximateCoordinate(value: number) {
   return Number(value.toFixed(3));
-}
-
-function cloneLocalSponsorPlacement(
-  placement: LocalSponsorPlacement | undefined,
-) {
-  if (placement === undefined) {
-    return undefined;
-  }
-
-  return {
-    kind: placement.kind,
-    label: placement.label,
-    disclosure: placement.disclosure,
-    logoUrl: placement.logoUrl,
-    imageUrl: placement.imageUrl,
-    eligibleSurfaces: [...placement.eligibleSurfaces],
-    safetyPolicy: {
-      recoveryPriority: { ...placement.safetyPolicy.recoveryPriority },
-      pushNotifications: { ...placement.safetyPolicy.pushNotifications },
-    },
-  };
 }

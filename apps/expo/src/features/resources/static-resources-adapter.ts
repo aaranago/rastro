@@ -1,7 +1,6 @@
 import type { LastLoadedCache } from "../resilience/last-loaded-cache";
 import type { TrustSafetyRepository } from "../trust-safety";
 import type {
-  LocalSponsorPlacement,
   ResourceCategoryId,
   ResourceCoordinate,
   ResourceProviderAdminReviewItem,
@@ -15,6 +14,10 @@ import type {
 } from "./resource-types";
 import { findWithinRadius } from "../geo/distance";
 import { createInMemoryTrustSafetyRepository } from "../trust-safety";
+import {
+  cloneLocalSponsorPlacement,
+  cloneLocalSponsorPlacements,
+} from "./sponsor-surface-policy";
 import { rastroResourceFixtures } from "./static-resources-fixtures";
 
 export type { ResourceProviderSearchLocation } from "./resource-types";
@@ -476,27 +479,9 @@ function toResourceProviderSearchSummary({
     contactOptions: summary.contactOptions.map((contact) => ({ ...contact })),
     distanceMeters: Math.round(distanceMeters),
     sponsorPlacement: cloneLocalSponsorPlacement(summary.sponsorPlacement),
-  };
-}
-
-function cloneLocalSponsorPlacement(
-  placement: LocalSponsorPlacement | undefined,
-) {
-  if (placement === undefined) {
-    return undefined;
-  }
-
-  return {
-    kind: placement.kind,
-    label: placement.label,
-    disclosure: placement.disclosure,
-    logoUrl: placement.logoUrl,
-    imageUrl: placement.imageUrl,
-    eligibleSurfaces: [...placement.eligibleSurfaces],
-    safetyPolicy: {
-      recoveryPriority: { ...placement.safetyPolicy.recoveryPriority },
-      pushNotifications: { ...placement.safetyPolicy.pushNotifications },
-    },
+    activeSponsorPlacements: cloneLocalSponsorPlacements(
+      summary.activeSponsorPlacements,
+    ),
   };
 }
 

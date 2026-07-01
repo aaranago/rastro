@@ -132,6 +132,7 @@ export interface ResourceProviderSummary {
   distanceMeters?: number;
   isVerified?: boolean;
   sponsorPlacement?: LocalSponsorPlacement;
+  activeSponsorPlacements?: LocalSponsorPlacement[];
   isOpenNow?: boolean;
   emergencyAvailable?: boolean;
   logoUrl?: string;

@@ -70,6 +70,16 @@ describe("createApiResourcesAdapter", () => {
           ...apiProvider,
           distanceMeters: 800,
           sponsorPlacement: sponsorPlacementWithAdminIds,
+          activeSponsorPlacements: [
+            sponsorPlacementWithAdminIds,
+            {
+              ...apiProvider.sponsorPlacement,
+              imageUrl: "https://example.com/provider-details-sponsor.png",
+              eligibleSurfaces: ["provider_details" as const],
+              label: "Perfil",
+              logoAssetId: "44444444-4444-4444-8444-444444444444",
+            } as unknown as typeof apiProvider.sponsorPlacement,
+          ],
         },
       ],
       searchBoundary: {
@@ -129,6 +139,19 @@ describe("createApiResourcesAdapter", () => {
               },
             },
           },
+          activeSponsorPlacements: [
+            {
+              eligibleSurfaces: ["resources_directory"],
+              imageUrl: "https://example.com/sponsor-banner.png",
+              label: "Patrocinado",
+              logoUrl: "https://example.com/sponsor-logo.png",
+            },
+            {
+              eligibleSurfaces: ["provider_details"],
+              imageUrl: "https://example.com/provider-details-sponsor.png",
+              label: "Perfil",
+            },
+          ],
         },
       ],
     });

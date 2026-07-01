@@ -605,6 +605,104 @@ describe("resource provider repository", () => {
         },
       },
     });
+    expect(summary.activeSponsorPlacements).toEqual([summary.sponsorPlacement]);
+  });
+
+  it("returns active sponsor placements for each eligible surface without collapsing to the first active placement", () => {
+    const summary = toPublicResourceProviderSummary(
+      persistedProvider({
+        sponsorPlacements: [
+          {
+            id: "33333333-3333-4333-8333-333333333333",
+            surface: "provider_details",
+            label: "Aliado local",
+            disclosure:
+              "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+            logoUrl: null,
+            imageUrl: "https://example.com/provider-details-sponsor.png",
+            startsAt: new Date("2026-07-01T00:00:00.000Z"),
+            endsAt: new Date("2026-07-31T23:59:59.999Z"),
+          },
+          {
+            id: "22222222-2222-4222-8222-222222222222",
+            surface: "resources_directory",
+            label: "Patrocinado",
+            disclosure:
+              "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+            logoUrl: "https://example.com/sponsor-logo.png",
+            imageUrl: null,
+            startsAt: new Date("2026-07-01T00:00:00.000Z"),
+            endsAt: new Date("2026-07-31T23:59:59.999Z"),
+          },
+        ],
+      }),
+      {
+        now: new Date("2026-07-15T12:00:00.000Z"),
+      },
+    );
+
+    expect(summary.sponsorPlacement).toMatchObject({
+      eligibleSurfaces: ["resources_directory"],
+      label: "Patrocinado",
+      logoUrl: "https://example.com/sponsor-logo.png",
+    });
+    expect(summary.activeSponsorPlacements).toEqual([
+      expect.objectContaining({
+        eligibleSurfaces: ["resources_directory"],
+        label: "Patrocinado",
+        logoUrl: "https://example.com/sponsor-logo.png",
+      }),
+      expect.objectContaining({
+        eligibleSurfaces: ["provider_details"],
+        label: "Aliado local",
+        imageUrl: "https://example.com/provider-details-sponsor.png",
+      }),
+    ]);
+  });
+
+  it("keeps active sponsor placements visible when sponsor media is missing or broken", () => {
+    const summary = toPublicResourceProviderSummary(
+      persistedProvider({
+        sponsorPlacements: [
+          {
+            id: "22222222-2222-4222-8222-222222222222",
+            surface: "resources_directory",
+            label: "Patrocinado",
+            disclosure:
+              "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+            logoUrl: "nota-url",
+            imageUrl: null,
+            startsAt: new Date("2026-07-01T00:00:00.000Z"),
+            endsAt: new Date("2026-07-31T23:59:59.999Z"),
+          },
+        ],
+      }),
+      {
+        now: new Date("2026-07-15T12:00:00.000Z"),
+      },
+    );
+
+    expect(summary.activeSponsorPlacements).toEqual([
+      {
+        kind: "Local Sponsor Placement",
+        label: "Patrocinado",
+        disclosure:
+          "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+        eligibleSurfaces: ["resources_directory"],
+        safetyPolicy: {
+          recoveryPriority: {
+            label: "Recovery Priority",
+            canAffect: false,
+          },
+          pushNotifications: {
+            eligible: false,
+          },
+        },
+      },
+    ]);
+    expect(summary.sponsorPlacement).toEqual(
+      summary.activeSponsorPlacements?.[0],
+    );
   });
 
   it("omits inactive sponsor placements from public provider output", () => {
@@ -613,6 +711,7 @@ describe("resource provider repository", () => {
     });
 
     expect(summary.sponsorPlacement).toBeUndefined();
+    expect(summary.activeSponsorPlacements).toBeUndefined();
   });
 
   it("maps profile-only fields without exposing private location details", () => {

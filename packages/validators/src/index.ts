@@ -537,11 +537,143 @@ export function buildApproximatePublicResourceProviderLocation({
   };
 }
 
-const publicResourceProviderContactOptionSchema = z.object({
-  kind: resourceProviderContactKindSchema,
-  label: z.string().min(1).max(80),
-  value: z.string().min(1).max(500),
+const resourceProviderPhoneNumberValueSchema = z
+  .string()
+  .trim()
+  .min(6)
+  .max(64)
+  .regex(/^\+?[0-9][0-9 ().-]*[0-9]$/, "Expected a valid phone number.")
+  .transform(normalizeResourceProviderPhoneNumber)
+  .refine(
+    (value) => /^\+[1-9][0-9]{6,14}$/.test(value),
+    "Expected a valid phone number.",
+  );
+
+const resourceProviderEmailValueSchema = z
+  .string()
+  .trim()
+  .min(3)
+  .max(320)
+  .transform(normalizeResourceProviderEmail)
+  .pipe(z.email().max(254));
+
+const resourceProviderHttpUrlSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(500)
+  .transform(normalizeResourceProviderHttpUrl)
+  .pipe(
+    z
+      .url()
+      .max(500)
+      .refine(
+        (value) => /^https?:\/\//i.test(value),
+        "Expected an HTTP(S) URL.",
+      )
+      .refine(
+        hasResourceProviderHttpUrlHost,
+        "Expected a URL with a public host.",
+      ),
+  );
+
+const resourceProviderContactLabelSchema = z.string().trim().min(1).max(80);
+
+const resourceProviderPhoneContactOptionSchema = z.object({
+  kind: z.literal("phone"),
+  label: resourceProviderContactLabelSchema,
+  value: resourceProviderPhoneNumberValueSchema,
 });
+
+const resourceProviderWhatsappContactOptionSchema = z.object({
+  kind: z.literal("whatsapp"),
+  label: resourceProviderContactLabelSchema,
+  value: resourceProviderPhoneNumberValueSchema,
+});
+
+const resourceProviderWebsiteContactOptionSchema = z.object({
+  kind: z.literal("website"),
+  label: resourceProviderContactLabelSchema,
+  value: resourceProviderHttpUrlSchema,
+});
+
+const resourceProviderEmailContactOptionSchema = z.object({
+  kind: z.literal("email"),
+  label: resourceProviderContactLabelSchema,
+  value: resourceProviderEmailValueSchema,
+});
+
+const resourceProviderDirectionsContactOptionSchema = z.object({
+  kind: z.literal("directions"),
+  label: resourceProviderContactLabelSchema,
+  value: resourceProviderHttpUrlSchema,
+});
+
+const resourceProviderSocialContactOptionSchema = z.object({
+  kind: z.literal("social"),
+  label: resourceProviderContactLabelSchema,
+  value: resourceProviderHttpUrlSchema,
+});
+
+const publicResourceProviderContactOptionSchema = z.discriminatedUnion("kind", [
+  resourceProviderPhoneContactOptionSchema,
+  resourceProviderWhatsappContactOptionSchema,
+  resourceProviderWebsiteContactOptionSchema,
+  resourceProviderEmailContactOptionSchema,
+  resourceProviderDirectionsContactOptionSchema,
+  resourceProviderSocialContactOptionSchema,
+]);
+
+function normalizeResourceProviderPhoneNumber(value: string) {
+  const trimmed = value.trim();
+  const digits = trimmed.replace(/\D/g, "");
+
+  if (trimmed.startsWith("00")) {
+    return `+${digits.slice(2)}`;
+  }
+
+  if (trimmed.startsWith("+") || digits.startsWith("591")) {
+    return `+${digits}`;
+  }
+
+  if (digits.length === 7 || digits.length === 8) {
+    return `+591${digits}`;
+  }
+
+  return `+${digits}`;
+}
+
+function normalizeResourceProviderEmail(value: string) {
+  const trimmed = value.trim();
+  const withoutMailto = trimmed.replace(/^mailto:/i, "");
+  const [address] = withoutMailto.split("?");
+
+  return (address ?? withoutMailto).trim().toLowerCase();
+}
+
+function normalizeResourceProviderHttpUrl(value: string) {
+  const trimmed = value.trim();
+  const withProtocol = /^[a-z][a-z0-9+.-]*:/i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+
+  return withProtocol.replace(/^https?:\/\//i, (protocol) =>
+    protocol.toLowerCase(),
+  );
+}
+
+function hasResourceProviderHttpUrlHost(value: string) {
+  const authority = value.replace(/^https?:\/\//i, "").split(/[/?#]/)[0];
+  const host = authority?.split("@").pop()?.split(":")[0]?.toLowerCase();
+
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "10.0.2.2" ||
+    /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host ?? "") ||
+    /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(host ?? "")
+  );
+}
 
 const resourceProviderLocationInputSchema = z
   .object({
@@ -587,8 +719,8 @@ const resourceProviderLocationUpdateInputSchema = z
   });
 
 const resourceProviderLinkSchema = z.object({
-  label: z.string().min(1).max(80),
-  url: z.url(),
+  label: z.string().trim().min(1).max(80),
+  url: resourceProviderHttpUrlSchema,
 });
 
 export const createResourceProviderInputSchema = z.object({
@@ -597,9 +729,9 @@ export const createResourceProviderInputSchema = z.object({
   description: z.string().min(10).max(500),
   shortDescription: z.string().min(10).max(1000),
   logoAssetId: z.uuid().optional(),
-  logoUrl: z.url().optional(),
+  logoUrl: resourceProviderHttpUrlSchema.optional(),
   photoAssetId: z.uuid().optional(),
-  photoUrl: z.url().optional(),
+  photoUrl: resourceProviderHttpUrlSchema.optional(),
   location: resourceProviderLocationInputSchema,
   serviceAreaLabel: z.string().min(2).max(160),
   hoursLabel: z.string().min(2).max(160),
@@ -607,7 +739,7 @@ export const createResourceProviderInputSchema = z.object({
     .array(publicResourceProviderContactOptionSchema)
     .min(1)
     .max(8),
-  websiteUrl: z.url().optional(),
+  websiteUrl: resourceProviderHttpUrlSchema.optional(),
   socialLinks: z.array(resourceProviderLinkSchema).max(6).optional(),
   externalLinks: z.array(resourceProviderLinkSchema).max(6).optional(),
   emergencyAvailable: z.boolean().default(false),
@@ -622,9 +754,9 @@ export const updateResourceProviderInputSchema = z
     description: z.string().min(10).max(500).optional(),
     shortDescription: z.string().min(10).max(1000).optional(),
     logoAssetId: z.uuid().nullable().optional(),
-    logoUrl: z.url().nullable().optional(),
+    logoUrl: resourceProviderHttpUrlSchema.nullable().optional(),
     photoAssetId: z.uuid().nullable().optional(),
-    photoUrl: z.url().nullable().optional(),
+    photoUrl: resourceProviderHttpUrlSchema.nullable().optional(),
     location: resourceProviderLocationUpdateInputSchema.optional(),
     serviceAreaLabel: z.string().min(2).max(160).optional(),
     hoursLabel: z.string().min(2).max(160).optional(),
@@ -633,7 +765,7 @@ export const updateResourceProviderInputSchema = z
       .min(1)
       .max(8)
       .optional(),
-    websiteUrl: z.url().nullable().optional(),
+    websiteUrl: resourceProviderHttpUrlSchema.nullable().optional(),
     socialLinks: z
       .array(resourceProviderLinkSchema)
       .max(6)
@@ -707,9 +839,9 @@ const localSponsorPlacementFieldsSchema = z.object({
     .max(240)
     .default("Patrocinado: apoyo local. No cambia la prioridad de reportes."),
   logoAssetId: z.uuid().nullable().optional(),
-  logoUrl: z.url().nullable().optional(),
+  logoUrl: resourceProviderHttpUrlSchema.nullable().optional(),
   imageAssetId: z.uuid().nullable().optional(),
-  imageUrl: z.url().nullable().optional(),
+  imageUrl: resourceProviderHttpUrlSchema.nullable().optional(),
 });
 
 export const attachLocalSponsorPlacementInputSchema =
@@ -879,6 +1011,10 @@ export const publicResourceProviderSummarySchema = z.object({
   distanceMeters: z.number().int().nonnegative().optional(),
   isVerified: z.boolean().optional(),
   sponsorPlacement: localSponsorPlacementPolicySchema.optional(),
+  activeSponsorPlacements: z
+    .array(localSponsorPlacementPolicySchema)
+    .max(5)
+    .optional(),
   isOpenNow: z.boolean().optional(),
   emergencyAvailable: z.boolean().optional(),
   logoUrl: z.url().optional(),

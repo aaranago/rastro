@@ -136,23 +136,34 @@ function toResourceProviderSummary(
     photoUrl: provider.photoUrl,
     serviceAreaLabel: provider.serviceAreaLabel,
     sponsorPlacement: provider.sponsorPlacement
-      ? {
-          kind: provider.sponsorPlacement.kind,
-          label: provider.sponsorPlacement.label,
-          disclosure: provider.sponsorPlacement.disclosure,
-          logoUrl: provider.sponsorPlacement.logoUrl,
-          imageUrl: provider.sponsorPlacement.imageUrl,
-          eligibleSurfaces: [...provider.sponsorPlacement.eligibleSurfaces],
-          safetyPolicy: {
-            recoveryPriority: {
-              ...provider.sponsorPlacement.safetyPolicy.recoveryPriority,
-            },
-            pushNotifications: {
-              ...provider.sponsorPlacement.safetyPolicy.pushNotifications,
-            },
-          },
-        }
+      ? toLocalSponsorPlacement(provider.sponsorPlacement)
       : undefined,
+    activeSponsorPlacements: provider.activeSponsorPlacements?.map(
+      toLocalSponsorPlacement,
+    ),
+  };
+}
+
+function toLocalSponsorPlacement(
+  placement: NonNullable<
+    ResourceNearbyOutput["results"][number]["sponsorPlacement"]
+  >,
+) {
+  return {
+    kind: placement.kind,
+    label: placement.label,
+    disclosure: placement.disclosure,
+    logoUrl: placement.logoUrl,
+    imageUrl: placement.imageUrl,
+    eligibleSurfaces: [...placement.eligibleSurfaces],
+    safetyPolicy: {
+      recoveryPriority: {
+        ...placement.safetyPolicy.recoveryPriority,
+      },
+      pushNotifications: {
+        ...placement.safetyPolicy.pushNotifications,
+      },
+    },
   };
 }
 
