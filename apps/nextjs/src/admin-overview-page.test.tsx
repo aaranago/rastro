@@ -46,6 +46,8 @@ describe("admin overview page", () => {
           hiddenContentCount: 3,
           pendingModerationCount: 5,
           resourceProviderCount: 12,
+          sponsorImpressionCount: 24,
+          sponsorOpenCount: 6,
           suspendedMemberCount: 1,
           verifiedResourceProviderCount: 9,
         },

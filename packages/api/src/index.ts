@@ -118,6 +118,13 @@ export {
   type PetProfileRepository,
 } from "./pet-profile-repository";
 export {
+  createDrizzleLocalSponsorPlacementDeliveryRepository,
+  type LocalSponsorPlacementDeliveryRepository,
+  type PersistedLocalSponsorPlacementDeliveryEvent,
+  type RecordLocalSponsorPlacementDeliveryEventInput,
+  type RecordLocalSponsorPlacementDeliveryEventResult,
+} from "./local-sponsor-placement-delivery-repository";
+export {
   buildLocalSponsorPlacementPolicy,
   buildNearbyResourceProvidersCondition,
   buildNearbyResourceProvidersDistance,

@@ -277,7 +277,8 @@ function SponsorImageWithFallback({
   recyclingKey: string;
   uri: string;
 }) {
-  const [didFail, setDidFail] = useState(false);
+  const [failedUri, setFailedUri] = useState<string | undefined>();
+  const didFail = failedUri === uri;
 
   if (didFail) {
     return (
@@ -294,7 +295,7 @@ function SponsorImageWithFallback({
       source={{ uri }}
       style={imageStyle}
       contentFit="cover"
-      onError={() => setDidFail(true)}
+      onError={() => setFailedUri(uri)}
       recyclingKey={recyclingKey}
     />
   );

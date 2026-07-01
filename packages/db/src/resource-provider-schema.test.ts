@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 
@@ -6,6 +8,8 @@ import {
   adminMediaAssetPurpose,
   adminMediaAssetStatus,
   LocalSponsorPlacement,
+  LocalSponsorPlacementDeliveryEvent,
+  localSponsorPlacementDeliveryEventType,
   localSponsorPlacementSurface,
   moderationReportReason,
   ResourceProvider,
@@ -53,6 +57,10 @@ describe("resource provider schema", () => {
       "launch_home_banner",
       "report_success",
       "contextual_care_resources",
+    ]);
+    expect(localSponsorPlacementDeliveryEventType.enumValues).toEqual([
+      "impression",
+      "open",
     ]);
     expect(moderationReportReason.enumValues).toEqual([
       "spam",
@@ -108,6 +116,34 @@ describe("resource provider schema", () => {
     expect(LocalSponsorPlacement.imageUrl.notNull).toBe(false);
   });
 
+  it("stores paid sponsor delivery events without making placement ids public", () => {
+    const indexes = getTableConfig(
+      LocalSponsorPlacementDeliveryEvent,
+    ).indexes.map((index) => index.config);
+
+    expect(LocalSponsorPlacementDeliveryEvent.placementId).toBeDefined();
+    expect(LocalSponsorPlacementDeliveryEvent.providerId).toBeDefined();
+    expect(LocalSponsorPlacementDeliveryEvent.surface).toBeDefined();
+    expect(LocalSponsorPlacementDeliveryEvent.eventType).toBeDefined();
+    expect(LocalSponsorPlacementDeliveryEvent.idempotencyKey).toBeDefined();
+    expect(LocalSponsorPlacementDeliveryEvent.memberId).toBeDefined();
+    expect(LocalSponsorPlacementDeliveryEvent.source).toBeDefined();
+    expect(LocalSponsorPlacementDeliveryEvent.occurredAt.notNull).toBe(true);
+    expect(
+      indexes.some(
+        (index) =>
+          index.name === "local_sponsor_delivery_event_idempotency_idx" &&
+          index.unique === true,
+      ),
+    ).toBe(true);
+    expect(indexes.map((index) => index.name)).toEqual(
+      expect.arrayContaining([
+        "local_sponsor_delivery_event_placement_idx",
+        "local_sponsor_delivery_event_provider_surface_idx",
+      ]),
+    );
+  });
+
   it("stores admin-owned media assets separately from report media", () => {
     const indexes = getTableConfig(AdminMediaAsset).indexes.map(
       (index) => index.config,
@@ -147,6 +183,9 @@ describe("resource provider schema", () => {
 
     expect(drizzleConfig.tablesFilter).toContain("admin_media_asset");
     expect(drizzleConfig.tablesFilter).toContain("admin_settings");
+    expect(drizzleConfig.tablesFilter).toContain(
+      "local_sponsor_placement_delivery_event",
+    );
   });
 
   it("indexes exact PostGIS search, public location display, contacts, and sponsor windows", () => {
@@ -177,6 +216,21 @@ describe("resource provider schema", () => {
         "local_sponsor_placement_active_window_idx",
       ]),
     );
+  });
+
+  it("adds database-level sponsor window validity and overlap protection", () => {
+    const migration = readFileSync(
+      resolve("drizzle/0020_sponsor_window_constraints.sql"),
+      "utf8",
+    );
+
+    expect(migration).toContain("CREATE EXTENSION IF NOT EXISTS btree_gist");
+    expect(migration).toContain("local_sponsor_placement_valid_window_chk");
+    expect(migration).toContain("starts_at");
+    expect(migration).toContain(
+      "local_sponsor_placement_no_window_overlap_excl",
+    );
+    expect(migration).toContain("tstzrange");
   });
 
   it("persists Resource Provider moderation groups and suppresses duplicate reporter reports", () => {

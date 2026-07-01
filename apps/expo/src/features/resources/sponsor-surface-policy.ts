@@ -28,6 +28,29 @@ export function getLocalSponsorPlacementForSurface(
     : undefined;
 }
 
+export function getLocalSponsorPlacementsForSurface(
+  placement:
+    | LocalSponsorPlacement
+    | readonly LocalSponsorPlacement[]
+    | undefined,
+  surface: LocalSponsorPlacementSurface,
+  options: { limit?: number } = {},
+) {
+  const limit = options.limit ?? 3;
+  const placements = isLocalSponsorPlacementList(placement)
+    ? placement
+    : placement
+      ? [placement]
+      : [];
+
+  return placements
+    .filter((candidate) =>
+      isLocalSponsorPlacementEligibleForSurface(candidate, surface),
+    )
+    .slice(0, limit)
+    .map(cloneRequiredLocalSponsorPlacement);
+}
+
 export function cloneLocalSponsorPlacement(
   placement: LocalSponsorPlacement | undefined,
 ) {

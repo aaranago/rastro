@@ -1,5 +1,5 @@
 import type { LegendListRenderItemProps } from "@legendapp/list";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -118,6 +118,10 @@ export function ResourcesScreen({
   const [isOfflineContent, setIsOfflineContent] = useState(false);
   const [isStaleContent, setIsStaleContent] = useState(false);
   const [reloadVersion, setReloadVersion] = useState(0);
+  const sponsorDeliverySessionIdRef = useRef(
+    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
+  );
+  const recordedSponsorImpressionsRef = useRef(new Set<string>());
 
   const searchQuery = useMemo(
     () => ({
@@ -339,6 +343,71 @@ export function ResourcesScreen({
     [handleRefresh, handleUseCurrentLocation, onManualSearchPress],
   );
 
+  const recordSponsorDelivery = useCallback(
+    (
+      provider: ResourceProviderSummaryViewModel,
+      eventType: "impression" | "open",
+      source: string,
+      idempotencyKey?: string,
+    ) => {
+      if (!provider.isSponsored || !adapter.recordSponsorDelivery) {
+        return;
+      }
+
+      void adapter
+        .recordSponsorDelivery({
+          eventType,
+          idempotencyKey,
+          providerId: provider.id,
+          source,
+          surface: "resources_directory",
+        })
+        .catch(() => undefined);
+    },
+    [adapter],
+  );
+
+  useEffect(() => {
+    if (viewModel.state !== "ready") {
+      return;
+    }
+
+    for (const provider of listData) {
+      if (!provider.isSponsored) {
+        continue;
+      }
+
+      const impressionKey = `${mode}:${provider.id}`;
+
+      if (recordedSponsorImpressionsRef.current.has(impressionKey)) {
+        continue;
+      }
+
+      recordedSponsorImpressionsRef.current.add(impressionKey);
+      recordSponsorDelivery(
+        provider,
+        "impression",
+        `resources-${mode}`,
+        `resources:${sponsorDeliverySessionIdRef.current}:${impressionKey}`,
+      );
+    }
+  }, [listData, mode, recordSponsorDelivery, viewModel.state]);
+
+  const handleOpenProvider = useCallback(
+    (providerId: string) => {
+      const provider = listData.find(
+        (candidate) => candidate.id === providerId,
+      );
+
+      if (provider) {
+        recordSponsorDelivery(provider, "open", `resources-${mode}`);
+      }
+
+      onOpenProvider?.(providerId);
+    },
+    [listData, mode, onOpenProvider, recordSponsorDelivery],
+  );
+
   const renderProvider = useCallback(
     ({ item }: LegendListRenderItemProps<ResourceProviderSummaryViewModel>) => (
       <ResourceProviderCard
@@ -359,11 +428,11 @@ export function ResourcesScreen({
         emergencyLabel={item.emergencyLabel}
         imageUrl={item.logoUrl ?? item.photoUrl}
         contactLabels={item.contactLabels}
-        onOpenProvider={onOpenProvider}
+        onOpenProvider={onOpenProvider ? handleOpenProvider : undefined}
         onReportProvider={onReportProvider}
       />
     ),
-    [onOpenProvider, onReportProvider],
+    [handleOpenProvider, onOpenProvider, onReportProvider],
   );
 
   const header = (
@@ -393,7 +462,7 @@ export function ResourcesScreen({
       onUseCurrentLocationPress={handleUseCurrentLocation}
       onSelectAllCategories={handleSelectAllCategories}
       onToggleCategory={handleToggleCategory}
-      onOpenProvider={onOpenProvider}
+      onOpenProvider={onOpenProvider ? handleOpenProvider : undefined}
       onSelectMapProvider={setSelectedMapProviderId}
       onMapCameraCenterChange={setMapCameraCenter}
       onNoticeAction={handleNoticeAction}
@@ -580,10 +649,7 @@ function ResourcesNoticeSlot({
   viewModel: ResourcesDirectoryViewModel;
   onNoticeAction: (kind: ResourceNoticeAction["kind"]) => void;
 }) {
-  if (
-    !viewModel.notice ||
-    shouldRenderResourcesStateInResults(viewModel)
-  ) {
+  if (!viewModel.notice || shouldRenderResourcesStateInResults(viewModel)) {
     return null;
   }
 
@@ -1136,7 +1202,7 @@ function ResourcesMapPanel({
   );
 }
 
-function ResourceMapSelectedProvider({
+export function ResourceMapSelectedProvider({
   onOpenProvider,
   provider,
 }: {
@@ -1151,25 +1217,52 @@ function ResourceMapSelectedProvider({
 
   const content = (
     <>
-      <View style={styles.mapSelectedIcon}>
-        <ResourceScreenIcon
-          color={resourcesColors.primary}
-          name={getMapMarkerIcon(provider.categoryLabel)}
-          size={21}
-        />
+      <View style={styles.mapSelectedMainRow}>
+        <View style={styles.mapSelectedIcon}>
+          <ResourceScreenIcon
+            color={resourcesColors.primary}
+            name={getMapMarkerIcon(provider.categoryLabel)}
+            size={21}
+          />
+        </View>
+        <View style={styles.mapSelectedCopy}>
+          <View style={styles.mapSelectedTitleRow}>
+            <Text numberOfLines={1} style={styles.mapSelectedTitle}>
+              {provider.name}
+            </Text>
+            {provider.isSponsored ? (
+              <Text numberOfLines={1} style={styles.mapSelectedSponsorBadge}>
+                {provider.sponsorLabel ?? "Patrocinado"}
+              </Text>
+            ) : null}
+          </View>
+          <Text numberOfLines={1} style={styles.mapSelectedMeta}>
+            {[provider.distanceLabel, provider.locationLabel]
+              .filter(Boolean)
+              .join(" · ")}
+          </Text>
+        </View>
+        {onOpenProvider ? (
+          <Text style={styles.mapSelectedAction}>Ver</Text>
+        ) : null}
       </View>
-      <View style={styles.mapSelectedCopy}>
-        <Text numberOfLines={1} style={styles.mapSelectedTitle}>
-          {provider.name}
+      {provider.sponsorDisclosure ? (
+        <Text numberOfLines={2} style={styles.mapSelectedSponsorDisclosure}>
+          {provider.sponsorDisclosure}
         </Text>
-        <Text numberOfLines={1} style={styles.mapSelectedMeta}>
-          {[provider.distanceLabel, provider.locationLabel]
-            .filter(Boolean)
-            .join(" · ")}
-        </Text>
-      </View>
-      {onOpenProvider ? (
-        <Text style={styles.mapSelectedAction}>Ver</Text>
+      ) : null}
+      {provider.sponsorPlacementsForSurface.length > 1 ? (
+        <View style={styles.mapSelectedSponsorChipRow}>
+          {provider.sponsorPlacementsForSurface.map((placement) => (
+            <Text
+              key={`${provider.id}:${placement.label}:${placement.disclosure}`}
+              numberOfLines={1}
+              style={styles.mapSelectedSponsorChip}
+            >
+              {placement.label}
+            </Text>
+          ))}
+        </View>
       ) : null}
     </>
   );
@@ -1817,16 +1910,19 @@ const styles = StyleSheet.create({
     width: 12,
   },
   mapSelectedProvider: {
-    alignItems: "center",
     backgroundColor: resourcesColors.surfaceMuted,
     borderColor: resourcesColors.border,
     borderCurve: "continuous",
     borderRadius: 14,
     borderWidth: 1,
-    flexDirection: "row",
     gap: 10,
     minHeight: 62,
     padding: 10,
+  },
+  mapSelectedMainRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
   },
   mapSelectedIcon: {
     alignItems: "center",
@@ -1840,11 +1936,19 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  mapSelectedTitleRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    minWidth: 0,
+  },
   mapSelectedTitle: {
     color: resourcesColors.text,
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: "900",
     lineHeight: 19,
+    minWidth: 0,
   },
   mapSelectedMeta: {
     color: resourcesColors.muted,
@@ -1856,6 +1960,39 @@ const styles = StyleSheet.create({
     color: resourcesColors.primary,
     fontSize: 13,
     fontWeight: "900",
+  },
+  mapSelectedSponsorBadge: {
+    backgroundColor: resourcesColors.primarySoft,
+    borderRadius: 999,
+    color: resourcesColors.primary,
+    flexShrink: 0,
+    fontSize: 11,
+    fontWeight: "900",
+    overflow: "hidden",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  mapSelectedSponsorChip: {
+    backgroundColor: resourcesColors.primarySoft,
+    borderRadius: 999,
+    color: resourcesColors.primary,
+    fontSize: 11,
+    fontWeight: "800",
+    maxWidth: 120,
+    overflow: "hidden",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  mapSelectedSponsorChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  mapSelectedSponsorDisclosure: {
+    color: resourcesColors.muted,
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 16,
   },
   mapProviderList: {
     gap: 8,

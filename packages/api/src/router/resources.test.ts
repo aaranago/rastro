@@ -225,6 +225,116 @@ describe("resources router", () => {
     expect(findProfileWasCalled).toBe(false);
   });
 
+  it("records sponsor delivery events through backend-resolved active placements", async () => {
+    const calls: unknown[] = [];
+    const caller = createCaller({
+      localSponsorPlacementDeliveryRepository: {
+        record: (input: unknown) => {
+          calls.push(input);
+
+          return Promise.resolve({
+            event: {
+              eventType: "impression",
+              id: "33333333-3333-4333-8333-333333333333",
+              occurredAt: new Date("2026-07-01T12:00:00.000Z"),
+              placementId: "22222222-2222-4222-8222-222222222222",
+              providerId: "11111111-1111-4111-8111-111111111111",
+              source: "resources-map-card",
+              surface: "resources_directory",
+            },
+            status: "recorded",
+          });
+        },
+      },
+      session: {
+        user: {
+          email: "ana@example.com",
+          id: "member-ana",
+        },
+      },
+    });
+
+    const result = await caller.resources.recordSponsorDelivery({
+      eventType: "impression",
+      idempotencyKey:
+        "resources_directory:11111111-1111-4111-8111-111111111111:2026-07-01",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      source: "resources-map-card",
+      surface: "resources_directory",
+    });
+
+    expect(result).toMatchObject({
+      event: {
+        eventType: "impression",
+        providerId: "11111111-1111-4111-8111-111111111111",
+        surface: "resources_directory",
+      },
+      status: "recorded",
+    });
+    expect(JSON.stringify(result)).not.toContain("placementId");
+    expect(calls).toEqual([
+      {
+        eventType: "impression",
+        idempotencyKey:
+          "resources_directory:11111111-1111-4111-8111-111111111111:2026-07-01",
+        memberId: "member-ana",
+        providerId: "11111111-1111-4111-8111-111111111111",
+        source: "resources-map-card",
+        surface: "resources_directory",
+      },
+    ]);
+  });
+
+  it("rejects sponsor delivery placement IDs from public clients", async () => {
+    let recordWasCalled = false;
+    const caller = createCaller({
+      localSponsorPlacementDeliveryRepository: {
+        record: () => {
+          recordWasCalled = true;
+
+          return Promise.resolve({
+            status: "no_active_placement",
+          });
+        },
+      },
+      session: null,
+    });
+
+    await expect(
+      caller.resources.recordSponsorDelivery({
+        eventType: "impression",
+        placementId: "22222222-2222-4222-8222-222222222222",
+        providerId: "11111111-1111-4111-8111-111111111111",
+        surface: "resources_directory",
+      } as never),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect(recordWasCalled).toBe(false);
+  });
+
+  it("no-ops sponsor delivery events when no active placement is available", async () => {
+    const caller = createCaller({
+      localSponsorPlacementDeliveryRepository: {
+        record: () =>
+          Promise.resolve({
+            status: "no_active_placement",
+          }),
+      },
+      session: null,
+    });
+
+    await expect(
+      caller.resources.recordSponsorDelivery({
+        eventType: "open",
+        providerId: "11111111-1111-4111-8111-111111111111",
+        surface: "launch_home_banner",
+      }),
+    ).resolves.toEqual({
+      status: "no_active_placement",
+    });
+  });
+
   it("requires a signed-in member before reporting a Resource Provider", async () => {
     const caller = createCaller({
       resourceProviderModerationRepository: {

@@ -1,11 +1,12 @@
 import { TRPCError } from "@trpc/server";
+import { z } from "zod/v4";
+
 import {
   createAdminListBaseInputSchema,
   moderationReportReasonSchema,
   reportTypeSchema,
   resourceProviderVerificationStatusSchema,
 } from "@acme/validators";
-import { z } from "zod/v4";
 
 import type {
   AdminAuditListResult,
@@ -75,9 +76,7 @@ const adminMemberListInputSchema = adminListBaseInputSchema
       .object({
         createdFrom: z.coerce.date().optional(),
         createdTo: z.coerce.date().optional(),
-        emailVerification: z
-          .enum(["any", "unverified", "verified"])
-          .optional(),
+        emailVerification: z.enum(["any", "unverified", "verified"]).optional(),
         suspension: z.enum(["any", "not_suspended", "suspended"]).optional(),
       })
       .optional(),
@@ -223,9 +222,7 @@ function requireAdmin(ctx: {
 async function recordAdminAuditEvent(
   ctx: {
     adminAuditRepository: {
-      record: (
-        input: RecordAdminAuditEventInput,
-      ) => Promise<unknown>;
+      record: (input: RecordAdminAuditEventInput) => Promise<unknown>;
     };
   },
   admin: { email: string; id: string },
@@ -299,6 +296,8 @@ function toAdminMetricsLocationRow(row: AdminLocationMetricRow) {
     pendingModerationCount:
       row.pendingProviderReportCount + row.pendingReviewReportCount,
     resourceProviderCount: row.resourceProviderCount,
+    sponsorImpressionCount: row.sponsorImpressionCount,
+    sponsorOpenCount: row.sponsorOpenCount,
     suspendedMemberCount: 0,
     verifiedResourceProviderCount: row.verifiedResourceProviderCount,
   };
@@ -319,6 +318,9 @@ function buildAdminMetricsSummary(overview: AdminMetricsOverview) {
         row.pendingReviewReportCount,
       resourceProviderCount:
         accumulator.resourceProviderCount + row.resourceProviderCount,
+      sponsorImpressionCount:
+        accumulator.sponsorImpressionCount + row.sponsorImpressionCount,
+      sponsorOpenCount: accumulator.sponsorOpenCount + row.sponsorOpenCount,
       verifiedResourceProviderCount:
         accumulator.verifiedResourceProviderCount +
         row.verifiedResourceProviderCount,
@@ -329,6 +331,8 @@ function buildAdminMetricsSummary(overview: AdminMetricsOverview) {
       hiddenContentCount: 0,
       pendingModerationCount: 0,
       resourceProviderCount: 0,
+      sponsorImpressionCount: 0,
+      sponsorOpenCount: 0,
       verifiedResourceProviderCount: 0,
     },
   );
@@ -519,13 +523,14 @@ export const adminRouter = createTRPCRouter({
       .input(reportModerationTransitionInputSchema)
       .mutation(async ({ ctx, input }) => {
         const admin = requireAdmin(ctx);
-        const item =
-          await ctx.reportModerationRepository.markFalseReportTarget({
+        const item = await ctx.reportModerationRepository.markFalseReportTarget(
+          {
             adminId: admin.id,
             note: input.note,
             reason: input.reason,
             reportId: input.reportId,
-          });
+          },
+        );
 
         if (!item) {
           throw new TRPCError({ code: "NOT_FOUND" });
@@ -562,9 +567,8 @@ export const adminRouter = createTRPCRouter({
       .input(reportQueueItemInputSchema)
       .query(async ({ ctx, input }) => {
         requireAdmin(ctx);
-        const item = await ctx.reportModerationRepository.getReportQueueItem(
-          input,
-        );
+        const item =
+          await ctx.reportModerationRepository.getReportQueueItem(input);
 
         if (!item) {
           throw new TRPCError({ code: "NOT_FOUND" });

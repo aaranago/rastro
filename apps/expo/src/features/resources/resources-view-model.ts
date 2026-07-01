@@ -11,7 +11,10 @@ import type {
 import {
   cloneLocalSponsorPlacement,
   getLocalSponsorPlacementForSurface,
+  getLocalSponsorPlacementsForSurface,
 } from "./sponsor-surface-policy";
+
+const sponsorPlacementsForSurfaceLimit = 3;
 
 export interface ResourceCategoryOption {
   id: ResourceCategoryId;
@@ -100,6 +103,7 @@ export interface ResourceProviderSummaryViewModel {
   sponsorLabel?: string;
   sponsorDisclosure?: string;
   sponsorPlacement?: LocalSponsorPlacement;
+  sponsorPlacementsForSurface: LocalSponsorPlacement[];
   sponsorLogoUrl?: string;
   sponsorImageUrl?: string;
   availabilityLabel?: string;
@@ -193,6 +197,7 @@ export interface ResourceProviderProfileViewModel {
     url: string;
   }[];
   sponsorPlacement?: LocalSponsorPlacement;
+  sponsorPlacementsForSurface: LocalSponsorPlacement[];
   sponsorDisclosure?: string;
   sponsorLogoUrl?: string;
   sponsorImageUrl?: string;
@@ -252,6 +257,11 @@ export function buildResourcesDirectoryViewModel(
 export function buildResourceProviderProfileViewModel(
   profile: ResourceProviderProfile,
 ): ResourceProviderProfileViewModel {
+  const sponsorPlacementsForSurface = getLocalSponsorPlacementsForSurface(
+    profile.activeSponsorPlacements ?? profile.sponsorPlacement,
+    "provider_details",
+    { limit: sponsorPlacementsForSurfaceLimit },
+  );
   const sponsorPlacement = getLocalSponsorPlacementForSurface(
     profile.activeSponsorPlacements ?? profile.sponsorPlacement,
     "provider_details",
@@ -304,6 +314,7 @@ export function buildResourceProviderProfileViewModel(
     sections: buildProfileSections(profile),
     optionalLinks: buildProfileLinks(profile),
     sponsorPlacement: cloneLocalSponsorPlacement(sponsorPlacement),
+    sponsorPlacementsForSurface,
     sponsorDisclosure: sponsorPlacement?.disclosure,
     sponsorLogoUrl: sponsorPlacement?.logoUrl,
     sponsorImageUrl: sponsorPlacement?.imageUrl,
@@ -343,6 +354,11 @@ function buildPresentationViewModel() {
 function buildProviderSummaryViewModel(
   provider: ResourceProviderSummary,
 ): ResourceProviderSummaryViewModel {
+  const sponsorPlacementsForSurface = getLocalSponsorPlacementsForSurface(
+    provider.activeSponsorPlacements ?? provider.sponsorPlacement,
+    "resources_directory",
+    { limit: sponsorPlacementsForSurfaceLimit },
+  );
   const sponsorPlacement = getLocalSponsorPlacementForSurface(
     provider.activeSponsorPlacements ?? provider.sponsorPlacement,
     "resources_directory",
@@ -371,6 +387,7 @@ function buildProviderSummaryViewModel(
     sponsorLabel: sponsorPlacement?.label,
     sponsorDisclosure: sponsorPlacement?.disclosure,
     sponsorPlacement: cloneLocalSponsorPlacement(sponsorPlacement),
+    sponsorPlacementsForSurface,
     sponsorLogoUrl: sponsorPlacement?.logoUrl,
     sponsorImageUrl: sponsorPlacement?.imageUrl,
     availabilityLabel: provider.isOpenNow === true ? "Abierto" : undefined,

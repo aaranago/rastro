@@ -5,14 +5,28 @@ import { ResourceProviderCard } from "./resource-provider-card";
 
 (globalThis as { React?: typeof React }).React = React;
 
+const reactHookMockState = vi.hoisted(() => ({
+  stateValues: [] as unknown[],
+  stateSetters: [] as ReturnType<typeof vi.fn>[],
+}));
+
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof React>("react");
 
   return {
     ...actual,
     useCallback: <TCallback,>(callback: TCallback) => callback,
-    useState: <TState,>(initialState: TState) =>
-      [initialState, vi.fn()] as const,
+    useState: <TState,>(initialState: TState) => {
+      const setState = vi.fn();
+      const nextState =
+        reactHookMockState.stateValues.length > 0
+          ? (reactHookMockState.stateValues.shift() as TState)
+          : initialState;
+
+      reactHookMockState.stateSetters.push(setState);
+
+      return [nextState, setState] as const;
+    },
   };
 });
 
@@ -110,6 +124,37 @@ describe("ResourceProviderCard", () => {
     expect(findText(card, "Verificado")).toBe(false);
     expect(findText(card, "Reportar")).toBe(false);
     expect(collectImageUris(card)).toEqual([]);
+  });
+
+  it("resets sponsor media failure state when a replacement URL renders", () => {
+    reactHookMockState.stateValues = [
+      false,
+      "https://example.com/old-logo.png",
+      "https://example.com/old-banner.png",
+    ];
+    reactHookMockState.stateSetters = [];
+
+    const card = renderCard({
+      categoryLabel: "Veterinarias",
+      contactLabels: [],
+      description: "Veterinaria local.",
+      id: "provider-sponsored",
+      isSponsored: true,
+      isVerified: false,
+      locationLabel: "Sopocachi, La Paz",
+      name: "Clinica con sponsor",
+      sponsorImageUrl: "https://example.com/new-banner.png",
+      sponsorLogoUrl: "https://example.com/new-logo.png",
+    });
+
+    expect(collectImageUris(card)).toEqual(
+      expect.arrayContaining([
+        "https://example.com/new-logo.png",
+        "https://example.com/new-banner.png",
+      ]),
+    );
+    expect(findText(card, "Sponsor")).toBe(false);
+    expect(findText(card, "Patrocinio")).toBe(false);
   });
 });
 

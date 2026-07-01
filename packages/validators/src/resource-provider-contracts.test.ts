@@ -17,6 +17,7 @@ import {
   moderationReportReasonSchema,
   nearbyResourceProvidersInputSchema,
   publicResourceProviderProfileSchema,
+  recordLocalSponsorPlacementDeliveryInputSchema,
   resourceProviderApproximatePublicLocationRadiusMeters,
   resourceProviderCategorySchema,
   resourceProviderContactKindSchema,
@@ -786,4 +787,30 @@ describe("resource provider validation contracts", () => {
     expect(JSON.stringify(profile)).not.toContain("exactLatitude");
     expect(JSON.stringify(profile)).not.toContain("-16.510231");
   });
+});
+
+it("validates public sponsor delivery events without exposing placement IDs", () => {
+  expect(
+    recordLocalSponsorPlacementDeliveryInputSchema.parse({
+      eventType: "impression",
+      idempotencyKey:
+        "resources_directory:11111111-1111-4111-8111-111111111111:2026-07-01",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      source: "resources-map-card",
+      surface: "resources_directory",
+    }),
+  ).toMatchObject({
+    eventType: "impression",
+    providerId: "11111111-1111-4111-8111-111111111111",
+    surface: "resources_directory",
+  });
+
+  expect(
+    recordLocalSponsorPlacementDeliveryInputSchema.safeParse({
+      eventType: "purchase",
+      placementId: "22222222-2222-4222-8222-222222222222",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      surface: "resources_directory",
+    }).success,
+  ).toBe(false);
 });

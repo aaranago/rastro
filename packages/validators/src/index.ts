@@ -398,6 +398,11 @@ export const localSponsorPlacementSurfaceSchema = z.enum([
   "contextual_care_resources",
 ]);
 
+export const localSponsorPlacementDeliveryEventTypeSchema = z.enum([
+  "impression",
+  "open",
+]);
+
 export const resourceProviderVerificationStatusSchema = z.enum([
   "unverified",
   "verified",
@@ -1025,6 +1030,16 @@ export const detachLocalSponsorPlacementInputSchema = z.object({
   placementId: z.uuid(),
 });
 
+export const recordLocalSponsorPlacementDeliveryInputSchema = z
+  .object({
+    eventType: localSponsorPlacementDeliveryEventTypeSchema,
+    idempotencyKey: z.string().trim().min(1).max(191).optional(),
+    providerId: z.uuid(),
+    source: z.string().trim().min(1).max(80).optional(),
+    surface: localSponsorPlacementSurfaceSchema,
+  })
+  .strict();
+
 export const deleteResourceProviderInputSchema = z.object({
   providerId: z.uuid(),
 });
@@ -1287,6 +1302,9 @@ export type ResourceProviderContactKind = z.infer<
 export type LocalSponsorPlacementSurface = z.infer<
   typeof localSponsorPlacementSurfaceSchema
 >;
+export type LocalSponsorPlacementDeliveryEventType = z.infer<
+  typeof localSponsorPlacementDeliveryEventTypeSchema
+>;
 export type ResourceProviderVerificationStatus = z.infer<
   typeof resourceProviderVerificationStatusSchema
 >;
@@ -1319,6 +1337,9 @@ export type UpdateLocalSponsorPlacementInput = z.infer<
 >;
 export type DetachLocalSponsorPlacementInput = z.infer<
   typeof detachLocalSponsorPlacementInputSchema
+>;
+export type RecordLocalSponsorPlacementDeliveryInput = z.infer<
+  typeof recordLocalSponsorPlacementDeliveryInputSchema
 >;
 export type DeleteResourceProviderInput = z.infer<
   typeof deleteResourceProviderInputSchema

@@ -16,6 +16,8 @@ describe("AdminMetricsDashboard", () => {
     expect(html).toContain("Eventos de auditoría");
     expect(html).toContain("Reportes de abuso");
     expect(html).toContain("Proveedores verificados");
+    expect(html).toContain("Impresiones de patrocinio");
+    expect(html).toContain("Aperturas de patrocinio");
     expect(html).toContain("Por ciudad");
     expect(html).toContain("Por departamento");
     expect(html).toContain("La Paz");
@@ -77,6 +79,8 @@ function metricsOverview(): AdminMetricsOverview {
     hiddenContentCount: index % 4,
     pendingModerationCount: index + 1,
     resourceProviderCount: 5 + index,
+    sponsorImpressionCount: 10 + index,
+    sponsorOpenCount: index % 5,
     suspendedMemberCount: index % 2,
     verifiedResourceProviderCount: 3 + index,
   }));
@@ -92,6 +96,8 @@ function metricsOverview(): AdminMetricsOverview {
         hiddenContentCount: 6,
         pendingModerationCount: 11,
         resourceProviderCount: 21,
+        sponsorImpressionCount: 44,
+        sponsorOpenCount: 8,
         suspendedMemberCount: 2,
         verifiedResourceProviderCount: 17,
       },
@@ -103,6 +109,8 @@ function metricsOverview(): AdminMetricsOverview {
         hiddenContentCount: 3,
         pendingModerationCount: 9,
         resourceProviderCount: 16,
+        sponsorImpressionCount: 31,
+        sponsorOpenCount: 5,
         suspendedMemberCount: 1,
         verifiedResourceProviderCount: 12,
       },
@@ -115,6 +123,8 @@ function metricsOverview(): AdminMetricsOverview {
       hiddenContentCount: 9,
       pendingModerationCount: 20,
       resourceProviderCount: 37,
+      sponsorImpressionCount: 75,
+      sponsorOpenCount: 13,
       suspendedMemberCount: 3,
       verifiedResourceProviderCount: 29,
     },
@@ -129,6 +139,8 @@ function emptySummary() {
     hiddenContentCount: 0,
     pendingModerationCount: 0,
     resourceProviderCount: 0,
+    sponsorImpressionCount: 0,
+    sponsorOpenCount: 0,
     suspendedMemberCount: 0,
     verifiedResourceProviderCount: 0,
   };

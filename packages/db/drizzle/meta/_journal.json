@@ -134,6 +134,20 @@
       "when": 1782882000000,
       "tag": "0018_pet_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1782885600000,
+      "tag": "0019_sponsor_delivery_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1782889200000,
+      "tag": "0020_sponsor_window_constraints",
+      "breakpoints": true
     }
   ]
 }

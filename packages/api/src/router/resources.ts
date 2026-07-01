@@ -18,6 +18,7 @@ import {
   deleteResourceProviderInputSchema,
   detachLocalSponsorPlacementInputSchema,
   nearbyResourceProvidersInputSchema,
+  recordLocalSponsorPlacementDeliveryInputSchema,
   resourceProviderDetailInputSchema,
   updateLocalSponsorPlacementInputSchema,
   updateResourceProviderInputSchema,
@@ -26,6 +27,7 @@ import {
 
 import type { RecordAdminAuditEventInput } from "../admin-audit-repository";
 import type { PersistedAdminMediaAsset } from "../admin-media-repository";
+import type { RecordLocalSponsorPlacementDeliveryEventResult } from "../local-sponsor-placement-delivery-repository";
 import type { StoredObjectHead } from "../media-storage";
 import { AdminMediaAssetReferenceError } from "../admin-media-repository";
 import { SponsorPlacementOverlapError } from "../resource-provider-repository";
@@ -434,6 +436,19 @@ async function assertMemberCanReportResourceProvider(ctx: {
   }
 }
 
+function getOptionalSessionUserId(
+  session:
+    | {
+        user?: {
+          id?: string;
+        } | null;
+      }
+    | null
+    | undefined,
+) {
+  return session?.user?.id;
+}
+
 function rethrowSponsorPlacementWriteError(error: unknown): never {
   if (error instanceof SponsorPlacementOverlapError) {
     throw new TRPCError({
@@ -452,6 +467,26 @@ async function runSponsorPlacementWrite<T>(operation: () => Promise<T>) {
   } catch (error) {
     rethrowSponsorPlacementWriteError(error);
   }
+}
+
+function toPublicSponsorDeliveryResponse(
+  result: RecordLocalSponsorPlacementDeliveryEventResult,
+) {
+  if (result.status === "no_active_placement") {
+    return result;
+  }
+
+  return {
+    event: {
+      eventType: result.event.eventType,
+      id: result.event.id,
+      occurredAt: result.event.occurredAt,
+      providerId: result.event.providerId,
+      ...(result.event.source ? { source: result.event.source } : {}),
+      surface: result.event.surface,
+    },
+    status: result.status,
+  };
 }
 
 export const resourcesRouter = createTRPCRouter({
@@ -509,6 +544,16 @@ export const resourcesRouter = createTRPCRouter({
       }
 
       return result;
+    }),
+  recordSponsorDelivery: publicProcedure
+    .input(recordLocalSponsorPlacementDeliveryInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const result = await ctx.localSponsorPlacementDeliveryRepository.record({
+        ...input,
+        memberId: getOptionalSessionUserId(ctx.session),
+      });
+
+      return toPublicSponsorDeliveryResponse(result);
     }),
   admin: createTRPCRouter({
     createMediaUploadSession: protectedProcedure

@@ -12,6 +12,8 @@ export interface AdminMetricsSummary {
   hiddenContentCount: number;
   pendingModerationCount: number;
   resourceProviderCount: number;
+  sponsorImpressionCount: number;
+  sponsorOpenCount: number;
   suspendedMemberCount: number;
   verifiedResourceProviderCount: number;
 }
@@ -25,6 +27,8 @@ export interface AdminMetricsLocationRow {
   hiddenContentCount: number;
   pendingModerationCount: number;
   resourceProviderCount: number;
+  sponsorImpressionCount: number;
+  sponsorOpenCount: number;
   suspendedMemberCount: number;
   verifiedResourceProviderCount: number;
 }

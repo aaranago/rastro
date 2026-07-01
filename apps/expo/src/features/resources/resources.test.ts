@@ -337,6 +337,64 @@ describe("Resources directory", () => {
     ]);
   });
 
+  it("preserves bounded same-surface sponsor placements in directory and profile view models", () => {
+    const firstDirectoryPlacement = buildSponsorPlacement({
+      eligibleSurfaces: ["resources_directory"],
+      label: "Directorio A",
+    });
+    const secondDirectoryPlacement = buildSponsorPlacement({
+      disclosure: "Patrocinado por aliado local de guardia.",
+      eligibleSurfaces: ["resources_directory"],
+      label: "Directorio B",
+    });
+    const profilePlacement = buildSponsorPlacement({
+      eligibleSurfaces: ["provider_details"],
+      label: "Perfil A",
+    });
+    const secondProfilePlacement = buildSponsorPlacement({
+      disclosure: "Patrocinado por aliado local de perfil.",
+      eligibleSurfaces: ["provider_details"],
+      label: "Perfil B",
+    });
+    const activeSponsorPlacements = [
+      firstDirectoryPlacement,
+      secondDirectoryPlacement,
+      profilePlacement,
+      secondProfilePlacement,
+    ];
+    const directoryViewModel = buildResourcesDirectoryViewModel({
+      providers: [
+        buildProviderSummary({
+          activeSponsorPlacements,
+        }),
+      ],
+      location: {
+        kind: "manual",
+        label: "La Paz",
+      },
+      mode: "list",
+      status: "ready",
+    });
+    const profileViewModel = buildResourceProviderProfileViewModel(
+      buildProviderProfile({
+        activeSponsorPlacements,
+      }),
+    );
+
+    expect(
+      directoryViewModel.results[0]?.sponsorPlacementsForSurface.map(
+        (placement) => placement.label,
+      ),
+    ).toEqual(["Directorio A", "Directorio B"]);
+    expect(directoryViewModel.results[0]?.sponsorLabel).toBe("Directorio A");
+    expect(
+      profileViewModel.sponsorPlacementsForSurface.map(
+        (placement) => placement.label,
+      ),
+    ).toEqual(["Perfil A", "Perfil B"]);
+    expect(profileViewModel.sponsorPlacement?.label).toBe("Perfil A");
+  });
+
   it("keeps correct-surface directory sponsor media optional and policy explicit", () => {
     const provider = buildProviderSummary({
       sponsorPlacement: buildSponsorPlacement({

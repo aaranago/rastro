@@ -41,6 +41,7 @@ export default {
     "resource_provider_location",
     "resource_provider_contact_option",
     "local_sponsor_placement",
+    "local_sponsor_placement_delivery_event",
     "resource_provider_moderation_review_item",
     "resource_provider_moderation_report",
   ],

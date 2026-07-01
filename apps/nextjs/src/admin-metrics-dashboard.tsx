@@ -37,6 +37,8 @@ const loadingSummaryCards = [
   "abuse-reports",
   "hidden-content",
   "verified-providers",
+  "sponsor-impressions",
+  "sponsor-opens",
 ] as const;
 const loadingRows = ["row-1", "row-2", "row-3", "row-4", "row-5"] as const;
 
@@ -123,6 +125,16 @@ function MetricsSummary(props: { summary: AdminMetricsSummary }) {
       value: props.summary.activeSponsorPlacementCount,
     },
     {
+      description: "Registros de banner o placement mostrado al usuario.",
+      label: "Impresiones de patrocinio",
+      value: props.summary.sponsorImpressionCount,
+    },
+    {
+      description: "Aperturas desde placements patrocinados activos.",
+      label: "Aperturas de patrocinio",
+      value: props.summary.sponsorOpenCount,
+    },
+    {
       description: "Miembros suspendidos por seguridad o abuso.",
       label: "Miembros suspendidos",
       value: props.summary.suspendedMemberCount,
@@ -132,7 +144,7 @@ function MetricsSummary(props: { summary: AdminMetricsSummary }) {
   return (
     <section
       aria-label="Resumen de métricas operativas"
-      className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6"
+      className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4"
     >
       {cards.map((card) => (
         <Card className="min-w-0 rounded-lg" key={card.label}>
@@ -206,28 +218,34 @@ function MetricsLocationTable(props: {
               </TableCaption>
               <TableHeader className="bg-muted/70 sticky top-0 z-10">
                 <TableRow>
-                  <TableHead className="w-[24%] px-3 py-3 whitespace-normal">
+                  <TableHead className="w-[20%] px-3 py-3 whitespace-normal">
                     {props.mode === "city" ? "Ciudad" : "Departamento"}
                   </TableHead>
-                  <TableHead className="w-[9%] px-3 py-3 text-right whitespace-normal">
+                  <TableHead className="w-[8%] px-3 py-3 text-right whitespace-normal">
                     Abuso
                   </TableHead>
-                  <TableHead className="w-[12%] px-3 py-3 text-right whitespace-normal">
+                  <TableHead className="w-[10%] px-3 py-3 text-right whitespace-normal">
                     Pendiente
                   </TableHead>
-                  <TableHead className="w-[9%] px-3 py-3 text-right whitespace-normal">
+                  <TableHead className="w-[8%] px-3 py-3 text-right whitespace-normal">
                     Oculto
                   </TableHead>
-                  <TableHead className="w-[13%] px-3 py-3 text-right whitespace-normal">
+                  <TableHead className="w-[10%] px-3 py-3 text-right whitespace-normal">
                     Proveedores
                   </TableHead>
-                  <TableHead className="w-[13%] px-3 py-3 text-right whitespace-normal">
+                  <TableHead className="w-[10%] px-3 py-3 text-right whitespace-normal">
                     Verificados
                   </TableHead>
-                  <TableHead className="w-[10%] px-3 py-3 text-right whitespace-normal">
+                  <TableHead className="w-[9%] px-3 py-3 text-right whitespace-normal">
                     Patrocinios
                   </TableHead>
-                  <TableHead className="w-[10%] px-3 py-3 text-right whitespace-normal">
+                  <TableHead className="w-[9%] px-3 py-3 text-right whitespace-normal">
+                    Impresiones
+                  </TableHead>
+                  <TableHead className="w-[8%] px-3 py-3 text-right whitespace-normal">
+                    Aperturas
+                  </TableHead>
+                  <TableHead className="w-[8%] px-3 py-3 text-right whitespace-normal">
                     Suspendidos
                   </TableHead>
                 </TableRow>
@@ -246,6 +264,8 @@ function MetricsLocationTable(props: {
                       value={row.verifiedResourceProviderCount}
                     />
                     <MetricNumberCell value={row.activeSponsorPlacementCount} />
+                    <MetricNumberCell value={row.sponsorImpressionCount} />
+                    <MetricNumberCell value={row.sponsorOpenCount} />
                     <MetricNumberCell value={row.suspendedMemberCount} />
                   </TableRow>
                 ))}
@@ -269,6 +289,8 @@ function MetricsLocationCard(props: {
     ["Proveedores", props.row.resourceProviderCount],
     ["Verificados", props.row.verifiedResourceProviderCount],
     ["Patrocinios", props.row.activeSponsorPlacementCount],
+    ["Impresiones", props.row.sponsorImpressionCount],
+    ["Aperturas", props.row.sponsorOpenCount],
     ["Suspendidos", props.row.suspendedMemberCount],
   ] as const;
 
@@ -356,7 +378,7 @@ function AdminMetricsLoadingState() {
     <>
       <section
         aria-label="Cargando resumen de métricas"
-        className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6"
       >
         {loadingSummaryCards.map((card) => (
           <Card className="rounded-lg" key={card}>

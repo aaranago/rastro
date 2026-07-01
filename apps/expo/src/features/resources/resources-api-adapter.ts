@@ -23,6 +23,10 @@ export type ResourceProviderReportApiInput =
   RouterInputs["resources"]["reportProvider"];
 export type ResourceProviderReportApiOutput =
   RouterOutputs["resources"]["reportProvider"];
+export type ResourceSponsorDeliveryApiInput =
+  RouterInputs["resources"]["recordSponsorDelivery"];
+export type ResourceSponsorDeliveryApiOutput =
+  RouterOutputs["resources"]["recordSponsorDelivery"];
 
 export interface ResourcesApiClient {
   resources: {
@@ -36,6 +40,11 @@ export interface ResourcesApiClient {
       mutate: (
         input: ResourceProviderReportApiInput,
       ) => Promise<ResourceProviderReportApiOutput>;
+    };
+    recordSponsorDelivery: {
+      mutate: (
+        input: ResourceSponsorDeliveryApiInput,
+      ) => Promise<ResourceSponsorDeliveryApiOutput>;
     };
   };
 }
@@ -105,6 +114,9 @@ export function createApiResourcesAdapter({
     },
     reportProvider(input) {
       return reportProvider(client, input);
+    },
+    recordSponsorDelivery(input) {
+      return client.resources.recordSponsorDelivery.mutate(input);
     },
   };
 }

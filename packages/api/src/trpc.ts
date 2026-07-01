@@ -19,6 +19,7 @@ import type { AdminMetricsRepository } from "./admin-metrics-repository";
 import type { AdminSettingsRepository } from "./admin-settings-repository";
 import type { AlertRepository } from "./alert-repository";
 import type { ChatRepository } from "./chat-repository";
+import type { LocalSponsorPlacementDeliveryRepository } from "./local-sponsor-placement-delivery-repository";
 import type { MediaStorage, MediaStorageConfig } from "./media-storage";
 import type { MemberProfileRepository } from "./member-profile-repository";
 import type { MemberSuspensionRepository } from "./member-suspension-repository";
@@ -34,6 +35,7 @@ import { createDrizzleAdminMetricsRepository } from "./admin-metrics-repository"
 import { createDrizzleAdminSettingsRepository } from "./admin-settings-repository";
 import { createDrizzleAlertRepository } from "./alert-repository";
 import { createDrizzleChatRepository } from "./chat-repository";
+import { createDrizzleLocalSponsorPlacementDeliveryRepository } from "./local-sponsor-placement-delivery-repository";
 import {
   createS3MediaStorage,
   createUnavailableMediaStorage,
@@ -79,6 +81,7 @@ export const createTRPCContext = async (opts: {
   mediaRepository: ReportMediaRepository;
   mediaStorageConfig: MediaStorageConfig | null;
   mediaStorage: MediaStorage;
+  localSponsorPlacementDeliveryRepository: LocalSponsorPlacementDeliveryRepository;
   memberProfileRepository: MemberProfileRepository;
   memberSuspensionRepository: MemberSuspensionRepository;
   petProfileRepository: PetProfileRepository;
@@ -122,6 +125,8 @@ export const createTRPCContext = async (opts: {
     mediaStorage: mediaStorageConfig
       ? createS3MediaStorage(mediaStorageConfig)
       : createUnavailableMediaStorage(),
+    localSponsorPlacementDeliveryRepository:
+      createDrizzleLocalSponsorPlacementDeliveryRepository(db),
     memberProfileRepository: createDrizzleMemberProfileRepository(db),
     memberSuspensionRepository: createDrizzleMemberSuspensionRepository(db),
     petProfileRepository: createDrizzlePetProfileRepository(db),

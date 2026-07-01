@@ -1,6 +1,7 @@
 import type { LastLoadedCache } from "../resilience/last-loaded-cache";
 import type { TrustSafetyRepository } from "../trust-safety";
 import type {
+  LocalSponsorPlacementSurface,
   ResourceCategoryId,
   ResourceCoordinate,
   ResourceProviderAdminReviewItem,
@@ -89,6 +90,26 @@ export interface ResourceProviderReportReceipt {
   moderationItem: ResourceModerationItem;
 }
 
+export interface ResourceSponsorDeliveryInput {
+  eventType: "impression" | "open";
+  idempotencyKey?: string;
+  providerId: string;
+  source?: string;
+  surface: LocalSponsorPlacementSurface;
+}
+
+export interface ResourceSponsorDeliveryReceipt {
+  event?: {
+    eventType: "impression" | "open";
+    id: string;
+    occurredAt: Date | string;
+    providerId: string;
+    source?: string;
+    surface: LocalSponsorPlacementSurface;
+  };
+  status: "duplicate" | "no_active_placement" | "recorded";
+}
+
 export interface ResourcesAdapter {
   getProviderProfileDetail?: (
     providerId: string,
@@ -105,6 +126,9 @@ export interface ResourcesAdapter {
   reportProvider: (
     input: ResourceProviderReportInput,
   ) => Promise<ResourceProviderReportReceipt>;
+  recordSponsorDelivery?: (
+    input: ResourceSponsorDeliveryInput,
+  ) => Promise<ResourceSponsorDeliveryReceipt>;
 }
 
 export type ResourcesSessionState =

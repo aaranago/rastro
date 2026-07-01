@@ -259,6 +259,47 @@ describe("createApiResourcesAdapter", () => {
     });
   });
 
+  it("records sponsor delivery events through the resources API", async () => {
+    const recordSponsorDelivery = vi.fn().mockResolvedValue({
+      event: {
+        eventType: "impression",
+        id: "33333333-3333-4333-8333-333333333333",
+        occurredAt: "2026-07-15T12:00:00.000Z",
+        providerId: "11111111-1111-4111-8111-111111111111",
+        source: "resources-list",
+        surface: "resources_directory",
+      },
+      status: "recorded",
+    });
+    const adapter = createApiResourcesAdapter({
+      client: createClient({ recordSponsorDelivery }),
+    });
+
+    await expect(
+      adapter.recordSponsorDelivery?.({
+        eventType: "impression",
+        idempotencyKey:
+          "resources:session:11111111-1111-4111-8111-111111111111",
+        providerId: "11111111-1111-4111-8111-111111111111",
+        source: "resources-list",
+        surface: "resources_directory",
+      }),
+    ).resolves.toMatchObject({
+      event: {
+        eventType: "impression",
+        providerId: "11111111-1111-4111-8111-111111111111",
+      },
+      status: "recorded",
+    });
+    expect(recordSponsorDelivery).toHaveBeenCalledWith({
+      eventType: "impression",
+      idempotencyKey: "resources:session:11111111-1111-4111-8111-111111111111",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      source: "resources-list",
+      surface: "resources_directory",
+    });
+  });
+
   it("does not fake successful provider reports when the API rejects", async () => {
     const adapter = createApiResourcesAdapter({
       client: createClient({
@@ -281,10 +322,12 @@ describe("createApiResourcesAdapter", () => {
 function createClient({
   detail = vi.fn(),
   nearby = vi.fn(),
+  recordSponsorDelivery = vi.fn(),
   reportProvider = vi.fn(),
 }: {
   detail?: ResourcesApiClient["resources"]["detail"]["query"];
   nearby?: ResourcesApiClient["resources"]["nearby"]["query"];
+  recordSponsorDelivery?: ResourcesApiClient["resources"]["recordSponsorDelivery"]["mutate"];
   reportProvider?: ResourcesApiClient["resources"]["reportProvider"]["mutate"];
 } = {}): ResourcesApiClient {
   return {
@@ -297,6 +340,9 @@ function createClient({
       },
       reportProvider: {
         mutate: reportProvider,
+      },
+      recordSponsorDelivery: {
+        mutate: recordSponsorDelivery,
       },
     },
   };

@@ -273,6 +273,11 @@ export const localSponsorPlacementSurface = pgEnum(
   ],
 );
 
+export const localSponsorPlacementDeliveryEventType = pgEnum(
+  "local_sponsor_placement_delivery_event_type",
+  ["impression", "open"],
+);
+
 export const publicLocationPrecision = pgEnum("public_location_precision", [
   "exact",
   "approximate",
@@ -1129,6 +1134,45 @@ export const LocalSponsorPlacement = pgTable(
   ],
 );
 
+export const LocalSponsorPlacementDeliveryEvent = pgTable(
+  "local_sponsor_placement_delivery_event",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    placementId: t
+      .uuid()
+      .notNull()
+      .references(() => LocalSponsorPlacement.id, { onDelete: "cascade" }),
+    providerId: t
+      .uuid()
+      .notNull()
+      .references(() => ResourceProvider.id, { onDelete: "cascade" }),
+    surface: localSponsorPlacementSurface().notNull(),
+    eventType: localSponsorPlacementDeliveryEventType().notNull(),
+    idempotencyKey: t.varchar({ length: 191 }),
+    memberId: t.text().references(() => user.id, { onDelete: "set null" }),
+    source: t.varchar({ length: 80 }),
+    occurredAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  }),
+  (table) => [
+    uniqueIndex("local_sponsor_delivery_event_idempotency_idx").on(
+      table.idempotencyKey,
+    ),
+    index("local_sponsor_delivery_event_placement_idx").on(
+      table.placementId,
+      table.occurredAt,
+    ),
+    index("local_sponsor_delivery_event_provider_surface_idx").on(
+      table.providerId,
+      table.surface,
+      table.eventType,
+      table.occurredAt,
+    ),
+  ],
+);
+
 export const ResourceProviderModerationReviewItem = pgTable(
   "resource_provider_moderation_review_item",
   (t) => ({
@@ -1515,13 +1559,32 @@ export const resourceProviderContactOptionRelations = relations(
 
 export const localSponsorPlacementRelations = relations(
   LocalSponsorPlacement,
-  ({ one }) => ({
+  ({ one, many }) => ({
     createdByAdmin: one(user, {
       fields: [LocalSponsorPlacement.createdByAdminId],
       references: [user.id],
     }),
+    deliveryEvents: many(LocalSponsorPlacementDeliveryEvent),
     provider: one(ResourceProvider, {
       fields: [LocalSponsorPlacement.providerId],
+      references: [ResourceProvider.id],
+    }),
+  }),
+);
+
+export const localSponsorPlacementDeliveryEventRelations = relations(
+  LocalSponsorPlacementDeliveryEvent,
+  ({ one }) => ({
+    member: one(user, {
+      fields: [LocalSponsorPlacementDeliveryEvent.memberId],
+      references: [user.id],
+    }),
+    placement: one(LocalSponsorPlacement, {
+      fields: [LocalSponsorPlacementDeliveryEvent.placementId],
+      references: [LocalSponsorPlacement.id],
+    }),
+    provider: one(ResourceProvider, {
+      fields: [LocalSponsorPlacementDeliveryEvent.providerId],
       references: [ResourceProvider.id],
     }),
   }),
