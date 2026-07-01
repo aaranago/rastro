@@ -34,6 +34,24 @@ const mobileNextBaseUrl = trimTrailingSlash(
   process.env.RASTRO_E2E_MOBILE_NEXT_BASE_URL ?? "http://10.0.2.2:3000",
 );
 const mobileMediaBaseUrl = `${mobileNextBaseUrl}/e2e-media`;
+const providerReportReasons = [
+  "scam",
+  "incorrect_location",
+  "spam",
+  "offensive_content",
+  "animal_cruelty",
+  "impersonation",
+  "other",
+];
+const providerReportReasonLabels = {
+  animal_cruelty: "crueldad animal",
+  impersonation: "suplantación de identidad",
+  incorrect_location: "ubicación incorrecta",
+  offensive_content: "contenido ofensivo",
+  other: "otro motivo",
+  scam: "estafa",
+  spam: "spam",
+};
 const checks = [];
 
 if (process.env.RASTRO_E2E_MOBILE_SEED !== "0") {
@@ -63,9 +81,9 @@ const automation = AutomationFactory.create(platform, {
 
 await grantAndroidRuntimePermissions();
 await openDevelopmentBuild();
-await verifyMemberProfileSettingsWorkflow();
+const memberEmail = await verifyMemberProfileSettingsWorkflow();
 await verifyResourcesDirectory();
-await verifyProviderProfile();
+await verifyProviderProfile({ memberEmail });
 await verifyReportDetails();
 const latestChatMessageText = await verifyChatWorkflow();
 await verifyAlertSubscriptionWorkflow();
@@ -155,7 +173,8 @@ async function verifyMemberProfileSettingsWorkflow() {
   await scrollUntilTestID("member-profile-save-button", { maxSwipes: 4 });
   await screenshot("member-profile-settings-draft.png");
 
-  await updateMemberProfileByEmailFixture({
+  await tapRequired("member-profile-save-button");
+  await assertMemberProfileSavedByEmail({
     displayName,
     email: memberEmail,
     phone,
@@ -184,6 +203,8 @@ async function verifyMemberProfileSettingsWorkflow() {
     id: "member-profile-settings-backend-save",
     ok: true,
   });
+
+  return memberEmail;
 }
 
 async function readCurrentProfileEmail() {
@@ -223,23 +244,31 @@ async function readCurrentProfileEmail() {
   throw new Error("Could not read the current signed-in member email.");
 }
 
-async function updateMemberProfileByEmailFixture({
+async function assertMemberProfileSavedByEmail({
   displayName,
   email,
   phone,
   whatsapp,
 }) {
-  const script = `
+  const result = await runNextjsWithEnvScript(`
     import { eq } from "@acme/db";
     import { db, pool } from "@acme/db/client";
-    import { user } from "@acme/db/schema";
-    import { createDrizzleMemberProfileRepository } from "@acme/api";
+    import { MemberProfile, user } from "@acme/db/schema";
+    import { appRouter, createDrizzleMemberProfileRepository } from "@acme/api";
 
-    async function main() {
+    const expected = {
+      defaultContactPreference: "both",
+      displayName: ${JSON.stringify(displayName)},
+      email: ${JSON.stringify(email)},
+      phone: ${JSON.stringify(phone)},
+      whatsapp: ${JSON.stringify(whatsapp)},
+    };
+
+    async function readSnapshot() {
       const [member] = await db
-        .select({ id: user.id, email: user.email })
+        .select({ email: user.email, id: user.id, name: user.name })
         .from(user)
-        .where(eq(user.email, ${JSON.stringify(email)}))
+        .where(eq(user.email, expected.email))
         .limit(1);
 
       if (!member) {
@@ -247,58 +276,102 @@ async function updateMemberProfileByEmailFixture({
       }
 
       const repository = createDrizzleMemberProfileRepository(db);
-      const result = await repository.update({
-        memberId: member.id,
-        profile: {
-        defaultContactPreference: "both",
-        displayName: ${JSON.stringify(displayName)},
-        phone: ${JSON.stringify(phone)},
-        whatsapp: ${JSON.stringify(whatsapp)},
+      const caller = appRouter.createCaller({
+        memberProfileRepository: repository,
+        session: {
+          user: {
+            email: member.email,
+            id: member.id,
+            name: member.name,
+          },
         },
       });
+      const trpcProfile = await caller.memberProfile.get({});
+      const [dbProfile] = await db
+        .select({
+          defaultContactPreference: MemberProfile.defaultContactPreference,
+          phone: MemberProfile.phone,
+          whatsapp: MemberProfile.whatsapp,
+        })
+        .from(MemberProfile)
+        .where(eq(MemberProfile.memberId, member.id))
+        .limit(1);
 
-      console.log(JSON.stringify(result));
-      await pool.end();
+      return {
+        dbProfile: dbProfile ?? null,
+        member,
+        trpcProfile,
+      };
     }
 
-    main().catch((error) => {
-      console.error(error);
-      process.exit(1);
-    });
-  `;
+    function matchesExpected(snapshot) {
+      return (
+        snapshot.member.name === expected.displayName &&
+        snapshot.trpcProfile.defaultContactPreference ===
+          expected.defaultContactPreference &&
+        snapshot.trpcProfile.displayName === expected.displayName &&
+        snapshot.trpcProfile.phone === expected.phone &&
+        snapshot.trpcProfile.whatsapp === expected.whatsapp &&
+        snapshot.dbProfile?.defaultContactPreference ===
+          expected.defaultContactPreference &&
+        snapshot.dbProfile?.phone === expected.phone &&
+        snapshot.dbProfile?.whatsapp === expected.whatsapp
+      );
+    }
 
-  const { stdout } = await execFileAsync(
-    "pnpm",
-    ["-F", "@acme/nextjs", "with-env", "tsx", "-e", script],
-    {
-      cwd: workspaceRoot,
-      env: process.env,
-      maxBuffer: 4 * 1024 * 1024,
-      timeout: 120000,
-    },
-  );
-  const result = JSON.parse(stdout.trim().split(/\r?\n/).at(-1) ?? "{}");
+    async function main() {
+      let lastSnapshot = null;
 
-  if (
-    result.displayName !== displayName ||
-    result.defaultContactPreference !== "both" ||
-    result.phone !== phone ||
-    result.whatsapp !== whatsapp
-  ) {
-    throw new Error(
-      `Member profile fixture save returned unexpected payload: ${stdout}`,
-    );
-  }
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        const snapshot = await readSnapshot();
+        lastSnapshot = snapshot;
+
+        if (matchesExpected(snapshot)) {
+          return snapshot;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+
+      throw new Error(
+        "Member profile save was not visible through tRPC and DB state: " +
+          JSON.stringify(lastSnapshot),
+      );
+    }
+
+    main()
+      .then((snapshot) => {
+        console.log(JSON.stringify(snapshot));
+      })
+      .catch((error) => {
+        console.error(error);
+        process.exitCode = 1;
+      })
+      .finally(async () => {
+        await pool.end();
+      });
+  `);
+
+  assertExpectedPayloadFields("Member profile Save button proof", result, [
+    ["member.name", displayName],
+    ["trpcProfile.displayName", displayName],
+    ["trpcProfile.defaultContactPreference", "both"],
+    ["trpcProfile.phone", phone],
+    ["trpcProfile.whatsapp", whatsapp],
+    ["dbProfile.defaultContactPreference", "both"],
+    ["dbProfile.phone", phone],
+    ["dbProfile.whatsapp", whatsapp],
+  ]);
 
   checks.push({
     email,
-    id: "member-profile-fixture-backend-update",
+    id: "member-profile-trpc-db-save",
     ok: true,
     result,
   });
 }
 
-async function verifyProviderProfile() {
+async function verifyProviderProfile({ memberEmail }) {
   const provider =
     manifest.providers.find((item) => item.providerDetailsPromotion) ??
     manifest.providers[0];
@@ -321,16 +394,284 @@ async function verifyProviderProfile() {
   await screenshot("provider-profile.png");
   await assertNoBrokenMediaFallbacks("provider-profile");
 
+  const reportReason = await chooseProviderReportReason({
+    memberEmail,
+    providerId: provider.id,
+  });
+  const reportDetail = buildDefaultProviderReportDetail(reportReason.reason);
+
   await scrollUntilTestID("resource-provider-report-button", { maxSwipes: 5 });
   await tapByAutomationRequired("resource-provider-report-button");
   await waitForTestID("resource-provider-report-modal");
   await delay(500);
-  await tapRequired("resource-provider-report-reason-scam");
+  await tapRequired(`resource-provider-report-reason-${reportReason.reason}`);
   await delay(500);
   await screenshot("provider-report-modal.png");
-  await tapAndText("resource-provider-report-detail", "RastroE2Edetalle");
-  await adb(["shell", "input", "keyevent", "KEYCODE_BACK"]);
-  checks.push({ id: "dismiss:provider-report-modal", ok: true });
+  await tapRequired("resource-provider-report-submit");
+  await waitForTestIDToDisappear("resource-provider-report-modal", {
+    timeoutMs: 30000,
+  });
+  await assertProviderReportModerationReceipt({
+    detail: reportDetail,
+    expectNewReport: reportReason.expectNewReport,
+    memberEmail,
+    provider,
+    reason: reportReason.reason,
+  });
+  await screenshot("provider-report-submitted.png");
+  checks.push({
+    id: "provider-report-modal-submit",
+    ok: true,
+    providerId: provider.id,
+    reason: reportReason.reason,
+  });
+}
+
+async function chooseProviderReportReason({ memberEmail, providerId }) {
+  const result = await runNextjsWithEnvScript(`
+    import { and, eq } from "@acme/db";
+    import { db, pool } from "@acme/db/client";
+    import { ResourceProviderModerationReport, user } from "@acme/db/schema";
+
+    const providerId = ${JSON.stringify(providerId)};
+    const memberEmail = ${JSON.stringify(memberEmail)};
+    const reasons = ${JSON.stringify(providerReportReasons)};
+
+    async function main() {
+      const [member] = await db
+        .select({ id: user.id })
+        .from(user)
+        .where(eq(user.email, memberEmail))
+        .limit(1);
+
+      if (!member) {
+        throw new Error("Could not find signed-in member for provider report.");
+      }
+
+      const existingReports = await db
+        .select({ reason: ResourceProviderModerationReport.reason })
+        .from(ResourceProviderModerationReport)
+        .where(
+          and(
+            eq(ResourceProviderModerationReport.providerId, providerId),
+            eq(ResourceProviderModerationReport.reporterId, member.id),
+          ),
+        );
+      const usedReasons = new Set(existingReports.map((item) => item.reason));
+      const reason =
+        reasons.find((candidate) => !usedReasons.has(candidate)) ?? reasons[0];
+
+      return {
+        expectNewReport: !usedReasons.has(reason),
+        reason,
+        reporterId: member.id,
+        usedReasons: [...usedReasons].sort(),
+      };
+    }
+
+    main()
+      .then((payload) => {
+        console.log(JSON.stringify(payload));
+      })
+      .catch((error) => {
+        console.error(error);
+        process.exitCode = 1;
+      })
+      .finally(async () => {
+        await pool.end();
+      });
+  `);
+
+  if (!providerReportReasons.includes(result.reason)) {
+    throw new Error(
+      `Provider report reason selection returned unsupported reason: ${JSON.stringify(
+        result,
+      )}`,
+    );
+  }
+
+  checks.push({
+    id: "provider-report-reason-selected",
+    ok: true,
+    providerId,
+    result,
+  });
+
+  return result;
+}
+
+function buildDefaultProviderReportDetail(reason) {
+  const label = providerReportReasonLabels[reason];
+
+  if (!label) {
+    throw new Error(`Unsupported provider report reason: ${reason}`);
+  }
+
+  return `Reporte de proveedor: ${label}.`;
+}
+
+async function assertProviderReportModerationReceipt({
+  detail,
+  expectNewReport,
+  memberEmail,
+  provider,
+  reason,
+}) {
+  const result = await runNextjsWithEnvScript(`
+    import { and, desc, eq } from "@acme/db";
+    import { db, pool } from "@acme/db/client";
+    import { ResourceProviderModerationReport, user } from "@acme/db/schema";
+    import { appRouter, createDrizzleResourceProviderModerationRepository } from "@acme/api";
+
+    const expected = {
+      detail: ${JSON.stringify(detail)},
+      expectNewReport: ${JSON.stringify(expectNewReport)},
+      memberEmail: ${JSON.stringify(memberEmail)},
+      providerId: ${JSON.stringify(provider.id)},
+      providerName: ${JSON.stringify(provider.name)},
+      reason: ${JSON.stringify(reason)},
+    };
+
+    async function readReceipt() {
+      const [member] = await db
+        .select({ email: user.email, id: user.id, name: user.name })
+        .from(user)
+        .where(eq(user.email, expected.memberEmail))
+        .limit(1);
+
+      if (!member) {
+        throw new Error("Could not find signed-in member for provider report.");
+      }
+
+      const moderationRepository =
+        createDrizzleResourceProviderModerationRepository(db);
+      const caller = appRouter.createCaller({
+        adminEmailList: member.email,
+        resourceProviderModerationRepository: moderationRepository,
+        session: {
+          user: {
+            email: member.email,
+            id: member.id,
+            name: member.name,
+          },
+        },
+      });
+      const queue = await caller.admin.moderation.resourceProviderQueueList({
+        filters: {
+          reason: [expected.reason],
+          status: ["pending"],
+        },
+        page: 1,
+        pageSize: 100,
+        sortBy: "lastReportedAt",
+        sortDirection: "desc",
+      });
+      const queueItem =
+        queue.items.find(
+          (item) =>
+            item.provider.id === expected.providerId &&
+            item.reason === expected.reason,
+        ) ?? null;
+      const [report] = await db
+        .select({
+          createdAt: ResourceProviderModerationReport.createdAt,
+          detail: ResourceProviderModerationReport.detail,
+          id: ResourceProviderModerationReport.id,
+          reason: ResourceProviderModerationReport.reason,
+          reporterId: ResourceProviderModerationReport.reporterId,
+          reviewItemId: ResourceProviderModerationReport.reviewItemId,
+        })
+        .from(ResourceProviderModerationReport)
+        .where(
+          and(
+            eq(ResourceProviderModerationReport.providerId, expected.providerId),
+            eq(ResourceProviderModerationReport.reporterId, member.id),
+            eq(ResourceProviderModerationReport.reason, expected.reason),
+          ),
+        )
+        .orderBy(desc(ResourceProviderModerationReport.createdAt))
+        .limit(1);
+
+      return {
+        member,
+        queueItem,
+        queueTotal: queue.total,
+        report: report
+          ? {
+              ...report,
+              createdAt:
+                report.createdAt instanceof Date
+                  ? report.createdAt.toISOString()
+                  : report.createdAt,
+            }
+          : null,
+      };
+    }
+
+    function matchesReceipt(receipt) {
+      return (
+        receipt.queueItem !== null &&
+        receipt.queueItem.provider.id === expected.providerId &&
+        receipt.queueItem.provider.name === expected.providerName &&
+        receipt.queueItem.reason === expected.reason &&
+        receipt.queueItem.status === "pending" &&
+        receipt.report !== null &&
+        receipt.report.reason === expected.reason &&
+        (!expected.expectNewReport || receipt.report.detail === expected.detail)
+      );
+    }
+
+    async function main() {
+      let lastReceipt = null;
+
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        const receipt = await readReceipt();
+        lastReceipt = receipt;
+
+        if (matchesReceipt(receipt)) {
+          return receipt;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+
+      throw new Error(
+        "Provider report was not visible through admin moderation and DB state: " +
+          JSON.stringify(lastReceipt),
+      );
+    }
+
+    main()
+      .then((receipt) => {
+        console.log(JSON.stringify(receipt));
+      })
+      .catch((error) => {
+        console.error(error);
+        process.exitCode = 1;
+      })
+      .finally(async () => {
+        await pool.end();
+      });
+  `);
+
+  assertExpectedPayloadFields("Provider report moderation proof", result, [
+    ["queueItem.provider.id", provider.id],
+    ["queueItem.provider.name", provider.name],
+    ["queueItem.reason", reason],
+    ["queueItem.status", "pending"],
+    ["report.reason", reason],
+    ...buildOptionalExpectedFieldSpecs(expectNewReport, [
+      ["report.detail", detail],
+    ]),
+  ]);
+
+  checks.push({
+    id: "provider-report-admin-moderation-receipt",
+    ok: true,
+    providerId: provider.id,
+    reason,
+    result,
+  });
 }
 
 async function verifyReportDetails() {
@@ -613,6 +954,75 @@ async function seedFixtureForMobile() {
   });
 }
 
+async function runNextjsWithEnvScript(script, options = {}) {
+  let stdout;
+
+  try {
+    ({ stdout } = await execFileAsync(
+      "pnpm",
+      ["-F", "@acme/nextjs", "with-env", "tsx", "-e", script],
+      {
+        cwd: workspaceRoot,
+        env: process.env,
+        maxBuffer: options.maxBuffer ?? 8 * 1024 * 1024,
+        timeout: options.timeoutMs ?? 120000,
+      },
+    ));
+  } catch (error) {
+    throw new Error(`Next.js env script failed.\n${formatExecError(error)}`);
+  }
+
+  const jsonLine = stdout.trim().split(/\r?\n/).filter(Boolean).at(-1);
+
+  if (!jsonLine) {
+    throw new Error("Next.js env script did not print a JSON payload.");
+  }
+
+  try {
+    return JSON.parse(jsonLine);
+  } catch (error) {
+    throw new Error(
+      `Next.js env script printed invalid JSON payload: ${jsonLine}\n${error}`,
+    );
+  }
+}
+
+function assertExpectedPayloadFields(context, payload, fieldSpecs) {
+  const fields = fieldSpecs.map(([path, expected]) => ({
+    actual: readPayloadPath(payload, path),
+    expected,
+    label: path,
+  }));
+  const mismatches = fields.filter(
+    (field) => !Object.is(field.actual, field.expected),
+  );
+
+  if (mismatches.length === 0) {
+    return;
+  }
+
+  throw new Error(
+    `${context} returned unexpected payload: ${JSON.stringify({
+      mismatches,
+      payload,
+    })}`,
+  );
+}
+
+function buildOptionalExpectedFieldSpecs(include, fieldSpecs) {
+  return include ? fieldSpecs : [];
+}
+
+function readPayloadPath(payload, path) {
+  return path
+    .split(".")
+    .reduce(
+      (current, segment) =>
+        current && typeof current === "object" ? current[segment] : undefined,
+      payload,
+    );
+}
+
 async function waitForTestID(testID, options = {}) {
   const timeoutMs = options.timeoutMs ?? 15000;
   const startedAt = Date.now();
@@ -632,6 +1042,30 @@ async function waitForTestID(testID, options = {}) {
 
   throw new Error(
     `Timed out waiting for ${testID}: ${JSON.stringify(lastResult)}`,
+  );
+}
+
+async function waitForTestIDToDisappear(testID, options = {}) {
+  const timeoutMs = options.timeoutMs ?? 15000;
+  const startedAt = Date.now();
+  let lastResult;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const result = await automation.findViewByTestIDAsync(testID);
+    lastResult = result;
+
+    if (!result.success || !hasUsableBounds(result.data)) {
+      checks.push({ id: `gone:${testID}`, ok: true });
+      return;
+    }
+
+    await delay(500);
+  }
+
+  throw new Error(
+    `Timed out waiting for ${testID} to disappear: ${JSON.stringify(
+      lastResult,
+    )}`,
   );
 }
 
@@ -812,7 +1246,11 @@ async function waitForVisibleText(text, context, options = {}) {
   throw new Error(`Expected visible text on ${context}: ${text}`);
 }
 
-async function findVisibleTestIDContainingText({ context, testIDPrefix, text }) {
+async function findVisibleTestIDContainingText({
+  context,
+  testIDPrefix,
+  text,
+}) {
   const { stdout } = await adb([
     "exec-out",
     "uiautomator",
@@ -899,8 +1337,7 @@ function extractXmlHierarchy(output) {
 
 function extractFirstEmail(output) {
   const xml = extractXmlHierarchy(output);
-  const emailPattern =
-    /(?:text|content-desc)="([^"@\s]+@[^"@\s]+\.[^"@\s]+)"/g;
+  const emailPattern = /(?:text|content-desc)="([^"@\s]+@[^"@\s]+\.[^"@\s]+)"/g;
   let match;
 
   while ((match = emailPattern.exec(xml))) {

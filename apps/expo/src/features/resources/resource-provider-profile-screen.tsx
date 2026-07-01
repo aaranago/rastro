@@ -3,8 +3,10 @@ import type { ComponentProps } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Linking,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -515,152 +517,166 @@ function ProviderReportConfirmationModal({
       transparent
       visible={visible}
     >
-      <View
-        style={[
-          styles.reportModalBackdrop,
-          {
-            paddingBottom: Math.max(insets.bottom + 84, 104),
-            paddingLeft: Math.max(insets.left, 12),
-            paddingRight: Math.max(insets.right, 12),
-            paddingTop: Math.max(insets.top, 12),
-          },
-        ]}
-        testID="resource-provider-report-modal"
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.reportKeyboardAvoider}
       >
-        <Pressable
-          accessibilityLabel="Cerrar reporte de proveedor"
-          accessibilityRole="button"
-          disabled={isSubmitting}
-          onPress={onCancel}
-          testID="resource-provider-report-backdrop"
-          style={StyleSheet.absoluteFill}
-        />
         <View
-          accessibilityLabel={`Reportar ${providerName}`}
-          accessibilityViewIsModal
-          style={styles.reportSheet}
+          style={[
+            styles.reportModalBackdrop,
+            {
+              paddingBottom: Math.max(insets.bottom + 84, 104),
+              paddingLeft: Math.max(insets.left, 12),
+              paddingRight: Math.max(insets.right, 12),
+              paddingTop: Math.max(insets.top, 12),
+            },
+          ]}
+          testID="resource-provider-report-modal"
         >
-          <View style={styles.reportSheetHeader}>
-            <View style={styles.reportSheetTitleGroup}>
-              <Text selectable style={styles.reportSheetTitle}>
-                Reportar proveedor
-              </Text>
-              <Text selectable style={styles.reportSheetBody}>
-                Elige el motivo antes de enviarlo a moderación.
-              </Text>
-            </View>
-            <Pressable
-              accessibilityLabel="Cerrar"
-              accessibilityRole="button"
-              disabled={isSubmitting}
-              onPress={onCancel}
-              testID="resource-provider-report-close"
-              style={({ pressed }) => [
-                styles.reportSheetClose,
-                pressed ? styles.pressed : null,
-              ]}
+          <Pressable
+            accessibilityLabel="Cerrar reporte de proveedor"
+            accessibilityRole="button"
+            disabled={isSubmitting}
+            onPress={onCancel}
+            testID="resource-provider-report-backdrop"
+            style={StyleSheet.absoluteFill}
+          />
+          <View
+            accessibilityLabel={`Reportar ${providerName}`}
+            accessibilityViewIsModal
+            style={styles.reportSheet}
+          >
+            <ScrollView
+              contentContainerStyle={styles.reportSheetContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.reportSheetCloseText}>x</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.reportReasonGrid}>
-            {providerReportReasonOptions.map((option) => {
-              const isSelected = selectedReason === option.value;
-
-              return (
+              <View style={styles.reportSheetHeader}>
+                <View style={styles.reportSheetTitleGroup}>
+                  <Text selectable style={styles.reportSheetTitle}>
+                    Reportar proveedor
+                  </Text>
+                  <Text selectable style={styles.reportSheetBody}>
+                    Elige el motivo antes de enviarlo a moderación.
+                  </Text>
+                </View>
                 <Pressable
+                  accessibilityLabel="Cerrar"
                   accessibilityRole="button"
-                  accessibilityState={{ selected: isSelected }}
-                  key={option.value}
-                  onPress={() => onChangeReason(option.value)}
-                  testID={`resource-provider-report-reason-${option.value}`}
+                  disabled={isSubmitting}
+                  onPress={onCancel}
+                  testID="resource-provider-report-close"
                   style={({ pressed }) => [
-                    styles.reportReasonButton,
-                    isSelected ? styles.reportReasonButtonSelected : null,
+                    styles.reportSheetClose,
                     pressed ? styles.pressed : null,
                   ]}
                 >
-                  <Text
-                    maxFontSizeMultiplier={1.1}
-                    numberOfLines={1}
-                    style={[
-                      styles.reportReasonText,
-                      isSelected ? styles.reportReasonTextSelected : null,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
+                  <Text style={styles.reportSheetCloseText}>x</Text>
                 </Pressable>
-              );
-            })}
-          </View>
+              </View>
 
-          <View style={styles.reportDetailField}>
-            <Text selectable style={styles.reportDetailLabel}>
-              Detalle opcional
-            </Text>
-            <TextInput
-              accessibilityLabel="Detalle del reporte"
-              editable={!isSubmitting}
-              maxLength={500}
-              multiline
-              onChangeText={onChangeDetail}
-              placeholder={`Ej. ${reasonLabel.toLowerCase()} en ${providerName}`}
-              placeholderTextColor={resourcesColors.muted}
-              style={styles.reportDetailInput}
-              testID="resource-provider-report-detail"
-              value={detail}
-            />
-          </View>
+              <View style={styles.reportReasonGrid}>
+                {providerReportReasonOptions.map((option) => {
+                  const isSelected = selectedReason === option.value;
 
-          {errorMessage ? (
-            <Text
-              accessibilityRole="alert"
-              selectable
-              style={styles.reportSheetError}
-            >
-              {errorMessage}
-            </Text>
-          ) : null}
+                  return (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSelected }}
+                      key={option.value}
+                      onPress={() => onChangeReason(option.value)}
+                      testID={`resource-provider-report-reason-${option.value}`}
+                      style={({ pressed }) => [
+                        styles.reportReasonButton,
+                        isSelected ? styles.reportReasonButtonSelected : null,
+                        pressed ? styles.pressed : null,
+                      ]}
+                    >
+                      <Text
+                        maxFontSizeMultiplier={1.1}
+                        numberOfLines={1}
+                        style={[
+                          styles.reportReasonText,
+                          isSelected ? styles.reportReasonTextSelected : null,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
 
-          <View style={styles.reportSheetActions}>
-            <Pressable
-              accessibilityRole="button"
-              disabled={isSubmitting}
-              onPress={onCancel}
-              testID="resource-provider-report-cancel"
-              style={({ pressed }) => [
-                styles.reportSheetButton,
-                styles.reportSheetSecondaryButton,
-                isSubmitting ? styles.reportSheetButtonDisabled : null,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Text style={styles.reportSheetSecondaryText}>Cancelar</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ busy: isSubmitting, disabled: !canSubmit }}
-              disabled={!canSubmit}
-              onPress={onSubmit}
-              testID="resource-provider-report-submit"
-              style={({ pressed }) => [
-                styles.reportSheetButton,
-                styles.reportSheetPrimaryButton,
-                !canSubmit ? styles.reportSheetButtonDisabled : null,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color={resourcesColors.surface} />
-              ) : (
-                <Text style={styles.reportSheetPrimaryText}>Enviar</Text>
-              )}
-            </Pressable>
+              <View style={styles.reportDetailField}>
+                <Text selectable style={styles.reportDetailLabel}>
+                  Detalle opcional
+                </Text>
+                <TextInput
+                  accessibilityLabel="Detalle del reporte"
+                  editable={!isSubmitting}
+                  maxLength={500}
+                  multiline
+                  onChangeText={onChangeDetail}
+                  placeholder={`Ej. ${reasonLabel.toLowerCase()} en ${providerName}`}
+                  placeholderTextColor={resourcesColors.muted}
+                  style={styles.reportDetailInput}
+                  testID="resource-provider-report-detail"
+                  value={detail}
+                />
+              </View>
+
+              {errorMessage ? (
+                <Text
+                  accessibilityRole="alert"
+                  selectable
+                  style={styles.reportSheetError}
+                >
+                  {errorMessage}
+                </Text>
+              ) : null}
+
+              <View style={styles.reportSheetActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={isSubmitting}
+                  onPress={onCancel}
+                  testID="resource-provider-report-cancel"
+                  style={({ pressed }) => [
+                    styles.reportSheetButton,
+                    styles.reportSheetSecondaryButton,
+                    isSubmitting ? styles.reportSheetButtonDisabled : null,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  <Text style={styles.reportSheetSecondaryText}>Cancelar</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    busy: isSubmitting,
+                    disabled: !canSubmit,
+                  }}
+                  disabled={!canSubmit}
+                  onPress={onSubmit}
+                  testID="resource-provider-report-submit"
+                  style={({ pressed }) => [
+                    styles.reportSheetButton,
+                    styles.reportSheetPrimaryButton,
+                    !canSubmit ? styles.reportSheetButtonDisabled : null,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator color={resourcesColors.surface} />
+                  ) : (
+                    <Text style={styles.reportSheetPrimaryText}>Enviar</Text>
+                  )}
+                </Pressable>
+              </View>
+            </ScrollView>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -818,6 +834,9 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     lineHeight: 17,
   },
+  reportKeyboardAvoider: {
+    flex: 1,
+  },
   reportModalBackdrop: {
     backgroundColor: "rgba(23, 32, 28, 0.42)",
     flex: 1,
@@ -900,6 +919,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "900",
     lineHeight: 20,
+  },
+  reportSheetContent: {
+    gap: 14,
   },
   reportSheetError: {
     color: resourcesColors.error,

@@ -136,8 +136,10 @@ vi.mock("@nandorojo/galeria", async () => {
 
 vi.mock("react-native", () => ({
   ActivityIndicator: "ActivityIndicator",
+  KeyboardAvoidingView: "KeyboardAvoidingView",
   Linking: linking,
   Modal: "Modal",
+  Platform: { OS: "android" },
   Pressable: "Pressable",
   ScrollView: "ScrollView",
   StyleSheet: {
@@ -322,6 +324,20 @@ describe("Resource Provider profile screen", () => {
 
     expect(findText(reportScreen, "Reportar proveedor")).toBe(true);
     expect(findText(reportScreen, "Ubicación incorrecta")).toBe(true);
+    expect(
+      findElement(
+        reportScreen,
+        (element) => element.type === "KeyboardAvoidingView",
+      )?.props.behavior,
+    ).toBe("height");
+    expect(
+      findElement(
+        reportScreen,
+        (element) =>
+          element.type === "ScrollView" &&
+          element.props.keyboardShouldPersistTaps === "handled",
+      )?.props.keyboardShouldPersistTaps,
+    ).toBe("handled");
   });
 
   it("waits for backend confirmation before showing provider report success", async () => {
