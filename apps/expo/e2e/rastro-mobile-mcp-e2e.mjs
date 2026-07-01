@@ -1,6 +1,7 @@
 import { execFile, spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -37,7 +38,14 @@ const manifestPath =
 const mobileNextBaseUrl = trimTrailingSlash(
   process.env.RASTRO_E2E_MOBILE_NEXT_BASE_URL ?? "http://10.0.2.2:3000",
 );
+const hostNextBaseUrl = trimTrailingSlash(
+  process.env.RASTRO_E2E_HOST_NEXT_BASE_URL ?? "http://127.0.0.1:3000",
+);
 const mobileMediaBaseUrl = `${mobileNextBaseUrl}/e2e-media`;
+const fixtureAccountPasswords = {
+  owner: "Rastro-E2E-owner-2026!",
+  viewer: "Rastro-E2E-viewer-2026!",
+};
 const providerReportReasons = [
   "scam",
   "incorrect_location",
@@ -86,6 +94,8 @@ const automation = AutomationFactory.create(platform, {
 });
 
 await captureDeviceMetadata();
+await captureFixtureSnapshot();
+await captureRootFullSuiteEvidence();
 await clearLogcat();
 const logcatCapture = startLogcatCapture();
 let logcatStopped = false;
@@ -93,9 +103,11 @@ let logcatStopped = false;
 try {
   await grantAndroidRuntimePermissions();
   await openDevelopmentBuild();
-  const memberEmail = await verifyMemberProfileSettingsWorkflow();
+  const memberEmail = await ensureFixtureViewerSession();
+  await verifyMemberProfileSettingsWorkflow({ expectedEmail: memberEmail });
   await verifyResourcesDirectory();
   await verifyProviderProfile({ memberEmail });
+  await verifyAdoptionCreationWorkflow();
   await verifyReportDetails();
   const latestChatMessageText = await verifyChatWorkflow();
   await verifyAlertSubscriptionWorkflow();
@@ -137,6 +149,60 @@ async function captureDeviceMetadata() {
   });
 }
 
+async function captureFixtureSnapshot() {
+  const outputPath = join(artifactRoot, "fixture-manifest.json");
+
+  copyFileSync(manifestPath, outputPath);
+  checks.push({
+    id: "fixture-manifest-snapshot",
+    ok: true,
+    outputPath,
+  });
+}
+
+async function captureRootFullSuiteEvidence() {
+  const commandManifestPath = join(artifactRoot, "root-full-suite-command.json");
+
+  writeFileSync(
+    commandManifestPath,
+    JSON.stringify(
+      {
+        expectedRootDevCommand: "TURBO_UI=true pnpm dev",
+        mobileMcpCommand:
+          "RASTRO_E2E_EXPO_DEV_SERVER_URL=http://127.0.0.1:8081 RASTRO_E2E_MOBILE_NEXT_BASE_URL=http://10.0.2.2:3000 node apps/expo/e2e/rastro-mobile-mcp-e2e.mjs",
+      },
+      null,
+      2,
+    ),
+  );
+  await writeCommandOutput({
+    args: ["-sS", "-I", "http://127.0.0.1:3000"],
+    command: "curl",
+    cwd: workspaceRoot,
+    fileName: "next-root-head.txt",
+  });
+  await writeCommandOutput({
+    args: ["-sS", "-I", "http://127.0.0.1:8081/status"],
+    command: "curl",
+    cwd: workspaceRoot,
+    fileName: "metro-status-head.txt",
+  });
+  await writeOptionalCommandOutput({
+    args: [
+      "-lc",
+      "ps -eo pid,ppid,command | rg -i 'pnpm dev|turbo.*dev|expo start|next dev|metro|tsx watch' || true",
+    ],
+    command: "bash",
+    cwd: workspaceRoot,
+    fileName: "root-dev-processes.txt",
+  });
+  checks.push({
+    commandManifestPath,
+    id: "root-full-suite-reachable",
+    ok: true,
+  });
+}
+
 async function writeAdbOutput(fileName, args) {
   const { stdout, stderr } = await adb(args);
 
@@ -155,6 +221,22 @@ async function writeCommandOutput({
   });
 
   writeFileSync(join(artifactRoot, fileName), `${stdout}${stderr}`);
+}
+
+async function writeOptionalCommandOutput({
+  args,
+  command,
+  cwd = appRoot,
+  fileName,
+}) {
+  try {
+    await writeCommandOutput({ args, command, cwd, fileName });
+  } catch (error) {
+    writeFileSync(
+      join(artifactRoot, fileName),
+      `Optional command failed: ${formatExecError(error)}`,
+    );
+  }
 }
 
 async function clearLogcat() {
@@ -321,8 +403,14 @@ function buildRunSummary() {
 function buildReadinessGateManifest(summary) {
   const requiredEvidence = [
     "member-profile-settings-backend-save",
+    "auth-sign-in-fixture-viewer",
+    "auth-session-recovered",
+    "fixture-manifest-snapshot",
+    "root-full-suite-reachable",
     "provider-report-modal-submit",
     "provider-report-admin-moderation-receipt",
+    "adoption-mobile-publish-success",
+    "adoption-mobile-detail-opened",
     "chat-backend-persistence",
     "alerts-backend-persistence",
     "activity-inbox-backend-navigation",
@@ -393,21 +481,230 @@ async function verifyResourcesDirectory() {
   await assertNoBrokenMediaFallbacks("resources-list");
 }
 
-async function verifyMemberProfileSettingsWorkflow() {
+async function ensureFixtureViewerSession() {
+  const viewerEmail = manifest.accounts.viewerEmail;
+  const currentEmail = await readCurrentProfileEmailOrNull();
+
+  if (currentEmail === viewerEmail) {
+    checks.push({
+      email: viewerEmail,
+      id: "auth-sign-in-fixture-viewer",
+      ok: true,
+      reusedExistingSession: true,
+    });
+  } else {
+    if (currentEmail) {
+      await signOutCurrentMember({ currentEmail });
+    }
+
+    await signInFixtureViewer();
+  }
+
+  await openDevelopmentBuild();
+  const recoveredEmail = await readCurrentProfileEmail();
+
+  if (recoveredEmail !== viewerEmail) {
+    throw new Error(
+      `Expected recovered fixture viewer session ${viewerEmail}, got ${recoveredEmail}.`,
+    );
+  }
+
+  checks.push({
+    email: recoveredEmail,
+    id: "auth-session-recovered",
+    ok: true,
+  });
+
+  return viewerEmail;
+}
+
+async function signOutCurrentMember({ currentEmail }) {
+  await openProfileScreen();
+  await scrollUntilVisibleText("Cerrar sesión", {
+    context: "profile-sign-out",
+    maxSwipes: 5,
+  });
+  await tapVisibleText("Cerrar sesión", "profile-sign-out");
+  await delay(1000);
+  await openProfileScreen({ timeoutMs: 30000 });
+  await waitForVisibleText("Iniciar sesión", "profile-signed-out", {
+    timeoutMs: 30000,
+  });
+  checks.push({
+    id: "auth-sign-out-previous-member",
+    ok: true,
+    previousEmail: currentEmail,
+  });
+}
+
+async function signInFixtureViewer() {
+  await signInFixtureMember({
+    checkId: "auth-sign-in-fixture-viewer",
+    email: manifest.accounts.viewerEmail,
+    password: fixtureAccountPasswords.viewer,
+    screenshotFile: "auth-fixture-viewer-session.png",
+  });
+}
+
+async function signInFixtureMember({
+  checkId,
+  email,
+  password,
+  screenshotFile,
+}) {
+  let method = "email-password";
+
+  try {
+    await signInFixtureMemberViaVisiblePrompt({ checkId, email, password });
+  } catch {
+    method = "callback-cookie";
+    await signInFixtureMemberViaCallback({ checkId, email, password });
+  }
+
+  if (screenshotFile) {
+    await screenshot(screenshotFile);
+  }
+
+  checks.push({
+    email,
+    id:
+      method === "email-password"
+        ? "auth-email-password-sign-in"
+        : "auth-callback-cookie-sign-in",
+    ok: true,
+  });
+  checks.push({
+    email,
+    id: checkId,
+    ok: true,
+  });
+}
+
+async function signInFixtureMemberViaVisiblePrompt({
+  checkId,
+  email,
+  password,
+}) {
+  await openProfileScreen({ timeoutMs: 30000 });
+  await waitForVisibleText("Iniciar sesión", `${checkId}-signed-out`, {
+    timeoutMs: 30000,
+  });
+  await tapVisibleText("Iniciar sesión", `${checkId}-open-auth-prompt`, {
+    timeoutMs: 30000,
+  });
+  await waitForVisibleText("Correo", `${checkId}-auth-prompt-email`, {
+    timeoutMs: 30000,
+  });
+  await replaceTextByAccessibilityLabel("Correo", email, {
+    context: `${checkId}-email`,
+    dismissKeyboard: false,
+    timeoutMs: 30000,
+  });
+  await replaceTextByAccessibilityLabel("Contraseña", password, {
+    context: `${checkId}-password`,
+    timeoutMs: 30000,
+  });
+  await hideKeyboardIfVisible();
+  await tapVisibleText("Iniciar sesión", `${checkId}-submit-auth-prompt`, {
+    timeoutMs: 30000,
+  });
+  await waitForVisibleText(email, `${checkId}-profile`, {
+    timeoutMs: 60000,
+  });
+}
+
+async function signInFixtureMemberViaCallback({ checkId, email, password }) {
+  let lastProfileError = null;
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const setCookieHeader = await createFixtureAuthCookie({ email, password });
+    const callbackUrl = new URL("rastro://auth/callback");
+    callbackUrl.searchParams.set("cookie", setCookieHeader);
+    callbackUrl.searchParams.set("e2eAttempt", String(attempt));
+    callbackUrl.searchParams.set("e2eNonce", `${Date.now()}`);
+
+    await adb([
+      "shell",
+      "am",
+      "start",
+      "-W",
+      "-a",
+      "android.intent.action.VIEW",
+      "-d",
+      callbackUrl.toString(),
+      appId,
+    ]);
+    await delay(12000);
+    checks.push({
+      attempt,
+      id: "open:auth-callback-cookie",
+      ok: true,
+    });
+    await openProfileScreen({ timeoutMs: 30000 });
+
+    try {
+      await waitForVisibleText(email, `${checkId}-profile`, {
+        timeoutMs: attempt === 1 ? 12000 : 30000,
+      });
+      lastProfileError = null;
+      break;
+    } catch (error) {
+      lastProfileError = error;
+    }
+  }
+
+  if (lastProfileError) {
+    throw lastProfileError;
+  }
+}
+
+async function createFixtureAuthCookie({ email, password }) {
+  const response = await fetch(`${hostNextBaseUrl}/api/auth/sign-in/email`, {
+    body: JSON.stringify({
+      callbackURL: "/",
+      email,
+      password,
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  });
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    throw new Error(
+      `Fixture viewer sign-in failed with ${response.status}: ${responseText}`,
+    );
+  }
+
+  const headers = response.headers;
+  const setCookieHeaders =
+    typeof headers.getSetCookie === "function"
+      ? headers.getSetCookie()
+      : [headers.get("set-cookie")].filter(Boolean);
+  const setCookieHeader = setCookieHeaders.join(", ");
+
+  if (!setCookieHeader) {
+    throw new Error("Fixture viewer sign-in did not return Set-Cookie.");
+  }
+
+  return setCookieHeader;
+}
+
+async function verifyMemberProfileSettingsWorkflow({ expectedEmail }) {
   const displayName = `Rastro E2E Vecina ${Date.now()}`;
   const phone = "59170123456";
   const whatsapp = "59171234567";
   const memberEmail = await readCurrentProfileEmail();
 
-  await openDeepLinkUntilVisible(
-    [
-      "rastro:///perfil/ajustes",
-      "rastro://perfil/ajustes",
-      "rastro:///(tabs)/(profile)/ajustes",
-      "rastro://(tabs)/(profile)/ajustes",
-    ],
-    "member-profile-settings-screen",
-  );
+  if (memberEmail !== expectedEmail) {
+    throw new Error(
+      `Expected member profile workflow to run as ${expectedEmail}, got ${memberEmail}.`,
+    );
+  }
+
+  await openProfileSettingsScreen();
   await waitForTestID("member-profile-display-name-input", {
     timeoutMs: 30000,
   });
@@ -432,15 +729,7 @@ async function verifyMemberProfileSettingsWorkflow() {
   });
   await openDevelopmentBuild();
 
-  await openDeepLinkUntilVisible(
-    [
-      "rastro:///perfil",
-      "rastro://perfil",
-      "rastro:///(tabs)/(profile)",
-      "rastro://(tabs)/(profile)",
-    ],
-    "profile-screen",
-  );
+  await openProfileScreen();
   await waitForVisibleText(displayName, "profile-saved-display-name", {
     timeoutMs: 30000,
   });
@@ -457,16 +746,74 @@ async function verifyMemberProfileSettingsWorkflow() {
   return memberEmail;
 }
 
+async function openProfileSettingsScreen() {
+  await openProfileScreen();
+  await scrollUntilVisibleText("Ajustes", {
+    context: "profile-settings-row",
+    maxSwipes: 4,
+  });
+  await tapVisibleText("Ajustes", "profile-settings-row");
+  await waitForTestID("member-profile-settings-screen", { timeoutMs: 30000 });
+  checks.push({
+    id: "open:profile-settings-row",
+    ok: true,
+  });
+}
+
+async function openProfileScreen(options = {}) {
+  const timeoutMs = options.timeoutMs ?? 30000;
+
+  if (await isTestIDVisible("profile-screen", { timeoutMs: 1500 })) {
+    checks.push({
+      id: "open:profile-already-visible",
+      ok: true,
+    });
+    return;
+  }
+
+  if (
+    await maybeTapAnyVisibleText(["Perfil"], "profile-tab", {
+      timeoutMs: 5000,
+    })
+  ) {
+    await waitForTestID("profile-screen", { timeoutMs });
+    checks.push({
+      id: "open:profile-tab",
+      ok: true,
+    });
+    return;
+  }
+
+  await openDevelopmentBuild();
+  await tapVisibleText("Perfil", "profile-tab", { timeoutMs: 15000 });
+  await waitForTestID("profile-screen", { timeoutMs });
+  checks.push({
+    id: "open:profile-tab-after-restart",
+    ok: true,
+  });
+}
+
+async function isTestIDVisible(testID, options = {}) {
+  try {
+    await waitForTestID(testID, { timeoutMs: options.timeoutMs ?? 1500 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function readCurrentProfileEmail() {
-  await openDeepLinkUntilVisible(
-    [
-      "rastro:///perfil",
-      "rastro://perfil",
-      "rastro:///(tabs)/(profile)",
-      "rastro://(tabs)/(profile)",
-    ],
-    "profile-screen",
-  );
+  const email = await readCurrentProfileEmailOrNull();
+
+  if (email) {
+    return email;
+  }
+
+  throw new Error("Could not read the current signed-in member email.");
+}
+
+async function readCurrentProfileEmailOrNull() {
+  await openProfileScreen();
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const { stdout } = await adb([
@@ -491,7 +838,7 @@ async function readCurrentProfileEmail() {
     await delay(750);
   }
 
-  throw new Error("Could not read the current signed-in member email.");
+  return null;
 }
 
 async function assertMemberProfileSavedByEmail({
@@ -675,6 +1022,280 @@ async function verifyProviderProfile({ memberEmail }) {
     providerId: provider.id,
     reason: reportReason.reason,
   });
+}
+
+async function verifyAdoptionCreationWorkflow() {
+  const petName = `Luna E2E ${Date.now()}`;
+  const adoptionSummary =
+    "Luna busca una familia tranquila y responsable con tiempo para acompanarla.";
+
+  await seedAndroidGalleryImage();
+  await openDeepLinkUntilVisibleText(
+    ["rastro:///report-create/adoption"],
+    "Dar en adopcion",
+  );
+  await tapVisibleText("Crear aqui", "adoption-inline-pet-mode");
+  await replaceTextByAccessibilityLabel("Nombre", petName, {
+    context: "adoption-pet-name",
+  });
+  await tapVisibleText("Gato", "adoption-pet-type");
+  await replaceTextByAccessibilityLabel("Raza", "Mestiza", {
+    context: "adoption-pet-breed",
+  });
+  await replaceTextByAccessibilityLabel(
+    "Descripcion y marcas",
+    "Gatita tranquila con collar verde y manchas blancas.",
+    { context: "adoption-pet-description" },
+  );
+  await addOneReportPhotoFromLibrary();
+  await waitForVisibleText("Foto 1", "adoption-photo-selected", {
+    exact: false,
+    timeoutMs: 60000,
+  });
+  await screenshot("adoption-photo-selected.png");
+  await tapVisibleText("Continuar", "adoption-photos-continue");
+  await waitForVisibleText("Sobre la adopcion", "adoption-details-step", {
+    timeoutMs: 60000,
+  });
+
+  await replaceTextByAccessibilityLabel("Sobre la adopcion", adoptionSummary, {
+    context: "adoption-summary",
+  });
+  await tapVisibleText("Continuar", "adoption-details-continue");
+  await waitForVisibleText("Elegir ubicacion", "adoption-location-step", {
+    timeoutMs: 30000,
+  });
+  await tapVisibleText("Elegir ubicacion", "adoption-location-open");
+  await waitForVisibleText("Ubicacion del reporte", "location-picker", {
+    timeoutMs: 30000,
+  });
+  await tapVisibleText("Marcar punto exacto en La Paz", "location-map-open");
+  await waitForVisibleText("Confirmar punto elegido", "location-map-confirm", {
+    timeoutMs: 30000,
+  });
+  await tapVisibleText("Confirmar punto elegido", "location-map-confirm");
+  await waitForVisibleText("Cambiar ubicacion", "adoption-location-selected", {
+    timeoutMs: 30000,
+  });
+  await tapVisibleText("Continuar", "adoption-location-continue");
+  await waitForVisibleText("Chat en Rastro", "adoption-contact-step", {
+    timeoutMs: 30000,
+  });
+  await tapVisibleText("Chat en Rastro", "adoption-contact-chat");
+  await tapVisibleText("Continuar", "adoption-contact-continue");
+  await waitForVisibleText("Publicar adopcion", "adoption-review-step", {
+    timeoutMs: 30000,
+  });
+  await screenshot("adoption-review-ready.png");
+  await tapVisibleText("Publicar adopcion", "adoption-publish-open");
+  await waitForTestID("report-publish-confirmation", { timeoutMs: 30000 });
+  await screenshot("adoption-publish-confirmation.png");
+  await tapVisibleText("Confirmar y publicar", "adoption-publish-confirm", {
+    timeoutMs: 30000,
+  });
+  await waitForVisibleText("Adopcion publicada", "adoption-publish-success", {
+    timeoutMs: 60000,
+  });
+  await screenshot("adoption-published.png");
+  checks.push({
+    detail:
+      "Adoption listing was completed from mobile UI with inline pet, native-selected media, location, chat contact, confirmation, and success state.",
+    id: "adoption-mobile-publish-success",
+    ok: true,
+    petName,
+  });
+  const reportId = await findPublishedAdoptionReportIdByPetName(petName);
+
+  await tapVisibleText("Ver adopcion", "adoption-open-published");
+  await waitForTestID("public-report-detail-screen", { timeoutMs: 30000 });
+  await waitForTestID("public-report-media-gallery", { timeoutMs: 30000 });
+  await screenshot("adoption-published-owner-detail.png");
+  await assertNoBrokenMediaFallbacks("adoption-published-detail");
+
+  await verifyPublishedAdoptionContactAsOtherMember({ petName, reportId });
+}
+
+async function findPublishedAdoptionReportIdByPetName(petName) {
+  const result = await runNextjsWithEnvScript(`
+    import { and, desc, eq } from "@acme/db";
+    import { db, pool } from "@acme/db/client";
+    import { Report } from "@acme/db/schema";
+
+    const petName = ${JSON.stringify(petName)};
+
+    async function main() {
+      const [report] = await db
+        .select({
+          contactPreference: Report.contactPreference,
+          id: Report.id,
+          petName: Report.petName,
+          status: Report.status,
+          type: Report.type,
+        })
+        .from(Report)
+        .where(and(eq(Report.petName, petName), eq(Report.type, "adoption")))
+        .orderBy(desc(Report.createdAt))
+        .limit(1);
+
+      if (!report) {
+        throw new Error("Could not find published E2E adoption report.");
+      }
+
+      return report;
+    }
+
+    main()
+      .then((result) => {
+        console.log(JSON.stringify(result));
+      })
+      .finally(() => pool.end());
+  `);
+
+  if (
+    result.petName !== petName ||
+    result.type !== "adoption" ||
+    result.status !== "active" ||
+    result.contactPreference !== "in_app_chat"
+  ) {
+    throw new Error(
+      `Published adoption report did not match expected contact contract: ${JSON.stringify(
+        result,
+      )}`,
+    );
+  }
+
+  checks.push({
+    id: "adoption-mobile-backend-report-receipt",
+    ok: true,
+    reportId: result.id,
+  });
+
+  return result.id;
+}
+
+async function verifyPublishedAdoptionContactAsOtherMember({
+  petName,
+  reportId,
+}) {
+  await switchToFixtureMember({
+    checkId: "auth-sign-in-fixture-owner",
+    email: manifest.accounts.ownerEmail,
+    password: fixtureAccountPasswords.owner,
+  });
+  await openDeepLinkUntilVisible(
+    [`rastro://adopciones/${encodeURIComponent(reportId)}`],
+    "public-report-detail-screen",
+    { timeoutMs: 30000 },
+  );
+  await waitForTestID("public-report-media-gallery", { timeoutMs: 30000 });
+  await scrollUntilTestID("public-report-contact-in-app-chat-0", {
+    maxSwipes: 8,
+  });
+  await screenshot("adoption-published-detail.png");
+  checks.push({
+    detail:
+      "The adoption detail was reopened as a different signed-in member and exposed the in-app chat contact action.",
+    id: "adoption-mobile-detail-opened",
+    ok: true,
+    petName,
+    reportId,
+  });
+  await switchToFixtureMember({
+    checkId: "auth-sign-in-fixture-viewer",
+    email: manifest.accounts.viewerEmail,
+    password: fixtureAccountPasswords.viewer,
+  });
+}
+
+async function switchToFixtureMember({ checkId, email, password }) {
+  const currentEmail = await readCurrentProfileEmailOrNull();
+
+  if (currentEmail === email) {
+    checks.push({
+      email,
+      id: checkId,
+      ok: true,
+      reusedExistingSession: true,
+    });
+    return;
+  }
+
+  if (currentEmail) {
+    await signOutCurrentMember({ currentEmail });
+  }
+
+  await signInFixtureMember({
+    checkId,
+    email,
+    password,
+  });
+}
+
+async function seedAndroidGalleryImage() {
+  if (platform !== "android") {
+    return;
+  }
+
+  const localPath = join(artifactRoot, `rastro-e2e-adoption-${Date.now()}.jpg`);
+  const remoteDir = "/sdcard/Pictures/RastroE2E";
+  const remotePath = `${remoteDir}/rastro-e2e-adoption.jpg`;
+
+  await execFileAsync(
+    "ffmpeg",
+    [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      "testsrc=size=1200x900:rate=1",
+      "-frames:v",
+      "1",
+      "-q:v",
+      "2",
+      localPath,
+    ],
+    { cwd: workspaceRoot, timeout: 30000 },
+  );
+  await adb(["shell", "rm", "-rf", remoteDir]);
+  await adb(["shell", "mkdir", "-p", remoteDir]);
+  await adb(["push", localPath, remotePath]);
+  await adb([
+    "shell",
+    "am",
+    "broadcast",
+    "-a",
+    "android.intent.action.MEDIA_SCANNER_SCAN_FILE",
+    "-d",
+    `file://${remotePath}`,
+  ]);
+  checks.push({
+    id: "android-gallery-image-seeded",
+    localPath,
+    ok: true,
+    remotePath,
+  });
+}
+
+async function addOneReportPhotoFromLibrary() {
+  await tapVisibleText("Agregar desde biblioteca", "report-media-library");
+  await maybeTapAnyVisibleText(
+    ["Permitir", "Allow", "Allow all photos", "Seleccionar fotos"],
+    "report-media-library-permission",
+    { timeoutMs: 6000 },
+  );
+  await tapFirstGalleryImage();
+  await maybeTapAnyVisibleText(
+    ["Add", "Done", "Select", "Agregar", "Listo", "Seleccionar"],
+    "photo-picker-confirm",
+    { timeoutMs: 8000 },
+  );
+  await maybeTapAnyVisibleText(
+    ["Aplicar", "Cortar", "Crop", "Done"],
+    "report-media-crop-apply",
+    { timeoutMs: 15000 },
+  );
 }
 
 async function chooseProviderReportReason({ memberEmail, providerId }) {
@@ -969,8 +1590,17 @@ async function verifyChatWorkflow() {
   await waitForTestID("chat-message-list");
   await tapAndText("chat-message-input", messageText);
   await tapRequired("chat-send-button");
+  await dismissKeyboard();
+  await waitForVisibleText(messageText, "chat-sent-message", {
+    timeoutMs: 30000,
+  });
   await screenshot("chat-workflow.png");
-  await assertVisibleText(messageText, "chat-sent-message");
+  checks.push({
+    detail:
+      "Chat screenshot is captured after the send completes and the keyboard is dismissed.",
+    id: "chat-keyboard-safe-screenshot",
+    ok: true,
+  });
 
   await openDeepLinkUntilVisible(
     ["rastro://recursos", "rastro:///recursos"],
@@ -1075,7 +1705,7 @@ async function verifyActivityInboxWorkflow({ latestChatMessageText }) {
   });
 }
 
-async function openDeepLinkUntilVisible(urls, testID) {
+async function openDeepLinkUntilVisible(urls, testID, options = {}) {
   let lastError;
 
   for (const url of urls) {
@@ -1092,7 +1722,9 @@ async function openDeepLinkUntilVisible(urls, testID) {
     ]);
 
     try {
-      await waitForTestID(testID, { timeoutMs: 12000 });
+      await waitForTestID(testID, {
+        timeoutMs: options.timeoutMs ?? 12000,
+      });
       checks.push({ id: `open:${url}`, ok: true, testID });
       return;
     } catch (error) {
@@ -1101,6 +1733,37 @@ async function openDeepLinkUntilVisible(urls, testID) {
   }
 
   throw lastError ?? new Error(`Could not open route for ${testID}`);
+}
+
+async function openDeepLinkUntilVisibleText(urls, text, options = {}) {
+  let lastError;
+
+  for (const url of urls) {
+    await adb([
+      "shell",
+      "am",
+      "start",
+      "-W",
+      "-a",
+      "android.intent.action.VIEW",
+      "-d",
+      url,
+      appId,
+    ]);
+
+    try {
+      await waitForVisibleText(text, `open:${url}`, {
+        exact: options.exact ?? true,
+        timeoutMs: options.timeoutMs ?? 12000,
+      });
+      checks.push({ id: `open:${url}`, ok: true, text });
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError ?? new Error(`Could not open route for ${text}`);
 }
 
 async function openDevelopmentBuild() {
@@ -1184,6 +1847,9 @@ async function grantAndroidRuntimePermissions() {
     "android.permission.ACCESS_FINE_LOCATION",
     "android.permission.ACCESS_COARSE_LOCATION",
     "android.permission.POST_NOTIFICATIONS",
+    "android.permission.READ_MEDIA_IMAGES",
+    "android.permission.READ_EXTERNAL_STORAGE",
+    "android.permission.WRITE_EXTERNAL_STORAGE",
   ];
   const results = [];
 
@@ -1390,6 +2056,32 @@ async function scrollUntilTestID(testID, options = {}) {
   }
 }
 
+async function scrollUntilVisibleText(text, options = {}) {
+  const maxSwipes = options.maxSwipes ?? 8;
+  const context = options.context ?? text;
+
+  for (let attempt = 0; attempt <= maxSwipes; attempt += 1) {
+    const node = await findVisibleNodeByText(text);
+
+    if (node) {
+      checks.push({
+        id: `find-visible-text:${context}`,
+        ok: true,
+        scrolled: attempt > 0,
+        text,
+      });
+      return node;
+    }
+
+    if (attempt === maxSwipes) {
+      throw new Error(`Could not scroll to visible text on ${context}: ${text}`);
+    }
+
+    await adb(["shell", "input", "swipe", "540", "1980", "540", "900", "350"]);
+    await delay(750);
+  }
+}
+
 async function tapRequired(testID) {
   const element = await waitForTestID(testID, { timeoutMs: 6000 });
   const centerX = Math.round(element.bounds.x + element.bounds.width / 2);
@@ -1397,6 +2089,49 @@ async function tapRequired(testID) {
 
   await adb(["shell", "input", "tap", String(centerX), String(centerY)]);
   checks.push({ id: `tap:${testID}`, ok: true });
+}
+
+async function tapVisibleText(text, context, options = {}) {
+  const node = await waitForVisibleNodeByText(text, {
+    context,
+    exact: options.exact ?? true,
+    timeoutMs: options.timeoutMs ?? 15000,
+  });
+
+  await tapParsedBounds(node.bounds);
+  checks.push({ id: `tap-visible-text:${context}`, ok: true, text });
+}
+
+async function maybeTapAnyVisibleText(texts, context, options = {}) {
+  const timeoutMs = options.timeoutMs ?? 5000;
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    for (const text of texts) {
+      const node = await findVisibleNodeByText(text, {
+        exact: options.exact ?? true,
+      });
+
+      if (node) {
+        await tapParsedBounds(node.bounds);
+        checks.push({
+          id: `tap-visible-text-optional:${context}`,
+          ok: true,
+          text,
+        });
+        return true;
+      }
+    }
+
+    await delay(500);
+  }
+
+  checks.push({
+    id: `tap-visible-text-optional:${context}`,
+    ok: true,
+    skipped: true,
+  });
+  return false;
 }
 
 async function tapByAutomationRequired(testID) {
@@ -1444,6 +2179,151 @@ async function replaceText(testID, value) {
   await adb(["shell", "input", "keyevent", "KEYCODE_BACK"]);
   await delay(300);
   checks.push({ id: `replace-text:${testID}`, ok: true });
+}
+
+async function replaceTextByAccessibilityLabel(label, value, options = {}) {
+  const node = await waitForVisibleNodeByText(label, {
+    classNameIncludes: "EditText",
+    context: options.context ?? label,
+    exact: true,
+    matchContentDescription: true,
+    matchText: false,
+    timeoutMs: options.timeoutMs ?? 15000,
+  });
+
+  await tapParsedBounds(node.bounds);
+  await delay(300);
+  await adb(["shell", "input", "keyevent", "KEYCODE_MOVE_END"]);
+  await deleteFocusedText(160);
+  await adb(["shell", "input", "text", toAdbText(value)]);
+  await delay(300);
+  if (options.dismissKeyboard !== false) {
+    await adb(["shell", "input", "keyevent", "KEYCODE_BACK"]);
+    await delay(300);
+  }
+  checks.push({
+    id: `replace-text-by-label:${options.context ?? label}`,
+    label,
+    ok: true,
+  });
+}
+
+async function hideKeyboardIfVisible() {
+  const { stdout } = await adb(["shell", "dumpsys", "input_method"]);
+  const isVisible =
+    /mInputShown=true|mIsInputViewShown=true|inputShown=true/i.test(stdout);
+
+  if (isVisible) {
+    await adb(["shell", "input", "keyevent", "KEYCODE_BACK"]);
+    await delay(500);
+  }
+
+  checks.push({
+    id: "keyboard-hidden-if-visible",
+    ok: true,
+    skipped: !isVisible,
+  });
+}
+
+async function dismissKeyboard() {
+  await adb(["shell", "input", "keyevent", "KEYCODE_BACK"]);
+  await delay(750);
+  checks.push({ id: "keyboard-dismissed", ok: true });
+}
+
+async function tapFirstGalleryImage() {
+  const timeoutMs = 30000;
+  const startedAt = Date.now();
+  let lastCandidateCount = 0;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const { stdout } = await adb([
+      "exec-out",
+      "uiautomator",
+      "dump",
+      "--compressed",
+      "/dev/tty",
+    ]);
+    let xml;
+
+    try {
+      xml = extractXmlHierarchy(stdout);
+    } catch {
+      await delay(750);
+      continue;
+    }
+
+    const candidates = findVisibleXmlNodes(xml, (node) =>
+      isLikelyPhotoPickerGridCell(node),
+    ).sort(
+      (left, right) =>
+        left.bounds.y - right.bounds.y || left.bounds.x - right.bounds.x,
+    );
+
+    lastCandidateCount = candidates.length;
+
+    if (candidates[0]) {
+      await tapParsedBounds(candidates[0].bounds);
+      checks.push({
+        accessibilityText: candidates[0].contentDesc || candidates[0].text,
+        bounds: candidates[0].bounds,
+        id: "tap:first-gallery-image",
+        ok: true,
+      });
+      return;
+    }
+
+    await delay(750);
+  }
+
+  throw new Error(
+    `Could not find a gallery image candidate; last count ${lastCandidateCount}.`,
+  );
+}
+
+function isLikelyPhotoPickerGridCell(node) {
+  if (isAndroidPhotoPickerNode(node)) {
+    return isTouchableNode(node) && isLargePickerGridCell(node);
+  }
+
+  return hasPhotoPickerImageHint(node) && hasMinimumImageBounds(node);
+}
+
+function isAndroidPhotoPickerNode(node) {
+  return node.packageName === "com.google.android.photopicker";
+}
+
+function isTouchableNode(node) {
+  return node.enabled && (node.clickable || node.longClickable);
+}
+
+function isLargePickerGridCell(node) {
+  return (
+    node.bounds.y >= 900 &&
+    node.bounds.width >= 240 &&
+    node.bounds.height >= 240
+  );
+}
+
+function hasPhotoPickerImageHint(node) {
+  const content = `${node.className} ${node.resourceId} ${node.contentDesc} ${node.text}`;
+  const lowerContent = content.toLowerCase();
+
+  return (
+    lowerContent.includes("image") ||
+    lowerContent.includes("thumbnail") ||
+    lowerContent.includes("photo") ||
+    lowerContent.includes("foto")
+  );
+}
+
+function hasMinimumImageBounds(node) {
+  return (
+    node.enabled &&
+    node.bounds.y > 120 &&
+    node.bounds.width >= 80 &&
+    node.bounds.height >= 80
+  );
 }
 
 async function deleteFocusedText(maxCharacters) {
@@ -1517,6 +2397,63 @@ async function assertVisibleText(text, context) {
   checks.push({ id: `visible-text:${context}`, ok: true, text });
 }
 
+async function waitForVisibleNodeByText(text, options = {}) {
+  const timeoutMs = options.timeoutMs ?? 15000;
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const node = await findVisibleNodeByText(text, options);
+
+    if (node) {
+      checks.push({
+        id: `visible-node:${options.context ?? text}`,
+        ok: true,
+        text,
+      });
+      return node;
+    }
+
+    await delay(500);
+  }
+
+  throw new Error(`Expected visible node on ${options.context ?? text}: ${text}`);
+}
+
+async function findVisibleNodeByText(text, options = {}) {
+  const { stdout } = await adb([
+    "exec-out",
+    "uiautomator",
+    "dump",
+    "--compressed",
+    "/dev/tty",
+  ]);
+  let xml;
+
+  try {
+    xml = extractXmlHierarchy(stdout);
+  } catch {
+    return null;
+  }
+
+  return findFirstVisibleXmlNode(xml, (node) => {
+    if (
+      options.classNameIncludes &&
+      !node.className.includes(options.classNameIncludes)
+    ) {
+      return false;
+    }
+
+    const values = [
+      options.matchText === false ? null : node.text,
+      options.matchContentDescription === false ? null : node.contentDesc,
+    ].filter((value) => typeof value === "string");
+
+    return values.some((value) =>
+      options.exact === false ? value.includes(text) : value === text,
+    );
+  });
+}
+
 async function waitForVisibleText(text, context, options = {}) {
   const timeoutMs = options.timeoutMs ?? 15000;
   const startedAt = Date.now();
@@ -1529,8 +2466,23 @@ async function waitForVisibleText(text, context, options = {}) {
       "--compressed",
       "/dev/tty",
     ]);
+    let visible = false;
 
-    if (stdout.includes(text)) {
+    if (options.exact === false) {
+      visible = stdout.includes(text);
+    } else {
+      try {
+        visible = Boolean(
+          findFirstVisibleXmlNode(extractXmlHierarchy(stdout), (node) =>
+            [node.text, node.contentDesc].some((value) => value === text),
+          ),
+        );
+      } catch {
+        visible = false;
+      }
+    }
+
+    if (visible) {
       checks.push({ id: `visible-text:${context}`, ok: true, text });
       return;
     }
@@ -1602,6 +2554,83 @@ function findNodeResourceIdContainingText({ output, testIDPrefix, text }) {
   }
 
   return null;
+}
+
+function findFirstVisibleXmlNode(xml, predicate) {
+  return findVisibleXmlNodes(xml, predicate)[0] ?? null;
+}
+
+function findVisibleXmlNodes(xml, predicate) {
+  const nodes = [];
+  const nodePattern = /<node\b[^>]*>/g;
+  let match;
+
+  while ((match = nodePattern.exec(xml))) {
+    const tag = match[0] ?? "";
+    const node = parseVisibleXmlNode(tag);
+
+    if (node && predicate(node)) {
+      nodes.push(node);
+    }
+  }
+
+  return nodes;
+}
+
+function parseVisibleXmlNode(tag) {
+  const bounds = parseXmlBounds(readXmlAttribute(tag, "bounds"));
+
+  if (!bounds) {
+    return null;
+  }
+
+  return {
+    bounds,
+    className: readDecodedXmlAttribute(tag, "class"),
+    clickable: isXmlAttributeTrue(tag, "clickable"),
+    contentDesc: readDecodedXmlAttribute(tag, "content-desc"),
+    enabled: readXmlAttribute(tag, "enabled") !== "false",
+    longClickable: isXmlAttributeTrue(tag, "long-clickable"),
+    packageName: readDecodedXmlAttribute(tag, "package"),
+    resourceId: readDecodedXmlAttribute(tag, "resource-id"),
+    text: readDecodedXmlAttribute(tag, "text"),
+  };
+}
+
+function readDecodedXmlAttribute(tag, name) {
+  return decodeXmlAttribute(readXmlAttribute(tag, name) ?? "");
+}
+
+function isXmlAttributeTrue(tag, name) {
+  return readXmlAttribute(tag, name) === "true";
+}
+
+function parseXmlBounds(value) {
+  const match = /^\[(\d+),(\d+)\]\[(\d+),(\d+)\]$/.exec(value ?? "");
+
+  if (!match) {
+    return null;
+  }
+
+  const left = Number(match[1]);
+  const top = Number(match[2]);
+  const right = Number(match[3]);
+  const bottom = Number(match[4]);
+  const bounds = {
+    height: bottom - top,
+    width: right - left,
+    x: left,
+    y: top,
+  };
+
+  return bounds.width > 0 && bounds.height > 0 ? bounds : null;
+}
+
+async function tapParsedBounds(bounds) {
+  const centerX = Math.round(bounds.x + bounds.width / 2);
+  const centerY = Math.round(bounds.y + bounds.height / 2);
+
+  await adb(["shell", "input", "tap", String(centerX), String(centerY)]);
 }
 
 function readXmlAttribute(tag, name) {
@@ -1727,15 +2756,11 @@ function formatExecError(error) {
 
 function hasUsableBounds(data) {
   const bounds = data?.bounds;
-
-  return (
-    typeof bounds?.x === "number" &&
-    typeof bounds?.y === "number" &&
-    typeof bounds?.width === "number" &&
-    typeof bounds?.height === "number" &&
-    bounds.width > 0 &&
-    bounds.height > 0
+  const numericBounds = ["height", "width", "x", "y"].every(
+    (key) => typeof bounds?.[key] === "number",
   );
+
+  return numericBounds && bounds.width > 0 && bounds.height > 0;
 }
 
 function quoteShellArgs(args) {

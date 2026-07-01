@@ -606,6 +606,7 @@ function AccountActionButton({
 
   return (
     <Pressable
+      accessibilityLabel={isPending ? pendingLabel : label}
       accessibilityRole="button"
       disabled={isDisabled}
       onPress={onPress}

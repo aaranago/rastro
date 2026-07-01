@@ -961,6 +961,7 @@ export function ReportCreationInlinePetTypeRow<TType extends string>({
     <View style={styles.typeRow}>
       {typeOptions.map((type) => (
         <Pressable
+          accessibilityLabel={type}
           accessibilityState={{ selected: selectedType === type }}
           accessibilityRole="button"
           key={type}
@@ -1671,6 +1672,7 @@ export function ReportCreationActionButton({
 
   return (
     <Pressable
+      accessibilityLabel={label}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
@@ -1725,6 +1727,7 @@ export function ReportCreationContactOptionSection<TValue extends string>({
       <View style={styles.optionStack}>
         {options.map((option) => (
           <Pressable
+            accessibilityLabel={option.label}
             accessibilityState={{ selected: option.isSelected }}
             accessibilityRole="button"
             key={option.value}

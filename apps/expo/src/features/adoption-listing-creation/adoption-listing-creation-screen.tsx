@@ -1378,6 +1378,7 @@ function SegmentButton({
 }) {
   return (
     <Pressable
+      accessibilityLabel={label}
       accessibilityRole="button"
       accessibilityState={{ selected: isSelected }}
       onPress={onPress}
