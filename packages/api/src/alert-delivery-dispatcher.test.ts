@@ -15,7 +15,7 @@ import {
 const baseTime = "2026-07-01T12:00:00.000Z";
 
 describe("alert delivery dispatcher", () => {
-  it("marks accepted tickets sent, send errors failed, missing tokens skipped, and disables unregistered tokens", async () => {
+  it("marks accepted tickets sent, send errors failed, missing or disabled tokens skipped, and disables unregistered tokens", async () => {
     const repository = createFakeAlertRepository([
       createPendingDelivery({
         id: "11111111-1111-4111-8111-000000000001",
@@ -34,6 +34,14 @@ describe("alert delivery dispatcher", () => {
       createPendingDelivery({
         id: "11111111-1111-4111-8111-000000000003",
         pushToken: null,
+      }),
+      createPendingDelivery({
+        id: "11111111-1111-4111-8111-000000000008",
+        pushToken: createPushToken({
+          disabledAt: baseTime,
+          id: "22222222-2222-4222-8222-000000000008",
+          token: "ExponentPushToken[permission_denied_123]",
+        }),
       }),
     ]);
     const sentMessages: string[] = [];
@@ -58,10 +66,10 @@ describe("alert delivery dispatcher", () => {
 
     expect(result).toEqual({
       failed: 1,
-      pending: 3,
+      pending: 4,
       requested: 2,
       sent: 1,
-      skipped: 1,
+      skipped: 2,
     });
     expect(sentMessages).toEqual([
       "ExponentPushToken[accepted_123]",
@@ -75,6 +83,9 @@ describe("alert delivery dispatcher", () => {
     ).toBe("failed");
     expect(
       repository.deliveryStatus("11111111-1111-4111-8111-000000000003"),
+    ).toBe("skipped");
+    expect(
+      repository.deliveryStatus("11111111-1111-4111-8111-000000000008"),
     ).toBe("skipped");
     expect(repository.disabledPushTokenIds).toEqual([
       "22222222-2222-4222-8222-000000000002",
@@ -310,12 +321,13 @@ function createPendingDelivery(input: {
 }
 
 function createPushToken(input: {
+  disabledAt?: string | null;
   id: string;
   token: string;
 }): PersistedAlertPushToken {
   return {
     deviceId: null,
-    disabledAt: null,
+    disabledAt: input.disabledAt ?? null,
     id: input.id,
     lastSeenAt: baseTime,
     platform: "ios",

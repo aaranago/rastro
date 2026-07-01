@@ -17,6 +17,7 @@ import type {
   AlertRepository,
   createDrizzleAlertRepository,
 } from "./alert-repository";
+import { dispatchPendingAlertDeliveries } from "./alert-delivery-dispatcher";
 
 const execFileAsync = promisify(execFile);
 const runIntegration =
@@ -115,6 +116,11 @@ describeIntegration("alert repository integration", () => {
         id: "member-alert-dispatch",
         name: "Dispatch",
       },
+      {
+        email: "disabled-token-alert-test@example.invalid",
+        id: "member-alert-disabled-token",
+        name: "Disabled Token",
+      },
     ]);
   }, 90_000);
 
@@ -136,7 +142,7 @@ describeIntegration("alert repository integration", () => {
     await admin.end();
   }, 30_000);
 
-  it("persists settings, location, push token, and creates one idempotent nearby delivery", async () => {
+  it("persists settings, location, push token, and dispatches one idempotent nearby delivery", async () => {
     currentTime = new Date("2026-07-01T12:00:00.000Z");
     await repository.upsertSettings({
       categories: ["lost_pet"],
@@ -186,12 +192,58 @@ describeIntegration("alert repository integration", () => {
       "ExponentPushToken[nearby_123]",
     ]);
 
+    const sentMessages: { to: string; reportId: string }[] = [];
+    currentTime = new Date("2026-07-01T12:01:00.000Z");
+    const dispatchResult = await dispatchPendingAlertDeliveries({
+      alertRepository: repository,
+      limit: 10,
+      pushClient: {
+        send: (messages) => {
+          sentMessages.push(
+            ...messages.map((message) => ({
+              reportId:
+                message.data.type === "alert_delivery"
+                  ? message.data.reportId
+                  : "",
+              to: message.to,
+            })),
+          );
+
+          return Promise.resolve(
+            messages.map((_, index) => ({
+              id: `expo-alert-ticket-${index}`,
+              status: "ok" as const,
+            })),
+          );
+        },
+      },
+    });
+
+    expect(dispatchResult).toEqual({
+      failed: 0,
+      pending: 1,
+      requested: 1,
+      sent: 1,
+      skipped: 0,
+    });
+    expect(sentMessages).toEqual([
+      {
+        reportId,
+        to: "ExponentPushToken[nearby_123]",
+      },
+    ]);
+
     const deliveryRows = await db
       .select()
       .from(AlertNotificationDelivery)
       .where(eq(AlertNotificationDelivery.reportId, reportId));
 
     expect(deliveryRows).toHaveLength(1);
+    expect(deliveryRows[0]).toMatchObject({
+      pushTokenId: token.id,
+      sentAt: new Date("2026-07-01T12:01:00.000Z"),
+      status: "sent",
+    });
   });
 
   it("does not create deliveries for reports older than 24 hours", async () => {
@@ -204,6 +256,65 @@ describeIntegration("alert repository integration", () => {
     await expect(
       repository.createLostPetReportCreatedDeliveries({ reportId }),
     ).resolves.toEqual([]);
+  });
+
+  it("skips dispatch when a matching subscriber only has a disabled push token", async () => {
+    currentTime = new Date("2026-07-01T12:10:00.000Z");
+    await configureNearbySubscription("member-alert-disabled-token");
+    const token = await repository.registerPushToken({
+      memberId: "member-alert-disabled-token",
+      platform: "android",
+      token: "ExponentPushToken[disabled_123]",
+    });
+    await repository.disablePushToken({ pushTokenId: token.id });
+    const reportId = await createLostPetReport({
+      createdAt: new Date("2026-07-01T12:09:00.000Z"),
+      id: "11111111-1111-4111-8111-000000000108",
+    });
+
+    const deliveries = await repository.createLostPetReportCreatedDeliveries({
+      reportId,
+    });
+    let pushClientWasCalled = false;
+    currentTime = new Date("2026-07-01T12:11:00.000Z");
+    const dispatchResult = await dispatchPendingAlertDeliveries({
+      alertRepository: repository,
+      limit: 10,
+      pushClient: {
+        send: () => {
+          pushClientWasCalled = true;
+          return Promise.resolve([]);
+        },
+      },
+    });
+    await repository.unsubscribe({ memberId: "member-alert-disabled-token" });
+
+    expect(deliveries).toEqual([
+      expect.objectContaining({
+        pushTokenId: null,
+        reportId,
+        status: "pending",
+      }),
+    ]);
+    expect(dispatchResult).toEqual({
+      failed: 0,
+      pending: 1,
+      requested: 0,
+      sent: 0,
+      skipped: 1,
+    });
+    expect(pushClientWasCalled).toBe(false);
+
+    const [deliveryRow] = await db
+      .select()
+      .from(AlertNotificationDelivery)
+      .where(eq(AlertNotificationDelivery.reportId, reportId));
+
+    expect(deliveryRow).toMatchObject({
+      failureReason: "No hay un token push activo para este miembro.",
+      pushTokenId: null,
+      status: "skipped",
+    });
   });
 
   it("creates history for missing-token subscribers and skips paused, unsubscribed, owner, and out-of-radius members", async () => {
@@ -274,9 +385,10 @@ describeIntegration("alert repository integration", () => {
       }))
       .sort((left, right) => left.memberId.localeCompare(right.memberId));
 
-    expect(projectedDeliveryRows.map((delivery) => delivery.memberId)).toEqual(
-      ["member-alert-missing-token", "member-alert-nearby"],
-    );
+    expect(projectedDeliveryRows.map((delivery) => delivery.memberId)).toEqual([
+      "member-alert-missing-token",
+      "member-alert-nearby",
+    ]);
     expect(projectedDeliveryRows[0]?.pushTokenId).toBeNull();
     expect(projectedDeliveryRows[1]?.pushTokenId).toEqual(expect.any(String));
   });
