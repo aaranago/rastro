@@ -165,6 +165,36 @@ async function assertMemberIsNotSuspendedForPublishing(ctx: {
   }
 }
 
+async function createLostPetReportAlertDeliveries(
+  ctx: {
+    alertRepository: {
+      createLostPetReportCreatedDeliveries: (input: {
+        reportId: string;
+      }) => Promise<unknown>;
+    };
+  },
+  input: {
+    existingReport: PersistedReport | null;
+    report: PersistedReport;
+  },
+) {
+  if (
+    input.existingReport ||
+    input.report.type !== "lost_pet" ||
+    input.report.status !== "active"
+  ) {
+    return;
+  }
+
+  try {
+    await ctx.alertRepository.createLostPetReportCreatedDeliveries({
+      reportId: input.report.id,
+    });
+  } catch (error) {
+    console.error("Failed to create nearby lost-pet alert deliveries.", error);
+  }
+}
+
 export const reportRouter = {
   createUploadSession: protectedProcedure
     .input(createUploadSessionInputSchema)
@@ -332,6 +362,11 @@ export const reportRouter = {
           initialStatus,
           report: input,
         }));
+
+      await createLostPetReportAlertDeliveries(ctx, {
+        existingReport: existing,
+        report,
+      });
 
       return toPublicReport(report, caretakerId);
     }),

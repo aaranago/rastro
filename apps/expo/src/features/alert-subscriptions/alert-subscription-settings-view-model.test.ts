@@ -75,8 +75,8 @@ describe("Alert Subscription settings view model", () => {
 
     expect(viewModel).toMatchObject({
       action: {
-        id: "disable-alerts",
-        label: "Desactivar alertas",
+        id: "pause-alerts",
+        label: "Pausar alertas",
       },
       area: {
         label: "Ubicacion actual en Bolivia",

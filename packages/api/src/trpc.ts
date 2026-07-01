@@ -17,6 +17,7 @@ import type { AdminAuditRepository } from "./admin-audit-repository";
 import type { AdminMediaRepository } from "./admin-media-repository";
 import type { AdminMetricsRepository } from "./admin-metrics-repository";
 import type { AdminSettingsRepository } from "./admin-settings-repository";
+import type { AlertRepository } from "./alert-repository";
 import type { ChatRepository } from "./chat-repository";
 import type { MediaStorage, MediaStorageConfig } from "./media-storage";
 import type { MemberSuspensionRepository } from "./member-suspension-repository";
@@ -29,6 +30,7 @@ import { createDrizzleAdminAuditRepository } from "./admin-audit-repository";
 import { createDrizzleAdminMediaRepository } from "./admin-media-repository";
 import { createDrizzleAdminMetricsRepository } from "./admin-metrics-repository";
 import { createDrizzleAdminSettingsRepository } from "./admin-settings-repository";
+import { createDrizzleAlertRepository } from "./alert-repository";
 import { createDrizzleChatRepository } from "./chat-repository";
 import {
   createS3MediaStorage,
@@ -67,6 +69,7 @@ export const createTRPCContext = async (opts: {
   adminMetricsRepository: AdminMetricsRepository;
   authApi: Auth["api"];
   adminSettingsRepository: AdminSettingsRepository;
+  alertRepository: AlertRepository;
   chatRepository: ChatRepository;
   db: Database;
   mediaRepository: ReportMediaRepository;
@@ -101,6 +104,7 @@ export const createTRPCContext = async (opts: {
     }),
     adminMetricsRepository: createDrizzleAdminMetricsRepository(db),
     adminSettingsRepository: createDrizzleAdminSettingsRepository(db),
+    alertRepository: createDrizzleAlertRepository(db),
     authApi,
     chatRepository: createDrizzleChatRepository(db),
     db,

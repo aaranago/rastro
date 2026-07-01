@@ -37,6 +37,15 @@ export const petSpeciesSchema = z.enum([
   "other",
 ]);
 
+export const alertSubscriptionCategorySchema = z.enum(["lost_pet"]);
+
+export const alertPushTokenPlatformSchema = z.enum([
+  "ios",
+  "android",
+  "web",
+  "unknown",
+]);
+
 export const contactPreferenceSchema = z.enum([
   "in_app_chat",
   "whatsapp",
@@ -273,6 +282,107 @@ export const reportChatConversationInputSchema = z
     note: z.string().trim().min(10).max(1000).optional(),
   })
   .strict();
+
+export const alertGetInputSchema = z.object({}).strict();
+
+export const alertUpsertSettingsInputSchema = z
+  .object({
+    categories: z
+      .array(alertSubscriptionCategorySchema)
+      .min(1)
+      .max(1)
+      .default(["lost_pet"]),
+    radiusMeters: z.number().int().min(500).max(100_000),
+  })
+  .strict();
+
+export const alertRecordLocationInputSchema = z
+  .object({
+    latitude: boliviaLatitudeSchema,
+    longitude: boliviaLongitudeSchema,
+    label: z.string().trim().min(2).max(160).optional(),
+    locationCell: z.string().trim().min(3).max(96).optional(),
+  })
+  .strict();
+
+export const alertPauseInputSchema = z
+  .object({
+    pausedUntil: z.iso.datetime(),
+  })
+  .strict();
+
+export const alertUnsubscribeInputSchema = z.object({}).strict();
+
+const expoPushTokenSchema = z
+  .string()
+  .trim()
+  .min(20)
+  .max(512)
+  .regex(/^(ExponentPushToken|ExpoPushToken)\[[A-Za-z0-9_-]+\]$/);
+
+export const alertRegisterPushTokenInputSchema = z
+  .object({
+    token: expoPushTokenSchema,
+    platform: alertPushTokenPlatformSchema.default("unknown"),
+    deviceId: z.string().trim().min(1).max(128).optional(),
+  })
+  .strict();
+
+const isoDateTimeOutputSchema = z.iso.datetime();
+
+export const alertSubscriptionOutputSchema = z.object({
+  id: z.uuid(),
+  categories: z.array(alertSubscriptionCategorySchema).min(1),
+  radiusMeters: z.number().int().min(500).max(100_000),
+  location: z
+    .object({
+      latitude: boliviaLatitudeSchema,
+      longitude: boliviaLongitudeSchema,
+      label: z.string().min(2).max(160).nullable(),
+      locationCell: z.string().min(3).max(96).nullable(),
+      recordedAt: isoDateTimeOutputSchema,
+    })
+    .nullable(),
+  pausedUntil: isoDateTimeOutputSchema.nullable(),
+  unsubscribedAt: isoDateTimeOutputSchema.nullable(),
+  status: z.enum(["active", "paused", "unsubscribed", "needs_location"]),
+  createdAt: isoDateTimeOutputSchema,
+  updatedAt: isoDateTimeOutputSchema,
+});
+
+export const alertPushTokenOutputSchema = z.object({
+  id: z.uuid(),
+  token: z.string().min(1).max(512),
+  platform: alertPushTokenPlatformSchema,
+  deviceId: z.string().min(1).max(128).nullable(),
+  registeredAt: isoDateTimeOutputSchema,
+  lastSeenAt: isoDateTimeOutputSchema,
+  disabledAt: isoDateTimeOutputSchema.nullable(),
+});
+
+export const alertNotificationDeliveryOutputSchema = z.object({
+  id: z.uuid(),
+  subscriptionId: z.uuid(),
+  reportId: z.uuid(),
+  pushTokenId: z.uuid().nullable(),
+  status: z.enum(["pending", "sent", "failed", "skipped"]),
+  title: z.string().min(1).max(160),
+  body: z.string().min(1),
+  deepLink: z.string().min(1),
+  matchedAt: isoDateTimeOutputSchema,
+  createdAt: isoDateTimeOutputSchema,
+});
+
+export const alertGetOutputSchema = z.object({
+  subscription: alertSubscriptionOutputSchema.nullable(),
+  pushTokens: z.array(alertPushTokenOutputSchema),
+});
+
+export const alertUpsertSettingsOutputSchema = alertSubscriptionOutputSchema;
+export const alertRecordLocationOutputSchema = alertSubscriptionOutputSchema;
+export const alertPauseOutputSchema = alertSubscriptionOutputSchema;
+export const alertUnsubscribeOutputSchema = alertSubscriptionOutputSchema;
+export const alertRegisterPushTokenOutputSchema = alertPushTokenOutputSchema;
 
 export const resourceProviderApproximatePublicLocationRadiusMeters = 300;
 
@@ -710,6 +820,12 @@ export type ReportType = z.infer<typeof reportTypeSchema>;
 export type ReportStatus = z.infer<typeof reportStatusSchema>;
 export type ReportOutcome = z.infer<typeof reportOutcomeSchema>;
 export type PetSpecies = z.infer<typeof petSpeciesSchema>;
+export type AlertSubscriptionCategory = z.infer<
+  typeof alertSubscriptionCategorySchema
+>;
+export type AlertPushTokenPlatform = z.infer<
+  typeof alertPushTokenPlatformSchema
+>;
 export type ContactPreference = z.infer<typeof contactPreferenceSchema>;
 export type ReportMediaInput = z.infer<typeof reportMediaInputSchema>;
 export type CreateUploadSessionInput = z.infer<
@@ -825,6 +941,26 @@ export type BlockChatMemberInput = z.infer<typeof blockChatMemberInputSchema>;
 export type ReportChatConversationInput = z.infer<
   typeof reportChatConversationInputSchema
 >;
+export type AlertGetInput = z.infer<typeof alertGetInputSchema>;
+export type AlertUpsertSettingsInput = z.infer<
+  typeof alertUpsertSettingsInputSchema
+>;
+export type AlertRecordLocationInput = z.infer<
+  typeof alertRecordLocationInputSchema
+>;
+export type AlertPauseInput = z.infer<typeof alertPauseInputSchema>;
+export type AlertUnsubscribeInput = z.infer<typeof alertUnsubscribeInputSchema>;
+export type AlertRegisterPushTokenInput = z.infer<
+  typeof alertRegisterPushTokenInputSchema
+>;
+export type AlertSubscriptionOutput = z.infer<
+  typeof alertSubscriptionOutputSchema
+>;
+export type AlertPushTokenOutput = z.infer<typeof alertPushTokenOutputSchema>;
+export type AlertNotificationDeliveryOutput = z.infer<
+  typeof alertNotificationDeliveryOutputSchema
+>;
+export type AlertGetOutput = z.infer<typeof alertGetOutputSchema>;
 
 export interface PublicLostReportShareTargetInput {
   publicWebBaseUrl: string;

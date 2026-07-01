@@ -61,11 +61,13 @@ const automation = AutomationFactory.create(platform, {
   verbose: process.env.RASTRO_E2E_MOBILE_VERBOSE === "1",
 });
 
+await grantAndroidRuntimePermissions();
 await openDevelopmentBuild();
 await verifyResourcesDirectory();
 await verifyProviderProfile();
 await verifyReportDetails();
 await verifyChatWorkflow();
+await verifyAlertSubscriptionWorkflow();
 
 const summary = {
   appId,
@@ -219,6 +221,42 @@ async function verifyChatWorkflow() {
   await assertVisibleText(messageText, "chat-reopened-message");
 }
 
+async function verifyAlertSubscriptionWorkflow() {
+  await openDeepLinkUntilVisible(
+    ["rastro:///alertas", "rastro://alertas"],
+    "alert-subscription-settings-screen",
+  );
+  if (await hasTestID("alert-subscription-enable-button")) {
+    await tapRequired("alert-subscription-enable-button");
+    await waitForTestID("alert-subscription-feedback", { timeoutMs: 30000 });
+  } else {
+    await waitForTestID("alert-subscription-pause-button", {
+      timeoutMs: 30000,
+    });
+  }
+  await waitForTestID("alert-subscription-pause-button", { timeoutMs: 30000 });
+  await assertVisibleText("ALERTAS ACTIVAS", "alerts-enabled");
+  await screenshot("alerts-enabled.png");
+
+  await openDeepLinkUntilVisible(
+    ["rastro://recursos", "rastro:///recursos"],
+    "resources-screen",
+  );
+  await openDeepLinkUntilVisible(
+    ["rastro:///alertas", "rastro://alertas"],
+    "alert-subscription-settings-screen",
+  );
+  await waitForTestID("alert-subscription-pause-button", { timeoutMs: 30000 });
+  await assertVisibleText("ALERTAS ACTIVAS", "alerts-reopened");
+
+  checks.push({
+    detail:
+      "Alert settings survived route remount and backend state refresh after activation.",
+    id: "alerts-backend-persistence",
+    ok: true,
+  });
+}
+
 async function openDeepLinkUntilVisible(urls, testID) {
   let lastError;
 
@@ -276,6 +314,43 @@ async function openDevelopmentBuild() {
   });
 }
 
+async function grantAndroidRuntimePermissions() {
+  if (platform !== "android") {
+    return;
+  }
+
+  const permissions = [
+    "android.permission.ACCESS_FINE_LOCATION",
+    "android.permission.ACCESS_COARSE_LOCATION",
+    "android.permission.POST_NOTIFICATIONS",
+  ];
+  const results = [];
+
+  for (const permission of permissions) {
+    try {
+      await adb([
+        "shell",
+        "pm",
+        "clear-permission-flags",
+        appId,
+        permission,
+        "user-set",
+        "user-fixed",
+      ]);
+      await adb(["shell", "pm", "grant", appId, permission]);
+      results.push({ ok: true, permission });
+    } catch (error) {
+      results.push({
+        error: error instanceof Error ? error.message : String(error),
+        ok: false,
+        permission,
+      });
+    }
+  }
+
+  checks.push({ id: "permissions:runtime", ok: true, results });
+}
+
 async function seedFixtureForMobile() {
   const args = [
     "-F",
@@ -331,6 +406,12 @@ async function waitForTestID(testID, options = {}) {
   throw new Error(
     `Timed out waiting for ${testID}: ${JSON.stringify(lastResult)}`,
   );
+}
+
+async function hasTestID(testID) {
+  const result = await automation.findViewByTestIDAsync(testID);
+
+  return result.success && hasUsableBounds(result.data);
 }
 
 async function scrollUntilTestID(testID, options = {}) {

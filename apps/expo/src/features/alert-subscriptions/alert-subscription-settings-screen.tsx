@@ -8,7 +8,10 @@ import {
   View,
 } from "react-native";
 
-import type { AlertSubscriptionNativeAdapter } from "./alert-subscription-native-adapter";
+import type {
+  AlertSubscriptionNativeAdapter,
+  AlertSubscriptionPushRegistrationResult,
+} from "./alert-subscription-native-adapter";
 import type { AlertSubscriptionSettingsViewModel } from "./alert-subscription-settings-view-model";
 import type {
   AlertSubscription,
@@ -50,26 +53,28 @@ export interface AlertSubscriptionSettingsScreenProps {
 }
 
 type PendingAction =
-  | "disable"
   | "enable"
   | "moving-alerts"
+  | "pause"
   | "radius"
-  | "refresh";
+  | "refresh"
+  | "unsubscribe";
 
-interface Feedback {
+export interface Feedback {
   message: string;
   tone: "error" | "success" | "warning";
 }
 
 interface AlertSubscriptionSettingsController {
-  disableAlerts: () => Promise<void>;
   enableAlerts: () => Promise<void>;
   feedback: Feedback | null;
+  pauseAlerts: () => Promise<void>;
   pendingAction: PendingAction | null;
   refreshArea: () => Promise<void>;
   selectRadius: (radiusKm: AlertSubscriptionRadiusKm) => Promise<void>;
   subscription: AlertSubscription | null;
   toggleMovingAlerts: (enabled: boolean) => Promise<void>;
+  unsubscribeAlerts: () => Promise<void>;
   viewModel: AlertSubscriptionSettingsViewModel;
 }
 
@@ -91,14 +96,15 @@ export function AlertSubscriptionSettingsScreen({
       contentInsetAdjustmentBehavior="automatic"
       scrollIndicatorInsets={{ bottom: bottomInset }}
       style={styles.screen}
+      testID="alert-subscription-settings-screen"
     >
       <AlertSettingsHero viewModel={controller.viewModel} />
       <SubscriptionPanel controller={controller} />
+      <FeedbackMessage feedback={controller.feedback} />
       <RadiusPanel controller={controller} />
       <DynamicAlertAreaPanel controller={controller} />
       <MovingAlertsPanel controller={controller} />
       <PolicyPanel viewModel={controller.viewModel} />
-      <FeedbackMessage feedback={controller.feedback} />
     </ScrollView>
   );
 }
@@ -188,15 +194,16 @@ function useAlertSubscriptionSettingsController({
         radiusKm: selectedRadiusKm,
         reason: "manual-refresh",
       });
-      const pushRegistration = await nativeAdapter.registerForPushNotifications(
-        {
-          requestPermission: true,
-        },
-      );
 
       setSubscription(enabled);
       setLastDetectedLocation(enabled.dynamicAlertArea?.location ?? location);
-      setFeedback(formatPushRegistrationFeedback(pushRegistration.kind));
+      setFeedback(
+        await resolvePushRegistrationFeedback({
+          memberSession,
+          nativeAdapter,
+          repository,
+        }),
+      );
     } catch (error) {
       setFeedback({
         message:
@@ -216,27 +223,61 @@ function useAlertSubscriptionSettingsController({
     session,
   ]);
 
-  const disableAlerts = React.useCallback(async () => {
+  const pauseAlerts = React.useCallback(async () => {
     const memberSession = getMemberSession(session);
 
     if (!memberSession) {
       return;
     }
 
-    setPendingAction("disable");
+    setPendingAction("pause");
     setFeedback(null);
 
     try {
-      const disabled = await repository.disableAlertSubscription(memberSession);
+      const paused = await repository.pauseAlertSubscription(memberSession);
 
-      setSubscription(disabled);
+      setSubscription(paused);
       setFeedback({
-        message: "Alertas desactivadas.",
+        message: "Alertas pausadas. Puedes reactivarlas cuando quieras.",
         tone: "success",
       });
     } catch {
       setFeedback({
-        message: "No pudimos desactivar alertas.",
+        message: "No pudimos pausar alertas.",
+        tone: "error",
+      });
+    } finally {
+      setPendingAction(null);
+    }
+  }, [repository, session]);
+
+  const unsubscribeAlerts = React.useCallback(async () => {
+    const memberSession = getMemberSession(session);
+
+    if (!memberSession) {
+      return;
+    }
+
+    setPendingAction("unsubscribe");
+    setFeedback(null);
+
+    try {
+      const nextSubscription =
+        await repository.unsubscribeAlertSubscription(memberSession);
+
+      setSubscription(nextSubscription);
+
+      if (nextSubscription) {
+        setSelectedRadiusKm(nextSubscription.radiusKm);
+      }
+
+      setFeedback({
+        message: "Te desuscribiste de las alertas cercanas.",
+        tone: "success",
+      });
+    } catch {
+      setFeedback({
+        message: "No pudimos desuscribirte de las alertas.",
         tone: "error",
       });
     } finally {
@@ -356,14 +397,15 @@ function useAlertSubscriptionSettingsController({
   );
 
   return {
-    disableAlerts,
     enableAlerts,
     feedback,
+    pauseAlerts,
     pendingAction,
     refreshArea,
     selectRadius,
     subscription,
     toggleMovingAlerts,
+    unsubscribeAlerts,
     viewModel,
   };
 }
@@ -401,7 +443,7 @@ function SubscriptionPanel({
   const { pendingAction, viewModel } = controller;
   const updateEnabled = React.useCallback(
     (enabled: boolean) => {
-      void (enabled ? controller.enableAlerts() : controller.disableAlerts());
+      void (enabled ? controller.enableAlerts() : controller.pauseAlerts());
     },
     [controller],
   );
@@ -428,9 +470,24 @@ function SubscriptionPanel({
         icon={viewModel.enabled ? "bell.slash.fill" : "bell.badge.fill"}
         label={getSubscriptionActionLabel(viewModel, pendingAction)}
         onPress={
-          viewModel.enabled ? controller.disableAlerts : controller.enableAlerts
+          viewModel.enabled ? controller.pauseAlerts : controller.enableAlerts
+        }
+        testID={
+          viewModel.enabled
+            ? "alert-subscription-pause-button"
+            : "alert-subscription-enable-button"
         }
       />
+      {controller.subscription ? (
+        <ActionButton
+          disabled={!viewModel.canManage || pendingAction !== null}
+          icon="xmark"
+          label={getUnsubscribeActionLabel(pendingAction)}
+          onPress={controller.unsubscribeAlerts}
+          testID="alert-subscription-unsubscribe-button"
+          variant="danger"
+        />
+      ) : null}
     </View>
   );
 }
@@ -502,6 +559,7 @@ function DynamicAlertAreaPanel({
         icon="arrow.clockwise"
         label={getRefreshActionLabel(viewModel, pendingAction)}
         onPress={controller.refreshArea}
+        testID="alert-subscription-refresh-button"
         variant="secondary"
       />
     </View>
@@ -597,7 +655,11 @@ function FeedbackMessage({ feedback }: { feedback: Feedback | null }) {
   }
 
   return (
-    <Text selectable style={getFeedbackStyle(feedback.tone)}>
+    <Text
+      selectable
+      style={getFeedbackStyle(feedback.tone)}
+      testID="alert-subscription-feedback"
+    >
       {feedback.message}
     </Text>
   );
@@ -647,6 +709,67 @@ function getExistingAlertAreaLocation(
   return subscription.dynamicAlertArea?.location ?? fallback;
 }
 
+async function resolvePushRegistrationFeedback({
+  memberSession,
+  nativeAdapter,
+  repository,
+}: {
+  memberSession: AlertSubscriptionsMemberSession;
+  nativeAdapter: AlertSubscriptionNativeAdapter;
+  repository: AlertSubscriptionRepository;
+}) {
+  try {
+    const pushRegistration = await nativeAdapter.registerForPushNotifications({
+      requestPermission: true,
+    });
+
+    return persistRegisteredAlertSubscriptionPushToken({
+      memberSession,
+      pushRegistration,
+      repository,
+    });
+  } catch {
+    return pushRegistrationUnavailableFeedback;
+  }
+}
+
+export async function persistRegisteredAlertSubscriptionPushToken({
+  memberSession,
+  pushRegistration,
+  repository,
+}: {
+  memberSession: AlertSubscriptionsMemberSession;
+  pushRegistration: AlertSubscriptionPushRegistrationResult;
+  repository: AlertSubscriptionRepository;
+}): Promise<Feedback> {
+  if (pushRegistration.kind !== "registered") {
+    return formatPushRegistrationFeedback(pushRegistration);
+  }
+
+  try {
+    await repository.registerPushToken(memberSession, {
+      permissionStatus: pushRegistration.permission.status,
+      platform: pushRegistration.platform,
+      projectId: pushRegistration.projectId,
+      token: pushRegistration.token,
+    });
+  } catch {
+    return {
+      message:
+        "Alertas activas, pero no pudimos guardar el token push. Intenta actualizar las alertas mas tarde.",
+      tone: "warning",
+    };
+  }
+
+  return formatPushRegistrationFeedback(pushRegistration);
+}
+
+const pushRegistrationUnavailableFeedback = {
+  message:
+    "Alertas activas, pero no pudimos activar notificaciones push. Intenta actualizar las alertas mas tarde.",
+  tone: "warning",
+} satisfies Feedback;
+
 function getMemberSession(
   session: AlertSubscriptionsSessionState,
 ): AlertSubscriptionsMemberSession | null {
@@ -657,9 +780,13 @@ function getSubscriptionActionLabel(
   viewModel: AlertSubscriptionSettingsViewModel,
   pendingAction: PendingAction | null,
 ) {
-  return pendingAction === "enable" || pendingAction === "disable"
+  return pendingAction === "enable" || pendingAction === "pause"
     ? "Actualizando"
     : viewModel.action.label;
+}
+
+function getUnsubscribeActionLabel(pendingAction: PendingAction | null) {
+  return pendingAction === "unsubscribe" ? "Desuscribiendo" : "Desuscribirme";
 }
 
 function getRefreshActionLabel(
@@ -672,18 +799,16 @@ function getRefreshActionLabel(
 }
 
 function formatPushRegistrationFeedback(
-  kind: Awaited<
-    ReturnType<AlertSubscriptionNativeAdapter["registerForPushNotifications"]>
-  >["kind"],
+  pushRegistration: AlertSubscriptionPushRegistrationResult,
 ): Feedback {
-  if (kind === "registered") {
+  if (pushRegistration.kind === "registered") {
     return {
       message: "Alertas activas y notificaciones listas.",
       tone: "success",
     };
   }
 
-  if (kind === "missing-project-id") {
+  if (pushRegistration.kind === "missing-project-id") {
     return {
       message:
         "Alertas activas. Falta configurar EAS projectId para probar push real.",
@@ -691,9 +816,17 @@ function formatPushRegistrationFeedback(
     };
   }
 
+  if (pushRegistration.kind === "permission-denied") {
+    return {
+      message:
+        "Alertas activas. El permiso de notificaciones esta denegado; habilitalo en ajustes para recibir avisos push.",
+      tone: "warning",
+    };
+  }
+
   return {
     message:
-      "Alertas activas. Puedes permitir notificaciones desde ajustes cuando quieras recibir avisos push.",
+      "Alertas activas. Necesitamos permiso de notificaciones para enviarte avisos push.",
     tone: "warning",
   };
 }
@@ -703,41 +836,48 @@ function ActionButton({
   icon,
   label,
   onPress,
+  testID,
   variant = "primary",
 }: {
   disabled?: boolean;
   icon: string;
   label: string;
   onPress: () => void;
-  variant?: "primary" | "secondary";
+  testID?: string;
+  variant?: "danger" | "primary" | "secondary";
 }) {
+  const iconColor =
+    variant === "primary"
+      ? shellColors.white
+      : variant === "danger"
+        ? shellColors.lost
+        : shellColors.primary;
+  const textStyle =
+    variant === "primary"
+      ? styles.actionButtonPrimaryText
+      : variant === "danger"
+        ? styles.actionButtonDangerText
+        : styles.actionButtonSecondaryText;
+
   return (
     <Pressable
       accessibilityRole="button"
       disabled={disabled}
       onPress={onPress}
+      testID={testID}
       style={({ pressed }) => [
         styles.actionButton,
         variant === "secondary"
           ? styles.actionButtonSecondary
-          : styles.actionButtonPrimary,
+          : variant === "danger"
+            ? styles.actionButtonDanger
+            : styles.actionButtonPrimary,
         disabled ? styles.actionButtonDisabled : null,
         pressed ? styles.actionButtonPressed : null,
       ]}
     >
-      <ShellIcon
-        color={variant === "primary" ? shellColors.white : shellColors.primary}
-        name={icon}
-        size={18}
-      />
-      <Text
-        numberOfLines={2}
-        style={
-          variant === "primary"
-            ? styles.actionButtonPrimaryText
-            : styles.actionButtonSecondaryText
-        }
-      >
+      <ShellIcon color={iconColor} name={icon} size={18} />
+      <Text numberOfLines={2} style={textStyle}>
         {label}
       </Text>
     </Pressable>
@@ -771,6 +911,17 @@ const styles = StyleSheet.create({
   },
   actionButtonDisabled: {
     opacity: 0.54,
+  },
+  actionButtonDanger: {
+    backgroundColor: shellColors.surface,
+    borderColor: shellColors.lost,
+  },
+  actionButtonDangerText: {
+    color: shellColors.lost,
+    flexShrink: 1,
+    fontSize: 14,
+    fontWeight: "900",
+    textAlign: "center",
   },
   actionButtonPressed: {
     opacity: 0.82,

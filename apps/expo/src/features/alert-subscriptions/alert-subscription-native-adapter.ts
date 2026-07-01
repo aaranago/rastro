@@ -75,6 +75,7 @@ export type AlertSubscriptionPushRegistrationResult =
   | {
       kind: "registered";
       permission: AlertSubscriptionNativeNotificationPermissionState;
+      platform: "android" | "ios" | "web";
       projectId: string;
       token: string;
     }
@@ -274,6 +275,7 @@ export function createAlertSubscriptionNativeAdapter(
       return {
         kind: "registered",
         permission,
+        platform: native.platform.os,
         projectId,
         token: token.data,
       };

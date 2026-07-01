@@ -142,6 +142,22 @@ export const memberSuspensionStatus = pgEnum("member_suspension_status", [
   "revoked",
 ]);
 
+export const alertSubscriptionCategory = pgEnum("alert_subscription_category", [
+  "lost_pet",
+]);
+
+export const alertPushTokenPlatform = pgEnum("alert_push_token_platform", [
+  "ios",
+  "android",
+  "web",
+  "unknown",
+]);
+
+export const alertNotificationDeliveryStatus = pgEnum(
+  "alert_notification_delivery_status",
+  ["pending", "sent", "failed", "skipped"],
+);
+
 export const localSponsorPlacementSurface = pgEnum(
   "local_sponsor_placement_surface",
   [
@@ -684,6 +700,123 @@ export const ChatConversationReport = pgTable(
   ],
 );
 
+export const AlertSubscription = pgTable(
+  "alert_subscription",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    memberId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    categories: alertSubscriptionCategory()
+      .array()
+      .default(sql`ARRAY['lost_pet']::alert_subscription_category[]`)
+      .notNull(),
+    radiusMeters: t.integer().default(5000).notNull(),
+    locationPoint: postgisPoint4326("location_point"),
+    latitude: t.doublePrecision(),
+    longitude: t.doublePrecision(),
+    locationLabel: t.varchar({ length: 160 }),
+    locationCell: t.varchar({ length: 96 }),
+    lastLocationRecordedAt: t.timestamp(timestampWithTimezone),
+    pausedUntil: t.timestamp(timestampWithTimezone),
+    unsubscribedAt: t.timestamp(timestampWithTimezone),
+    createdAt: t.timestamp(timestampWithTimezone).defaultNow().notNull(),
+    updatedAt: t
+      .timestamp(timestampWithTimezone)
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  }),
+  (table) => [
+    uniqueIndex("alert_subscription_member_idx").on(table.memberId),
+    index("alert_subscription_location_point_gist_idx").using(
+      "gist",
+      table.locationPoint,
+    ),
+    index("alert_subscription_active_idx").on(
+      table.unsubscribedAt,
+      table.pausedUntil,
+    ),
+  ],
+);
+
+export const AlertPushToken = pgTable(
+  "alert_push_token",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    memberId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    token: t.varchar({ length: 512 }).notNull(),
+    platform: alertPushTokenPlatform().default("unknown").notNull(),
+    deviceId: t.varchar({ length: 128 }),
+    registeredAt: t.timestamp(timestampWithTimezone).defaultNow().notNull(),
+    lastSeenAt: t.timestamp(timestampWithTimezone).defaultNow().notNull(),
+    disabledAt: t.timestamp(timestampWithTimezone),
+    createdAt: t.timestamp(timestampWithTimezone).defaultNow().notNull(),
+    updatedAt: t
+      .timestamp(timestampWithTimezone)
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  }),
+  (table) => [
+    uniqueIndex("alert_push_token_token_idx").on(table.token),
+    index("alert_push_token_member_active_idx")
+      .on(table.memberId, table.lastSeenAt)
+      .where(sql`${table.disabledAt} IS NULL`),
+  ],
+);
+
+export const AlertNotificationDelivery = pgTable(
+  "alert_notification_delivery",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    subscriptionId: t
+      .uuid()
+      .notNull()
+      .references(() => AlertSubscription.id, { onDelete: "cascade" }),
+    reportId: t
+      .uuid()
+      .notNull()
+      .references(() => Report.id, { onDelete: "cascade" }),
+    pushTokenId: t.uuid().references(() => AlertPushToken.id, {
+      onDelete: "set null",
+    }),
+    memberId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    status: alertNotificationDeliveryStatus().default("pending").notNull(),
+    title: t.varchar({ length: 160 }).notNull(),
+    body: t.text().notNull(),
+    deepLink: t.text().notNull(),
+    matchedAt: t.timestamp(timestampWithTimezone).defaultNow().notNull(),
+    sentAt: t.timestamp(timestampWithTimezone),
+    failedAt: t.timestamp(timestampWithTimezone),
+    failureReason: t.text(),
+    createdAt: t.timestamp(timestampWithTimezone).defaultNow().notNull(),
+    updatedAt: t
+      .timestamp(timestampWithTimezone)
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  }),
+  (table) => [
+    uniqueIndex("alert_notification_delivery_subscription_report_idx").on(
+      table.subscriptionId,
+      table.reportId,
+    ),
+    index("alert_notification_delivery_report_idx").on(table.reportId),
+    index("alert_notification_delivery_member_created_idx").on(
+      table.memberId,
+      table.createdAt,
+    ),
+  ],
+);
+
 export interface ResourceProviderLinkJson {
   label: string;
   url: string;
@@ -1094,6 +1227,46 @@ export const chatConversationReportRelations = relations(
     reporter: one(user, {
       fields: [ChatConversationReport.reporterMemberId],
       references: [user.id],
+    }),
+  }),
+);
+
+export const alertSubscriptionRelations = relations(
+  AlertSubscription,
+  ({ many, one }) => ({
+    deliveries: many(AlertNotificationDelivery),
+    member: one(user, {
+      fields: [AlertSubscription.memberId],
+      references: [user.id],
+    }),
+  }),
+);
+
+export const alertPushTokenRelations = relations(AlertPushToken, ({ one }) => ({
+  member: one(user, {
+    fields: [AlertPushToken.memberId],
+    references: [user.id],
+  }),
+}));
+
+export const alertNotificationDeliveryRelations = relations(
+  AlertNotificationDelivery,
+  ({ one }) => ({
+    member: one(user, {
+      fields: [AlertNotificationDelivery.memberId],
+      references: [user.id],
+    }),
+    pushToken: one(AlertPushToken, {
+      fields: [AlertNotificationDelivery.pushTokenId],
+      references: [AlertPushToken.id],
+    }),
+    report: one(Report, {
+      fields: [AlertNotificationDelivery.reportId],
+      references: [Report.id],
+    }),
+    subscription: one(AlertSubscription, {
+      fields: [AlertNotificationDelivery.subscriptionId],
+      references: [AlertSubscription.id],
     }),
   }),
 );

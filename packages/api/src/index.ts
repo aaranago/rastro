@@ -20,6 +20,17 @@ type RouterOutputs = inferRouterOutputs<AppRouter>;
 
 export { type AppRouter, appRouter } from "./root";
 export {
+  buildActiveAlertSubscriptionCondition,
+  buildAlertReportCreatedCutoff,
+  createDrizzleAlertRepository,
+  type AlertRepository,
+  type DrizzleAlertRepositoryOptions,
+  type PersistedAlertNotificationDelivery,
+  type PersistedAlertPushToken,
+  type PersistedAlertState,
+  type PersistedAlertSubscription,
+} from "./alert-repository";
+export {
   buildAdminMediaObjectKey,
   createDrizzleAdminMediaRepository,
   type AdminMediaRepository,

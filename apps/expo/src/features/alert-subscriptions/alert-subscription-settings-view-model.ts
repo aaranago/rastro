@@ -8,8 +8,8 @@ import type {
 import { alertSubscriptionRadiusOptionsKm } from "./alert-subscriptions";
 
 export type AlertSubscriptionSettingsAction =
-  | "disable-alerts"
   | "enable-alerts"
+  | "pause-alerts"
   | "sign-in";
 
 export interface AlertSubscriptionSettingsRadiusOption {
@@ -84,8 +84,8 @@ export function buildAlertSubscriptionSettingsViewModel({
 
   return {
     action: {
-      id: enabled ? "disable-alerts" : "enable-alerts",
-      label: enabled ? "Desactivar alertas" : "Activar alertas",
+      id: enabled ? "pause-alerts" : "enable-alerts",
+      label: enabled ? "Pausar alertas" : "Activar alertas",
     },
     area: subscription?.dynamicAlertArea
       ? formatDynamicAlertArea(subscription.dynamicAlertArea.location)

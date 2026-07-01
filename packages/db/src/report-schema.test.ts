@@ -2,6 +2,10 @@ import { getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 
 import {
+  AlertNotificationDelivery,
+  AlertPushToken,
+  AlertSubscription,
+  alertSubscriptionCategory,
   ChatConversation,
   ChatConversationBlock,
   ChatConversationHidden,
@@ -165,6 +169,73 @@ describe("report schema", () => {
       expect.arrayContaining([
         "chat_conversation_report_created_idx",
         "chat_conversation_report_reporter_idx",
+      ]),
+    );
+  });
+
+  it("defines durable alert subscription, push token, and delivery tables", () => {
+    expect(AlertSubscription.memberId).toBeDefined();
+    expect(alertSubscriptionCategory.enumValues).toEqual(["lost_pet"]);
+    expect(AlertSubscription.categories.getSQLType()).toBe(
+      "alert_subscription_category[]",
+    );
+    expect(AlertSubscription.radiusMeters).toBeDefined();
+    expect(AlertSubscription.locationPoint.getSQLType()).toBe(
+      "geometry(point,4326)",
+    );
+    expect(AlertSubscription.latitude).toBeDefined();
+    expect(AlertSubscription.longitude).toBeDefined();
+    expect(AlertSubscription.pausedUntil).toBeDefined();
+    expect(AlertSubscription.unsubscribedAt).toBeDefined();
+
+    expect(AlertPushToken.memberId).toBeDefined();
+    expect(AlertPushToken.token).toBeDefined();
+    expect(AlertPushToken.platform.enumValues).toEqual([
+      "ios",
+      "android",
+      "web",
+      "unknown",
+    ]);
+    expect(AlertPushToken.disabledAt).toBeDefined();
+
+    expect(AlertNotificationDelivery.subscriptionId).toBeDefined();
+    expect(AlertNotificationDelivery.reportId).toBeDefined();
+    expect(AlertNotificationDelivery.pushTokenId).toBeDefined();
+    expect(AlertNotificationDelivery.status.enumValues).toEqual([
+      "pending",
+      "sent",
+      "failed",
+      "skipped",
+    ]);
+
+    const subscriptionIndexes = getTableConfig(AlertSubscription).indexes.map(
+      (index) => index.config.name,
+    );
+    const pushTokenIndexes = getTableConfig(AlertPushToken).indexes.map(
+      (index) => index.config.name,
+    );
+    const deliveryIndexes = getTableConfig(
+      AlertNotificationDelivery,
+    ).indexes.map((index) => index.config.name);
+
+    expect(subscriptionIndexes).toEqual(
+      expect.arrayContaining([
+        "alert_subscription_member_idx",
+        "alert_subscription_location_point_gist_idx",
+        "alert_subscription_active_idx",
+      ]),
+    );
+    expect(pushTokenIndexes).toEqual(
+      expect.arrayContaining([
+        "alert_push_token_token_idx",
+        "alert_push_token_member_active_idx",
+      ]),
+    );
+    expect(deliveryIndexes).toEqual(
+      expect.arrayContaining([
+        "alert_notification_delivery_subscription_report_idx",
+        "alert_notification_delivery_report_idx",
+        "alert_notification_delivery_member_created_idx",
       ]),
     );
   });

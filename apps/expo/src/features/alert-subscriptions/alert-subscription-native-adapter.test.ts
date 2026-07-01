@@ -87,6 +87,7 @@ describe("Alert Subscription native adapter", () => {
         granted: true,
         status: "granted",
       },
+      platform: "android",
       projectId: "eas-project-id",
       token: "ExponentPushToken[abc123]",
     });

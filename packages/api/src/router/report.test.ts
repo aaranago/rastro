@@ -48,6 +48,25 @@ const validAdoptionCreateInput = {
   ],
 } satisfies CreateReportInput;
 
+const validLostPetCreateInput = {
+  ...validReportCreateInput,
+  idempotencyKey: "lost-2026-06-19-device-1",
+  type: "lost_pet",
+  title: "Luna perdida cerca de Sopocachi",
+  description: "Luna salio con arnes rojo y no volvio a casa.",
+  pet: {
+    species: "dog",
+    color: "marron",
+    name: "Luna",
+    size: "mediano",
+  },
+  media: [
+    {
+      mediaId: "66666666-6666-4666-8666-666666666666",
+    },
+  ],
+} satisfies CreateReportInput;
+
 function createCaller(context: unknown) {
   return appRouter.createCaller(context as never);
 }
@@ -178,6 +197,49 @@ describe("report router", () => {
     });
     expect(JSON.stringify(report)).not.toContain("-16.510231");
     expect(JSON.stringify(report)).not.toContain("-68.123881");
+  });
+
+  it("creates nearby alert deliveries for fresh active lost-pet reports", async () => {
+    let deliveryReportId: string | undefined;
+    const caller = createCaller({
+      alertRepository: {
+        createLostPetReportCreatedDeliveries: (input: { reportId: string }) => {
+          deliveryReportId = input.reportId;
+          return Promise.resolve([]);
+        },
+      },
+      authApi: {},
+      db: {},
+      mediaRepository: {
+        assertReadyMediaForReport: () => Promise.resolve(),
+      },
+      session: {
+        user: {
+          id: "member-camila",
+        },
+      },
+      reportRepository: {
+        findByCaretakerAndIdempotencyKey: () => Promise.resolve(null),
+        create: () =>
+          Promise.resolve(
+            persistedSightingReport({
+              id: "report-lost-luna-sopocachi",
+              idempotencyKey: validLostPetCreateInput.idempotencyKey,
+              petName: "Luna",
+              title: validLostPetCreateInput.title,
+              type: "lost_pet",
+            }),
+          ),
+      },
+    });
+
+    const report = await caller.report.create(validLostPetCreateInput);
+
+    expect(report).toMatchObject({
+      id: "report-lost-luna-sopocachi",
+      type: "lost_pet",
+    });
+    expect(deliveryReportId).toBe("report-lost-luna-sopocachi");
   });
 
   it("rejects report publishing for unverified members when the verified-email gate is enabled", async () => {
@@ -930,7 +992,14 @@ describe("report router", () => {
 
   it("returns the existing report for duplicate idempotency keys", async () => {
     let createWasCalled = false;
+    let alertWasCalled = false;
     const caller = createCaller({
+      alertRepository: {
+        createLostPetReportCreatedDeliveries: () => {
+          alertWasCalled = true;
+          return Promise.resolve([]);
+        },
+      },
       authApi: {},
       db: {},
       session: {
@@ -954,6 +1023,7 @@ describe("report router", () => {
 
     expect(report.id).toBe("report-sighting-sopocachi");
     expect(createWasCalled).toBe(false);
+    expect(alertWasCalled).toBe(false);
   });
 
   it("checks ready media against the report draft and report type before creation", async () => {

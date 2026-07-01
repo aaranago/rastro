@@ -111,6 +111,20 @@ export interface UpdateMovingAlertsPreferenceInput {
   permissionState: AlertSubscriptionBackgroundLocationPermissionState;
 }
 
+export type AlertSubscriptionPushPermissionStatus =
+  | "denied"
+  | "granted"
+  | "undetermined";
+
+export type AlertSubscriptionPushPlatform = "android" | "ios" | "web";
+
+export interface RegisterAlertSubscriptionPushTokenInput {
+  permissionStatus: AlertSubscriptionPushPermissionStatus;
+  platform?: AlertSubscriptionPushPlatform;
+  projectId: string;
+  token: string;
+}
+
 export interface AlertSubscriptionRepository {
   disableAlertSubscription: (
     session: AlertSubscriptionsSessionState,
@@ -126,10 +140,20 @@ export interface AlertSubscriptionRepository {
     session: AlertSubscriptionsSessionState,
     input: MatchNewLostPetReportAlertsInput,
   ) => Promise<LostPetAlertNotification[]>;
+  pauseAlertSubscription: (
+    session: AlertSubscriptionsSessionState,
+  ) => Promise<AlertSubscription>;
   recordAlertAreaLocation: (
     session: AlertSubscriptionsSessionState,
     input: RecordAlertAreaLocationInput,
   ) => Promise<AlertSubscription>;
+  registerPushToken: (
+    session: AlertSubscriptionsSessionState,
+    input: RegisterAlertSubscriptionPushTokenInput,
+  ) => Promise<void>;
+  unsubscribeAlertSubscription: (
+    session: AlertSubscriptionsSessionState,
+  ) => Promise<AlertSubscription | null>;
   updateMovingAlertsPreference: (
     session: AlertSubscriptionsSessionState,
     input: UpdateMovingAlertsPreferenceInput,
@@ -177,29 +201,38 @@ export function createInMemoryAlertSubscriptionRepository(
 ): AlertSubscriptionRepository {
   const now = options.now ?? (() => "2026-01-01T00:00:00.000Z");
   const subscriptions = new Map<string, AlertSubscription>();
+  const pushRegistrations = new Map<
+    string,
+    RegisterAlertSubscriptionPushTokenInput
+  >();
+  const pauseAlertSubscription = (
+    session: AlertSubscriptionsSessionState,
+  ): Promise<AlertSubscription> => {
+    assertMemberCanManageAlertSubscription(session);
+
+    const current = subscriptions.get(session.memberId);
+
+    if (!current) {
+      throw new AlertSubscriptionRepositoryError(
+        "alert_subscription_not_found",
+        "No se encontro una suscripcion de alertas para esta persona.",
+      );
+    }
+
+    const updated: AlertSubscription = {
+      ...current,
+      enabled: false,
+      updatedAt: now(),
+    };
+
+    subscriptions.set(session.memberId, updated);
+
+    return Promise.resolve(cloneAlertSubscription(updated));
+  };
 
   return {
     disableAlertSubscription(session) {
-      assertMemberCanManageAlertSubscription(session);
-
-      const current = subscriptions.get(session.memberId);
-
-      if (!current) {
-        throw new AlertSubscriptionRepositoryError(
-          "alert_subscription_not_found",
-          "No se encontro una suscripcion de alertas para esta persona.",
-        );
-      }
-
-      const updated: AlertSubscription = {
-        ...current,
-        enabled: false,
-        updatedAt: now(),
-      };
-
-      subscriptions.set(session.memberId, updated);
-
-      return Promise.resolve(cloneAlertSubscription(updated));
+      return pauseAlertSubscription(session);
     },
     enableAlertSubscription(session, input) {
       assertMemberCanManageAlertSubscription(session);
@@ -294,6 +327,7 @@ export function createInMemoryAlertSubscriptionRepository(
 
       return notifications;
     },
+    pauseAlertSubscription,
     recordAlertAreaLocation(session, input) {
       assertMemberCanManageAlertSubscription(session);
 
@@ -321,6 +355,21 @@ export function createInMemoryAlertSubscriptionRepository(
       subscriptions.set(session.memberId, updated);
 
       return Promise.resolve(cloneAlertSubscription(updated));
+    },
+    registerPushToken(session, input) {
+      assertMemberCanManageAlertSubscription(session);
+
+      pushRegistrations.set(session.memberId, { ...input });
+
+      return Promise.resolve();
+    },
+    unsubscribeAlertSubscription(session) {
+      assertMemberCanManageAlertSubscription(session);
+
+      subscriptions.delete(session.memberId);
+      pushRegistrations.delete(session.memberId);
+
+      return Promise.resolve(null);
     },
     updateMovingAlertsPreference(session, input) {
       assertMemberCanManageAlertSubscription(session);

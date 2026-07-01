@@ -1,4 +1,5 @@
 import { adminRouter } from "./router/admin";
+import { alertsRouter } from "./router/alerts";
 import { authRouter } from "./router/auth";
 import { chatRouter } from "./router/chat";
 import { postRouter } from "./router/post";
@@ -8,6 +9,7 @@ import { createTRPCRouter } from "./trpc";
 
 export const appRouter = createTRPCRouter({
   admin: adminRouter,
+  alerts: alertsRouter,
   auth: authRouter,
   chat: chatRouter,
   post: postRouter,
