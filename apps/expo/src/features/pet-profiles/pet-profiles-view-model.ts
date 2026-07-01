@@ -1,6 +1,7 @@
 import type {
   PetProfileDraft,
   PetProfilePhoto,
+  PetProfileRelatedRecord,
   PetProfilesSessionState,
   PetProfileSummary,
   PetProfileType,
@@ -34,6 +35,8 @@ export interface PetProfileDetailViewModel {
   photos: PetProfilePhoto[];
   relatedRecords: {
     id: string;
+    kind: PetProfileRelatedRecord["kind"];
+    status: PetProfileRelatedRecord["status"];
     title: string;
     statusLabel: string;
     metaLabel: string;
@@ -171,10 +174,12 @@ function buildPetProfileDetailViewModel(
     photos: profile.photos,
     relatedRecords: profile.relatedRecords.map((record) => ({
       id: record.id,
+      kind: record.kind,
       metaLabel:
         record.outcomeLabel ??
         record.updatedAtLabel ??
         relatedKindLabel(record.kind),
+      status: record.status,
       statusLabel: record.status === "active" ? "Activo" : "Cerrado",
       title: record.title,
     })),

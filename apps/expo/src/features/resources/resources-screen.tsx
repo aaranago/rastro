@@ -411,7 +411,7 @@ export function ResourcesScreen({
         ItemSeparatorComponent={ProviderSeparator}
         ListHeaderComponent={header}
         ListEmptyComponent={
-          viewModel.state === "empty" ? (
+          shouldRenderResourcesStateInResults(viewModel) ? (
             <ResourcesStatePanel
               title={viewModel.notice?.title ?? "No hay servicios cerca"}
               body={
@@ -419,6 +419,7 @@ export function ResourcesScreen({
                 "Prueba con otra ubicación o cambia los filtros."
               }
               actions={viewModel.notice?.actions}
+              isLoading={viewModel.state === "loading"}
               onAction={handleNoticeAction}
             />
           ) : null
@@ -579,7 +580,10 @@ function ResourcesNoticeSlot({
   viewModel: ResourcesDirectoryViewModel;
   onNoticeAction: (kind: ResourceNoticeAction["kind"]) => void;
 }) {
-  if (!viewModel.notice || viewModel.state === "empty") {
+  if (
+    !viewModel.notice ||
+    shouldRenderResourcesStateInResults(viewModel)
+  ) {
     return null;
   }
 
@@ -1222,15 +1226,24 @@ function ResourcesStatePanel({
   title,
   body,
   actions,
+  isLoading = false,
   onAction,
 }: {
   title: string;
   body: string;
   actions?: readonly ResourceNoticeAction[];
+  isLoading?: boolean;
   onAction?: (kind: ResourceNoticeAction["kind"]) => void;
 }) {
   return (
     <View style={styles.statePanel}>
+      {isLoading ? (
+        <ActivityIndicator
+          color={resourcesColors.primary}
+          size="small"
+          style={styles.stateLoader}
+        />
+      ) : null}
       <Text selectable style={styles.stateTitle}>
         {title}
       </Text>
@@ -1295,6 +1308,17 @@ function getVisibleResults(viewModel: ResourcesDirectoryViewModel) {
   }
 
   return viewModel.results;
+}
+
+function shouldRenderResourcesStateInResults(
+  viewModel: ResourcesDirectoryViewModel,
+) {
+  return (
+    viewModel.state === "empty" ||
+    viewModel.state === "loading" ||
+    viewModel.state === "error" ||
+    viewModel.state === "location_denied"
+  );
 }
 
 function providerKeyExtractor(provider: ResourceProviderSummaryViewModel) {
@@ -1919,6 +1943,9 @@ const styles = StyleSheet.create({
     backgroundColor: resourcesColors.surface,
     padding: 16,
     boxShadow: resourcesShadow.soft,
+  },
+  stateLoader: {
+    alignSelf: "flex-start",
   },
   stateTitle: {
     color: resourcesColors.text,

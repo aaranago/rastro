@@ -97,6 +97,7 @@ type ActivityListItem =
   | ActivityItemForScreen;
 
 export interface ActivityScreenProps {
+  authReturnToPath?: string;
   focus?: ActivityScreenFocus;
   inboxLimit?: number;
   onOpenHref?: (href: string) => void;
@@ -189,6 +190,7 @@ function ListSeparator() {
 }
 
 export function ActivityScreen({
+  authReturnToPath = "/actividad",
   focus = "all",
   inboxLimit,
   onOpenHref,
@@ -236,8 +238,9 @@ export function ActivityScreen({
         session,
         loadState.kind === "ready" ? loadState.inbox : undefined,
         focus,
+        authReturnToPath,
       ),
-    [focus, loadState, session],
+    [authReturnToPath, focus, loadState, session],
   );
   const data = React.useMemo(() => buildListData(viewModel), [viewModel]);
   const handleRetry = React.useCallback(() => {
@@ -660,13 +663,14 @@ function buildScreenViewModel(
   session: ShellSession,
   inbox?: ActivityInbox,
   focus: ActivityScreenFocus = "all",
+  authReturnToPath = "/actividad",
 ): ActivityScreenViewModel {
   const rawViewModel = buildActivityViewModel(
     getActivityModelInput(session, inbox),
   );
 
   if (session.kind === "visitor" && rawViewModel.kind === "visitor") {
-    return rawViewModel;
+    return withSignedOutAuthReturnTo(rawViewModel, authReturnToPath);
   }
 
   if (rawViewModel.kind === "member") {
@@ -678,7 +682,7 @@ function buildScreenViewModel(
     sections: [],
     signedOut: {
       action: {
-        href: "rastro://auth/sign-in?returnTo=/actividad",
+        href: buildActivityAuthHref(authReturnToPath),
         label: "Iniciar sesión",
       },
       body: "Tus alertas, mensajes y actualizaciones aparecerán aquí cuando seas miembro.",
@@ -686,6 +690,28 @@ function buildScreenViewModel(
     },
     title: "Actividad",
   };
+}
+
+function withSignedOutAuthReturnTo(
+  viewModel: Extract<ActivityScreenViewModel, { kind: "visitor" }>,
+  authReturnToPath: string,
+): Extract<ActivityScreenViewModel, { kind: "visitor" }> {
+  return {
+    ...viewModel,
+    signedOut: {
+      ...viewModel.signedOut,
+      action: {
+        ...viewModel.signedOut.action,
+        href: buildActivityAuthHref(authReturnToPath),
+      },
+    },
+  };
+}
+
+function buildActivityAuthHref(authReturnToPath: string) {
+  return `rastro://auth/sign-in?returnTo=${encodeURIComponent(
+    authReturnToPath,
+  )}`;
 }
 
 function normalizeMemberViewModel(

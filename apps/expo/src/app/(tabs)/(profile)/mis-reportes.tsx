@@ -15,5 +15,11 @@ const activityRepository = createCachedActivityRepository({
 });
 
 export default function MisReportesRoute() {
-  return <ActivityScreen focus="reports" repository={activityRepository} />;
+  return (
+    <ActivityScreen
+      authReturnToPath="/mis-reportes"
+      focus="reports"
+      repository={activityRepository}
+    />
+  );
 }

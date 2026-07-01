@@ -208,7 +208,39 @@ describe("Activity screen links", () => {
 
     expect(shellContext.requestAuthPrompt).toHaveBeenCalledWith({
       returnTo: "/(tabs)/(activity)",
-      sourceHref: "rastro://auth/sign-in?returnTo=/actividad",
+      sourceHref: "rastro://auth/sign-in?returnTo=%2Factividad",
+    });
+    expect(repository.getInbox).not.toHaveBeenCalled();
+  });
+
+  it("uses a route-specific auth return target for focused profile activity screens", async () => {
+    const repository = createScreenRepository();
+    const screen = renderActivityScreen({
+      authReturnToPath: "/mis-reportes",
+      focus: "reports",
+      repository,
+    });
+    const listProps = getLegendListProps<{
+      ListEmptyComponent: React.ReactNode;
+    }>(screen);
+    const emptyState = renderFunctionElement(listProps.ListEmptyComponent);
+    const button = findElement(
+      emptyState,
+      (element) => element.type === "Pressable",
+    );
+    const onPress = button?.props.onPress;
+
+    if (typeof onPress !== "function") {
+      throw new Error("Expected signed-out CTA to be pressable.");
+    }
+
+    (onPress as () => void)();
+    await runPendingEffects();
+
+    expect(shellContext.requestAuthPrompt).toHaveBeenCalledWith({
+      returnTo: "/mis-reportes",
+      sourceHref:
+        "rastro://auth/sign-in?returnTo=%2Fmis-reportes",
     });
     expect(repository.getInbox).not.toHaveBeenCalled();
   });

@@ -17,6 +17,10 @@ const activityRepository = createCachedActivityRepository({
 
 export default function MisConversacionesRoute() {
   return (
-    <ActivityScreen focus="conversations" repository={activityRepository} />
+    <ActivityScreen
+      authReturnToPath="/mis-conversaciones"
+      focus="conversations"
+      repository={activityRepository}
+    />
   );
 }

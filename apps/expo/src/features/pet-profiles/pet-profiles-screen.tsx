@@ -18,6 +18,7 @@ import type { DurableCreationDraftPersistence } from "../resilience/use-durable-
 import type {
   PetProfileDraft,
   PetProfilePhoto,
+  PetProfileRelatedRecord,
   PetProfilesSessionState,
   PetProfileSummary,
   PetProfileType,
@@ -51,7 +52,7 @@ export interface MisMascotasScreenProps {
   draftScopeId?: string;
   draftStore?: CreationDraftStore;
   initialProfiles?: readonly PetProfileSummary[];
-  onOpenRelatedRecord?: (recordId: string) => void;
+  onOpenRelatedRecord?: (record: PetProfileRelatedRecord) => void;
   onRequestAddPhoto?: (
     draft: PetProfileDraft,
   ) => PetProfilePhoto | Promise<PetProfilePhoto | void> | void;
@@ -88,7 +89,7 @@ interface MisMascotasController {
   formViewModel?: PetProfileFormViewModel;
   isLoadingProfiles: boolean;
   isSavingProfile: boolean;
-  onOpenRelatedRecord?: (recordId: string) => void;
+  onOpenRelatedRecord?: MisMascotasScreenProps["onOpenRelatedRecord"];
   onStartReportFromProfile?: MisMascotasScreenProps["onStartReportFromProfile"];
   photoPickerError?: string;
   profileLoadError?: string;
@@ -669,7 +670,7 @@ function MemberPetProfilesFooter({
   onCancelForm: () => void;
   onDraftChange: (draft: PetProfileDraft) => void;
   onEdit: (profileId: string) => void;
-  onOpenRelatedRecord?: (recordId: string) => void;
+  onOpenRelatedRecord?: MisMascotasScreenProps["onOpenRelatedRecord"];
   onRemovePhoto: (photoId: string) => void;
   onStartReportFromProfile?: (
     profileId: string,
@@ -777,7 +778,7 @@ function PetProfileDetailSurface({
   profile,
 }: {
   onEdit: (profileId: string) => void;
-  onOpenRelatedRecord?: (recordId: string) => void;
+  onOpenRelatedRecord?: MisMascotasScreenProps["onOpenRelatedRecord"];
   onStartReportFromProfile?: (
     profileId: string,
     intent: "lost" | "found" | "sighting" | "adoption",
@@ -865,7 +866,7 @@ function PetProfileDetailSurface({
               <Pressable
                 accessibilityRole="button"
                 key={record.id}
-                onPress={() => onOpenRelatedRecord?.(record.id)}
+                onPress={() => onOpenRelatedRecord?.(record)}
                 style={({ pressed }) => [
                   styles.relatedRow,
                   pressed ? styles.pressed : null,
