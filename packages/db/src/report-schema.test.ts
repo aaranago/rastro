@@ -2,6 +2,11 @@ import { getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 
 import {
+  ChatConversation,
+  ChatConversationBlock,
+  ChatConversationHidden,
+  ChatConversationReport,
+  ChatMessage,
   Post,
   Report,
   ReportLifecycleEvent,
@@ -97,6 +102,69 @@ describe("report schema", () => {
       expect.arrayContaining([
         "report_moderation_action_admin_idx",
         "report_moderation_action_report_idx",
+      ]),
+    );
+  });
+
+  it("defines persistent one-to-one report chat tables with participant safety indexes", () => {
+    expect(ChatConversation.reportId).toBeDefined();
+    expect(ChatConversation.caretakerMemberId).toBeDefined();
+    expect(ChatConversation.contactMemberId).toBeDefined();
+    expect(ChatMessage.conversationId).toBeDefined();
+    expect(ChatMessage.senderMemberId).toBeDefined();
+    expect(ChatConversationHidden.memberId).toBeDefined();
+    expect(ChatConversationBlock.blockerMemberId).toBeDefined();
+    expect(ChatConversationBlock.blockedMemberId).toBeDefined();
+    expect(ChatConversationReport.reporterMemberId).toBeDefined();
+    expect(ChatConversationReport.reason.enumValues).toEqual([
+      "spam",
+      "scam",
+      "incorrect_location",
+      "offensive_content",
+      "animal_cruelty",
+      "stolen_pet_concern",
+      "impersonation",
+      "other",
+    ]);
+
+    const conversationIndexes = getTableConfig(ChatConversation).indexes.map(
+      (index) => index.config.name,
+    );
+    const messageIndexes = getTableConfig(ChatMessage).indexes.map(
+      (index) => index.config.name,
+    );
+    const hiddenPrimaryKeys = getTableConfig(
+      ChatConversationHidden,
+    ).primaryKeys;
+    const blockIndexes = getTableConfig(ChatConversationBlock).indexes.map(
+      (index) => index.config.name,
+    );
+    const reportIndexes = getTableConfig(ChatConversationReport).indexes.map(
+      (index) => index.config.name,
+    );
+
+    expect(conversationIndexes).toEqual(
+      expect.arrayContaining([
+        "chat_conversation_report_members_idx",
+        "chat_conversation_caretaker_updated_idx",
+        "chat_conversation_contact_updated_idx",
+      ]),
+    );
+    expect(messageIndexes).toContain("chat_message_conversation_created_idx");
+    expect(hiddenPrimaryKeys.map((key) => key.getName())).toContain(
+      "chat_conversation_hidden_pk",
+    );
+    expect(blockIndexes).toEqual(
+      expect.arrayContaining([
+        "chat_conversation_block_unique_idx",
+        "chat_conversation_block_blocked_idx",
+        "chat_conversation_block_blocker_idx",
+      ]),
+    );
+    expect(reportIndexes).toEqual(
+      expect.arrayContaining([
+        "chat_conversation_report_created_idx",
+        "chat_conversation_report_reporter_idx",
       ]),
     );
   });

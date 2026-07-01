@@ -4,6 +4,7 @@ import {
   index,
   pgEnum,
   pgTable,
+  primaryKey,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -366,10 +367,7 @@ export const ReportLocation = pgTable(
     publicPrecision: publicLocationPrecision().default("approximate").notNull(),
     label: t.varchar({ length: 160 }).notNull(),
     city: t.varchar({ length: 120 }).default("No especificado").notNull(),
-    department: t
-      .varchar({ length: 80 })
-      .default("No especificado")
-      .notNull(),
+    department: t.varchar({ length: 80 }).default("No especificado").notNull(),
     locationCell: t.varchar({ length: 96 }).notNull(),
     createdAt: t
       .timestamp({ mode: "date", withTimezone: true })
@@ -517,6 +515,172 @@ export const ReportModerationAction = pgTable(
       table.createdAt,
     ),
     index("report_moderation_action_admin_idx").on(table.adminId),
+  ],
+);
+
+export const ChatConversation = pgTable(
+  "chat_conversation",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    reportId: t
+      .uuid()
+      .notNull()
+      .references(() => Report.id, { onDelete: "cascade" }),
+    caretakerMemberId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    contactMemberId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  }),
+  (table) => [
+    uniqueIndex("chat_conversation_report_members_idx").on(
+      table.reportId,
+      table.caretakerMemberId,
+      table.contactMemberId,
+    ),
+    index("chat_conversation_caretaker_updated_idx").on(
+      table.caretakerMemberId,
+      table.updatedAt,
+    ),
+    index("chat_conversation_contact_updated_idx").on(
+      table.contactMemberId,
+      table.updatedAt,
+    ),
+  ],
+);
+
+export const ChatMessage = pgTable(
+  "chat_message",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    conversationId: t
+      .uuid()
+      .notNull()
+      .references(() => ChatConversation.id, { onDelete: "cascade" }),
+    senderMemberId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    text: t.text().notNull(),
+    createdAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  }),
+  (table) => [
+    index("chat_message_conversation_created_idx").on(
+      table.conversationId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const ChatConversationHidden = pgTable(
+  "chat_conversation_hidden",
+  (t) => ({
+    conversationId: t
+      .uuid()
+      .notNull()
+      .references(() => ChatConversation.id, { onDelete: "cascade" }),
+    memberId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    hiddenAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  }),
+  (table) => [
+    primaryKey({
+      columns: [table.conversationId, table.memberId],
+      name: "chat_conversation_hidden_pk",
+    }),
+    index("chat_conversation_hidden_member_idx").on(
+      table.memberId,
+      table.hiddenAt,
+    ),
+  ],
+);
+
+export const ChatConversationBlock = pgTable(
+  "chat_conversation_block",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    conversationId: t
+      .uuid()
+      .notNull()
+      .references(() => ChatConversation.id, { onDelete: "cascade" }),
+    blockerMemberId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    blockedMemberId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    blockedAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  }),
+  (table) => [
+    uniqueIndex("chat_conversation_block_unique_idx").on(
+      table.conversationId,
+      table.blockerMemberId,
+      table.blockedMemberId,
+    ),
+    index("chat_conversation_block_blocker_idx").on(
+      table.blockerMemberId,
+      table.blockedAt,
+    ),
+    index("chat_conversation_block_blocked_idx").on(
+      table.blockedMemberId,
+      table.blockedAt,
+    ),
+  ],
+);
+
+export const ChatConversationReport = pgTable(
+  "chat_conversation_report",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    conversationId: t
+      .uuid()
+      .notNull()
+      .references(() => ChatConversation.id, { onDelete: "cascade" }),
+    reporterMemberId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    reason: moderationReportReason(),
+    note: t.text(),
+    createdAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  }),
+  (table) => [
+    uniqueIndex("chat_conversation_report_reporter_idx").on(
+      table.conversationId,
+      table.reporterMemberId,
+    ),
+    index("chat_conversation_report_created_idx").on(
+      table.conversationId,
+      table.createdAt,
+    ),
   ],
 );
 
@@ -725,10 +889,9 @@ export const ResourceProviderModerationReviewItem = pgTable(
       .notNull(),
   }),
   (table) => [
-    uniqueIndex("resource_provider_moderation_review_unique_idx").on(
-      table.providerId,
-      table.reason,
-    ).where(sql`${table.status} = 'pending'`),
+    uniqueIndex("resource_provider_moderation_review_unique_idx")
+      .on(table.providerId, table.reason)
+      .where(sql`${table.status} = 'pending'`),
     index("resource_provider_moderation_review_provider_idx").on(
       table.providerId,
     ),
@@ -790,6 +953,7 @@ export const reportRelations = relations(Report, ({ one, many }) => ({
     fields: [Report.id],
     references: [ReportLocation.reportId],
   }),
+  chatConversations: many(ChatConversation),
   media: many(ReportMedia),
   lifecycleEvents: many(ReportLifecycleEvent),
   moderationActions: many(ReportModerationAction),
@@ -851,6 +1015,85 @@ export const reportModerationActionRelations = relations(
     report: one(Report, {
       fields: [ReportModerationAction.reportId],
       references: [Report.id],
+    }),
+  }),
+);
+
+export const chatConversationRelations = relations(
+  ChatConversation,
+  ({ one, many }) => ({
+    report: one(Report, {
+      fields: [ChatConversation.reportId],
+      references: [Report.id],
+    }),
+    caretaker: one(user, {
+      fields: [ChatConversation.caretakerMemberId],
+      references: [user.id],
+    }),
+    contact: one(user, {
+      fields: [ChatConversation.contactMemberId],
+      references: [user.id],
+    }),
+    messages: many(ChatMessage),
+    hiddenStates: many(ChatConversationHidden),
+    blocks: many(ChatConversationBlock),
+    reports: many(ChatConversationReport),
+  }),
+);
+
+export const chatMessageRelations = relations(ChatMessage, ({ one }) => ({
+  conversation: one(ChatConversation, {
+    fields: [ChatMessage.conversationId],
+    references: [ChatConversation.id],
+  }),
+  sender: one(user, {
+    fields: [ChatMessage.senderMemberId],
+    references: [user.id],
+  }),
+}));
+
+export const chatConversationHiddenRelations = relations(
+  ChatConversationHidden,
+  ({ one }) => ({
+    conversation: one(ChatConversation, {
+      fields: [ChatConversationHidden.conversationId],
+      references: [ChatConversation.id],
+    }),
+    member: one(user, {
+      fields: [ChatConversationHidden.memberId],
+      references: [user.id],
+    }),
+  }),
+);
+
+export const chatConversationBlockRelations = relations(
+  ChatConversationBlock,
+  ({ one }) => ({
+    conversation: one(ChatConversation, {
+      fields: [ChatConversationBlock.conversationId],
+      references: [ChatConversation.id],
+    }),
+    blocker: one(user, {
+      fields: [ChatConversationBlock.blockerMemberId],
+      references: [user.id],
+    }),
+    blocked: one(user, {
+      fields: [ChatConversationBlock.blockedMemberId],
+      references: [user.id],
+    }),
+  }),
+);
+
+export const chatConversationReportRelations = relations(
+  ChatConversationReport,
+  ({ one }) => ({
+    conversation: one(ChatConversation, {
+      fields: [ChatConversationReport.conversationId],
+      references: [ChatConversation.id],
+    }),
+    reporter: one(user, {
+      fields: [ChatConversationReport.reporterMemberId],
+      references: [user.id],
     }),
   }),
 );

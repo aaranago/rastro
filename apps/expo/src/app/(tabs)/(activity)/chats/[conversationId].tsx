@@ -1,157 +1,88 @@
-import * as React from "react";
 import { useLocalSearchParams } from "expo-router";
 
-import type {
-  ChatConversation,
-  ChatParticipant,
-  ChatRepository,
-  ChatSubject,
-} from "~/features/chat/chat-model";
-import { createInMemoryChatRepository } from "~/features/chat/chat-model";
+import {
+  AppStateScreen,
+  createEmptyStateDescriptor,
+  createErrorStateDescriptor,
+} from "~/features/app-states";
+import { createApiChatRepository } from "~/features/chat/api-chat-repository";
 import { ChatScreen } from "~/features/chat/chat-screen";
+import { useRastroShell } from "~/features/shell/shell-provider";
+import { trpcClient } from "~/utils/api";
 
-const viewerMemberId = "member-camila";
-
-const sampleParticipants: [ChatParticipant, ChatParticipant] = [
-  {
-    displayName: "Camila",
-    memberId: "member-camila",
-  },
-  {
-    displayName: "Diego",
-    memberId: "member-diego",
-  },
-];
-
-const sampleSubject: ChatSubject = {
-  href: "rastro://reportes/perdidos/lost-report-1",
-  id: "lost-report-1",
-  kind: "lost-pet-report",
-  subtitle: "Sopocachi, La Paz",
-  title: "Toby",
-};
-
-const sampleConversation: ChatConversation = {
-  blockedMemberships: [],
-  createdAt: "2026-06-18T12:00:00.000Z",
-  hiddenByMemberIds: [],
-  id: "chat-conversation-1",
-  messages: [
-    {
-      conversationId: "chat-conversation-1",
-      createdAt: "2026-06-18T12:01:00.000Z",
-      id: "chat-message-1",
-      senderMemberId: "member-diego",
-      text: "Hola, vi a Toby cerca de la plaza Abaroa hace unos minutos.",
-    },
-    {
-      conversationId: "chat-conversation-1",
-      createdAt: "2026-06-18T12:03:00.000Z",
-      id: "chat-message-2",
-      senderMemberId: "member-camila",
-      text: "Gracias. Estoy cerca, puedes decirme si iba hacia la avenida?",
-    },
-  ],
-  participants: sampleParticipants,
-  reports: [],
-  subject: sampleSubject,
-  updatedAt: "2026-06-18T12:03:00.000Z",
-};
+const chatRepository = createApiChatRepository({
+  client: trpcClient,
+});
 
 export default function ActivityChatRoute() {
-  const params = useLocalSearchParams<{ conversationId?: string }>();
-  const conversationId = getConversationId(params.conversationId);
-  const repository = React.useMemo(() => createSampleChatRepository(), []);
+  const { conversationId } = useLocalSearchParams<{
+    conversationId?: string | string[];
+  }>();
+  const resolvedConversationId = normalizeRouteParam(conversationId);
+  const { model, requestAuthPrompt, session } = useRastroShell();
+
+  if (model.session.kind === "loading") {
+    return <AppStateScreen descriptor={model.appStates.states.loading} />;
+  }
+
+  if (!resolvedConversationId) {
+    return (
+      <AppStateScreen
+        descriptor={createErrorStateDescriptor({
+          body: "No encontramos el identificador de este chat.",
+          retryActionLabel: false,
+          title: "Chat no disponible",
+        })}
+        testID="chat-route-invalid"
+      />
+    );
+  }
+
+  if (session.kind !== "member") {
+    const sourceHref = `rastro://chats/${resolvedConversationId}`;
+
+    return (
+      <AppStateScreen
+        descriptor={createEmptyStateDescriptor({
+          actions: [
+            {
+              iconName: "person.crop.circle.fill",
+              id: "sign-in",
+              label: "Iniciar sesión",
+            },
+          ],
+          body: "Inicia sesión para usar el chat de Rastro y continuar esta conversación.",
+          iconName: "message.fill",
+          title: "Inicia sesión para usar el chat",
+          tone: "info",
+        })}
+        onActionPress={(action) => {
+          if (action.id === "sign-in") {
+            requestAuthPrompt({
+              returnTo: `/chats/${resolvedConversationId}`,
+              sourceHref,
+            });
+          }
+        }}
+        testID="chat-route-signed-out"
+      />
+    );
+  }
 
   return (
     <ChatScreen
-      conversationId={conversationId}
-      initialConversation={sampleConversation}
-      pollIntervalMs={20000}
-      repository={repository}
-      viewerMemberId={viewerMemberId}
+      conversationId={resolvedConversationId}
+      repository={chatRepository}
+      viewerMemberId={session.id}
     />
   );
 }
 
-function createSampleChatRepository(): ChatRepository {
-  let currentTime = sampleConversation.createdAt;
-  let seedPromise: Promise<void> | undefined;
-  const repository = createInMemoryChatRepository({
-    now: () => currentTime,
-  });
+function normalizeRouteParam(value: string | string[] | undefined) {
+  const firstValue = Array.isArray(value) ? value[0] : value;
+  const normalizedValue = firstValue?.trim();
 
-  async function seedSampleConversation() {
-    seedPromise ??= (async () => {
-      const conversation = await repository.getOrCreateConversation({
-        participants: sampleParticipants,
-        subject: sampleSubject,
-      });
-
-      if (conversation.messages.length > 0) {
-        return;
-      }
-
-      for (const message of sampleConversation.messages) {
-        currentTime = message.createdAt;
-        await repository.sendMessage({
-          conversationId: conversation.id,
-          senderMemberId: message.senderMemberId,
-          text: message.text,
-        });
-      }
-    })();
-
-    await seedPromise;
-  }
-
-  return {
-    async blockMember(input) {
-      await seedSampleConversation();
-
-      return repository.blockMember(input);
-    },
-    async getConversation(input) {
-      await seedSampleConversation();
-
-      return repository.getConversation(input);
-    },
-    getOrCreateConversation(input) {
-      return repository.getOrCreateConversation(input);
-    },
-    async hideConversation(input) {
-      await seedSampleConversation();
-
-      return repository.hideConversation(input);
-    },
-    async listConversations(input) {
-      await seedSampleConversation();
-
-      return repository.listConversations(input);
-    },
-    async refreshConversation(input) {
-      await seedSampleConversation();
-
-      return repository.refreshConversation(input);
-    },
-    async reportConversation(input) {
-      await seedSampleConversation();
-
-      return repository.reportConversation(input);
-    },
-    async sendMessage(input) {
-      await seedSampleConversation();
-      currentTime = new Date().toISOString();
-
-      return repository.sendMessage(input);
-    },
-  };
-}
-
-function getConversationId(value: string | string[] | undefined) {
-  if (Array.isArray(value)) {
-    return value[0] ?? sampleConversation.id;
-  }
-
-  return value ?? sampleConversation.id;
+  return normalizedValue && normalizedValue.length > 0
+    ? normalizedValue
+    : undefined;
 }

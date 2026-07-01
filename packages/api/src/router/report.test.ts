@@ -1126,7 +1126,7 @@ describe("report router", () => {
       contact: {
         actions: [
           {
-            href: "rastro://reportes/avistamientos/report-sighting-sopocachi",
+            href: "rastro://chats/report/report-sighting-sopocachi",
             kind: "in_app_chat",
           },
         ],
@@ -1162,7 +1162,7 @@ describe("report router", () => {
     expect(report.contact).toEqual({
       actions: [
         {
-          href: "rastro://reportes/avistamientos/report-sighting-sopocachi",
+          href: "rastro://chats/report/report-sighting-sopocachi",
           kind: "in_app_chat",
         },
         {
@@ -1201,7 +1201,7 @@ describe("report router", () => {
     expect(report.contact).toEqual({
       actions: [
         {
-          href: "rastro://reportes/avistamientos/report-sighting-sopocachi",
+          href: "rastro://chats/report/report-sighting-sopocachi",
           kind: "in_app_chat",
         },
       ],
@@ -1276,7 +1276,7 @@ describe("report router", () => {
           contact: {
             actions: [
               {
-                href: "rastro://reportes/avistamientos/report-sighting-sopocachi",
+                href: "rastro://chats/report/report-sighting-sopocachi",
                 kind: "in_app_chat",
               },
             ],

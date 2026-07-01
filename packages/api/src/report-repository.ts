@@ -855,19 +855,8 @@ export type PublicReportContactAction =
       kind: "whatsapp";
     };
 
-const publicReportPathPrefixes = {
-  adoption: "/adopciones",
-  found_pet: "/reportes/encontrados",
-  lost_pet: "/reportes/perdidos",
-  sighting: "/reportes/avistamientos",
-} satisfies Record<ReportType, string>;
-
-function publicReportAppDeepLink(report: PersistedReport) {
-  const path = `${publicReportPathPrefixes[report.type]}/${encodeURIComponent(
-    report.id,
-  )}`;
-
-  return `rastro://${path.replace(/^\//, "")}`;
+export function buildReportChatContactHref(reportId: string) {
+  return `rastro://chats/report/${encodeURIComponent(reportId)}`;
 }
 
 function buildPublicReportContactActions(
@@ -880,7 +869,7 @@ function buildPublicReportContactActions(
     report.contactPreference === "both"
   ) {
     actions.push({
-      href: publicReportAppDeepLink(report),
+      href: buildReportChatContactHref(report.id),
       kind: "in_app_chat",
     });
   }

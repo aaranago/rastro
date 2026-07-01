@@ -48,7 +48,7 @@ describe("public report detail view model", () => {
     expect(viewModel).toMatchObject({
       contactActions: [
         {
-          href: "rastro://reportes/perdidos/report-lost-raw-id",
+          href: "rastro://chats/report/report-lost-raw-id",
           kind: "in-app-chat",
           label: "Enviar mensaje en Rastro",
         },

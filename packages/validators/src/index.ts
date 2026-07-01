@@ -196,6 +196,18 @@ export const reportDetailInputSchema = z.object({
   id: z.string().min(1).max(128),
 });
 
+export const openReportChatConversationInputSchema = z
+  .object({
+    reportId: z.string().min(1).max(128),
+  })
+  .strict();
+
+export const chatConversationIdInputSchema = z
+  .object({
+    conversationId: z.uuid(),
+  })
+  .strict();
+
 export const resourceProviderCategorySchema = z.enum([
   "veterinary",
   "shelter",
@@ -239,6 +251,28 @@ export const moderationReportReasonSchema = z.enum([
   "impersonation",
   "other",
 ]);
+
+export const sendChatMessageInputSchema = z
+  .object({
+    conversationId: z.uuid(),
+    text: z.string().trim().min(1).max(1000),
+  })
+  .strict();
+
+export const blockChatMemberInputSchema = z
+  .object({
+    conversationId: z.uuid(),
+    blockedMemberId: z.string().min(1).max(256),
+  })
+  .strict();
+
+export const reportChatConversationInputSchema = z
+  .object({
+    conversationId: z.uuid(),
+    reason: moderationReportReasonSchema.optional(),
+    note: z.string().trim().min(10).max(1000).optional(),
+  })
+  .strict();
 
 export const resourceProviderApproximatePublicLocationRadiusMeters = 300;
 
@@ -685,9 +719,7 @@ export type UploadSessionIdInput = z.infer<typeof uploadSessionIdInputSchema>;
 export type AdminMediaAssetPurpose = z.infer<
   typeof adminMediaAssetPurposeSchema
 >;
-export type AdminMediaAssetStatus = z.infer<
-  typeof adminMediaAssetStatusSchema
->;
+export type AdminMediaAssetStatus = z.infer<typeof adminMediaAssetStatusSchema>;
 export type CreateAdminMediaUploadSessionInput = z.infer<
   typeof createAdminMediaUploadSessionInputSchema
 >;
@@ -782,6 +814,17 @@ export type NearbyReportsInput = z.infer<typeof nearbyReportsInputSchema>;
 export type UpdateReportInput = z.infer<typeof updateReportInputSchema>;
 export type ResolveReportInput = z.infer<typeof resolveReportInputSchema>;
 export type DeleteReportInput = z.infer<typeof deleteReportInputSchema>;
+export type OpenReportChatConversationInput = z.infer<
+  typeof openReportChatConversationInputSchema
+>;
+export type ChatConversationIdInput = z.infer<
+  typeof chatConversationIdInputSchema
+>;
+export type SendChatMessageInput = z.infer<typeof sendChatMessageInputSchema>;
+export type BlockChatMemberInput = z.infer<typeof blockChatMemberInputSchema>;
+export type ReportChatConversationInput = z.infer<
+  typeof reportChatConversationInputSchema
+>;
 
 export interface PublicLostReportShareTargetInput {
   publicWebBaseUrl: string;

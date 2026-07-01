@@ -27,11 +27,24 @@ export {
 } from "./admin-media-repository";
 export { cleanupAbandonedReportMediaUploads } from "./report-media-cleanup";
 export {
+  buildReportSubjectHref,
+  createDrizzleChatRepository,
+  type ChatRepository,
+  type DrizzleChatRepositoryOptions,
+  type PersistedChatBlockedMembership,
+  type PersistedChatConversation,
+  type PersistedChatConversationReport,
+  type PersistedChatMessage,
+  type PersistedChatParticipant,
+  type PersistedChatSubject,
+} from "./chat-repository";
+export {
   createDrizzleReportMediaRepository,
   type ReportMediaRepository,
   type PersistedReportMediaUpload,
   type ReportMediaUploadStatus,
 } from "./report-media-repository";
+export { buildReportChatContactHref } from "./report-repository";
 export {
   createDrizzleReportModerationRepository,
   type ReportModerationQueueItem,

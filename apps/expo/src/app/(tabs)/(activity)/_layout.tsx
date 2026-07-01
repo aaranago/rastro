@@ -17,6 +17,10 @@ export default function ActivityStackLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: copy.tabs.activity }} />
+      <Stack.Screen
+        name="chats/report/[reportId]"
+        options={{ title: "Chat" }}
+      />
       <Stack.Screen name="chats/[conversationId]" options={{ title: "Chat" }} />
     </Stack>
   );

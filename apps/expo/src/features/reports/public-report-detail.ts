@@ -183,7 +183,7 @@ export function buildPublicReportDetailViewModel(
   const eventDate =
     report.type === "adoption" ? report.createdAt : report.eventOccurredAt;
   const locationLabel = formatReportLocationLabel(report.location);
-  const contactActions = getContactActions(report, shareTarget);
+  const contactActions = getContactActions(report);
   const contactLabel = formatContactLabel(report.contact, contactActions);
   const statusTone = getReportStatusTone(report.status);
   const statusLabel = getReportStatusLabel(report);
@@ -417,7 +417,6 @@ function buildReportShareTarget({
 
 function getContactActions(
   report: PublicReportDetailApiReport,
-  shareTarget: ReturnType<typeof buildShareTarget>,
 ): PublicReportContactOption[] {
   if (report.owner.isCurrentMember) {
     return [];
@@ -435,7 +434,7 @@ function getContactActions(
   ) {
     return [
       {
-        href: shareTarget.appDeepLink,
+        href: buildReportChatDeepLink(report.id),
         kind: "in-app-chat",
         label: inAppChatActionLabel,
       },
@@ -443,6 +442,10 @@ function getContactActions(
   }
 
   return [];
+}
+
+function buildReportChatDeepLink(reportId: string) {
+  return `rastro://chats/report/${encodeURIComponent(reportId)}`;
 }
 
 function readApiContactActions(

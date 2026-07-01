@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-properties, turbo/no-undeclared-env-vars -- The E2E fixture owns raw process.env bootstrap before app env modules are loaded. */
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -84,8 +85,10 @@ export interface RastroFunctionalFixtureManifest {
     mediaBaseUrl: string;
   };
   chat: {
-    backendPersisted: false;
+    backendPersisted: true;
+    reportId: string;
     sampleConversationId: string;
+    seedMessageText: string;
   };
   providers: RastroProviderManifest[];
   promotions: RastroPromotionManifest[];
@@ -175,6 +178,10 @@ export async function createRastroFunctionalFixture(
     ownerId: users.owner.id,
     schema,
   });
+  const chat = await createPersistedChatFixture({
+    reports,
+    viewerCaller,
+  });
 
   await adminCaller.admin.settings.update({
     adoptionReviewModeEnabled: previousSettings.adoptionReviewModeEnabled,
@@ -200,8 +207,10 @@ export async function createRastroFunctionalFixture(
       mediaBaseUrl,
     },
     chat: {
-      backendPersisted: false,
-      sampleConversationId: "chat-conversation-1",
+      backendPersisted: true,
+      reportId: chat.reportId,
+      sampleConversationId: chat.conversationId,
+      seedMessageText: chat.seedMessageText,
     },
     providers,
     promotions,
@@ -845,6 +854,40 @@ async function createReports({
   }
 
   return reports;
+}
+
+async function createPersistedChatFixture({
+  reports,
+  viewerCaller,
+}: {
+  reports: RastroReportManifest[];
+  viewerCaller: Awaited<ReturnType<typeof createCallerForUser>>;
+}) {
+  const report = reports.find(
+    (candidate) =>
+      candidate.contactPreference === "in_app_chat" ||
+      candidate.contactPreference === "both",
+  );
+
+  if (!report) {
+    throw new Error("Missing chat-enabled report fixture.");
+  }
+
+  const conversation = await viewerCaller.chat.openReportConversation({
+    reportId: report.id,
+  });
+  const seedMessageText = "Chat E2E persistido desde fixture";
+
+  await viewerCaller.chat.sendMessage({
+    conversationId: conversation.id,
+    text: seedMessageText,
+  });
+
+  return {
+    conversationId: conversation.id,
+    reportId: report.id,
+    seedMessageText,
+  };
 }
 
 async function createReadyReportMedia({

@@ -2,10 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import type { CreateReportInput } from "./index";
 import {
+  blockChatMemberInputSchema,
   buildApproximatePublicReportLocation,
+  chatConversationIdInputSchema,
   createReportInputSchema,
   nearbyReportsInputSchema,
+  openReportChatConversationInputSchema,
   reportApproximatePublicLocationRadiusMeters,
+  reportChatConversationInputSchema,
+  sendChatMessageInputSchema,
 } from "./index";
 
 const baseSightingInput = {
@@ -106,5 +111,64 @@ describe("report validation contracts", () => {
         types: ["lost_pet", "sighting"],
       }).success,
     ).toBe(true);
+  });
+
+  it("validates report-linked chat input without client-supplied actor fields", () => {
+    expect(
+      openReportChatConversationInputSchema.safeParse({
+        reportId: "report-sighting-sopocachi",
+      }).success,
+    ).toBe(true);
+    expect(
+      chatConversationIdInputSchema.safeParse({
+        conversationId: "11111111-1111-4111-8111-111111111111",
+      }).success,
+    ).toBe(true);
+    expect(
+      sendChatMessageInputSchema.parse({
+        conversationId: "11111111-1111-4111-8111-111111111111",
+        text: "  Vi a Toby cerca de la plaza.  ",
+      }),
+    ).toEqual({
+      conversationId: "11111111-1111-4111-8111-111111111111",
+      text: "Vi a Toby cerca de la plaza.",
+    });
+    expect(
+      blockChatMemberInputSchema.safeParse({
+        blockedMemberId: "member-camila",
+        conversationId: "11111111-1111-4111-8111-111111111111",
+      }).success,
+    ).toBe(true);
+    expect(
+      reportChatConversationInputSchema.safeParse({
+        conversationId: "11111111-1111-4111-8111-111111111111",
+        note: "Este chat parece sospechoso.",
+        reason: "scam",
+      }).success,
+    ).toBe(true);
+
+    for (const input of [
+      {
+        conversationId: "11111111-1111-4111-8111-111111111111",
+        senderMemberId: "member-attacker",
+        text: "spoof",
+      },
+      {
+        blockedMemberId: "member-camila",
+        blockerMemberId: "member-attacker",
+        conversationId: "11111111-1111-4111-8111-111111111111",
+      },
+      {
+        conversationId: "11111111-1111-4111-8111-111111111111",
+        note: "Este chat parece sospechoso.",
+        reporterMemberId: "member-attacker",
+      },
+    ]) {
+      expect(sendChatMessageInputSchema.safeParse(input).success).toBe(false);
+      expect(blockChatMemberInputSchema.safeParse(input).success).toBe(false);
+      expect(reportChatConversationInputSchema.safeParse(input).success).toBe(
+        false,
+      );
+    }
   });
 });

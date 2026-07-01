@@ -183,24 +183,40 @@ async function verifyReportDetails() {
 }
 
 async function verifyChatWorkflow() {
+  const messageText = `RastroE2Echat${Date.now()}`;
+
+  checks.push({
+    detail: "Fixture seeds a backend persisted report-linked chat.",
+    id: "chat-backend-persistence",
+    ok: manifest.chat.backendPersisted === true,
+  });
+
   await openDeepLinkUntilVisible(
     [
-      `rastro:///chats/${manifest.chat.sampleConversationId}`,
-      `rastro://chats/${manifest.chat.sampleConversationId}`,
+      `rastro:///chats/report/${manifest.chat.reportId}`,
+      `rastro://chats/report/${manifest.chat.reportId}`,
     ],
     "chat-screen",
   );
   await waitForTestID("chat-message-list");
-  await tapAndText("chat-message-input", "RastroE2Echat");
+  await tapAndText("chat-message-input", messageText);
   await tapRequired("chat-send-button");
   await screenshot("chat-workflow.png");
+  await assertVisibleText(messageText, "chat-sent-message");
 
-  checks.push({
-    detail:
-      "Chat screen accepts a message in the in-memory route. Backend persistence is not implemented.",
-    id: "chat-backend-persistence-gap",
-    ok: manifest.chat.backendPersisted === false,
-  });
+  await openDeepLinkUntilVisible(
+    ["rastro://recursos", "rastro:///recursos"],
+    "resources-screen",
+  );
+  await openDeepLinkUntilVisible(
+    [
+      `rastro:///chats/report/${manifest.chat.reportId}`,
+      `rastro://chats/report/${manifest.chat.reportId}`,
+    ],
+    "chat-screen",
+  );
+  await waitForTestID("chat-message-list");
+  await assertVisibleText(messageText, "chat-reopened-message");
 }
 
 async function openDeepLinkUntilVisible(urls, testID) {
@@ -413,6 +429,22 @@ async function assertNoBrokenMediaFallbacks(context) {
   }
 
   checks.push({ id: `media-loaded:${context}`, ok: true });
+}
+
+async function assertVisibleText(text, context) {
+  const { stdout } = await adb([
+    "exec-out",
+    "uiautomator",
+    "dump",
+    "--compressed",
+    "/dev/tty",
+  ]);
+
+  if (!stdout.includes(text)) {
+    throw new Error(`Expected visible text on ${context}: ${text}`);
+  }
+
+  checks.push({ id: `visible-text:${context}`, ok: true, text });
 }
 
 function reportDeepLink(report) {

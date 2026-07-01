@@ -1,3 +1,4 @@
+/* eslint-disable no-empty-pattern, no-restricted-properties, turbo/no-undeclared-env-vars -- Playwright E2E setup reads raw process.env before app env modules are loaded, and Playwright hooks require object fixture destructuring. */
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
@@ -55,7 +56,7 @@ test.afterAll(async ({}, testInfo) => {
   await cleanupRastroFunctionalData();
 });
 
-test.beforeEach(async ({}, testInfo) => {
+test.beforeEach(({}, testInfo) => {
   test.skip(
     !isFunctionalProject(testInfo),
     "The deep Rastro functional E2E runs once; admin visual smoke covers the viewport/theme matrix.",
@@ -139,6 +140,9 @@ test("fixture creates every provider, sponsor surface, and report contract", asy
       expect(detail.contact.actions.map((action) => action.kind)).toEqual([
         "in_app_chat",
       ]);
+      expect(detail.contact.actions[0]?.href).toBe(
+        `rastro://chats/report/${report.id}`,
+      );
     } else if (report.contactPreference === "whatsapp") {
       expect(detail.contact.actions.map((action) => action.kind)).toEqual([
         "whatsapp",
@@ -148,6 +152,9 @@ test("fixture creates every provider, sponsor surface, and report contract", asy
         "in_app_chat",
         "whatsapp",
       ]);
+      expect(detail.contact.actions[0]?.href).toBe(
+        `rastro://chats/report/${report.id}`,
+      );
     }
   }
 });
@@ -240,12 +247,40 @@ test("public report pages render second-user contact and photos", async ({
   }
 });
 
-test.fixme(
-  "second-user chat contact is still route-local and not backend persisted",
-  async () => {
-    expect(requireManifest().chat.backendPersisted).toBe(false);
-  },
-);
+test("second-user chat contact is backend persisted", async () => {
+  const fixture = requireManifest();
+  const viewerCaller = await createRastroFixtureCaller("viewer");
+  const messageText = `Mensaje Playwright persistido ${Date.now()}`;
+
+  expect(fixture.chat.backendPersisted).toBe(true);
+  expect(fixture.chat.reportId).toBeTruthy();
+
+  const conversation = await viewerCaller.chat.detail({
+    conversationId: fixture.chat.sampleConversationId,
+  });
+
+  expect(conversation.subject.id).toBe(fixture.chat.reportId);
+  expect(conversation.messages.map((message) => message.text)).toContain(
+    fixture.chat.seedMessageText,
+  );
+
+  const nextConversation = await viewerCaller.chat.sendMessage({
+    conversationId: fixture.chat.sampleConversationId,
+    text: messageText,
+  });
+
+  expect(nextConversation.messages.map((message) => message.text)).toContain(
+    messageText,
+  );
+
+  const reloadedConversation = await viewerCaller.chat.detail({
+    conversationId: fixture.chat.sampleConversationId,
+  });
+
+  expect(
+    reloadedConversation.messages.map((message) => message.text),
+  ).toContain(messageText);
+});
 
 function isFunctionalProject(testInfo: TestInfo) {
   return testInfo.project.name === functionalProjectName;
@@ -339,7 +374,7 @@ async function assertNoHorizontalOverflow(page: Page) {
       .map((element) => ({
         className: element.className.toString(),
         tagName: element.tagName.toLowerCase(),
-        text: element.textContent?.replace(/\s+/g, " ").trim().slice(0, 80),
+        text: element.textContent.replace(/\s+/g, " ").trim().slice(0, 80),
       }));
 
     return {

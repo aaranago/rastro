@@ -127,6 +127,7 @@ const reportUpdateDeepLinkPattern =
 
 const internalDeepLinkPatterns = [
   /^rastro:\/\/adopciones\/[^/]+$/,
+  /^rastro:\/\/chats\/report\/[^/]+$/,
   /^rastro:\/\/chats\/[^/]+$/,
   /^rastro:\/\/reportes\/avistamientos\/[^/]+$/,
   /^rastro:\/\/reportes\/encontrados\/[^/]+$/,

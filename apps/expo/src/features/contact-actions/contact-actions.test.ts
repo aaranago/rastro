@@ -33,7 +33,7 @@ describe("public contact actions", () => {
 
     const result = await runPublicContactAction(
       {
-        href: "rastro://reportes/perdidos/lost-report-1",
+        href: "rastro://chats/report/lost-report-1",
         kind: "in-app-chat",
         label: "Enviar mensaje en Rastro",
       },
@@ -47,7 +47,7 @@ describe("public contact actions", () => {
       },
     );
 
-    expect(openedChats).toEqual(["rastro://reportes/perdidos/lost-report-1"]);
+    expect(openedChats).toEqual(["rastro://chats/report/lost-report-1"]);
     expect(openedUrls).toEqual([]);
     expect(result).toMatchObject({
       kind: "success",
