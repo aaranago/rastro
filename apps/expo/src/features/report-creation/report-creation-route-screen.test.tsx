@@ -810,7 +810,7 @@ describe("ReportCreationRouteScreen", () => {
     ]);
   });
 
-  it("asks before closing a stacked lost creation route", () => {
+  it("closes a stacked lost creation route without a route-level discard prompt", () => {
     const screen = renderScreen(<ReportCreationRouteScreen intent="lost" />);
     const lostScreen = findElement(
       screen,
@@ -823,9 +823,9 @@ describe("ReportCreationRouteScreen", () => {
       <ReportCreationRouteScreen intent="lost" />,
     );
 
-    expect(router.dismiss).not.toHaveBeenCalled();
-    expect(findText(confirmationScreen, "Descartar borrador")).toBe(true);
-    expect(findText(confirmationScreen, "Seguir editando")).toBe(true);
+    expect(router.dismiss).toHaveBeenCalledTimes(1);
+    expect(findText(confirmationScreen, "Descartar borrador")).toBe(false);
+    expect(findText(confirmationScreen, "Seguir editando")).toBe(false);
   });
 
   it("closes a member route without discard after the child reports publish completion", () => {
@@ -880,7 +880,7 @@ describe("ReportCreationRouteScreen", () => {
     expect(findText(completedScreen, "Seguir editando")).toBe(false);
   });
 
-  it("asks before native-removing a dirty lost creation route", () => {
+  it("lets native removal continue for member lost routes because durable drafts recover work", () => {
     void renderScreen(<ReportCreationRouteScreen intent="lost" />);
 
     const beforeRemoveEvent = triggerNativeBeforeRemove({
@@ -892,14 +892,14 @@ describe("ReportCreationRouteScreen", () => {
       <ReportCreationRouteScreen intent="lost" />,
     );
 
-    expect(beforeRemoveEvent.preventDefault).toHaveBeenCalledTimes(1);
+    expect(beforeRemoveEvent.preventDefault).not.toHaveBeenCalled();
     expect(router.dismiss).not.toHaveBeenCalled();
     expect(router.replace).not.toHaveBeenCalled();
-    expect(findText(confirmationScreen, "Descartar borrador")).toBe(true);
-    expect(findText(confirmationScreen, "Seguir editando")).toBe(true);
+    expect(findText(confirmationScreen, "Descartar borrador")).toBe(false);
+    expect(findText(confirmationScreen, "Seguir editando")).toBe(false);
   });
 
-  it("keeps editing after cancelling the discard confirmation", () => {
+  it("dismisses a stacked lost creation route from explicit close in one step", () => {
     const screen = renderScreen(<ReportCreationRouteScreen intent="lost" />);
     const lostScreen = findElement(
       screen,
@@ -908,156 +908,17 @@ describe("ReportCreationRouteScreen", () => {
 
     getRequiredHandler(lostScreen, "onClose")();
 
-    const confirmationScreen = renderScreen(
+    const closedScreen = renderScreen(
       <ReportCreationRouteScreen intent="lost" />,
     );
-    const keepEditingButton = findElement(
-      confirmationScreen,
-      (element) =>
-        element.type === "Pressable" && findText(element, "Seguir editando"),
-    );
-
-    getPressableOnPress(keepEditingButton)();
-
-    const editingScreen = renderScreen(
-      <ReportCreationRouteScreen intent="lost" />,
-    );
-
-    expect(router.dismiss).not.toHaveBeenCalled();
-    expect(findText(editingScreen, "Descartar borrador")).toBe(false);
-    expect(findText(editingScreen, "Seguir editando")).toBe(false);
-    expect(
-      findElement(
-        editingScreen,
-        (element) => element.type === "LostReportCreationScreen",
-      ),
-    ).toBeTruthy();
-  });
-
-  it("clears a pending native removal action after cancelling the discard confirmation", () => {
-    void renderScreen(<ReportCreationRouteScreen intent="lost" />);
-
-    triggerNativeBeforeRemove({
-      source: "native-stack",
-      type: "GO_BACK",
-    });
-
-    const nativeConfirmationScreen = renderScreen(
-      <ReportCreationRouteScreen intent="lost" />,
-    );
-    const keepEditingButton = findElement(
-      nativeConfirmationScreen,
-      (element) =>
-        element.type === "Pressable" && findText(element, "Seguir editando"),
-    );
-
-    getPressableOnPress(keepEditingButton)();
-
-    const editingScreen = renderScreen(
-      <ReportCreationRouteScreen intent="lost" />,
-    );
-    const lostScreen = findElement(
-      editingScreen,
-      (element) => element.type === "LostReportCreationScreen",
-    );
-
-    getRequiredHandler(lostScreen, "onClose")();
-
-    const explicitCloseConfirmationScreen = renderScreen(
-      <ReportCreationRouteScreen intent="lost" />,
-    );
-    const discardButton = findElement(
-      explicitCloseConfirmationScreen,
-      (element) =>
-        element.type === "Pressable" && findText(element, "Descartar borrador"),
-    );
-
-    getPressableOnPress(discardButton)();
-
-    expect(navigation.dispatch).not.toHaveBeenCalled();
-    expect(router.dismiss).toHaveBeenCalledTimes(1);
-    expect(router.replace).not.toHaveBeenCalled();
-  });
-
-  it("dismisses a stacked lost creation route after confirming discard", () => {
-    const screen = renderScreen(<ReportCreationRouteScreen intent="lost" />);
-    const lostScreen = findElement(
-      screen,
-      (element) => element.type === "LostReportCreationScreen",
-    );
-
-    getRequiredHandler(lostScreen, "onClose")();
-
-    const confirmationScreen = renderScreen(
-      <ReportCreationRouteScreen intent="lost" />,
-    );
-    const discardButton = findElement(
-      confirmationScreen,
-      (element) =>
-        element.type === "Pressable" && findText(element, "Descartar borrador"),
-    );
-
-    getPressableOnPress(discardButton)();
 
     expect(router.dismiss).toHaveBeenCalledTimes(1);
     expect(router.replace).not.toHaveBeenCalled();
+    expect(findText(closedScreen, "Descartar borrador")).toBe(false);
+    expect(findText(closedScreen, "Seguir editando")).toBe(false);
   });
 
-  it("continues a confirmed native removal with the saved navigation action", () => {
-    const nativeAction = {
-      source: "native-stack",
-      type: "GO_BACK",
-    };
-
-    void renderScreen(<ReportCreationRouteScreen intent="lost" />);
-
-    triggerNativeBeforeRemove(nativeAction);
-
-    const confirmationScreen = renderScreen(
-      <ReportCreationRouteScreen intent="lost" />,
-    );
-    const discardButton = findElement(
-      confirmationScreen,
-      (element) =>
-        element.type === "Pressable" && findText(element, "Descartar borrador"),
-    );
-
-    getPressableOnPress(discardButton)();
-
-    const retriedBeforeRemoveEvent = triggerNativeBeforeRemove(nativeAction);
-
-    expect(navigation.dispatch).toHaveBeenCalledWith(nativeAction);
-    expect(router.dismiss).not.toHaveBeenCalled();
-    expect(router.replace).not.toHaveBeenCalled();
-    expect(retriedBeforeRemoveEvent.preventDefault).not.toHaveBeenCalled();
-  });
-
-  it("falls back to dismissing the route when confirmed native removal cannot dispatch", () => {
-    navigation.dispatch = undefined as unknown as typeof navigation.dispatch;
-
-    void renderScreen(<ReportCreationRouteScreen intent="lost" />);
-
-    triggerNativeBeforeRemove({
-      source: "native-stack",
-      type: "GO_BACK",
-    });
-
-    const confirmationScreen = renderScreen(
-      <ReportCreationRouteScreen intent="lost" />,
-    );
-    const discardButton = findElement(
-      confirmationScreen,
-      (element) =>
-        element.type === "Pressable" && findText(element, "Descartar borrador"),
-    );
-
-    getPressableOnPress(discardButton)();
-
-    expect(router.dismiss).toHaveBeenCalledTimes(1);
-    expect(router.replace).not.toHaveBeenCalled();
-  });
-
-  it("falls back to nearby after confirming discard from a direct-loaded route", () => {
+  it("falls back to nearby when explicitly closing a direct-loaded route", () => {
     router.canGoBack.mockReturnValue(false);
 
     const screen = renderScreen(<ReportCreationRouteScreen intent="lost" />);
@@ -1068,19 +929,14 @@ describe("ReportCreationRouteScreen", () => {
 
     getRequiredHandler(lostScreen, "onClose")();
 
-    const confirmationScreen = renderScreen(
+    const closedScreen = renderScreen(
       <ReportCreationRouteScreen intent="lost" />,
     );
-    const discardButton = findElement(
-      confirmationScreen,
-      (element) =>
-        element.type === "Pressable" && findText(element, "Descartar borrador"),
-    );
-
-    getPressableOnPress(discardButton)();
 
     expect(router.dismiss).not.toHaveBeenCalled();
     expect(router.replace).toHaveBeenCalledWith("/(tabs)/(nearby)");
+    expect(findText(closedScreen, "Descartar borrador")).toBe(false);
+    expect(findText(closedScreen, "Seguir editando")).toBe(false);
   });
 
   it("keeps supported visitor report routes on the existing visitor handoff path", () => {
@@ -1338,11 +1194,8 @@ function seedReadyPetProfileRouteState(node: React.ReactNode) {
     return;
   }
 
-  reactState.values[0] ??= false;
-  reactState.values[1] ??= false;
-  reactState.values[2] ??= null;
-  reactState.values[3] = 0;
-  reactState.values[4] = {
+  reactState.values[0] = 0;
+  reactState.values[1] = {
     key: `${intent}:${session.id}`,
     profiles: savedPetProfiles,
     status: "ready",
@@ -1426,29 +1279,14 @@ function getRequiredHandler(
   return handler as () => void;
 }
 
-function getPressableOnPress(element: TestElement | undefined) {
-  const onPress = element?.props.onPress;
-
-  if (typeof onPress !== "function") {
-    throw new Error("Expected Pressable onPress handler.");
-  }
-
-  return onPress as () => void;
-}
-
 function triggerNativeBeforeRemove(action?: unknown): BeforeRemoveEvent {
   const listener = navigation.beforeRemoveListener;
-
-  if (!listener) {
-    throw new Error("Expected native beforeRemove listener.");
-  }
-
   const event: BeforeRemoveEvent = {
     data: action ? { action } : undefined,
     preventDefault: vi.fn(),
   };
 
-  listener(event);
+  listener?.(event);
 
   return event;
 }

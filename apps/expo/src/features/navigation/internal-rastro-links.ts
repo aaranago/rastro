@@ -1,5 +1,7 @@
 import type { Href } from "expo-router";
 
+import { mobileHomeHref, mobileHomePath } from "./home-route";
+
 export interface OpenInternalRastroHrefInput {
   href: string;
   onOpenHref?: (href: string) => void;
@@ -43,6 +45,10 @@ export function openInternalRastroHref({
 }
 
 export function resolveInternalRastroHref(href: string): Href | null {
+  if (isMobileRootHref(href)) {
+    return mobileHomeHref;
+  }
+
   if (href.startsWith("/")) {
     return href as Href;
   }
@@ -112,6 +118,10 @@ function normalizeAuthReturnTo(value: string | null): string | undefined {
     return undefined;
   }
 
+  if (isMobileRootHref(returnTo)) {
+    return mobileHomePath;
+  }
+
   return authReturnToAliases[returnTo] ?? returnTo;
 }
 
@@ -121,6 +131,10 @@ const authReturnToAliases: Record<string, string> = {
   "/perfil": "/(tabs)/(profile)",
   "/recursos": "/(tabs)/(resources)",
 };
+
+function isMobileRootHref(value: string) {
+  return value === "/" || value === "/index";
+}
 
 const reportUpdateDeepLinkPattern =
   /^rastro:\/\/reportes\/(avistamientos|encontrados|perdidos)\/([^/?#]+)\/actualizar(?:[?#].*)?$/;

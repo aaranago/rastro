@@ -1,7 +1,7 @@
 import type { Href, Router } from "expo-router";
 import * as React from "react";
-import { Pressable, Share, StyleSheet, Text, View } from "react-native";
-import { useNavigation, useRouter } from "expo-router";
+import { Share } from "react-native";
+import { useRouter } from "expo-router";
 
 import type { ReportType } from "@acme/validators";
 
@@ -52,78 +52,16 @@ import { buildResourceProviderProfileHref } from "../resources";
 import { createApiResourcesAdapter } from "../resources/resources-api-adapter";
 import { toShellMemberCreationSession } from "../shell/shell-model";
 import { useRastroShell } from "../shell/shell-provider";
-import { shellColors } from "../shell/shell-theme";
 import { SightingReportCreationScreen } from "../sighting-report-creation/sighting-report-creation-screen";
 import { createApiSightingReportPublishHandler } from "../sighting-report-creation/sighting-report-publish-adapter";
 import { buildReportCreationHref } from "./report-creation-routes";
 
-function useReportCreationRouteClose({
-  hasUnsavedChanges,
-  navigation,
-  onConfirmDiscard,
-  router,
-}: {
-  hasUnsavedChanges: boolean;
-  navigation: ReportCreationRouteNavigation;
-  onConfirmDiscard?: () => void;
-  router: Router;
-}) {
-  const [isDiscardConfirmationVisible, setDiscardConfirmationVisible] =
-    React.useState(false);
-  const [pendingNativeAction, setPendingNativeAction] =
-    React.useState<ReportCreationRouteNavigationAction | null>(null);
-  const hasConfirmedDiscardRef = React.useRef(false);
-
-  React.useEffect(() => {
-    if (!hasUnsavedChanges) {
-      hasConfirmedDiscardRef.current = false;
-    }
-  }, [hasUnsavedChanges]);
-
-  React.useEffect(() => {
-    return navigation.addListener("beforeRemove", (event) => {
-      if (!hasUnsavedChanges || hasConfirmedDiscardRef.current) {
-        return;
-      }
-
-      event.preventDefault();
-      setPendingNativeAction(event.data?.action ?? null);
-      setDiscardConfirmationVisible(true);
-    });
-  }, [hasUnsavedChanges, navigation]);
-
+function useReportCreationRouteClose({ router }: { router: Router }) {
   const requestClose = React.useCallback(() => {
-    if (hasUnsavedChanges && !hasConfirmedDiscardRef.current) {
-      setDiscardConfirmationVisible(true);
-      return;
-    }
-
     dismissReportCreationRoute(router);
-  }, [hasUnsavedChanges, router]);
-  const keepEditing = React.useCallback(() => {
-    hasConfirmedDiscardRef.current = false;
-    setPendingNativeAction(null);
-    setDiscardConfirmationVisible(false);
-  }, []);
-  const discardDraft = React.useCallback(() => {
-    const nativeAction = pendingNativeAction;
-
-    onConfirmDiscard?.();
-    hasConfirmedDiscardRef.current = true;
-    setPendingNativeAction(null);
-    setDiscardConfirmationVisible(false);
-    if (nativeAction !== null && navigation.dispatch) {
-      navigation.dispatch(nativeAction);
-      return;
-    }
-
-    dismissReportCreationRoute(router);
-  }, [navigation, onConfirmDiscard, pendingNativeAction, router]);
+  }, [router]);
 
   return {
-    discardDraft,
-    isDiscardConfirmationVisible,
-    keepEditing,
     requestClose,
   };
 }
@@ -134,31 +72,14 @@ export function ReportCreationRouteScreen({
   intent: ReportIntent;
 }) {
   const { model, requestAuthPrompt, session } = useRastroShell();
-  const navigation = useNavigation<ReportCreationRouteNavigation>();
   const router = useRouter();
-  const [hasCompletedPublish, setHasCompletedPublish] = React.useState(false);
-  const hasUnsavedChanges = hasRouteLevelUnsavedChanges({
-    hasCompletedPublish,
-    intent,
-    sessionKind: session.kind,
-  });
   const reportMediaDraftCacheRef = React.useRef<ReportMediaDraftCache>(
     new Map(),
   );
   const clearReportMediaDraftCache = React.useCallback(() => {
     reportMediaDraftCacheRef.current.clear();
   }, []);
-  const {
-    discardDraft,
-    isDiscardConfirmationVisible,
-    keepEditing,
-    requestClose: closeRoute,
-  } = useReportCreationRouteClose({
-    hasUnsavedChanges,
-    navigation,
-    onConfirmDiscard: clearReportMediaDraftCache,
-    router,
-  });
+  const { requestClose: closeRoute } = useReportCreationRouteClose({ router });
   const secureStorage = React.useMemo(
     () => createExpoSecureStoreKeyValueStorage(),
     [],
@@ -231,9 +152,7 @@ export function ReportCreationRouteScreen({
       sourceHref: `rastro://auth/sign-in?returnTo=${encodeURIComponent(returnTo)}`,
     });
   }, [intent, requestAuthPrompt]);
-  const markDraftPublished = React.useCallback(() => {
-    setHasCompletedPublish(true);
-  }, []);
+  const markDraftPublished = clearReportMediaDraftCache;
   const handleOpenSponsorPlacement = React.useCallback(
     (sponsorPlacementId: string) => {
       openHrefAfterClosingReportCreationRoute(
@@ -456,17 +375,7 @@ export function ReportCreationRouteScreen({
     );
   }
 
-  return (
-    <>
-      {creationScreen}
-      {isDiscardConfirmationVisible ? (
-        <ReportCreationDiscardConfirmation
-          onDiscard={discardDraft}
-          onKeepEditing={keepEditing}
-        />
-      ) : null}
-    </>
-  );
+  return creationScreen;
 }
 
 type ReportCreationPetProfilesState =
@@ -861,89 +770,6 @@ function getEditableReportMediaMimeType(
   }
 }
 
-function hasRouteLevelUnsavedChanges({
-  hasCompletedPublish,
-  intent,
-  sessionKind,
-}: {
-  hasCompletedPublish: boolean;
-  intent: ReportIntent;
-  sessionKind: "member" | "visitor";
-}) {
-  if (hasCompletedPublish) {
-    return false;
-  }
-
-  return !(
-    sessionKind === "visitor" &&
-    (intent === "found" || intent === "sighting")
-  );
-}
-
-interface ReportCreationRouteBeforeRemoveEvent {
-  data?: {
-    action?: ReportCreationRouteNavigationAction;
-  };
-  preventDefault: () => void;
-}
-
-type ReportCreationRouteNavigationAction = Record<string, unknown>;
-
-interface ReportCreationRouteNavigation {
-  addListener: (
-    eventName: "beforeRemove",
-    listener: (event: ReportCreationRouteBeforeRemoveEvent) => void,
-  ) => () => void;
-  dispatch?: (action: ReportCreationRouteNavigationAction) => void;
-}
-
-function ReportCreationDiscardConfirmation({
-  onDiscard,
-  onKeepEditing,
-}: {
-  onDiscard: () => void;
-  onKeepEditing: () => void;
-}) {
-  return (
-    <View
-      accessibilityLabel="Confirmar descarte de borrador"
-      accessibilityRole="alert"
-      style={styles.discardBackdrop}
-    >
-      <View style={styles.discardPanel}>
-        <Text maxFontSizeMultiplier={1.2} style={styles.discardTitle}>
-          Descartar borrador
-        </Text>
-        <Text maxFontSizeMultiplier={1.2} style={styles.discardBody}>
-          Si sales ahora, perderas los cambios de este reporte.
-        </Text>
-        <View style={styles.discardActions}>
-          <Pressable
-            accessibilityLabel="Seguir editando"
-            accessibilityRole="button"
-            onPress={onKeepEditing}
-            style={[styles.discardButton, styles.keepEditingButton]}
-          >
-            <Text style={[styles.discardButtonText, styles.keepEditingText]}>
-              Seguir editando
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityLabel="Descartar borrador"
-            accessibilityRole="button"
-            onPress={onDiscard}
-            style={[styles.discardButton, styles.discardDraftButton]}
-          >
-            <Text style={[styles.discardButtonText, styles.discardDraftText]}>
-              Descartar borrador
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-    </View>
-  );
-}
-
 function dismissReportCreationRoute(router: Router) {
   if (router.canGoBack()) {
     router.dismiss();
@@ -962,64 +788,3 @@ function openHrefAfterClosingReportCreationRoute(router: Router, href: Href) {
 
   router.replace(href);
 }
-
-const styles = StyleSheet.create({
-  discardActions: {
-    gap: 10,
-  },
-  discardBackdrop: {
-    backgroundColor: "rgba(23, 32, 28, 0.44)",
-    bottom: 0,
-    justifyContent: "center",
-    left: 0,
-    paddingHorizontal: 20,
-    position: "absolute",
-    right: 0,
-    top: 0,
-  },
-  discardBody: {
-    color: shellColors.muted,
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 18,
-  },
-  discardButton: {
-    alignItems: "center",
-    borderRadius: 8,
-    borderWidth: 1,
-    minHeight: 48,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-  },
-  discardButtonText: {
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  discardDraftButton: {
-    backgroundColor: shellColors.lost,
-    borderColor: shellColors.lost,
-  },
-  discardDraftText: {
-    color: shellColors.white,
-  },
-  discardPanel: {
-    backgroundColor: shellColors.surface,
-    borderColor: shellColors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 18,
-  },
-  discardTitle: {
-    color: shellColors.text,
-    fontSize: 18,
-    fontWeight: "800",
-    marginBottom: 8,
-  },
-  keepEditingButton: {
-    backgroundColor: shellColors.surface,
-    borderColor: shellColors.border,
-  },
-  keepEditingText: {
-    color: shellColors.primary,
-  },
-});

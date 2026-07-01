@@ -15,6 +15,7 @@ import type {
   ShellAuthSessionState,
   ShellSocialAuthProvider,
 } from "../features/shell/shell-auth";
+import { mobileHomeHref } from "../features/navigation/home-route";
 import { shellSocialAuthProviders } from "../features/shell/shell-auth";
 import { getBaseUrl } from "./base-url";
 
@@ -23,6 +24,8 @@ const mobileAuthCallbackPath = "auth/callback";
 const mobileAuthCookieStorageKey = `${mobileAuthScheme}_cookie`;
 const betterAuthBasePath = "/api/auth";
 const betterAuthCallbackPathSegment = "/callback/";
+
+export const mobileAuthCallbackRedirectHref = mobileHomeHref;
 
 export const authClient = createAuthClient({
   baseURL: getBaseUrl(),

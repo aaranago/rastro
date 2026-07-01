@@ -9,6 +9,7 @@ import {
   getLocalizedPasswordResetErrorMessage,
   getShellCreateAccountDisplayName,
   isTrustedMobileAuthCallbackURL,
+  mobileAuthCallbackRedirectHref,
   signInWithShellSocialProvider,
 } from "./auth";
 
@@ -264,6 +265,11 @@ describe("signInWithShellSocialProvider", () => {
 });
 
 describe("mobile auth configuration helpers", () => {
+  it("routes completed mobile auth callbacks to an existing tab anchor", () => {
+    expect(mobileAuthCallbackRedirectHref).toBe("/(tabs)/(nearby)");
+    expect(mobileAuthCallbackRedirectHref).not.toBe("/");
+  });
+
   it("builds the Expo auth proxy on the Better Auth callback origin", () => {
     const authorizationURL =
       "https://accounts.google.com/o/oauth2/auth?state=abc&redirect_uri=https%3A%2F%2Fauth.example.test%2Fapi%2Fauth%2Fcallback%2Fgoogle";

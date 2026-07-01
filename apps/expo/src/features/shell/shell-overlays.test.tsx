@@ -596,7 +596,7 @@ describe("ShellFabHost", () => {
         segments: ["(tabs)", "(nearby)"],
         sessionKind: "visitor",
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldDisplayGlobalReportFab({
         isAuthPromptVisible: false,

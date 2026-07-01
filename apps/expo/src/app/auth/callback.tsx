@@ -3,7 +3,10 @@ import { router, useLocalSearchParams } from "expo-router";
 
 import type { MobileAuthCallbackSearchParams } from "~/utils/auth";
 import { AppStateScreen } from "~/features/app-states";
-import { completeMobileAuthCallback } from "~/utils/auth";
+import {
+  completeMobileAuthCallback,
+  mobileAuthCallbackRedirectHref,
+} from "~/utils/auth";
 
 export default function MobileAuthCallbackRoute() {
   const rawParams = useLocalSearchParams();
@@ -27,7 +30,7 @@ export default function MobileAuthCallbackRoute() {
     const result = completeMobileAuthCallback(params);
 
     if (result.ok) {
-      router.replace("/");
+      router.replace(mobileAuthCallbackRedirectHref);
       return;
     }
 
@@ -58,7 +61,7 @@ export default function MobileAuthCallbackRoute() {
             }
       }
       onActionPress={() => {
-        router.replace("/");
+        router.replace(mobileAuthCallbackRedirectHref);
       }}
     />
   );
