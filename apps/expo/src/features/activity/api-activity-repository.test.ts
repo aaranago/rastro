@@ -4,15 +4,22 @@ import type {
   ApiActivityAlertDeliveryItem,
   ApiActivityChatConversationItem,
   ApiActivityInboxOutput,
+  ApiActivityModerationEventItem,
+  ApiActivityReportUpdateItem,
 } from "./api-activity-repository";
-import { createApiActivityRepository } from "./api-activity-repository";
+import {
+  createApiActivityRepository,
+  createCachedActivityRepository,
+} from "./api-activity-repository";
 
 describe("API Activity repository", () => {
   it("loads the member inbox with an empty query and normalizes backend items", async () => {
     const alertDelivery = createApiAlertDelivery();
     const chatConversation = createApiChatConversation();
+    const reportUpdate = createApiReportUpdate();
+    const moderationEvent = createApiModerationEvent();
     const client = createApiActivityClient({
-      items: [alertDelivery, chatConversation],
+      items: [alertDelivery, chatConversation, reportUpdate, moderationEvent],
     });
     const repository = createApiActivityRepository({ client });
 
@@ -53,6 +60,48 @@ describe("API Activity repository", () => {
             subtitle: "Sopocachi",
             title: "Toby",
           },
+        },
+      ],
+      moderationEvents: [
+        {
+          action: "hide",
+          adminId: "member-admin",
+          id: "moderation-event-1",
+          note: "Ubicación sensible.",
+          occurredAt: "2026-06-30T13:06:00.000Z",
+          reason: "Ubicación exacta expuesta",
+          report: {
+            availability: "hidden",
+            href: "rastro://reportes/perdidos/lost-report-1",
+            id: "lost-report-1",
+            kind: "lost-pet-report",
+            outcome: null,
+            status: "active",
+            title: "Toby",
+            type: "lost_pet",
+          },
+        },
+      ],
+      reportUpdates: [
+        {
+          actorMemberId: "member-camila",
+          eventType: "resolved",
+          fromStatus: "active",
+          id: "report-update-1",
+          note: null,
+          occurredAt: "2026-06-30T13:05:00.000Z",
+          outcome: "reunited",
+          report: {
+            availability: "available",
+            href: "rastro://reportes/perdidos/lost-report-1",
+            id: "lost-report-1",
+            kind: "lost-pet-report",
+            outcome: "reunited",
+            status: "closed",
+            title: "Toby",
+            type: "lost_pet",
+          },
+          toStatus: "closed",
         },
       ],
     });
@@ -96,6 +145,42 @@ describe("API Activity repository", () => {
     expect(
       JSON.stringify(client.activity.inbox.query.mock.calls),
     ).not.toContain("member-spoofed");
+  });
+
+  it("returns the last successful inbox as stale cache when a later fetch fails", async () => {
+    const freshInbox = {
+      alertDeliveries: [],
+      chatSummaries: [],
+      moderationEvents: [normalizeApiModerationEventForCache()],
+      reportUpdates: [],
+    };
+    const cache = {
+      read: vi.fn(() => Promise.resolve(null)),
+      write: vi.fn(() => Promise.resolve()),
+    };
+    const source = {
+      getInbox: vi
+        .fn()
+        .mockResolvedValueOnce(freshInbox)
+        .mockRejectedValueOnce(new Error("offline")),
+    };
+    const repository = createCachedActivityRepository({
+      cache,
+      cacheKey: (input) => `activity:${input.limit ?? "default"}`,
+      source,
+    });
+
+    await expect(repository.getInbox({ limit: 20 })).resolves.toEqual(
+      freshInbox,
+    );
+    await expect(repository.getInbox({ limit: 20 })).resolves.toEqual({
+      ...freshInbox,
+      isOffline: true,
+      isStale: true,
+    });
+
+    expect(cache.write).toHaveBeenCalledWith("activity:20", freshInbox);
+    expect(cache.read).not.toHaveBeenCalled();
   });
 });
 
@@ -160,6 +245,79 @@ function createApiChatConversation(): ApiActivityChatConversationItem {
         title: "Toby",
       },
       updatedAt: "2026-06-30T13:04:00.000Z",
+    },
+  };
+}
+
+function createApiReportUpdate(): ApiActivityReportUpdateItem {
+  return {
+    id: "activity-report-update-1",
+    occurredAt: new Date("2026-06-30T13:05:00.000Z"),
+    type: "report_update",
+    update: {
+      actorMemberId: "member-camila",
+      eventType: "resolved",
+      fromStatus: "active",
+      id: "report-update-1",
+      note: null,
+      outcome: "reunited",
+      report: {
+        availability: "available",
+        href: "rastro://reportes/perdidos/lost-report-1",
+        id: "lost-report-1",
+        kind: "lost-pet-report",
+        outcome: "reunited",
+        status: "closed",
+        title: "Toby",
+        type: "lost_pet",
+      },
+      toStatus: "closed",
+    },
+  };
+}
+
+function createApiModerationEvent(): ApiActivityModerationEventItem {
+  return {
+    event: {
+      action: "hide",
+      adminId: "member-admin",
+      id: "moderation-event-1",
+      note: "Ubicación sensible.",
+      reason: "Ubicación exacta expuesta",
+      report: {
+        availability: "hidden",
+        href: "rastro://reportes/perdidos/lost-report-1",
+        id: "lost-report-1",
+        kind: "lost-pet-report",
+        outcome: null,
+        status: "active",
+        title: "Toby",
+        type: "lost_pet",
+      },
+    },
+    id: "activity-moderation-event-1",
+    occurredAt: new Date("2026-06-30T13:06:00.000Z"),
+    type: "moderation_event",
+  };
+}
+
+function normalizeApiModerationEventForCache() {
+  return {
+    action: "hide" as const,
+    adminId: "member-admin",
+    id: "moderation-event-1",
+    note: "Ubicación sensible.",
+    occurredAt: "2026-06-30T13:06:00.000Z",
+    reason: "Ubicación exacta expuesta",
+    report: {
+      availability: "hidden" as const,
+      href: "rastro://reportes/perdidos/lost-report-1",
+      id: "lost-report-1",
+      kind: "lost-pet-report" as const,
+      outcome: null,
+      status: "active" as const,
+      title: "Toby",
+      type: "lost_pet" as const,
     },
   };
 }

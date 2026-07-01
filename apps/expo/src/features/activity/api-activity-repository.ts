@@ -1,3 +1,4 @@
+import type { LastLoadedCache } from "../resilience/last-loaded-cache";
 import type {
   ActivityAlertDelivery,
   ActivityChatSummary,
@@ -6,6 +7,9 @@ import type {
   ActivityChatSummarySubject,
   ActivityInbox,
   ActivityInboxQuery,
+  ActivityModerationEvent,
+  ActivityReportSummary,
+  ActivityReportUpdate,
   ActivityRepository,
 } from "./activity-model";
 
@@ -49,6 +53,51 @@ export interface ApiActivityChatConversationItem {
   type: "chat_conversation";
 }
 
+export interface ApiActivityReportSummary {
+  availability: ActivityReportSummary["availability"];
+  href: string;
+  id: string;
+  kind: ActivityReportSummary["kind"];
+  outcome: ActivityReportSummary["outcome"];
+  status: ActivityReportSummary["status"];
+  title: string;
+  type: ActivityReportSummary["type"];
+}
+
+export interface ApiActivityReportUpdate {
+  actorMemberId: string | null;
+  eventType: ActivityReportUpdate["eventType"];
+  fromStatus: ActivityReportUpdate["fromStatus"];
+  id: string;
+  note: string | null;
+  outcome: ActivityReportUpdate["outcome"];
+  report: ApiActivityReportSummary;
+  toStatus: ActivityReportUpdate["toStatus"];
+}
+
+export interface ApiActivityReportUpdateItem {
+  id: string;
+  occurredAt: ApiDateValue;
+  type: "report_update";
+  update: ApiActivityReportUpdate;
+}
+
+export interface ApiActivityModerationEvent {
+  action: ActivityModerationEvent["action"];
+  adminId: string | null;
+  id: string;
+  note: string | null;
+  reason: string;
+  report: ApiActivityReportSummary;
+}
+
+export interface ApiActivityModerationEventItem {
+  event: ApiActivityModerationEvent;
+  id: string;
+  occurredAt: ApiDateValue;
+  type: "moderation_event";
+}
+
 export interface ApiActivityChatSubject {
   href: string;
   id: string;
@@ -74,7 +123,9 @@ export interface ApiActivityChatLastMessage {
 
 export type ApiActivityInboxItem =
   | ApiActivityAlertDeliveryItem
-  | ApiActivityChatConversationItem;
+  | ApiActivityChatConversationItem
+  | ApiActivityReportUpdateItem
+  | ApiActivityModerationEventItem;
 
 export interface ApiActivityInboxOutput {
   items: readonly ApiActivityInboxItem[];
@@ -102,6 +153,47 @@ export function createApiActivityRepository({
   };
 }
 
+export function createCachedActivityRepository({
+  cache,
+  cacheKey,
+  source,
+}: {
+  cache: LastLoadedCache<ActivityInbox>;
+  cacheKey: string | ((input: ActivityInboxQuery) => string);
+  source: ActivityRepository;
+}): ActivityRepository {
+  const latestSuccessfulInboxes = new Map<string, ActivityInbox>();
+
+  return {
+    async getInbox(input) {
+      const key = resolveActivityCacheKey(cacheKey, input);
+
+      try {
+        const inbox = await source.getInbox(input);
+        const freshInbox = toFreshActivityInbox(inbox);
+
+        latestSuccessfulInboxes.set(key, freshInbox);
+        await cache.write(key, freshInbox).catch(() => undefined);
+
+        return inbox;
+      } catch (error) {
+        const cached =
+          latestSuccessfulInboxes.get(key) ?? (await cache.read(key));
+
+        if (cached === null) {
+          throw error;
+        }
+
+        return {
+          ...cached,
+          isOffline: true,
+          isStale: true,
+        };
+      }
+    },
+  };
+}
+
 function buildInboxQuery(input: ActivityInboxQuery): ActivityInboxQuery {
   return typeof input.limit === "number" ? { limit: input.limit } : {};
 }
@@ -109,6 +201,8 @@ function buildInboxQuery(input: ActivityInboxQuery): ActivityInboxQuery {
 function normalizeActivityInbox(output: ApiActivityInboxOutput): ActivityInbox {
   const alertDeliveries: ActivityAlertDelivery[] = [];
   const chatSummaries: ActivityChatSummary[] = [];
+  const moderationEvents: ActivityModerationEvent[] = [];
+  const reportUpdates: ActivityReportUpdate[] = [];
 
   for (const item of output.items) {
     if (item.type === "alert_delivery") {
@@ -116,12 +210,24 @@ function normalizeActivityInbox(output: ApiActivityInboxOutput): ActivityInbox {
       continue;
     }
 
-    chatSummaries.push(normalizeChatSummaryItem(item));
+    if (item.type === "chat_conversation") {
+      chatSummaries.push(normalizeChatSummaryItem(item));
+      continue;
+    }
+
+    if (item.type === "report_update") {
+      reportUpdates.push(normalizeReportUpdateItem(item));
+      continue;
+    }
+
+    moderationEvents.push(normalizeModerationEventItem(item));
   }
 
   return {
     alertDeliveries,
     chatSummaries,
+    moderationEvents,
+    reportUpdates,
   };
 }
 
@@ -155,6 +261,55 @@ function normalizeChatSummaryItem(
     occurredAt: normalizeDateValue(item.occurredAt),
     otherParticipant: normalizeParticipant(conversation.otherParticipant),
     subject: normalizeSubject(conversation.subject),
+  };
+}
+
+function normalizeReportUpdateItem(
+  item: ApiActivityReportUpdateItem,
+): ActivityReportUpdate {
+  const update = item.update;
+
+  return {
+    actorMemberId: update.actorMemberId,
+    eventType: update.eventType,
+    fromStatus: update.fromStatus,
+    id: update.id,
+    note: update.note,
+    occurredAt: normalizeDateValue(item.occurredAt),
+    outcome: update.outcome,
+    report: normalizeReportSummary(update.report),
+    toStatus: update.toStatus,
+  };
+}
+
+function normalizeModerationEventItem(
+  item: ApiActivityModerationEventItem,
+): ActivityModerationEvent {
+  const event = item.event;
+
+  return {
+    action: event.action,
+    adminId: event.adminId,
+    id: event.id,
+    note: event.note,
+    occurredAt: normalizeDateValue(item.occurredAt),
+    reason: event.reason,
+    report: normalizeReportSummary(event.report),
+  };
+}
+
+function normalizeReportSummary(
+  report: ApiActivityReportSummary,
+): ActivityReportSummary {
+  return {
+    availability: report.availability,
+    href: report.href,
+    id: report.id,
+    kind: report.kind,
+    outcome: report.outcome,
+    status: report.status,
+    title: report.title,
+    type: report.type,
   };
 }
 
@@ -201,6 +356,19 @@ function normalizeLastMessage(
 
 function normalizeDateValue(value: ApiDateValue) {
   return value instanceof Date ? value.toISOString() : value;
+}
+
+function resolveActivityCacheKey(
+  cacheKey: string | ((input: ActivityInboxQuery) => string),
+  input: ActivityInboxQuery,
+) {
+  return typeof cacheKey === "function" ? cacheKey(input) : cacheKey;
+}
+
+function toFreshActivityInbox(inbox: ActivityInbox): ActivityInbox {
+  const { isOffline: _isOffline, isStale: _isStale, ...freshInbox } = inbox;
+
+  return freshInbox;
 }
 
 function getActivityClient(client: unknown): ApiActivityClient["activity"] {

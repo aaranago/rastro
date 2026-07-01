@@ -16,7 +16,7 @@ describe("activity validation contracts", () => {
     ).toBe(false);
   });
 
-  it("validates alert delivery and chat conversation inbox items", () => {
+  it("validates alert delivery, chat, report update, and moderation inbox items", () => {
     expect(
       activityInboxOutputSchema.safeParse({
         items: [
@@ -66,6 +66,52 @@ describe("activity validation contracts", () => {
                 title: "Toby",
               },
               updatedAt: "2026-07-01T12:05:00.000Z",
+            },
+          },
+          {
+            type: "report_update",
+            id: "77777777-7777-4777-8777-777777777777",
+            occurredAt: "2026-07-01T12:06:00.000Z",
+            update: {
+              actorMemberId: "member-camila",
+              eventType: "resolved",
+              fromStatus: "active",
+              id: "77777777-7777-4777-8777-777777777777",
+              note: null,
+              outcome: "reunited",
+              report: {
+                availability: "available",
+                href: "rastro://reportes/perdidos/44444444-4444-4444-8444-444444444444",
+                id: "44444444-4444-4444-8444-444444444444",
+                kind: "lost-pet-report",
+                outcome: "reunited",
+                status: "closed",
+                title: "Toby",
+                type: "lost_pet",
+              },
+              toStatus: "closed",
+            },
+          },
+          {
+            type: "moderation_event",
+            id: "88888888-8888-4888-8888-888888888888",
+            occurredAt: "2026-07-01T12:07:00.000Z",
+            event: {
+              action: "hide",
+              adminId: "member-admin",
+              id: "88888888-8888-4888-8888-888888888888",
+              note: "Ubicación sensible.",
+              reason: "Ubicación exacta expuesta",
+              report: {
+                availability: "hidden",
+                href: "rastro://reportes/perdidos/44444444-4444-4444-8444-444444444444",
+                id: "44444444-4444-4444-8444-444444444444",
+                kind: "lost-pet-report",
+                outcome: null,
+                status: "active",
+                title: "Toby",
+                type: "lost_pet",
+              },
             },
           },
         ],

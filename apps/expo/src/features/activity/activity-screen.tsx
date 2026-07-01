@@ -33,7 +33,12 @@ import { useRastroShell } from "../shell/shell-provider";
 import { shellColors } from "../shell/shell-theme";
 import { buildActivityViewModel } from "./activity-model";
 
-type ActivityItemType = "alert" | "chat" | "match" | "report-update";
+type ActivityItemType =
+  | "alert"
+  | "chat"
+  | "match"
+  | "moderation"
+  | "report-update";
 
 interface ActivitySignedOutViewModel {
   action: ActivityActionViewModel;
@@ -74,6 +79,7 @@ type ActivityScreenViewModel =
         title: string;
       };
       kind: "member";
+      offlineLabel?: string;
       sections: readonly ActivitySectionForScreen[];
       subtitle?: string;
       title: string;
@@ -234,7 +240,11 @@ export function ActivityScreen({
 
   const header =
     viewModel.kind === "member" ? (
-      <ActivityHeader subtitle={viewModel.subtitle} title={viewModel.title} />
+      <ActivityHeader
+        offlineLabel={viewModel.offlineLabel}
+        subtitle={viewModel.subtitle}
+        title={viewModel.title}
+      />
     ) : null;
   const emptyState =
     viewModel.kind === "visitor" ? (
@@ -278,9 +288,11 @@ export function ActivityScreen({
 }
 
 const ActivityHeader = React.memo(function ActivityHeader({
+  offlineLabel,
   subtitle,
   title,
 }: {
+  offlineLabel?: string;
   subtitle?: string;
   title: string;
 }) {
@@ -296,6 +308,11 @@ const ActivityHeader = React.memo(function ActivityHeader({
         {subtitle ? (
           <Text maxFontSizeMultiplier={1.25} style={styles.headerSubtitle}>
             {subtitle}
+          </Text>
+        ) : null}
+        {offlineLabel ? (
+          <Text maxFontSizeMultiplier={1.2} style={styles.offlineLabel}>
+            {offlineLabel}
           </Text>
         ) : null}
       </View>
@@ -615,6 +632,7 @@ function normalizeMemberViewModel(
   return {
     empty: viewModel.emptyState,
     kind: "member",
+    offlineLabel: viewModel.offlineLabel,
     sections: viewModel.sections.map((section) => ({
       id: section.id,
       items: section.items.map(toActivityItemForScreen),
@@ -654,6 +672,10 @@ function getActivityModelInput(
   return {
     alertDeliveries: inbox?.alertDeliveries ?? [],
     chatSummaries: inbox?.chatSummaries ?? [],
+    isOffline: inbox?.isOffline,
+    isStale: inbox?.isStale,
+    moderationEvents: inbox?.moderationEvents ?? [],
+    reportUpdates: inbox?.reportUpdates ?? [],
     session: modelSession,
   };
 }
@@ -679,7 +701,10 @@ function toActivityItemForScreen(
 ): ActivityItemForScreen {
   const type = getActivityTypeFromModelKind(item.kind);
   const actionLabel =
-    item.kind === "candidate-match" || item.kind === "owned-report-update"
+    item.kind === "candidate-match" ||
+    item.kind === "moderation-event" ||
+    item.kind === "owned-report-update" ||
+    item.kind === "report-update"
       ? item.action.label
       : undefined;
 
@@ -715,7 +740,22 @@ function getActivityItemTestID(item: ActivityItemViewModel) {
     return `activity-item-chat-${getActivityTargetId(item, ["chat-"])}`;
   }
 
+  if (item.kind === "report-update") {
+    return `activity-item-report-update-${getActivityIdWithoutPrefix(item, "report-update-")}`;
+  }
+
+  if (item.kind === "moderation-event") {
+    return `activity-item-moderation-${getActivityIdWithoutPrefix(item, "moderation-event-")}`;
+  }
+
   return undefined;
+}
+
+function getActivityIdWithoutPrefix(
+  item: ActivityItemViewModel,
+  prefix: string,
+) {
+  return item.id.startsWith(prefix) ? item.id.slice(prefix.length) : item.id;
 }
 
 function getActivityTargetId(
@@ -739,9 +779,12 @@ function getActivityTypeFromModelKind(
       return "match";
     case "chat-conversation":
       return "chat";
+    case "moderation-event":
+      return "moderation";
     case "nearby-lost-pet-alert":
       return "alert";
     case "owned-report-update":
+    case "report-update":
       return "report-update";
   }
 }
@@ -752,9 +795,12 @@ function getActivityBadgeLabelFromModelKind(kind: ActivityItemKind) {
       return "Candidato";
     case "chat-conversation":
       return "Chat";
+    case "moderation-event":
+      return "Moderación";
     case "nearby-lost-pet-alert":
       return "Alerta";
     case "owned-report-update":
+    case "report-update":
       return "Reporte";
   }
 }
@@ -832,6 +878,14 @@ function getActivityTone(type: ActivityItemType) {
         iconColor: shellColors.adoption,
         iconName: "sparkles",
         iconStyle: styles.matchIcon,
+      };
+    case "moderation":
+      return {
+        badgeLabel: "Moderación",
+        badgeStyle: styles.moderationBadge,
+        iconColor: shellColors.lost,
+        iconName: "exclamationmark.triangle.fill",
+        iconStyle: styles.moderationIcon,
       };
     case "report-update":
       return {
@@ -947,6 +1001,18 @@ const styles = StyleSheet.create({
   },
   matchIcon: {
     backgroundColor: "#F8E9EF",
+  },
+  moderationBadge: {
+    backgroundColor: "#FFF1F0",
+    color: shellColors.lost,
+  },
+  moderationIcon: {
+    backgroundColor: "#FFF1F0",
+  },
+  offlineLabel: {
+    color: shellColors.primaryDark,
+    fontSize: 12,
+    fontWeight: "900",
   },
   primaryButton: {
     alignItems: "center",

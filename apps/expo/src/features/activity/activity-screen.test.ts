@@ -287,6 +287,8 @@ describe("Activity screen links", () => {
             },
           },
         ],
+        moderationEvents: [],
+        reportUpdates: [],
       }),
     );
 
@@ -315,6 +317,130 @@ describe("Activity screen links", () => {
         testID: "activity-item-chat-chat-conversation-1",
       }),
     ]);
+  });
+
+  it("renders backend report update and moderation sections with report links", async () => {
+    shellContext.session = createMemberSession();
+    const repository = createScreenRepository(
+      Promise.resolve({
+        alertDeliveries: [],
+        chatSummaries: [],
+        moderationEvents: [
+          {
+            action: "hide",
+            adminId: "member-admin",
+            id: "moderation-event-1",
+            note: "Ubicación sensible.",
+            occurredAt: "2026-06-30T13:06:00.000Z",
+            reason: "Ubicación exacta expuesta",
+            report: {
+              availability: "hidden",
+              href: "rastro://reportes/perdidos/lost-report-1",
+              id: "lost-report-1",
+              kind: "lost-pet-report",
+              outcome: null,
+              status: "active",
+              title: "Toby",
+              type: "lost_pet",
+            },
+          },
+        ],
+        reportUpdates: [
+          {
+            actorMemberId: "member_ana",
+            eventType: "resolved",
+            fromStatus: "active",
+            id: "report-update-1",
+            note: null,
+            occurredAt: "2026-06-30T13:05:00.000Z",
+            outcome: "reunited",
+            report: {
+              availability: "available",
+              href: "rastro://reportes/perdidos/lost-report-1",
+              id: "lost-report-1",
+              kind: "lost-pet-report",
+              outcome: "reunited",
+              status: "closed",
+              title: "Toby",
+              type: "lost_pet",
+            },
+            toStatus: "closed",
+          },
+        ],
+      }),
+    );
+
+    void renderActivityScreen({ repository });
+    await runPendingEffects();
+    const screen = renderActivityScreen({ repository });
+    const listProps = getLegendListProps<{
+      data: Record<string, unknown>[];
+    }>(screen);
+
+    expect(listProps.data).toEqual([
+      expect.objectContaining({
+        testID: "activity-section-report-updates",
+        title: "Actualizaciones",
+      }),
+      expect.objectContaining({
+        body: "Resultado registrado: Reunida.",
+        href: "rastro://reportes/perdidos/lost-report-1",
+        testID: "activity-item-report-update-report-update-1",
+      }),
+      expect.objectContaining({
+        testID: "activity-section-moderation-events",
+        title: "Moderación",
+      }),
+      expect.objectContaining({
+        body: "El equipo retiro temporalmente este reporte: Ubicación exacta expuesta.",
+        href: "rastro://reportes/perdidos/lost-report-1",
+        testID: "activity-item-moderation-moderation-event-1",
+      }),
+    ]);
+  });
+
+  it("shows the stale cached inbox label while rendering cached Activity", async () => {
+    shellContext.session = createMemberSession();
+    const repository = createScreenRepository(
+      Promise.resolve({
+        alertDeliveries: [],
+        chatSummaries: [],
+        isOffline: true,
+        isStale: true,
+        moderationEvents: [],
+        reportUpdates: [
+          {
+            eventType: "updated",
+            id: "report-update-1",
+            occurredAt: "2026-06-30T13:05:00.000Z",
+            report: {
+              availability: "available",
+              href: "rastro://reportes/perdidos/lost-report-1",
+              id: "lost-report-1",
+              kind: "lost-pet-report",
+              outcome: null,
+              status: "active",
+              title: "Toby",
+              type: "lost_pet",
+            },
+          },
+        ],
+      }),
+    );
+
+    void renderActivityScreen({ repository });
+    await runPendingEffects();
+    const screen = renderActivityScreen({ repository });
+    const listProps = getLegendListProps<{
+      ListHeaderComponent: React.ReactNode;
+    }>(screen);
+
+    expect(
+      findText(
+        listProps.ListHeaderComponent,
+        "Sin conexion - actividad guardada",
+      ),
+    ).toBe(true);
   });
 
   it("shows a Spanish error state with a retry action for backend failures", async () => {
@@ -381,6 +507,8 @@ function createScreenRepository(
   result: Promise<ActivityInbox> = Promise.resolve({
     alertDeliveries: [],
     chatSummaries: [],
+    moderationEvents: [],
+    reportUpdates: [],
   }),
 ): ActivityRepository {
   return {

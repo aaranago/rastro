@@ -448,15 +448,37 @@ export const activityInboxInputSchema = z
   })
   .strict();
 
+const activityReportKindOutputSchema = z.enum([
+  "adoption-listing",
+  "found-pet-report",
+  "lost-pet-report",
+  "sighting-report",
+]);
+
+const activityReportAvailabilityOutputSchema = z.enum([
+  "available",
+  "deleted",
+  "false_report",
+  "hidden",
+]);
+
+const activityReportSummaryOutputSchema = z
+  .object({
+    availability: activityReportAvailabilityOutputSchema,
+    href: z.string().min(1),
+    id: z.uuid(),
+    kind: activityReportKindOutputSchema,
+    outcome: reportOutcomeSchema.nullable(),
+    status: reportStatusSchema,
+    title: z.string().min(1).max(240),
+    type: reportTypeSchema,
+  })
+  .strict();
+
 const activityChatSubjectOutputSchema = z.object({
   href: z.string().min(1),
   id: z.string().min(1).max(128),
-  kind: z.enum([
-    "adoption-listing",
-    "found-pet-report",
-    "lost-pet-report",
-    "sighting-report",
-  ]),
+  kind: activityReportKindOutputSchema,
   subtitle: z.string().min(1).max(240),
   title: z.string().min(1).max(240),
 });
@@ -498,9 +520,49 @@ export const activityInboxChatConversationItemOutputSchema = z
   })
   .strict();
 
+export const activityInboxReportUpdateItemOutputSchema = z
+  .object({
+    type: z.literal("report_update"),
+    id: z.string().min(1).max(160),
+    occurredAt: isoDateTimeOutputSchema,
+    update: z
+      .object({
+        actorMemberId: z.string().min(1).max(256).nullable(),
+        eventType: z.enum(["created", "updated", "resolved", "deleted"]),
+        fromStatus: reportStatusSchema.nullable(),
+        id: z.uuid(),
+        note: z.string().max(2000).nullable(),
+        outcome: reportOutcomeSchema.nullable(),
+        report: activityReportSummaryOutputSchema,
+        toStatus: reportStatusSchema.nullable(),
+      })
+      .strict(),
+  })
+  .strict();
+
+export const activityInboxModerationEventItemOutputSchema = z
+  .object({
+    type: z.literal("moderation_event"),
+    id: z.string().min(1).max(160),
+    occurredAt: isoDateTimeOutputSchema,
+    event: z
+      .object({
+        action: z.enum(["hide", "restore", "mark_false", "unmark_false"]),
+        adminId: z.string().min(1).max(256).nullable(),
+        id: z.uuid(),
+        note: z.string().max(2000).nullable(),
+        reason: z.string().min(1).max(240),
+        report: activityReportSummaryOutputSchema,
+      })
+      .strict(),
+  })
+  .strict();
+
 export const activityInboxItemOutputSchema = z.discriminatedUnion("type", [
   activityInboxAlertDeliveryItemOutputSchema,
   activityInboxChatConversationItemOutputSchema,
+  activityInboxReportUpdateItemOutputSchema,
+  activityInboxModerationEventItemOutputSchema,
 ]);
 
 export const activityInboxOutputSchema = z
@@ -1232,6 +1294,12 @@ export type ActivityInboxAlertDeliveryItemOutput = z.infer<
 >;
 export type ActivityInboxChatConversationItemOutput = z.infer<
   typeof activityInboxChatConversationItemOutputSchema
+>;
+export type ActivityInboxReportUpdateItemOutput = z.infer<
+  typeof activityInboxReportUpdateItemOutputSchema
+>;
+export type ActivityInboxModerationEventItemOutput = z.infer<
+  typeof activityInboxModerationEventItemOutputSchema
 >;
 export type ActivityInboxItemOutput = z.infer<
   typeof activityInboxItemOutputSchema

@@ -11,8 +11,12 @@ export interface BuildActivityViewModelInput {
   candidateMatches?: readonly ActivityCandidateMatch[];
   chatConversations?: readonly ChatConversation[];
   chatSummaries?: readonly ActivityChatSummary[];
+  isOffline?: boolean;
+  isStale?: boolean;
+  moderationEvents?: readonly ActivityModerationEvent[];
   nearbyLostPetAlerts?: readonly ActivityNearbyLostPetAlert[];
   ownedReportPrompts?: readonly ActivityOwnedReportPrompt[];
+  reportUpdates?: readonly ActivityReportUpdate[];
   session: AlertSubscriptionsSessionState;
 }
 
@@ -23,6 +27,10 @@ export interface ActivityInboxQuery {
 export interface ActivityInbox {
   alertDeliveries: ActivityAlertDelivery[];
   chatSummaries: ActivityChatSummary[];
+  isOffline?: boolean;
+  isStale?: boolean;
+  moderationEvents: ActivityModerationEvent[];
+  reportUpdates: ActivityReportUpdate[];
 }
 
 export interface ActivityRepository {
@@ -71,6 +79,79 @@ export interface ActivityChatSummary {
   subject: ActivityChatSummarySubject;
 }
 
+export type ActivityReportType =
+  | "adoption"
+  | "found_pet"
+  | "lost_pet"
+  | "sighting";
+
+export type ActivityReportStatus = "active" | "closed" | "pending_review";
+
+export type ActivityReportOutcome =
+  | "adopted"
+  | "inactive"
+  | "reunited"
+  | "still_missing"
+  | "transferred_to_shelter"
+  | "unable_to_locate";
+
+export type ActivityReportAvailability =
+  | "available"
+  | "deleted"
+  | "false_report"
+  | "hidden";
+
+export type ActivityReportKind =
+  | "adoption-listing"
+  | "found-pet-report"
+  | "lost-pet-report"
+  | "sighting-report";
+
+export interface ActivityReportSummary {
+  availability: ActivityReportAvailability;
+  href: string;
+  id: string;
+  kind: ActivityReportKind;
+  outcome: ActivityReportOutcome | null;
+  status: ActivityReportStatus;
+  title: string;
+  type: ActivityReportType;
+}
+
+export type ActivityReportUpdateType =
+  | "created"
+  | "deleted"
+  | "resolved"
+  | "updated";
+
+export interface ActivityReportUpdate {
+  actorMemberId?: string | null;
+  eventType: ActivityReportUpdateType;
+  fromStatus?: ActivityReportStatus | null;
+  id: string;
+  note?: string | null;
+  occurredAt: string;
+  outcome?: ActivityReportOutcome | null;
+  report: ActivityReportSummary;
+  toStatus?: ActivityReportStatus | null;
+}
+
+export type ActivityModerationAction =
+  | "hide"
+  | "mark_false"
+  | "restore"
+  | "unmark_false";
+
+export interface ActivityModerationEvent {
+  action: ActivityModerationAction;
+  adminId?: string | null;
+  id: string;
+  note?: string | null;
+  occurredAt: string;
+  reason: string;
+  report: ActivityReportSummary;
+}
+
 export interface ActivityNearbyLostPetAlert {
   notification: LostPetAlertNotification;
   receivedAt: string;
@@ -115,14 +196,17 @@ export interface ActivityActionViewModel {
 export type ActivitySectionId =
   | "candidate-matches"
   | "chats"
+  | "moderation-events"
   | "nearby-alerts"
   | "report-updates";
 
 export type ActivityItemKind =
   | "candidate-match"
   | "chat-conversation"
+  | "moderation-event"
   | "nearby-lost-pet-alert"
-  | "owned-report-update";
+  | "owned-report-update"
+  | "report-update";
 
 export type ActivityItemTone = "attention" | "info" | "urgent";
 
@@ -161,6 +245,7 @@ export interface ActivityMemberViewModel {
     title: string;
   };
   kind: "member";
+  offlineLabel?: string;
   sections: ActivitySectionViewModel[];
   subtitle: string;
   title: string;
@@ -185,6 +270,7 @@ const activityCopy = {
   sections: {
     candidateMatches: "Coincidencias",
     chats: "Mensajes",
+    moderationEvents: "Moderación",
     nearbyAlerts: "Historial de alertas",
     reportUpdates: "Actualizaciones",
   },
@@ -200,8 +286,12 @@ export function buildActivityViewModel({
   candidateMatches = [],
   chatConversations = [],
   chatSummaries = [],
+  isOffline = false,
+  isStale = false,
+  moderationEvents = [],
   nearbyLostPetAlerts = [],
   ownedReportPrompts = [],
+  reportUpdates = [],
   session,
 }: BuildActivityViewModelInput): ActivityViewModel {
   if (session.kind === "visitor") {
@@ -226,13 +316,16 @@ export function buildActivityViewModel({
       title: activityCopy.emptyMember.title,
     },
     kind: "member",
+    offlineLabel: buildActivityOfflineLabel({ isOffline, isStale }),
     sections: buildActivitySections({
       alertDeliveries,
       candidateMatches,
       chatConversations,
       chatSummaries,
+      moderationEvents,
       nearbyLostPetAlerts,
       ownedReportPrompts,
+      reportUpdates,
       viewerMemberId: session.memberId,
     }),
     subtitle: activityCopy.memberSubtitle,
@@ -245,16 +338,20 @@ function buildActivitySections({
   candidateMatches,
   chatConversations,
   chatSummaries,
+  moderationEvents,
   nearbyLostPetAlerts,
   ownedReportPrompts,
+  reportUpdates,
   viewerMemberId,
 }: {
   alertDeliveries: readonly ActivityAlertDelivery[];
   candidateMatches: readonly ActivityCandidateMatch[];
   chatConversations: readonly ChatConversation[];
   chatSummaries: readonly ActivityChatSummary[];
+  moderationEvents: readonly ActivityModerationEvent[];
   nearbyLostPetAlerts: readonly ActivityNearbyLostPetAlert[];
   ownedReportPrompts: readonly ActivityOwnedReportPrompt[];
+  reportUpdates: readonly ActivityReportUpdate[];
   viewerMemberId: string;
 }): ActivitySectionViewModel[] {
   const sections: ActivitySectionViewModel[] = [];
@@ -286,11 +383,24 @@ function buildActivitySections({
     });
   }
 
-  if (ownedReportPrompts.length > 0) {
+  const reportUpdateItems = [
+    ...reportUpdates.map(toReportUpdateActivityItem),
+    ...ownedReportPrompts.map(toOwnedReportPromptActivityItem),
+  ];
+
+  if (reportUpdateItems.length > 0) {
     sections.push({
       id: "report-updates",
-      items: ownedReportPrompts.map(toOwnedReportPromptActivityItem),
+      items: reportUpdateItems,
       title: activityCopy.sections.reportUpdates,
+    });
+  }
+
+  if (moderationEvents.length > 0) {
+    sections.push({
+      id: "moderation-events",
+      items: moderationEvents.map(toModerationEventActivityItem),
+      title: activityCopy.sections.moderationEvents,
     });
   }
 
@@ -303,6 +413,28 @@ function buildActivitySections({
   }
 
   return sections;
+}
+
+function buildActivityOfflineLabel({
+  isOffline,
+  isStale,
+}: {
+  isOffline: boolean;
+  isStale: boolean;
+}) {
+  if (isOffline && isStale) {
+    return "Sin conexion - actividad guardada";
+  }
+
+  if (isOffline) {
+    return "Sin conexion";
+  }
+
+  if (isStale) {
+    return "Actividad guardada";
+  }
+
+  return undefined;
 }
 
 function toAlertDeliveryActivityItem(
@@ -393,6 +525,44 @@ function toChatActivityItem(
   };
 }
 
+function toReportUpdateActivityItem(
+  update: ActivityReportUpdate,
+): ActivityItemViewModel {
+  return {
+    action: {
+      href: update.report.href,
+      label: activityCopy.actions.viewReport,
+    },
+    body: formatReportUpdateBody(update),
+    id: `report-update-${update.id}`,
+    kind: "report-update",
+    meta: formatActivityReportMeta(update.report, update.outcome),
+    occurredAt: update.occurredAt,
+    targetId: update.report.id,
+    title: update.report.title,
+    tone: getReportActivityTone(update.report.availability),
+  };
+}
+
+function toModerationEventActivityItem(
+  event: ActivityModerationEvent,
+): ActivityItemViewModel {
+  return {
+    action: {
+      href: event.report.href,
+      label: activityCopy.actions.viewReport,
+    },
+    body: formatModerationEventBody(event),
+    id: `moderation-event-${event.id}`,
+    kind: "moderation-event",
+    meta: formatActivityReportMeta(event.report),
+    occurredAt: event.occurredAt,
+    targetId: event.report.id,
+    title: event.report.title,
+    tone: "attention",
+  };
+}
+
 function formatChatSummaryBody(
   lastMessage: ActivityChatSummaryLastMessage | null | undefined,
 ) {
@@ -425,6 +595,99 @@ function formatAlertDeliveryStatus(status: string) {
     default:
       return undefined;
   }
+}
+
+function formatReportUpdateBody(update: ActivityReportUpdate) {
+  switch (update.eventType) {
+    case "created":
+      return "Tu reporte fue creado.";
+    case "deleted":
+      return "Tu reporte fue cerrado y ya no se muestra en busqueda.";
+    case "resolved":
+      return update.outcome
+        ? `Resultado registrado: ${formatActivityReportOutcome(update.outcome)}.`
+        : "Tu reporte fue cerrado.";
+    case "updated":
+      return "Tu reporte fue actualizado.";
+  }
+}
+
+function formatModerationEventBody(event: ActivityModerationEvent) {
+  const reason = event.reason.trim();
+  const suffix = reason ? `: ${reason}.` : ".";
+
+  switch (event.action) {
+    case "hide":
+      return `El equipo retiro temporalmente este reporte${suffix}`;
+    case "mark_false":
+      return `El equipo marco este reporte como falso${suffix}`;
+    case "restore":
+      return `El equipo restauro este reporte${suffix}`;
+    case "unmark_false":
+      return `El equipo retiro la marca de reporte falso${suffix}`;
+  }
+}
+
+function formatActivityReportMeta(
+  report: ActivityReportSummary,
+  outcome?: ActivityReportOutcome | null,
+) {
+  return formatOptionalMeta([
+    formatActivityReportType(report.type),
+    report.availability === "available"
+      ? ""
+      : formatActivityReportAvailability(report.availability),
+    outcome ? formatActivityReportOutcome(outcome) : "",
+  ]);
+}
+
+function formatActivityReportType(type: ActivityReportType) {
+  switch (type) {
+    case "adoption":
+      return "Adopcion";
+    case "found_pet":
+      return "Mascota encontrada";
+    case "lost_pet":
+      return "Mascota perdida";
+    case "sighting":
+      return "Avistamiento";
+  }
+}
+
+function formatActivityReportAvailability(
+  availability: ActivityReportAvailability,
+) {
+  switch (availability) {
+    case "available":
+      return "";
+    case "deleted":
+      return "No disponible";
+    case "false_report":
+      return "Marcado como falso";
+    case "hidden":
+      return "Retirado de la busqueda";
+  }
+}
+
+function formatActivityReportOutcome(outcome: ActivityReportOutcome) {
+  switch (outcome) {
+    case "adopted":
+      return "Adoptada";
+    case "inactive":
+      return "Inactiva";
+    case "reunited":
+      return "Reunida";
+    case "still_missing":
+      return "Sigue activa";
+    case "transferred_to_shelter":
+      return "Trasladada a refugio";
+    case "unable_to_locate":
+      return "No se pudo ubicar";
+  }
+}
+
+function getReportActivityTone(availability: ActivityReportAvailability) {
+  return availability === "available" ? "info" : "attention";
 }
 
 function toOwnedReportPromptActivityItem({

@@ -240,6 +240,132 @@ describe("Activity view model", () => {
     ]);
   });
 
+  it("shows backend report updates and moderation events as separate sections", () => {
+    const viewModel = buildActivityViewModel({
+      moderationEvents: [
+        {
+          action: "hide",
+          adminId: "member-admin",
+          id: "moderation-event-1",
+          note: "Ubicación sensible.",
+          occurredAt: "2026-06-30T13:06:00.000Z",
+          reason: "Ubicación exacta expuesta",
+          report: {
+            availability: "hidden",
+            href: "rastro://reportes/perdidos/lost-report-1",
+            id: "lost-report-1",
+            kind: "lost-pet-report",
+            outcome: null,
+            status: "active",
+            title: "Toby",
+            type: "lost_pet",
+          },
+        },
+      ],
+      reportUpdates: [
+        {
+          actorMemberId: member.memberId,
+          eventType: "resolved",
+          fromStatus: "active",
+          id: "report-update-1",
+          note: null,
+          occurredAt: "2026-06-30T13:05:00.000Z",
+          outcome: "reunited",
+          report: {
+            availability: "available",
+            href: "rastro://reportes/perdidos/lost-report-1",
+            id: "lost-report-1",
+            kind: "lost-pet-report",
+            outcome: "reunited",
+            status: "closed",
+            title: "Toby",
+            type: "lost_pet",
+          },
+          toStatus: "closed",
+        },
+      ],
+      session: member,
+    });
+
+    expect(viewModel.sections).toEqual([
+      {
+        id: "report-updates",
+        items: [
+          {
+            action: {
+              href: "rastro://reportes/perdidos/lost-report-1",
+              label: "Ver reporte",
+            },
+            body: "Resultado registrado: Reunida.",
+            id: "report-update-report-update-1",
+            kind: "report-update",
+            meta: "Mascota perdida - Reunida",
+            occurredAt: "2026-06-30T13:05:00.000Z",
+            targetId: "lost-report-1",
+            title: "Toby",
+            tone: "info",
+          },
+        ],
+        title: "Actualizaciones",
+      },
+      {
+        id: "moderation-events",
+        items: [
+          {
+            action: {
+              href: "rastro://reportes/perdidos/lost-report-1",
+              label: "Ver reporte",
+            },
+            body: "El equipo retiro temporalmente este reporte: Ubicación exacta expuesta.",
+            id: "moderation-event-moderation-event-1",
+            kind: "moderation-event",
+            meta: "Mascota perdida - Retirado de la busqueda",
+            occurredAt: "2026-06-30T13:06:00.000Z",
+            targetId: "lost-report-1",
+            title: "Toby",
+            tone: "attention",
+          },
+        ],
+        title: "Moderación",
+      },
+    ]);
+  });
+
+  it("labels stale cached member Activity without changing the section data", () => {
+    const viewModel = buildActivityViewModel({
+      isOffline: true,
+      isStale: true,
+      reportUpdates: [
+        {
+          eventType: "updated",
+          id: "report-update-1",
+          occurredAt: "2026-06-30T13:05:00.000Z",
+          report: {
+            availability: "available",
+            href: "rastro://reportes/perdidos/lost-report-1",
+            id: "lost-report-1",
+            kind: "lost-pet-report",
+            outcome: null,
+            status: "active",
+            title: "Toby",
+            type: "lost_pet",
+          },
+        },
+      ],
+      session: member,
+    });
+
+    expect(viewModel).toMatchObject({
+      kind: "member",
+      offlineLabel: "Sin conexion - actividad guardada",
+      sections: [
+        {
+          id: "report-updates",
+        },
+      ],
+    });
+  });
+
   it("shows owned report status prompts with explicit update hrefs", () => {
     const [prompt] = findStaleActiveReportPrompts({
       now: "2026-06-18T12:00:00.000Z",

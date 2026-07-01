@@ -16,6 +16,8 @@ const subscriptionId = "33333333-3333-4333-8333-333333333333";
 const pushTokenId = "44444444-4444-4444-8444-444444444444";
 const conversationId = "55555555-5555-4555-8555-555555555555";
 const messageId = "66666666-6666-4666-8666-666666666666";
+const reportUpdateId = "77777777-7777-4777-8777-777777777777";
+const moderationEventId = "88888888-8888-4888-8888-888888888888";
 
 function createCaller(context: unknown) {
   return appRouter.createCaller(context as never);
@@ -73,14 +75,18 @@ describe("activity router", () => {
     expect(chatRepository.listInputs).toEqual([]);
   });
 
-  it("combines alert delivery history and chat summaries newest first", async () => {
+  it("combines alerts, chats, report updates, and moderation newest first", async () => {
     const alertRepository = createFakeAlertRepository([createAlertDelivery()]);
     const chatRepository = createFakeChatRepository([createConversation()]);
+    const db = createFakeActivityDb({
+      moderationEvents: [createModerationEventRow()],
+      reportUpdates: [createReportUpdateRow()],
+    });
     const caller = createCaller({
       alertRepository,
       authApi: {},
       chatRepository,
-      db: {},
+      db,
       session: {
         user: {
           id: "member-camila",
@@ -88,11 +94,11 @@ describe("activity router", () => {
       },
     });
 
-    const inbox = await caller.activity.inbox({ limit: 2 });
+    const inbox = await caller.activity.inbox({ limit: 4 });
 
     expect(alertRepository.historyInputs).toEqual([
       {
-        limit: 2,
+        limit: 4,
         memberId: "member-camila",
       },
     ]);
@@ -101,7 +107,54 @@ describe("activity router", () => {
         viewerMemberId: "member-camila",
       },
     ]);
+    expect(db.limits).toEqual([4, 4]);
     expect(inbox.items).toEqual([
+      {
+        event: {
+          action: "hide",
+          adminId: "member-admin",
+          id: moderationEventId,
+          note: "Ubicación sensible.",
+          reason: "Ubicación exacta expuesta",
+          report: {
+            availability: "hidden",
+            href: `rastro://reportes/perdidos/${reportId}`,
+            id: reportId,
+            kind: "lost-pet-report",
+            outcome: null,
+            status: "active",
+            title: "Toby",
+            type: "lost_pet",
+          },
+        },
+        id: moderationEventId,
+        occurredAt: "2026-07-01T12:07:00.000Z",
+        type: "moderation_event",
+      },
+      {
+        id: reportUpdateId,
+        occurredAt: "2026-07-01T12:06:00.000Z",
+        type: "report_update",
+        update: {
+          actorMemberId: "member-camila",
+          eventType: "resolved",
+          fromStatus: "active",
+          id: reportUpdateId,
+          note: null,
+          outcome: "reunited",
+          report: {
+            availability: "available",
+            href: `rastro://reportes/perdidos/${reportId}`,
+            id: reportId,
+            kind: "lost-pet-report",
+            outcome: "reunited",
+            status: "closed",
+            title: "Toby",
+            type: "lost_pet",
+          },
+          toStatus: "closed",
+        },
+      },
       {
         conversation: {
           href: `rastro://chats/${conversationId}`,
@@ -205,6 +258,99 @@ function createFakeChatRepository(
       Promise.reject(new Error("Not needed in activity tests.")),
     sendMessage: () =>
       Promise.reject(new Error("Not needed in activity tests.")),
+  };
+}
+
+interface FakeActivityDb {
+  limits: number[];
+  select: () => {
+    from: () => {
+      innerJoin: () => {
+        where: () => {
+          orderBy: () => {
+            limit: (limit: number) => Promise<unknown[]>;
+          };
+        };
+      };
+    };
+  };
+}
+
+function createFakeActivityDb({
+  moderationEvents = [],
+  reportUpdates = [],
+}: {
+  moderationEvents?: unknown[];
+  reportUpdates?: unknown[];
+} = {}): FakeActivityDb {
+  const limits: number[] = [];
+  let selectCount = 0;
+
+  return {
+    limits,
+    select: () => {
+      const rows = selectCount === 0 ? reportUpdates : moderationEvents;
+      selectCount += 1;
+
+      return {
+        from: () => ({
+          innerJoin: () => ({
+            where: () => ({
+              orderBy: () => ({
+                limit: (limit: number) => {
+                  limits.push(limit);
+                  return Promise.resolve(rows.slice(0, limit));
+                },
+              }),
+            }),
+          }),
+        }),
+      };
+    },
+  };
+}
+
+function createReportUpdateRow() {
+  return {
+    actorMemberId: "member-camila",
+    createdAt: new Date("2026-07-01T12:06:00.000Z"),
+    eventType: "resolved",
+    fromStatus: "active",
+    id: reportUpdateId,
+    note: null,
+    outcome: "reunited",
+    report: {
+      deletedAt: null,
+      falseReportedAt: null,
+      hiddenAt: null,
+      id: reportId,
+      outcome: "reunited",
+      status: "closed",
+      title: "Toby",
+      type: "lost_pet",
+    },
+    toStatus: "closed",
+  };
+}
+
+function createModerationEventRow() {
+  return {
+    action: "hide",
+    adminId: "member-admin",
+    createdAt: new Date("2026-07-01T12:07:00.000Z"),
+    id: moderationEventId,
+    note: "Ubicación sensible.",
+    reason: "Ubicación exacta expuesta",
+    report: {
+      deletedAt: null,
+      falseReportedAt: null,
+      hiddenAt: new Date("2026-07-01T12:07:00.000Z"),
+      id: reportId,
+      outcome: null,
+      status: "active",
+      title: "Toby",
+      type: "lost_pet",
+    },
   };
 }
 
