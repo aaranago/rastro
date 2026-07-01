@@ -1024,9 +1024,12 @@ describe("ReportCreationRouteScreen", () => {
 
     getPressableOnPress(discardButton)();
 
+    const retriedBeforeRemoveEvent = triggerNativeBeforeRemove(nativeAction);
+
     expect(navigation.dispatch).toHaveBeenCalledWith(nativeAction);
     expect(router.dismiss).not.toHaveBeenCalled();
     expect(router.replace).not.toHaveBeenCalled();
+    expect(retriedBeforeRemoveEvent.preventDefault).not.toHaveBeenCalled();
   });
 
   it("falls back to dismissing the route when confirmed native removal cannot dispatch", () => {

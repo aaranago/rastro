@@ -60,19 +60,29 @@ import { buildReportCreationHref } from "./report-creation-routes";
 function useReportCreationRouteClose({
   hasUnsavedChanges,
   navigation,
+  onConfirmDiscard,
   router,
 }: {
   hasUnsavedChanges: boolean;
   navigation: ReportCreationRouteNavigation;
+  onConfirmDiscard?: () => void;
   router: Router;
 }) {
   const [isDiscardConfirmationVisible, setDiscardConfirmationVisible] =
     React.useState(false);
   const [pendingNativeAction, setPendingNativeAction] =
     React.useState<ReportCreationRouteNavigationAction | null>(null);
+  const hasConfirmedDiscardRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!hasUnsavedChanges) {
+      hasConfirmedDiscardRef.current = false;
+    }
+  }, [hasUnsavedChanges]);
+
   React.useEffect(() => {
     return navigation.addListener("beforeRemove", (event) => {
-      if (!hasUnsavedChanges) {
+      if (!hasUnsavedChanges || hasConfirmedDiscardRef.current) {
         return;
       }
 
@@ -83,7 +93,7 @@ function useReportCreationRouteClose({
   }, [hasUnsavedChanges, navigation]);
 
   const requestClose = React.useCallback(() => {
-    if (hasUnsavedChanges) {
+    if (hasUnsavedChanges && !hasConfirmedDiscardRef.current) {
       setDiscardConfirmationVisible(true);
       return;
     }
@@ -91,12 +101,15 @@ function useReportCreationRouteClose({
     dismissReportCreationRoute(router);
   }, [hasUnsavedChanges, router]);
   const keepEditing = React.useCallback(() => {
+    hasConfirmedDiscardRef.current = false;
     setPendingNativeAction(null);
     setDiscardConfirmationVisible(false);
   }, []);
   const discardDraft = React.useCallback(() => {
     const nativeAction = pendingNativeAction;
 
+    onConfirmDiscard?.();
+    hasConfirmedDiscardRef.current = true;
     setPendingNativeAction(null);
     setDiscardConfirmationVisible(false);
     if (nativeAction !== null && navigation.dispatch) {
@@ -105,7 +118,7 @@ function useReportCreationRouteClose({
     }
 
     dismissReportCreationRoute(router);
-  }, [navigation, pendingNativeAction, router]);
+  }, [navigation, onConfirmDiscard, pendingNativeAction, router]);
 
   return {
     discardDraft,
@@ -129,6 +142,12 @@ export function ReportCreationRouteScreen({
     intent,
     sessionKind: session.kind,
   });
+  const reportMediaDraftCacheRef = React.useRef<ReportMediaDraftCache>(
+    new Map(),
+  );
+  const clearReportMediaDraftCache = React.useCallback(() => {
+    reportMediaDraftCacheRef.current.clear();
+  }, []);
   const {
     discardDraft,
     isDiscardConfirmationVisible,
@@ -137,6 +156,7 @@ export function ReportCreationRouteScreen({
   } = useReportCreationRouteClose({
     hasUnsavedChanges,
     navigation,
+    onConfirmDiscard: clearReportMediaDraftCache,
     router,
   });
   const secureStorage = React.useMemo(
@@ -184,9 +204,6 @@ export function ReportCreationRouteScreen({
     [],
   );
   const reportMediaReportType = getReportMediaReportType(intent);
-  const reportMediaDraftCacheRef = React.useRef<ReportMediaDraftCache>(
-    new Map(),
-  );
   const renderReportMediaManager = React.useCallback(
     ({
       mediaDraftId,

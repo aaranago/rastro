@@ -399,6 +399,14 @@ export function shouldDisplayGlobalReportFab({
     return false;
   }
 
+  if (
+    sessionKind === "visitor" &&
+    !isAuthPromptVisible &&
+    segments.includes("(nearby)")
+  ) {
+    return false;
+  }
+
   return !(
     sessionKind === "visitor" &&
     !isAuthPromptVisible &&

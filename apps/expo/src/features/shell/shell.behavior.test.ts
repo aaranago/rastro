@@ -488,7 +488,7 @@ describe("Rastro shell", () => {
   });
 
   it("shows the global FAB only on main tab routes", () => {
-    expect(shouldShowGlobalFabForSegments(["(tabs)", "(nearby)"])).toBe(false);
+    expect(shouldShowGlobalFabForSegments(["(tabs)", "(nearby)"])).toBe(true);
     expect(shouldShowGlobalFabForSegments(["(tabs)", "(profile)"])).toBe(true);
     expect(
       shouldShowGlobalFabForSegments([

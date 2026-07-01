@@ -468,12 +468,5 @@ export function shouldShowGlobalFabForSegments(
 
   const tabSegments = segments.slice(tabIndex + 1);
 
-  if (
-    segments[tabIndex] === "(nearby)" &&
-    tabSegments.every((segment) => segment === "index")
-  ) {
-    return false;
-  }
-
   return tabSegments.every((segment) => segment === "index");
 }
