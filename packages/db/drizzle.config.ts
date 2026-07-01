@@ -34,6 +34,7 @@ export default {
     "alert_subscription",
     "alert_push_token",
     "alert_notification_delivery",
+    "member_profile",
     "member_suspension",
     "resource_provider",
     "resource_provider_location",

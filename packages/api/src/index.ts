@@ -91,6 +91,11 @@ export {
   type PersistedMemberSuspension,
 } from "./member-suspension-repository";
 export {
+  createDrizzleMemberProfileRepository,
+  defaultMemberProfileContactPreference,
+  type MemberProfileRepository,
+} from "./member-profile-repository";
+export {
   buildLocalSponsorPlacementPolicy,
   buildNearbyResourceProvidersCondition,
   buildNearbyResourceProvidersDistance,

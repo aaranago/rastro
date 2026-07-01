@@ -20,6 +20,7 @@ import type { AdminSettingsRepository } from "./admin-settings-repository";
 import type { AlertRepository } from "./alert-repository";
 import type { ChatRepository } from "./chat-repository";
 import type { MediaStorage, MediaStorageConfig } from "./media-storage";
+import type { MemberProfileRepository } from "./member-profile-repository";
 import type { MemberSuspensionRepository } from "./member-suspension-repository";
 import type { ReportMediaRepository } from "./report-media-repository";
 import type { ReportModerationRepository } from "./report-moderation-repository";
@@ -38,6 +39,7 @@ import {
   parseOptionalMediaStorageConfig,
   resolveMediaDeliveryBaseUrl,
 } from "./media-storage";
+import { createDrizzleMemberProfileRepository } from "./member-profile-repository";
 import { createDrizzleMemberSuspensionRepository } from "./member-suspension-repository";
 import { createDrizzleReportMediaRepository } from "./report-media-repository";
 import { createDrizzleReportModerationRepository } from "./report-moderation-repository";
@@ -75,6 +77,7 @@ export const createTRPCContext = async (opts: {
   mediaRepository: ReportMediaRepository;
   mediaStorageConfig: MediaStorageConfig | null;
   mediaStorage: MediaStorage;
+  memberProfileRepository: MemberProfileRepository;
   memberSuspensionRepository: MemberSuspensionRepository;
   reportModerationRepository: ReportModerationRepository;
   reportRepository: ReportRepository;
@@ -116,6 +119,7 @@ export const createTRPCContext = async (opts: {
     mediaStorage: mediaStorageConfig
       ? createS3MediaStorage(mediaStorageConfig)
       : createUnavailableMediaStorage(),
+    memberProfileRepository: createDrizzleMemberProfileRepository(db),
     memberSuspensionRepository: createDrizzleMemberSuspensionRepository(db),
     reportModerationRepository: createDrizzleReportModerationRepository(db),
     reportRepository: createDrizzleReportRepository(db, {

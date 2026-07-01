@@ -52,6 +52,61 @@ export const contactPreferenceSchema = z.enum([
   "both",
 ]);
 
+const contactPhoneNumberSchema = z
+  .string()
+  .trim()
+  .min(6)
+  .max(32)
+  .regex(/^\+?[0-9][0-9 ().-]*[0-9]$/, "Expected a valid phone number.")
+  .refine((value) => {
+    const digits = value.replace(/\D/g, "").length;
+
+    return digits >= 7 && digits <= 15;
+  }, "Expected a valid phone number.");
+
+const nullableContactPhoneNumberInputSchema = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const trimmed = value.trim();
+
+  return trimmed.length > 0 ? trimmed : null;
+}, contactPhoneNumberSchema.nullable());
+
+export const memberProfileGetInputSchema = z.object({}).strict();
+
+export const memberProfileUpdateInputSchema = z
+  .object({
+    defaultContactPreference: contactPreferenceSchema,
+    displayName: z.string().trim().min(1).max(120),
+    phone: nullableContactPhoneNumberInputSchema.default(null),
+    whatsapp: nullableContactPhoneNumberInputSchema.default(null),
+  })
+  .strict()
+  .superRefine((input, ctx) => {
+    if (input.defaultContactPreference !== "in_app_chat" && !input.whatsapp) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["whatsapp"],
+        message: "WhatsApp contact requires a phone number.",
+      });
+    }
+  });
+
+export const memberProfileOutputSchema = z
+  .object({
+    defaultContactPreference: contactPreferenceSchema,
+    displayName: z.string().min(1).max(120),
+    memberId: z.string().min(1).max(256),
+    phone: contactPhoneNumberSchema.nullable(),
+    whatsapp: contactPhoneNumberSchema.nullable(),
+  })
+  .strict();
+
+export const memberProfileGetOutputSchema = memberProfileOutputSchema;
+export const memberProfileUpdateOutputSchema = memberProfileOutputSchema;
+
 export const reportMediaInputSchema = z.object({
   mediaId: z.uuid(),
   altText: z.string().max(240).optional(),
@@ -897,6 +952,10 @@ export type AlertPushTokenPlatform = z.infer<
   typeof alertPushTokenPlatformSchema
 >;
 export type ContactPreference = z.infer<typeof contactPreferenceSchema>;
+export type MemberProfile = z.infer<typeof memberProfileOutputSchema>;
+export type UpdateMemberProfileInput = z.infer<
+  typeof memberProfileUpdateInputSchema
+>;
 export type ReportMediaInput = z.infer<typeof reportMediaInputSchema>;
 export type CreateUploadSessionInput = z.infer<
   typeof createUploadSessionInputSchema

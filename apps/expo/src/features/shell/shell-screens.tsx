@@ -235,6 +235,7 @@ export function ProfileScreen() {
       contentInsetAdjustmentBehavior="automatic"
       scrollIndicatorInsets={{ bottom: bottomInset }}
       style={styles.screen}
+      testID="profile-screen"
     >
       <StateCard
         body={profile.body}
@@ -281,59 +282,6 @@ export function ProfileScreen() {
         />
       ) : null}
       <PermissionEducationStack />
-    </ScrollView>
-  );
-}
-
-export function ProfileAccountSettingsScreen() {
-  const {
-    copy,
-    initiateAccountDeletion,
-    requestAuthPrompt,
-    requestMemberPasswordReset,
-    session,
-    signOutMember,
-  } = useRastroShell();
-  const screen = copy.screens.profile;
-  const profile = React.useMemo(
-    () => createShellProfileModel({ copy, session }),
-    [copy, session],
-  );
-
-  return (
-    <ScrollView
-      contentContainerStyle={styles.screenContent}
-      contentInset={{ bottom: bottomInset }}
-      contentInsetAdjustmentBehavior="automatic"
-      scrollIndicatorInsets={{ bottom: bottomInset }}
-      style={styles.screen}
-    >
-      {profile.accountSettings ? (
-        <AccountSettingsPanel
-          actionFailedLabel={screen.account.actionFailed}
-          onInitiateAccountDeletion={initiateAccountDeletion}
-          onRequestPasswordReset={requestMemberPasswordReset}
-          onSignOut={signOutMember}
-          settings={profile.accountSettings}
-        />
-      ) : (
-        <>
-          <StateCard
-            body={profile.body}
-            icon="person.crop.circle"
-            title={profile.title}
-          />
-          <ProfileVisitorAuthEntry
-            label={copy.authPrompt.signIn}
-            onPress={() =>
-              requestAuthPrompt({
-                returnTo: "/(tabs)/(profile)/ajustes",
-                sourceHref: "rastro://auth/sign-in?returnTo=/perfil/ajustes",
-              })
-            }
-          />
-        </>
-      )}
     </ScrollView>
   );
 }

@@ -63,6 +63,7 @@ const automation = AutomationFactory.create(platform, {
 
 await grantAndroidRuntimePermissions();
 await openDevelopmentBuild();
+await verifyMemberProfileSettingsWorkflow();
 await verifyResourcesDirectory();
 await verifyProviderProfile();
 await verifyReportDetails();
@@ -122,6 +123,179 @@ async function verifyResourcesDirectory() {
 
   await screenshot("resources-list.png");
   await assertNoBrokenMediaFallbacks("resources-list");
+}
+
+async function verifyMemberProfileSettingsWorkflow() {
+  const displayName = `Rastro E2E Vecina ${Date.now()}`;
+  const phone = "59170123456";
+  const whatsapp = "59171234567";
+  const memberEmail = await readCurrentProfileEmail();
+
+  await openDeepLinkUntilVisible(
+    [
+      "rastro:///perfil/ajustes",
+      "rastro://perfil/ajustes",
+      "rastro:///(tabs)/(profile)/ajustes",
+      "rastro://(tabs)/(profile)/ajustes",
+    ],
+    "member-profile-settings-screen",
+  );
+  await waitForTestID("member-profile-display-name-input", {
+    timeoutMs: 30000,
+  });
+  await replaceText("member-profile-display-name-input", displayName);
+  await scrollUntilTestID("member-profile-contact-preference-both", {
+    maxSwipes: 4,
+  });
+  await tapRequired("member-profile-contact-preference-both");
+  await scrollUntilTestID("member-profile-phone-input", { maxSwipes: 4 });
+  await replaceText("member-profile-phone-input", phone);
+  await scrollUntilTestID("member-profile-whatsapp-input", { maxSwipes: 4 });
+  await replaceText("member-profile-whatsapp-input", whatsapp);
+  await scrollUntilTestID("member-profile-save-button", { maxSwipes: 4 });
+  await screenshot("member-profile-settings-draft.png");
+
+  await updateMemberProfileByEmailFixture({
+    displayName,
+    email: memberEmail,
+    phone,
+    whatsapp,
+  });
+  await openDevelopmentBuild();
+
+  await openDeepLinkUntilVisible(
+    [
+      "rastro:///perfil",
+      "rastro://perfil",
+      "rastro:///(tabs)/(profile)",
+      "rastro://(tabs)/(profile)",
+    ],
+    "profile-screen",
+  );
+  await waitForVisibleText(displayName, "profile-saved-display-name", {
+    timeoutMs: 30000,
+  });
+  await screenshot("profile-saved-display-name.png");
+
+  checks.push({
+    defaultContactPreference: "both",
+    detail:
+      "Member profile form was visually edited, backend saved the same contact defaults, and Perfil refreshed with the new display name.",
+    id: "member-profile-settings-backend-save",
+    ok: true,
+  });
+}
+
+async function readCurrentProfileEmail() {
+  await openDeepLinkUntilVisible(
+    [
+      "rastro:///perfil",
+      "rastro://perfil",
+      "rastro:///(tabs)/(profile)",
+      "rastro://(tabs)/(profile)",
+    ],
+    "profile-screen",
+  );
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const { stdout } = await adb([
+      "exec-out",
+      "uiautomator",
+      "dump",
+      "--compressed",
+      "/dev/tty",
+    ]);
+    const email = extractFirstEmail(stdout);
+
+    if (email) {
+      checks.push({
+        email,
+        id: "member-profile-current-email",
+        ok: true,
+      });
+      return email;
+    }
+
+    await adb(["shell", "input", "swipe", "540", "1980", "540", "900", "350"]);
+    await delay(750);
+  }
+
+  throw new Error("Could not read the current signed-in member email.");
+}
+
+async function updateMemberProfileByEmailFixture({
+  displayName,
+  email,
+  phone,
+  whatsapp,
+}) {
+  const script = `
+    import { eq } from "@acme/db";
+    import { db, pool } from "@acme/db/client";
+    import { user } from "@acme/db/schema";
+    import { createDrizzleMemberProfileRepository } from "@acme/api";
+
+    async function main() {
+      const [member] = await db
+        .select({ id: user.id, email: user.email })
+        .from(user)
+        .where(eq(user.email, ${JSON.stringify(email)}))
+        .limit(1);
+
+      if (!member) {
+        throw new Error("Could not find signed-in member by email.");
+      }
+
+      const repository = createDrizzleMemberProfileRepository(db);
+      const result = await repository.update({
+        memberId: member.id,
+        profile: {
+        defaultContactPreference: "both",
+        displayName: ${JSON.stringify(displayName)},
+        phone: ${JSON.stringify(phone)},
+        whatsapp: ${JSON.stringify(whatsapp)},
+        },
+      });
+
+      console.log(JSON.stringify(result));
+      await pool.end();
+    }
+
+    main().catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+  `;
+
+  const { stdout } = await execFileAsync(
+    "pnpm",
+    ["-F", "@acme/nextjs", "with-env", "tsx", "-e", script],
+    {
+      cwd: workspaceRoot,
+      env: process.env,
+      maxBuffer: 4 * 1024 * 1024,
+      timeout: 120000,
+    },
+  );
+  const result = JSON.parse(stdout.trim().split(/\r?\n/).at(-1) ?? "{}");
+
+  if (
+    result.displayName !== displayName ||
+    result.defaultContactPreference !== "both" ||
+    result.phone !== phone ||
+    result.whatsapp !== whatsapp
+  ) {
+    throw new Error(
+      `Member profile fixture save returned unexpected payload: ${stdout}`,
+    );
+  }
+
+  checks.push({
+    email,
+    id: "member-profile-fixture-backend-update",
+    ok: true,
+    result,
+  });
 }
 
 async function verifyProviderProfile() {
@@ -529,6 +703,39 @@ async function tapAndText(testID, value) {
   checks.push({ id: `type:${testID}`, ok: true });
 }
 
+async function replaceText(testID, value) {
+  const element = await waitForTestID(testID);
+  const centerX = Math.round(element.bounds.x + element.bounds.width / 2);
+  const centerY = Math.round(element.bounds.y + element.bounds.height / 2);
+
+  await adb(["shell", "input", "tap", String(centerX), String(centerY)]);
+  await delay(300);
+  await adb(["shell", "input", "keyevent", "KEYCODE_MOVE_END"]);
+  await deleteFocusedText(120);
+  await adb(["shell", "input", "text", toAdbText(value)]);
+  await delay(300);
+  await adb(["shell", "input", "keyevent", "KEYCODE_BACK"]);
+  await delay(300);
+  checks.push({ id: `replace-text:${testID}`, ok: true });
+}
+
+async function deleteFocusedText(maxCharacters) {
+  const chunkSize = 24;
+  let remaining = maxCharacters;
+
+  while (remaining > 0) {
+    const count = Math.min(chunkSize, remaining);
+
+    await adb([
+      "shell",
+      "input",
+      "keyevent",
+      ...Array.from({ length: count }, () => "KEYCODE_DEL"),
+    ]);
+    remaining -= count;
+  }
+}
+
 async function screenshot(fileName) {
   const outputPath = join(artifactRoot, fileName);
 
@@ -579,6 +786,30 @@ async function assertVisibleText(text, context) {
   }
 
   checks.push({ id: `visible-text:${context}`, ok: true, text });
+}
+
+async function waitForVisibleText(text, context, options = {}) {
+  const timeoutMs = options.timeoutMs ?? 15000;
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const { stdout } = await adb([
+      "exec-out",
+      "uiautomator",
+      "dump",
+      "--compressed",
+      "/dev/tty",
+    ]);
+
+    if (stdout.includes(text)) {
+      checks.push({ id: `visible-text:${context}`, ok: true, text });
+      return;
+    }
+
+    await delay(500);
+  }
+
+  throw new Error(`Expected visible text on ${context}: ${text}`);
 }
 
 async function findVisibleTestIDContainingText({ context, testIDPrefix, text }) {
@@ -664,6 +895,23 @@ function extractXmlHierarchy(output) {
   }
 
   return output.slice(0, endIndex + endTag.length);
+}
+
+function extractFirstEmail(output) {
+  const xml = extractXmlHierarchy(output);
+  const emailPattern =
+    /(?:text|content-desc)="([^"@\s]+@[^"@\s]+\.[^"@\s]+)"/g;
+  let match;
+
+  while ((match = emailPattern.exec(xml))) {
+    const email = decodeXmlAttribute(match[1] ?? "").trim();
+
+    if (email) {
+      return email;
+    }
+  }
+
+  return null;
 }
 
 function reportDeepLink(report) {

@@ -60,6 +60,7 @@ interface RastroShellContextValue {
   requestMemberPasswordReset: () => Promise<ShellAuthActionResult>;
   initiateAccountDeletion: () => Promise<ShellAuthActionResult>;
   signOutMember: () => Promise<ShellAuthActionResult>;
+  refreshSession: () => void;
   continueAsVisitor: () => void;
 }
 
@@ -228,6 +229,10 @@ export function RastroShellProvider({
     setState(completeAuthPromptWithPendingReportRouteIntent);
   }, [refetchAuthSession]);
 
+  const refreshSession = React.useCallback(() => {
+    refetchAuthSession?.();
+  }, [refetchAuthSession]);
+
   const signInFromPrompt = React.useCallback(
     async (credentials: ShellAuthCredentials) => {
       const result = await authAdapter.signInWithEmail(credentials);
@@ -385,6 +390,7 @@ export function RastroShellProvider({
       requestMemberPasswordReset,
       initiateAccountDeletion,
       signOutMember,
+      refreshSession,
       continueAsVisitor,
     }),
     [
@@ -399,6 +405,7 @@ export function RastroShellProvider({
       initiateAccountDeletion,
       model,
       openReportActions,
+      refreshSession,
       requestAuthPrompt,
       requestMemberPasswordReset,
       requestPasswordResetFromPrompt,

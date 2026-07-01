@@ -142,6 +142,28 @@ export const memberSuspensionStatus = pgEnum("member_suspension_status", [
   "revoked",
 ]);
 
+export const MemberProfile = pgTable("member_profile", (t) => ({
+  memberId: t
+    .text()
+    .notNull()
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  defaultContactPreference: contactPreference()
+    .default("in_app_chat")
+    .notNull(),
+  phone: t.varchar({ length: 32 }),
+  whatsapp: t.varchar({ length: 32 }),
+  createdAt: t
+    .timestamp({ mode: "date", withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: t
+    .timestamp({ mode: "date", withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+}));
+
 export const alertSubscriptionCategory = pgEnum("alert_subscription_category", [
   "lost_pet",
 ]);
@@ -1274,6 +1296,13 @@ export const alertNotificationDeliveryRelations = relations(
     }),
   }),
 );
+
+export const memberProfileRelations = relations(MemberProfile, ({ one }) => ({
+  member: one(user, {
+    fields: [MemberProfile.memberId],
+    references: [user.id],
+  }),
+}));
 
 export const memberSuspensionRelations = relations(
   MemberSuspension,
