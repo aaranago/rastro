@@ -110,6 +110,11 @@ describeIntegration("alert repository integration", () => {
         id: "member-alert-far",
         name: "Far",
       },
+      {
+        email: "dispatch-alert-test@example.invalid",
+        id: "member-alert-dispatch",
+        name: "Dispatch",
+      },
     ]);
   }, 90_000);
 
@@ -201,7 +206,7 @@ describeIntegration("alert repository integration", () => {
     ).resolves.toEqual([]);
   });
 
-  it("skips paused, unsubscribed, missing-token, owner, and out-of-radius members", async () => {
+  it("creates history for missing-token subscribers and skips paused, unsubscribed, owner, and out-of-radius members", async () => {
     currentTime = new Date("2026-07-01T12:00:00.000Z");
     await Promise.all([
       configureNearbySubscription("member-alert-missing-token"),
@@ -261,9 +266,157 @@ describeIntegration("alert repository integration", () => {
       .from(AlertNotificationDelivery)
       .where(eq(AlertNotificationDelivery.reportId, reportId));
 
-    expect(deliveries).toHaveLength(1);
-    expect(deliveryRows.map((delivery) => delivery.memberId)).toEqual([
-      "member-alert-nearby",
+    expect(deliveries).toHaveLength(2);
+    const projectedDeliveryRows = deliveryRows
+      .map((delivery) => ({
+        memberId: delivery.memberId,
+        pushTokenId: delivery.pushTokenId,
+      }))
+      .sort((left, right) => left.memberId.localeCompare(right.memberId));
+
+    expect(projectedDeliveryRows.map((delivery) => delivery.memberId)).toEqual(
+      ["member-alert-missing-token", "member-alert-nearby"],
+    );
+    expect(projectedDeliveryRows[0]?.pushTokenId).toBeNull();
+    expect(projectedDeliveryRows[1]?.pushTokenId).toEqual(expect.any(String));
+  });
+
+  it("hydrates pending deliveries with a push token registered after alert matching", async () => {
+    currentTime = new Date("2026-07-01T13:30:00.000Z");
+    await configureNearbySubscription("member-alert-missing-token");
+    const reportId = await createLostPetReport({
+      createdAt: new Date("2026-07-01T13:25:00.000Z"),
+      id: "11111111-1111-4111-8111-000000000107",
+    });
+
+    await repository.createLostPetReportCreatedDeliveries({ reportId });
+
+    const deliveryRows = await db
+      .select()
+      .from(AlertNotificationDelivery)
+      .where(eq(AlertNotificationDelivery.reportId, reportId));
+    const missingTokenDelivery = deliveryRows.find(
+      (delivery) => delivery.memberId === "member-alert-missing-token",
+    );
+
+    expect(missingTokenDelivery?.pushTokenId).toBeNull();
+
+    await repository.registerPushToken({
+      memberId: "member-alert-missing-token",
+      platform: "android",
+      token: "ExponentPushToken[late_missing_token_123]",
+    });
+
+    const pending = await repository.listPendingDeliveries({ limit: 500 });
+
+    expect(
+      pending.find((delivery) => delivery.id === missingTokenDelivery?.id)
+        ?.pushToken?.token,
+    ).toBe("ExponentPushToken[late_missing_token_123]");
+  });
+
+  it("lists pending deliveries, transitions dispatch statuses, disables tokens, and returns member history newest first", async () => {
+    currentTime = new Date("2026-07-01T14:00:00.000Z");
+    await repository.upsertSettings({
+      categories: ["lost_pet"],
+      memberId: "member-alert-nearby",
+      radiusMeters: 5000,
+    });
+    await repository.unsubscribe({ memberId: "member-alert-nearby" });
+    await repository.unsubscribe({ memberId: "member-alert-missing-token" });
+    await configureNearbySubscription("member-alert-dispatch");
+    const token = await repository.registerPushToken({
+      memberId: "member-alert-dispatch",
+      platform: "ios",
+      token: "ExponentPushToken[dispatch_123]",
+    });
+    const sentReportId = await createLostPetReport({
+      createdAt: new Date("2026-07-01T13:50:00.000Z"),
+      id: "11111111-1111-4111-8111-000000000104",
+    });
+    const failedReportId = await createLostPetReport({
+      createdAt: new Date("2026-07-01T13:51:00.000Z"),
+      id: "11111111-1111-4111-8111-000000000105",
+    });
+    const skippedReportId = await createLostPetReport({
+      createdAt: new Date("2026-07-01T13:52:00.000Z"),
+      id: "11111111-1111-4111-8111-000000000106",
+    });
+    const [sentDelivery] =
+      await repository.createLostPetReportCreatedDeliveries({
+        reportId: sentReportId,
+      });
+    const [failedDelivery] =
+      await repository.createLostPetReportCreatedDeliveries({
+        reportId: failedReportId,
+      });
+    const [skippedDelivery] =
+      await repository.createLostPetReportCreatedDeliveries({
+        reportId: skippedReportId,
+      });
+
+    if (!sentDelivery || !failedDelivery || !skippedDelivery) {
+      throw new Error("Expected dispatch test deliveries to be created.");
+    }
+
+    const pending = await repository.listPendingDeliveries({ limit: 20 });
+    const pendingSentDelivery = pending.find(
+      (delivery) => delivery.id === sentDelivery.id,
+    );
+
+    expect(pendingSentDelivery?.pushToken?.token).toBe(
+      "ExponentPushToken[dispatch_123]",
+    );
+
+    currentTime = new Date("2026-07-01T14:01:00.000Z");
+    await expect(
+      repository.markDeliverySent({ deliveryId: sentDelivery.id }),
+    ).resolves.toMatchObject({
+      sentAt: "2026-07-01T14:01:00.000Z",
+      status: "sent",
+    });
+
+    currentTime = new Date("2026-07-01T14:02:00.000Z");
+    await expect(
+      repository.markDeliveryFailed({
+        deliveryId: failedDelivery.id,
+        reason: "Expo rechazo la notificacion: token invalido.",
+      }),
+    ).resolves.toMatchObject({
+      failedAt: "2026-07-01T14:02:00.000Z",
+      failureReason: "Expo rechazo la notificacion: token invalido.",
+      status: "failed",
+    });
+
+    currentTime = new Date("2026-07-01T14:03:00.000Z");
+    await expect(
+      repository.markDeliverySkipped({
+        deliveryId: skippedDelivery.id,
+        reason: "No hay un token push activo para este miembro.",
+      }),
+    ).resolves.toMatchObject({
+      failureReason: "No hay un token push activo para este miembro.",
+      status: "skipped",
+    });
+    await expect(
+      repository.markDeliverySent({ deliveryId: skippedDelivery.id }),
+    ).resolves.toBeNull();
+    await expect(
+      repository.disablePushToken({ pushTokenId: token.id }),
+    ).resolves.toMatchObject({
+      disabledAt: "2026-07-01T14:03:00.000Z",
+      id: token.id,
+    });
+
+    const history = await repository.listMemberDeliveryHistory({
+      limit: 3,
+      memberId: "member-alert-dispatch",
+    });
+
+    expect(history.map((delivery) => delivery.reportId)).toEqual([
+      skippedReportId,
+      failedReportId,
+      sentReportId,
     ]);
   });
 

@@ -3,7 +3,7 @@ import type {
   AlertPushTokenPlatform,
   AlertSubscriptionCategory,
 } from "@acme/validators";
-import { and, desc, eq, gte, isNull, lte, ne, or, sql } from "@acme/db";
+import { and, asc, desc, eq, gte, isNull, lte, ne, or, sql } from "@acme/db";
 import {
   AlertNotificationDelivery,
   AlertPushToken,
@@ -57,13 +57,21 @@ export interface PersistedAlertNotificationDelivery {
   body: string;
   createdAt: string;
   deepLink: string;
+  failedAt: string | null;
+  failureReason: string | null;
   id: string;
   matchedAt: string;
   pushTokenId: string | null;
   reportId: string;
+  sentAt: string | null;
   status: "pending" | "sent" | "failed" | "skipped";
   subscriptionId: string;
   title: string;
+}
+
+export interface PendingAlertNotificationDelivery
+  extends PersistedAlertNotificationDelivery {
+  pushToken: PersistedAlertPushToken | null;
 }
 
 export type AlertRepositoryErrorCode = "alert_subscription_not_found";
@@ -82,7 +90,28 @@ export interface AlertRepository {
   createLostPetReportCreatedDeliveries(input: {
     reportId: string;
   }): Promise<PersistedAlertNotificationDelivery[]>;
+  disablePushToken(input: {
+    pushTokenId: string;
+  }): Promise<PersistedAlertPushToken | null>;
   get(input: { memberId: string }): Promise<PersistedAlertState>;
+  listMemberDeliveryHistory(input: {
+    limit?: number;
+    memberId: string;
+  }): Promise<PersistedAlertNotificationDelivery[]>;
+  listPendingDeliveries(input: {
+    limit?: number;
+  }): Promise<PendingAlertNotificationDelivery[]>;
+  markDeliveryFailed(input: {
+    deliveryId: string;
+    reason: string;
+  }): Promise<PersistedAlertNotificationDelivery | null>;
+  markDeliverySent(input: {
+    deliveryId: string;
+  }): Promise<PersistedAlertNotificationDelivery | null>;
+  markDeliverySkipped(input: {
+    deliveryId: string;
+    reason: string;
+  }): Promise<PersistedAlertNotificationDelivery | null>;
   pause(input: {
     memberId: string;
     pausedUntil: string;
@@ -205,10 +234,6 @@ export function createDrizzleAlertRepository(
           candidate.memberId,
         );
 
-        if (!pushToken) {
-          continue;
-        }
-
         const notification = buildLostPetNotification({
           id: report.id,
           petName: report.petName,
@@ -222,7 +247,7 @@ export function createDrizzleAlertRepository(
             deepLink: notification.deepLink,
             matchedAt: currentTime,
             memberId: candidate.memberId,
-            pushTokenId: pushToken.id,
+            pushTokenId: pushToken?.id ?? null,
             reportId: report.id,
             subscriptionId: candidate.id,
             title: notification.title,
@@ -239,6 +264,24 @@ export function createDrizzleAlertRepository(
 
       return deliveries;
     },
+    disablePushToken: async ({ pushTokenId }) => {
+      const disabledAt = now();
+      const [pushToken] = await db
+        .update(AlertPushToken)
+        .set({
+          disabledAt,
+          updatedAt: disabledAt,
+        })
+        .where(
+          and(
+            eq(AlertPushToken.id, pushTokenId),
+            isNull(AlertPushToken.disabledAt),
+          ),
+        )
+        .returning();
+
+      return pushToken ? toPersistedAlertPushToken(pushToken) : null;
+    },
     get: async ({ memberId }) => {
       const [subscription, pushTokens] = await Promise.all([
         findSubscriptionByMemberId(memberId),
@@ -251,6 +294,98 @@ export function createDrizzleAlertRepository(
           ? toPersistedAlertSubscription(subscription, now())
           : null,
       };
+    },
+    listMemberDeliveryHistory: async ({ limit, memberId }) => {
+      const rows = await db.query.AlertNotificationDelivery.findMany({
+        limit: normalizeDeliveryLimit(limit),
+        orderBy: [
+          desc(AlertNotificationDelivery.createdAt),
+          desc(AlertNotificationDelivery.id),
+        ],
+        where: eq(AlertNotificationDelivery.memberId, memberId),
+      });
+
+      return rows.map(toPersistedAlertNotificationDelivery);
+    },
+    listPendingDeliveries: async ({ limit }) => {
+      const rows = await db.query.AlertNotificationDelivery.findMany({
+        limit: normalizeDeliveryLimit(limit),
+        orderBy: [
+          asc(AlertNotificationDelivery.createdAt),
+          asc(AlertNotificationDelivery.id),
+        ],
+        where: eq(AlertNotificationDelivery.status, "pending"),
+        with: {
+          pushToken: true,
+        },
+      });
+
+      return Promise.all(
+        rows.map((row) => toPendingAlertNotificationDelivery(db, row)),
+      );
+    },
+    markDeliveryFailed: async ({ deliveryId, reason }) => {
+      const failedAt = now();
+      const [delivery] = await db
+        .update(AlertNotificationDelivery)
+        .set({
+          failedAt,
+          failureReason: normalizeDeliveryFailureReason(reason),
+          sentAt: null,
+          status: "failed",
+          updatedAt: failedAt,
+        })
+        .where(
+          and(
+            eq(AlertNotificationDelivery.id, deliveryId),
+            eq(AlertNotificationDelivery.status, "pending"),
+          ),
+        )
+        .returning();
+
+      return delivery ? toPersistedAlertNotificationDelivery(delivery) : null;
+    },
+    markDeliverySent: async ({ deliveryId }) => {
+      const sentAt = now();
+      const [delivery] = await db
+        .update(AlertNotificationDelivery)
+        .set({
+          failedAt: null,
+          failureReason: null,
+          sentAt,
+          status: "sent",
+          updatedAt: sentAt,
+        })
+        .where(
+          and(
+            eq(AlertNotificationDelivery.id, deliveryId),
+            eq(AlertNotificationDelivery.status, "pending"),
+          ),
+        )
+        .returning();
+
+      return delivery ? toPersistedAlertNotificationDelivery(delivery) : null;
+    },
+    markDeliverySkipped: async ({ deliveryId, reason }) => {
+      const skippedAt = now();
+      const [delivery] = await db
+        .update(AlertNotificationDelivery)
+        .set({
+          failedAt: null,
+          failureReason: normalizeDeliveryFailureReason(reason),
+          sentAt: null,
+          status: "skipped",
+          updatedAt: skippedAt,
+        })
+        .where(
+          and(
+            eq(AlertNotificationDelivery.id, deliveryId),
+            eq(AlertNotificationDelivery.status, "pending"),
+          ),
+        )
+        .returning();
+
+      return delivery ? toPersistedAlertNotificationDelivery(delivery) : null;
     },
     pause: async ({ memberId, pausedUntil }) => {
       await loadSubscriptionOrThrow(memberId);
@@ -491,14 +626,54 @@ function toPersistedAlertNotificationDelivery(
     body: row.body,
     createdAt: row.createdAt.toISOString(),
     deepLink: row.deepLink,
+    failedAt: row.failedAt?.toISOString() ?? null,
+    failureReason: row.failureReason,
     id: row.id,
     matchedAt: row.matchedAt.toISOString(),
     pushTokenId: row.pushTokenId,
     reportId: row.reportId,
+    sentAt: row.sentAt?.toISOString() ?? null,
     status: row.status,
     subscriptionId: row.subscriptionId,
     title: row.title,
   };
+}
+
+async function toPendingAlertNotificationDelivery(
+  db: Database,
+  row: typeof AlertNotificationDelivery.$inferSelect & {
+    pushToken: typeof AlertPushToken.$inferSelect | null;
+  },
+): Promise<PendingAlertNotificationDelivery> {
+  const activePushToken =
+    row.pushToken && !row.pushToken.disabledAt
+      ? row.pushToken
+      : await findLatestActivePushToken(db, row.memberId);
+
+  return {
+    ...toPersistedAlertNotificationDelivery(row),
+    pushToken: activePushToken
+      ? toPersistedAlertPushToken(activePushToken)
+      : null,
+  };
+}
+
+function normalizeDeliveryLimit(limit: number | undefined) {
+  if (limit === undefined) {
+    return 100;
+  }
+
+  return Math.min(Math.max(Math.trunc(limit), 1), 500);
+}
+
+function normalizeDeliveryFailureReason(reason: string) {
+  const trimmed = reason.trim();
+
+  if (trimmed.length === 0) {
+    return "No se pudo procesar la entrega de alerta.";
+  }
+
+  return trimmed.slice(0, 1000);
 }
 
 function getAlertSubscriptionStatus(

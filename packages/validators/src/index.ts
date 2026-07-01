@@ -370,6 +370,9 @@ export const alertNotificationDeliveryOutputSchema = z.object({
   body: z.string().min(1),
   deepLink: z.string().min(1),
   matchedAt: isoDateTimeOutputSchema,
+  sentAt: isoDateTimeOutputSchema.nullable(),
+  failedAt: isoDateTimeOutputSchema.nullable(),
+  failureReason: z.string().min(1).nullable(),
   createdAt: isoDateTimeOutputSchema,
 });
 
@@ -383,6 +386,73 @@ export const alertRecordLocationOutputSchema = alertSubscriptionOutputSchema;
 export const alertPauseOutputSchema = alertSubscriptionOutputSchema;
 export const alertUnsubscribeOutputSchema = alertSubscriptionOutputSchema;
 export const alertRegisterPushTokenOutputSchema = alertPushTokenOutputSchema;
+
+export const activityInboxInputSchema = z
+  .object({
+    limit: z.number().int().min(1).max(100).optional(),
+  })
+  .strict();
+
+const activityChatSubjectOutputSchema = z.object({
+  href: z.string().min(1),
+  id: z.string().min(1).max(128),
+  kind: z.enum([
+    "adoption-listing",
+    "found-pet-report",
+    "lost-pet-report",
+    "sighting-report",
+  ]),
+  subtitle: z.string().min(1).max(240),
+  title: z.string().min(1).max(240),
+});
+
+const activityChatParticipantOutputSchema = z.object({
+  displayName: z.string().min(1).max(240),
+  memberId: z.string().min(1).max(256),
+});
+
+const activityChatMessageSummaryOutputSchema = z.object({
+  createdAt: isoDateTimeOutputSchema,
+  id: z.string().min(1).max(128),
+  senderMemberId: z.string().min(1).max(256),
+  text: z.string().min(1).max(1000),
+});
+
+export const activityInboxAlertDeliveryItemOutputSchema = z
+  .object({
+    type: z.literal("alert_delivery"),
+    id: z.string().min(1).max(160),
+    occurredAt: isoDateTimeOutputSchema,
+    delivery: alertNotificationDeliveryOutputSchema,
+  })
+  .strict();
+
+export const activityInboxChatConversationItemOutputSchema = z
+  .object({
+    type: z.literal("chat_conversation"),
+    id: z.string().min(1).max(160),
+    occurredAt: isoDateTimeOutputSchema,
+    conversation: z.object({
+      href: z.string().min(1),
+      id: z.uuid(),
+      latestMessage: activityChatMessageSummaryOutputSchema.nullable(),
+      otherParticipant: activityChatParticipantOutputSchema,
+      subject: activityChatSubjectOutputSchema,
+      updatedAt: isoDateTimeOutputSchema,
+    }),
+  })
+  .strict();
+
+export const activityInboxItemOutputSchema = z.discriminatedUnion("type", [
+  activityInboxAlertDeliveryItemOutputSchema,
+  activityInboxChatConversationItemOutputSchema,
+]);
+
+export const activityInboxOutputSchema = z
+  .object({
+    items: z.array(activityInboxItemOutputSchema),
+  })
+  .strict();
 
 export const resourceProviderApproximatePublicLocationRadiusMeters = 300;
 
@@ -961,6 +1031,17 @@ export type AlertNotificationDeliveryOutput = z.infer<
   typeof alertNotificationDeliveryOutputSchema
 >;
 export type AlertGetOutput = z.infer<typeof alertGetOutputSchema>;
+export type ActivityInboxInput = z.infer<typeof activityInboxInputSchema>;
+export type ActivityInboxAlertDeliveryItemOutput = z.infer<
+  typeof activityInboxAlertDeliveryItemOutputSchema
+>;
+export type ActivityInboxChatConversationItemOutput = z.infer<
+  typeof activityInboxChatConversationItemOutputSchema
+>;
+export type ActivityInboxItemOutput = z.infer<
+  typeof activityInboxItemOutputSchema
+>;
+export type ActivityInboxOutput = z.infer<typeof activityInboxOutputSchema>;
 
 export interface PublicLostReportShareTargetInput {
   publicWebBaseUrl: string;

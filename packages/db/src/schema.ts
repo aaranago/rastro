@@ -814,6 +814,10 @@ export const AlertNotificationDelivery = pgTable(
       table.memberId,
       table.createdAt,
     ),
+    index("alert_notification_delivery_status_created_idx").on(
+      table.status,
+      table.createdAt,
+    ),
   ],
 );
 

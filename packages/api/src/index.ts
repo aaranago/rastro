@@ -25,11 +25,23 @@ export {
   createDrizzleAlertRepository,
   type AlertRepository,
   type DrizzleAlertRepositoryOptions,
+  type PendingAlertNotificationDelivery,
   type PersistedAlertNotificationDelivery,
   type PersistedAlertPushToken,
   type PersistedAlertState,
   type PersistedAlertSubscription,
 } from "./alert-repository";
+export {
+  createExpoPushClient,
+  dispatchPendingAlertDeliveries,
+  type AlertDeliveryDispatchResult,
+  type DispatchPendingAlertDeliveriesInput,
+  type ExpoPushClient,
+  type ExpoPushClientOptions,
+  type ExpoPushMessage,
+  type ExpoPushTicket,
+  type FetchLike,
+} from "./alert-delivery-dispatcher";
 export {
   buildAdminMediaObjectKey,
   createDrizzleAdminMediaRepository,

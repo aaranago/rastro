@@ -7,11 +7,68 @@ import type { StaleActiveReportPrompt } from "../reports/report-lifecycle";
 import { buildChatConversationViewModel } from "../chat/chat-model";
 
 export interface BuildActivityViewModelInput {
+  alertDeliveries?: readonly ActivityAlertDelivery[];
   candidateMatches?: readonly ActivityCandidateMatch[];
   chatConversations?: readonly ChatConversation[];
+  chatSummaries?: readonly ActivityChatSummary[];
   nearbyLostPetAlerts?: readonly ActivityNearbyLostPetAlert[];
   ownedReportPrompts?: readonly ActivityOwnedReportPrompt[];
   session: AlertSubscriptionsSessionState;
+}
+
+export interface ActivityInboxQuery {
+  limit?: number;
+}
+
+export interface ActivityInbox {
+  alertDeliveries: ActivityAlertDelivery[];
+  chatSummaries: ActivityChatSummary[];
+}
+
+export interface ActivityRepository {
+  getInbox: (input: ActivityInboxQuery) => Promise<ActivityInbox>;
+}
+
+export interface ActivityAlertDelivery {
+  body: string;
+  deliveryId: string;
+  href: string;
+  id: string;
+  occurredAt: string;
+  reportId: string;
+  status: string;
+  title: string;
+}
+
+export interface ActivityChatSummarySubject {
+  href: string;
+  id: string;
+  kind: string;
+  subtitle?: string;
+  title: string;
+}
+
+export interface ActivityChatSummaryParticipant {
+  displayName: string;
+  memberId?: string;
+}
+
+export interface ActivityChatSummaryLastMessage {
+  authorLabel?: string;
+  id: string;
+  senderMemberId?: string;
+  sentAt?: string;
+  text: string;
+}
+
+export interface ActivityChatSummary {
+  conversationId: string;
+  href: string;
+  id: string;
+  lastMessage?: ActivityChatSummaryLastMessage | null;
+  occurredAt: string;
+  otherParticipant: ActivityChatSummaryParticipant;
+  subject: ActivityChatSummarySubject;
 }
 
 export interface ActivityNearbyLostPetAlert {
@@ -76,6 +133,7 @@ export interface ActivityItemViewModel {
   kind: ActivityItemKind;
   meta?: string;
   occurredAt: string;
+  targetId?: string;
   title: string;
   tone: ActivityItemTone;
 }
@@ -138,8 +196,10 @@ const activityCopy = {
 } as const;
 
 export function buildActivityViewModel({
+  alertDeliveries = [],
   candidateMatches = [],
   chatConversations = [],
+  chatSummaries = [],
   nearbyLostPetAlerts = [],
   ownedReportPrompts = [],
   session,
@@ -167,8 +227,10 @@ export function buildActivityViewModel({
     },
     kind: "member",
     sections: buildActivitySections({
+      alertDeliveries,
       candidateMatches,
       chatConversations,
+      chatSummaries,
       nearbyLostPetAlerts,
       ownedReportPrompts,
       viewerMemberId: session.memberId,
@@ -179,34 +241,47 @@ export function buildActivityViewModel({
 }
 
 function buildActivitySections({
+  alertDeliveries,
   candidateMatches,
   chatConversations,
+  chatSummaries,
   nearbyLostPetAlerts,
   ownedReportPrompts,
   viewerMemberId,
 }: {
+  alertDeliveries: readonly ActivityAlertDelivery[];
   candidateMatches: readonly ActivityCandidateMatch[];
   chatConversations: readonly ChatConversation[];
+  chatSummaries: readonly ActivityChatSummary[];
   nearbyLostPetAlerts: readonly ActivityNearbyLostPetAlert[];
   ownedReportPrompts: readonly ActivityOwnedReportPrompt[];
   viewerMemberId: string;
 }): ActivitySectionViewModel[] {
   const sections: ActivitySectionViewModel[] = [];
+  const alertItems = [
+    ...alertDeliveries.map(toAlertDeliveryActivityItem),
+    ...nearbyLostPetAlerts.map(toNearbyAlertActivityItem),
+  ];
 
-  if (nearbyLostPetAlerts.length > 0) {
+  if (alertItems.length > 0) {
     sections.push({
       id: "nearby-alerts",
-      items: nearbyLostPetAlerts.map(toNearbyAlertActivityItem),
+      items: alertItems,
       title: activityCopy.sections.nearbyAlerts,
     });
   }
 
-  if (chatConversations.length > 0) {
+  const chatItems = [
+    ...chatSummaries.map(toChatSummaryActivityItem),
+    ...chatConversations.map((conversation) =>
+      toChatActivityItem(conversation, viewerMemberId),
+    ),
+  ];
+
+  if (chatItems.length > 0) {
     sections.push({
       id: "chats",
-      items: chatConversations.map((conversation) =>
-        toChatActivityItem(conversation, viewerMemberId),
-      ),
+      items: chatItems,
       title: activityCopy.sections.chats,
     });
   }
@@ -230,6 +305,25 @@ function buildActivitySections({
   return sections;
 }
 
+function toAlertDeliveryActivityItem(
+  delivery: ActivityAlertDelivery,
+): ActivityItemViewModel {
+  return {
+    action: {
+      href: delivery.href,
+      label: activityCopy.actions.viewReport,
+    },
+    body: delivery.body,
+    id: `alert-${delivery.deliveryId}`,
+    kind: "nearby-lost-pet-alert",
+    meta: formatAlertDeliveryStatus(delivery.status),
+    occurredAt: delivery.occurredAt,
+    targetId: delivery.reportId,
+    title: delivery.title,
+    tone: "urgent",
+  };
+}
+
 function toNearbyAlertActivityItem(
   alert: ActivityNearbyLostPetAlert,
 ): ActivityItemViewModel {
@@ -244,6 +338,28 @@ function toNearbyAlertActivityItem(
     occurredAt: alert.receivedAt,
     title: alert.notification.title,
     tone: "urgent",
+  };
+}
+
+function toChatSummaryActivityItem(
+  summary: ActivityChatSummary,
+): ActivityItemViewModel {
+  return {
+    action: {
+      href: summary.href,
+      label: activityCopy.actions.openChat,
+    },
+    body: formatChatSummaryBody(summary.lastMessage),
+    id: `chat-${summary.conversationId}`,
+    kind: "chat-conversation",
+    meta: formatOptionalMeta([
+      summary.subject.title,
+      summary.subject.subtitle ?? "",
+    ]),
+    occurredAt: summary.occurredAt,
+    targetId: summary.conversationId,
+    title: summary.otherParticipant.displayName,
+    tone: "info",
   };
 }
 
@@ -275,6 +391,40 @@ function toChatActivityItem(
     title: chat.title,
     tone: "info",
   };
+}
+
+function formatChatSummaryBody(
+  lastMessage: ActivityChatSummaryLastMessage | null | undefined,
+) {
+  if (!lastMessage) {
+    return "Aun no hay mensajes en este chat.";
+  }
+
+  const text = lastMessage.text.trim();
+  const authorLabel = lastMessage.authorLabel?.trim();
+
+  if (!text) {
+    return authorLabel
+      ? `${authorLabel}: Mensaje reciente`
+      : "Mensaje reciente";
+  }
+
+  return authorLabel ? `${authorLabel}: ${text}` : text;
+}
+
+function formatAlertDeliveryStatus(status: string) {
+  switch (status) {
+    case "delivered":
+      return "Entregada";
+    case "failed":
+      return "No entregada";
+    case "pending":
+      return "Pendiente";
+    case "sent":
+      return "Enviada";
+    default:
+      return undefined;
+  }
 }
 
 function toOwnedReportPromptActivityItem({

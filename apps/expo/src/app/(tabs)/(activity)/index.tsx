@@ -1,5 +1,13 @@
-import { ActivityScreen } from "~/features/activity";
+import {
+  ActivityScreen,
+  createApiActivityRepository,
+} from "~/features/activity";
+import { trpcClient } from "~/utils/api";
+
+const activityRepository = createApiActivityRepository({
+  client: trpcClient,
+});
 
 export default function ActivityRoute() {
-  return <ActivityScreen />;
+  return <ActivityScreen repository={activityRepository} />;
 }

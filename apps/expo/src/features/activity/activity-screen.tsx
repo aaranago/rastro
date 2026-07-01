@@ -1,7 +1,14 @@
 import type { LegendListRenderItemProps } from "@legendapp/list";
 import type { Href } from "expo-router";
 import * as React from "react";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Linking,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { LegendList } from "@legendapp/list";
 
@@ -9,9 +16,12 @@ import type { InternalAuthPromptRequest } from "../navigation/internal-rastro-li
 import type { ShellSession } from "../shell/shell-model";
 import type {
   ActivityActionViewModel,
+  ActivityInbox,
+  ActivityInboxQuery,
   ActivityItemKind,
   ActivityItemViewModel,
   ActivityMemberViewModel,
+  ActivityRepository,
   BuildActivityViewModelInput,
 } from "./activity-model";
 import {
@@ -40,6 +50,7 @@ interface ActivityItemForScreen {
   id: string;
   isUnread?: boolean;
   meta?: string;
+  testID?: string;
   title: string;
   type: ActivityItemType;
 }
@@ -71,13 +82,16 @@ type ActivityScreenViewModel =
 type ActivityListItem =
   | {
       id: string;
+      testID: string;
       title: string;
       type: "section-header";
     }
   | ActivityItemForScreen;
 
 export interface ActivityScreenProps {
+  inboxLimit?: number;
   onOpenHref?: (href: string) => void;
+  repository: ActivityRepository;
 }
 
 export interface OpenActivityHrefInput {
@@ -87,6 +101,12 @@ export interface OpenActivityHrefInput {
   openExternalUrl: (href: string) => Promise<void> | void;
   routerPush: (href: Href) => void;
 }
+
+type ActivityInboxLoadState =
+  | { kind: "error" }
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { inbox: ActivityInbox; kind: "ready" };
 
 const bottomInset = 118;
 const defaultEstimatedItemSize = 96;
@@ -113,14 +133,58 @@ function ListSeparator() {
   return <View style={styles.separator} />;
 }
 
-export function ActivityScreen({ onOpenHref }: ActivityScreenProps) {
+export function ActivityScreen({
+  inboxLimit,
+  onOpenHref,
+  repository,
+}: ActivityScreenProps) {
   const { requestAuthPrompt, session } = useRastroShell();
   const router = useRouter();
+  const [loadState, setLoadState] = React.useState<ActivityInboxLoadState>({
+    kind: "idle",
+  });
+  const [requestVersion, setRequestVersion] = React.useState(0);
+  const memberSessionKey = session.kind === "member" ? session.id : "visitor";
+
+  React.useEffect(() => {
+    if (session.kind !== "member") {
+      setLoadState({ kind: "idle" });
+      return;
+    }
+
+    let isCurrent = true;
+
+    setLoadState({ kind: "loading" });
+    repository
+      .getInbox(buildActivityInboxQuery(inboxLimit))
+      .then((inbox) => {
+        if (isCurrent) {
+          setLoadState({ inbox, kind: "ready" });
+        }
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setLoadState({ kind: "error" });
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [inboxLimit, memberSessionKey, repository, requestVersion, session.kind]);
+
   const viewModel = React.useMemo(
-    () => buildScreenViewModel(session),
-    [session],
+    () =>
+      buildScreenViewModel(
+        session,
+        loadState.kind === "ready" ? loadState.inbox : undefined,
+      ),
+    [loadState, session],
   );
   const data = React.useMemo(() => buildListData(viewModel), [viewModel]);
+  const handleRetry = React.useCallback(() => {
+    setRequestVersion((version) => version + 1);
+  }, []);
 
   const openHref = React.useCallback(
     (href: string) => {
@@ -144,7 +208,9 @@ export function ActivityScreen({ onOpenHref }: ActivityScreenProps) {
       }
 
       if (item.type === "section-header") {
-        return <ActivitySectionHeader title={item.title} />;
+        return (
+          <ActivitySectionHeader testID={item.testID} title={item.title} />
+        );
       }
 
       return (
@@ -157,6 +223,7 @@ export function ActivityScreen({ onOpenHref }: ActivityScreenProps) {
           isUnread={item.isUnread}
           meta={item.meta}
           onOpenHref={openHref}
+          testID={item.testID}
           title={item.title}
           type={item.type}
         />
@@ -177,6 +244,10 @@ export function ActivityScreen({ onOpenHref }: ActivityScreenProps) {
         onOpenHref={openHref}
         title={viewModel.signedOut.title}
       />
+    ) : loadState.kind === "loading" ? (
+      <ActivityLoadingState />
+    ) : loadState.kind === "error" ? (
+      <ActivityErrorState onRetry={handleRetry} />
     ) : (
       <ActivityEmptyState
         body={viewModel.empty?.body}
@@ -185,21 +256,24 @@ export function ActivityScreen({ onOpenHref }: ActivityScreenProps) {
     );
 
   return (
-    <LegendList
-      contentContainerStyle={styles.listContent}
-      contentInsetAdjustmentBehavior="automatic"
-      data={data}
-      estimatedItemSize={defaultEstimatedItemSize}
-      getEstimatedItemSize={activityEstimatedItemSize}
-      getItemType={activityItemType}
-      ItemSeparatorComponent={ListSeparator}
-      keyExtractor={activityKeyExtractor}
-      ListEmptyComponent={emptyState}
-      ListHeaderComponent={header}
-      recycleItems
-      renderItem={renderItem}
-      style={styles.screen}
-    />
+    <View style={styles.screen} testID="activity-screen">
+      <LegendList
+        contentContainerStyle={styles.listContent}
+        contentInsetAdjustmentBehavior="automatic"
+        data={data}
+        estimatedItemSize={defaultEstimatedItemSize}
+        getEstimatedItemSize={activityEstimatedItemSize}
+        getItemType={activityItemType}
+        ItemSeparatorComponent={ListSeparator}
+        keyExtractor={activityKeyExtractor}
+        ListEmptyComponent={emptyState}
+        ListHeaderComponent={header}
+        recycleItems
+        renderItem={renderItem}
+        style={styles.list}
+        testID="activity-list"
+      />
+    </View>
   );
 }
 
@@ -230,12 +304,18 @@ const ActivityHeader = React.memo(function ActivityHeader({
 });
 
 const ActivitySectionHeader = React.memo(function ActivitySectionHeader({
+  testID,
   title,
 }: {
+  testID: string;
   title: string;
 }) {
   return (
-    <Text maxFontSizeMultiplier={1.2} style={styles.sectionTitle}>
+    <Text
+      maxFontSizeMultiplier={1.2}
+      style={styles.sectionTitle}
+      testID={testID}
+    >
       {title}
     </Text>
   );
@@ -250,6 +330,7 @@ const ActivityRow = React.memo(function ActivityRow({
   isUnread = false,
   meta,
   onOpenHref,
+  testID,
   title,
   type,
 }: {
@@ -261,6 +342,7 @@ const ActivityRow = React.memo(function ActivityRow({
   isUnread?: boolean;
   meta?: string;
   onOpenHref: (href: string) => void;
+  testID?: string;
   title: string;
   type: ActivityItemType;
 }) {
@@ -282,6 +364,7 @@ const ActivityRow = React.memo(function ActivityRow({
       accessibilityRole="button"
       onPress={handlePress}
       style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]}
+      testID={testID}
     >
       <View style={[styles.rowIcon, tone.iconStyle]}>
         <ShellIcon color={tone.iconColor} name={resolvedIconName} size={21} />
@@ -450,8 +533,58 @@ const ActivityEmptyState = React.memo(function ActivityEmptyState({
   );
 });
 
-function buildScreenViewModel(session: ShellSession): ActivityScreenViewModel {
-  const rawViewModel = buildActivityViewModel(getActivityModelInput(session));
+const ActivityLoadingState = React.memo(function ActivityLoadingState() {
+  return (
+    <View style={styles.stateCard} testID="activity-loading">
+      <ActivityIndicator color={shellColors.primary} />
+      <Text maxFontSizeMultiplier={1.2} style={styles.emptyTitle}>
+        Cargando actividad
+      </Text>
+      <Text maxFontSizeMultiplier={1.25} style={styles.emptyBody}>
+        Estamos buscando tus alertas y mensajes recientes.
+      </Text>
+    </View>
+  );
+});
+
+const ActivityErrorState = React.memo(function ActivityErrorState({
+  onRetry,
+}: {
+  onRetry: () => void;
+}) {
+  return (
+    <View style={styles.stateCard} testID="activity-error">
+      <Text maxFontSizeMultiplier={1.2} style={styles.emptyTitle}>
+        No pudimos cargar tu actividad
+      </Text>
+      <Text maxFontSizeMultiplier={1.25} style={styles.emptyBody}>
+        Revisa tu conexion e intenta nuevamente.
+      </Text>
+      <Pressable
+        accessibilityLabel="Reintentar carga de actividad"
+        accessibilityRole="button"
+        onPress={onRetry}
+        style={({ pressed }) => [
+          styles.primaryButton,
+          pressed ? styles.primaryButtonPressed : null,
+        ]}
+        testID="activity-retry-button"
+      >
+        <Text maxFontSizeMultiplier={1.12} style={styles.primaryButtonLabel}>
+          Reintentar
+        </Text>
+      </Pressable>
+    </View>
+  );
+});
+
+function buildScreenViewModel(
+  session: ShellSession,
+  inbox?: ActivityInbox,
+): ActivityScreenViewModel {
+  const rawViewModel = buildActivityViewModel(
+    getActivityModelInput(session, inbox),
+  );
 
   if (session.kind === "visitor" && rawViewModel.kind === "visitor") {
     return rawViewModel;
@@ -508,6 +641,7 @@ function getActivityModelSession(
 
 function getActivityModelInput(
   session: ShellSession,
+  inbox?: ActivityInbox,
 ): BuildActivityViewModelInput {
   const modelSession = getActivityModelSession(session);
 
@@ -518,6 +652,8 @@ function getActivityModelInput(
   }
 
   return {
+    alertDeliveries: inbox?.alertDeliveries ?? [],
+    chatSummaries: inbox?.chatSummaries ?? [],
     session: modelSession,
   };
 }
@@ -530,6 +666,7 @@ function buildListData(viewModel: ActivityScreenViewModel): ActivityListItem[] {
   return viewModel.sections.flatMap((section) => [
     {
       id: `section-${section.id}`,
+      testID: `activity-section-${section.id}`,
       title: section.title,
       type: "section-header" as const,
     },
@@ -554,9 +691,44 @@ function toActivityItemForScreen(
     id: item.id,
     isUnread: item.tone === "urgent",
     meta: formatActivityMeta(item),
+    testID: getActivityItemTestID(item),
     title: item.title,
     type,
   };
+}
+
+function buildActivityInboxQuery(
+  limit: number | undefined,
+): ActivityInboxQuery {
+  return typeof limit === "number" ? { limit } : {};
+}
+
+function getActivityItemTestID(item: ActivityItemViewModel) {
+  if (item.kind === "nearby-lost-pet-alert") {
+    return `activity-item-alert-${getActivityTargetId(item, [
+      "nearby-alert-",
+      "alert-",
+    ])}`;
+  }
+
+  if (item.kind === "chat-conversation") {
+    return `activity-item-chat-${getActivityTargetId(item, ["chat-"])}`;
+  }
+
+  return undefined;
+}
+
+function getActivityTargetId(
+  item: ActivityItemViewModel,
+  prefixes: readonly string[],
+) {
+  if (item.targetId) {
+    return item.targetId;
+  }
+
+  const prefix = prefixes.find((candidate) => item.id.startsWith(candidate));
+
+  return prefix ? item.id.slice(prefix.length) : item.id;
 }
 
 function getActivityTypeFromModelKind(
@@ -766,6 +938,9 @@ const styles = StyleSheet.create({
     padding: 18,
     paddingBottom: bottomInset,
   },
+  list: {
+    flex: 1,
+  },
   matchBadge: {
     backgroundColor: "#F8E9EF",
     color: shellColors.adoption,
@@ -884,6 +1059,15 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "900",
     textAlign: "center",
+  },
+  stateCard: {
+    alignItems: "center",
+    backgroundColor: shellColors.surface,
+    borderColor: shellColors.border,
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 10,
+    padding: 20,
   },
   unreadDot: {
     backgroundColor: shellColors.lost,

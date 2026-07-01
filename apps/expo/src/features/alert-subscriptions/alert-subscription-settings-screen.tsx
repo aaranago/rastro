@@ -456,7 +456,7 @@ function SubscriptionPanel({
             Suscripcion
           </Text>
           <Text selectable style={styles.mutedText}>
-            Nuevos Lost Pet Reports activos cerca de tu area dinamica.
+            Nuevos reportes de mascotas perdidas cerca de tu area dinamica.
           </Text>
         </View>
         <Switch

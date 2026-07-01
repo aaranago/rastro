@@ -154,6 +154,92 @@ describe("Activity view model", () => {
     ]);
   });
 
+  it("shows backend alert deliveries and chat summaries with preserved links", () => {
+    const viewModel = buildActivityViewModel({
+      alertDeliveries: [
+        {
+          body: "Toby fue reportado cerca de Sopocachi.",
+          deliveryId: "alert-delivery-1",
+          href: "rastro://reportes/perdidos/lost-report-1",
+          id: "activity-alert-1",
+          occurredAt: "2026-06-30T13:00:00.000Z",
+          reportId: "lost-report-1",
+          status: "delivered",
+          title: "Mascota perdida cerca de ti",
+        },
+      ],
+      chatSummaries: [
+        {
+          conversationId: "chat-conversation-1",
+          href: "rastro://chats/chat-conversation-1",
+          id: "activity-chat-1",
+          lastMessage: {
+            authorLabel: "Diego",
+            id: "chat-message-1",
+            sentAt: "2026-06-30T13:03:00.000Z",
+            text: "Lo vi cerca de la plaza.",
+          },
+          occurredAt: "2026-06-30T13:04:00.000Z",
+          otherParticipant: {
+            displayName: "Diego",
+            memberId: "member-diego",
+          },
+          subject: {
+            href: "rastro://reportes/perdidos/lost-report-1",
+            id: "lost-report-1",
+            kind: "lost-pet-report",
+            subtitle: "Sopocachi",
+            title: "Toby",
+          },
+        },
+      ],
+      session: member,
+    });
+
+    expect(viewModel.sections).toEqual([
+      {
+        id: "nearby-alerts",
+        items: [
+          {
+            action: {
+              href: "rastro://reportes/perdidos/lost-report-1",
+              label: "Ver reporte",
+            },
+            body: "Toby fue reportado cerca de Sopocachi.",
+            id: "alert-alert-delivery-1",
+            kind: "nearby-lost-pet-alert",
+            meta: "Entregada",
+            occurredAt: "2026-06-30T13:00:00.000Z",
+            targetId: "lost-report-1",
+            title: "Mascota perdida cerca de ti",
+            tone: "urgent",
+          },
+        ],
+        title: "Historial de alertas",
+      },
+      {
+        id: "chats",
+        items: [
+          {
+            action: {
+              href: "rastro://chats/chat-conversation-1",
+              label: "Abrir chat",
+            },
+            body: "Diego: Lo vi cerca de la plaza.",
+            id: "chat-chat-conversation-1",
+            kind: "chat-conversation",
+            meta: "Toby - Sopocachi",
+            occurredAt: "2026-06-30T13:04:00.000Z",
+            targetId: "chat-conversation-1",
+            title: "Diego",
+            tone: "info",
+          },
+        ],
+        title: "Mensajes",
+      },
+    ]);
+  });
+
   it("shows owned report status prompts with explicit update hrefs", () => {
     const [prompt] = findStaleActiveReportPrompts({
       now: "2026-06-18T12:00:00.000Z",

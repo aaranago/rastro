@@ -159,11 +159,17 @@ function createFakeAlertRepository(
   return {
     inputs,
     createLostPetReportCreatedDeliveries: () => Promise.resolve([]),
+    disablePushToken: () => Promise.resolve(null),
     get: () =>
       Promise.resolve({
         pushTokens: [token],
         subscription,
       } satisfies PersistedAlertState),
+    listMemberDeliveryHistory: () => Promise.resolve([]),
+    listPendingDeliveries: () => Promise.resolve([]),
+    markDeliveryFailed: () => Promise.resolve(null),
+    markDeliverySent: () => Promise.resolve(null),
+    markDeliverySkipped: () => Promise.resolve(null),
     pause: () => {
       if (options.missingSubscription) {
         throw new AlertRepositoryError(

@@ -171,6 +171,7 @@ export async function createRastroFunctionalFixture(
     mediaBaseUrl,
     providers,
   });
+  await configureViewerAlertFixture({ viewerCaller });
   const reports = await createReports({
     db,
     mediaBaseUrl,
@@ -888,6 +889,23 @@ async function createPersistedChatFixture({
     reportId: report.id,
     seedMessageText,
   };
+}
+
+async function configureViewerAlertFixture({
+  viewerCaller,
+}: {
+  viewerCaller: Awaited<ReturnType<typeof createCallerForUser>>;
+}) {
+  await viewerCaller.alerts.upsertSettings({
+    categories: ["lost_pet"],
+    radiusMeters: 5000,
+  });
+  await viewerCaller.alerts.recordLocation({
+    label: "Sopocachi, La Paz",
+    latitude: sopocachi.latitude,
+    locationCell: "bo-lpb-sopocachi",
+    longitude: sopocachi.longitude,
+  });
 }
 
 async function createReadyReportMedia({

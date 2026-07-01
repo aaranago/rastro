@@ -2,11 +2,25 @@ import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ShellSession } from "../shell/shell-model";
+import type { ActivityInbox, ActivityRepository } from "./activity-model";
+import type { ActivityScreenProps } from "./activity-screen";
 import {
   ActivityScreen,
   openActivityHref,
   resolveActivityRouterHref,
 } from "./activity-screen";
+
+(globalThis as { React?: typeof React }).React = React;
+
+const reactState = vi.hoisted(() => ({
+  cursor: 0,
+  effectCursor: 0,
+  effects: [] as {
+    dependencies?: readonly unknown[];
+  }[],
+  pendingEffects: [] as (() => void | (() => void))[],
+  values: [] as unknown[],
+}));
 
 const shellContext = vi.hoisted(() => ({
   requestAuthPrompt: vi.fn(),
@@ -14,13 +28,61 @@ const shellContext = vi.hoisted(() => ({
 }));
 
 vi.mock("react", async () => {
-  const actual = await vi.importActual("react");
+  const actual = await vi.importActual<typeof React>("react");
 
   return {
     ...actual,
     memo: <TComponent>(component: TComponent) => component,
     useCallback: <TCallback>(callback: TCallback) => callback,
+    useEffect: (
+      effect: () => void | (() => void),
+      dependencies?: readonly unknown[],
+    ) => {
+      const index = reactState.effectCursor;
+      reactState.effectCursor += 1;
+      const previous = reactState.effects[index]?.dependencies;
+      const hasChanged =
+        dependencies === undefined ||
+        previous === undefined ||
+        dependencies.length !== previous.length ||
+        dependencies.some(
+          (dependency, dependencyIndex) =>
+            !Object.is(dependency, previous[dependencyIndex]),
+        );
+
+      if (!hasChanged) {
+        return;
+      }
+
+      reactState.effects[index] = {
+        dependencies: dependencies ? [...dependencies] : undefined,
+      };
+      reactState.pendingEffects.push(effect);
+    },
     useMemo: <TValue>(factory: () => TValue) => factory(),
+    useState: <TValue>(initialValue: TValue | (() => TValue)) => {
+      const index = reactState.cursor;
+      reactState.cursor += 1;
+
+      if (reactState.values.length <= index) {
+        reactState.values[index] =
+          typeof initialValue === "function"
+            ? (initialValue as () => TValue)()
+            : initialValue;
+      }
+
+      return [
+        reactState.values[index] as TValue,
+        (nextValue: React.SetStateAction<TValue>) => {
+          reactState.values[index] =
+            typeof nextValue === "function"
+              ? (nextValue as (current: TValue) => TValue)(
+                  reactState.values[index] as TValue,
+                )
+              : nextValue;
+        },
+      ];
+    },
   };
 });
 
@@ -35,6 +97,7 @@ vi.mock("expo-router", () => ({
 }));
 
 vi.mock("react-native", () => ({
+  ActivityIndicator: "ActivityIndicator",
   Linking: {
     openURL: () => Promise.resolve(),
   },
@@ -57,6 +120,11 @@ vi.mock("../shell/shell-provider", () => ({
 
 describe("Activity screen links", () => {
   beforeEach(() => {
+    reactState.cursor = 0;
+    reactState.effectCursor = 0;
+    reactState.effects = [];
+    reactState.pendingEffects = [];
+    reactState.values = [];
     shellContext.requestAuthPrompt.mockReset();
     shellContext.session = { kind: "visitor" };
   });
@@ -107,9 +175,10 @@ describe("Activity screen links", () => {
     expect(openExternalUrl).not.toHaveBeenCalled();
   });
 
-  it("exposes the signed-out CTA as an enabled in-app button", () => {
-    const screen = renderFunctionElement(ActivityScreen({}));
-    const listProps = getElementProps<{
+  it("exposes the signed-out CTA as an enabled in-app button without loading the inbox", async () => {
+    const repository = createScreenRepository();
+    const screen = renderActivityScreen({ repository });
+    const listProps = getLegendListProps<{
       ListEmptyComponent: React.ReactNode;
     }>(screen);
     const emptyState = renderFunctionElement(listProps.ListEmptyComponent);
@@ -131,36 +200,152 @@ describe("Activity screen links", () => {
     }
 
     (onPress as () => void)();
+    await runPendingEffects();
 
     expect(shellContext.requestAuthPrompt).toHaveBeenCalledWith({
       returnTo: "/(tabs)/(activity)",
       sourceHref: "rastro://auth/sign-in?returnTo=/actividad",
     });
+    expect(repository.getInbox).not.toHaveBeenCalled();
   });
 
-  it("shows an empty member Activity state instead of fixture rows for a fresh member", () => {
-    shellContext.session = {
-      email: "ana@example.com",
-      id: "member_ana",
-      kind: "member",
-      name: "Ana",
-    };
+  it("shows a loading state while member Activity is loading", async () => {
+    shellContext.session = createMemberSession();
+    const pendingInbox = createDeferred<ActivityInbox>();
+    const repository = createScreenRepository(pendingInbox.promise);
 
-    const screen = renderFunctionElement(ActivityScreen({}));
-    const listProps = getElementProps<{
+    void renderActivityScreen({ repository });
+    await runPendingEffects();
+    const screen = renderActivityScreen({ repository });
+    const listProps = getLegendListProps<{
       ListEmptyComponent: React.ReactNode;
       data: unknown[];
     }>(screen);
 
+    expect(listProps.data).toEqual([]);
+    expect(findText(listProps.ListEmptyComponent, "Cargando actividad")).toBe(
+      true,
+    );
+  });
+
+  it("shows an empty member Activity state when the backend inbox is empty", async () => {
+    shellContext.session = createMemberSession();
+    const repository = createScreenRepository();
+
+    void renderActivityScreen({ repository });
+    await runPendingEffects();
+    const screen = renderActivityScreen({ repository });
+    const listProps = getLegendListProps<{
+      ListEmptyComponent: React.ReactNode;
+      data: unknown[];
+    }>(screen);
+
+    expect(repository.getInbox).toHaveBeenCalledWith({});
     expect(listProps.data).toEqual([]);
     expect(
       findText(listProps.ListEmptyComponent, "Sin actividad todavía"),
     ).toBe(true);
   });
 
+  it("renders backend alert and chat rows with stable testIDs", async () => {
+    shellContext.session = createMemberSession();
+    const repository = createScreenRepository(
+      Promise.resolve({
+        alertDeliveries: [
+          {
+            body: "Toby fue reportado cerca de Sopocachi.",
+            deliveryId: "alert-delivery-1",
+            href: "rastro://reportes/perdidos/lost-report-1",
+            id: "activity-alert-1",
+            occurredAt: "2026-06-30T13:00:00.000Z",
+            reportId: "lost-report-1",
+            status: "delivered",
+            title: "Mascota perdida cerca de ti",
+          },
+        ],
+        chatSummaries: [
+          {
+            conversationId: "chat-conversation-1",
+            href: "rastro://chats/chat-conversation-1",
+            id: "activity-chat-1",
+            lastMessage: {
+              authorLabel: "Diego",
+              id: "chat-message-1",
+              text: "Lo vi cerca de la plaza.",
+            },
+            occurredAt: "2026-06-30T13:04:00.000Z",
+            otherParticipant: {
+              displayName: "Diego",
+              memberId: "member-diego",
+            },
+            subject: {
+              href: "rastro://reportes/perdidos/lost-report-1",
+              id: "lost-report-1",
+              kind: "lost-pet-report",
+              subtitle: "Sopocachi",
+              title: "Toby",
+            },
+          },
+        ],
+      }),
+    );
+
+    void renderActivityScreen({ repository });
+    await runPendingEffects();
+    const screen = renderActivityScreen({ repository });
+    const listProps = getLegendListProps<{
+      data: Record<string, unknown>[];
+    }>(screen);
+
+    expect(listProps.data).toEqual([
+      expect.objectContaining({
+        testID: "activity-section-nearby-alerts",
+        title: "Historial de alertas",
+      }),
+      expect.objectContaining({
+        body: "Toby fue reportado cerca de Sopocachi.",
+        testID: "activity-item-alert-lost-report-1",
+      }),
+      expect.objectContaining({
+        testID: "activity-section-chats",
+        title: "Mensajes",
+      }),
+      expect.objectContaining({
+        body: "Diego: Lo vi cerca de la plaza.",
+        testID: "activity-item-chat-chat-conversation-1",
+      }),
+    ]);
+  });
+
+  it("shows a Spanish error state with a retry action for backend failures", async () => {
+    shellContext.session = createMemberSession();
+    const repository: ActivityRepository = {
+      getInbox: vi.fn<ActivityRepository["getInbox"]>(() =>
+        Promise.reject(new Error("network down")),
+      ),
+    };
+
+    void renderActivityScreen({ repository });
+    await runPendingEffects();
+    const screen = renderActivityScreen({ repository });
+    const listProps = getLegendListProps<{
+      ListEmptyComponent: React.ReactNode;
+    }>(screen);
+    const retryButton = findElement(
+      listProps.ListEmptyComponent,
+      (element) => element.props.testID === "activity-retry-button",
+    );
+
+    expect(
+      findText(listProps.ListEmptyComponent, "No pudimos cargar tu actividad"),
+    ).toBe(true);
+    expect(findText(listProps.ListEmptyComponent, "Reintentar")).toBe(true);
+    expect(retryButton?.props.accessibilityRole).toBe("button");
+  });
+
   it("keeps Activity list recycling safe while session data changes", () => {
-    const screen = renderFunctionElement(ActivityScreen({}));
-    const listProps = getElementProps<{
+    const screen = renderActivityScreen();
+    const listProps = getLegendListProps<{
       getItemType: (item: unknown) => string | undefined;
     }>(screen);
 
@@ -168,8 +353,8 @@ describe("Activity screen links", () => {
   });
 
   it("ignores transient undefined list items while Activity data changes", () => {
-    const screen = renderFunctionElement(ActivityScreen({}));
-    const listProps = getElementProps<{
+    const screen = renderActivityScreen();
+    const listProps = getLegendListProps<{
       renderItem: (props: { item: unknown }) => React.ReactNode;
     }>(screen);
 
@@ -183,6 +368,68 @@ type ElementProps = Record<string, unknown> & {
 
 type TestElement = React.ReactElement<ElementProps>;
 
+function createMemberSession(): ShellSession {
+  return {
+    email: "ana@example.com",
+    id: "member_ana",
+    kind: "member",
+    name: "Ana",
+  };
+}
+
+function createScreenRepository(
+  result: Promise<ActivityInbox> = Promise.resolve({
+    alertDeliveries: [],
+    chatSummaries: [],
+  }),
+): ActivityRepository {
+  return {
+    getInbox: vi.fn<ActivityRepository["getInbox"]>(() => result),
+  };
+}
+
+function createDeferred<TValue>() {
+  let resolve!: (value: TValue) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<TValue>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+
+  return {
+    promise,
+    reject,
+    resolve,
+  };
+}
+
+function renderActivityScreen(
+  props: Partial<ActivityScreenProps> = {},
+): React.ReactNode {
+  reactState.cursor = 0;
+  reactState.effectCursor = 0;
+
+  return renderFunctionElement(
+    ActivityScreen({
+      repository: createScreenRepository(),
+      ...props,
+    }),
+  );
+}
+
+async function runPendingEffects() {
+  const effects = [...reactState.pendingEffects];
+
+  reactState.pendingEffects = [];
+
+  for (const effect of effects) {
+    effect();
+  }
+
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 function getElementProps<TProps extends ElementProps>(
   node: React.ReactNode,
 ): TProps {
@@ -191,6 +438,18 @@ function getElementProps<TProps extends ElementProps>(
   }
 
   return node.props;
+}
+
+function getLegendListProps<TProps extends ElementProps>(
+  node: React.ReactNode,
+): TProps {
+  const list = findElement(node, (element) => element.type === "LegendList");
+
+  if (!list) {
+    throw new Error("Expected Activity screen to render a LegendList.");
+  }
+
+  return getElementProps<TProps>(list);
 }
 
 function renderFunctionElement(node: React.ReactNode): React.ReactNode {

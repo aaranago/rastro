@@ -236,6 +236,7 @@ describe("report schema", () => {
         "alert_notification_delivery_subscription_report_idx",
         "alert_notification_delivery_report_idx",
         "alert_notification_delivery_member_created_idx",
+        "alert_notification_delivery_status_created_idx",
       ]),
     );
   });

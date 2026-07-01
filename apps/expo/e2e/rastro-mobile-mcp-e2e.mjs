@@ -66,8 +66,9 @@ await openDevelopmentBuild();
 await verifyResourcesDirectory();
 await verifyProviderProfile();
 await verifyReportDetails();
-await verifyChatWorkflow();
+const latestChatMessageText = await verifyChatWorkflow();
 await verifyAlertSubscriptionWorkflow();
+await verifyActivityInboxWorkflow({ latestChatMessageText });
 
 const summary = {
   appId,
@@ -219,6 +220,8 @@ async function verifyChatWorkflow() {
   );
   await waitForTestID("chat-message-list");
   await assertVisibleText(messageText, "chat-reopened-message");
+
+  return messageText;
 }
 
 async function verifyAlertSubscriptionWorkflow() {
@@ -253,6 +256,56 @@ async function verifyAlertSubscriptionWorkflow() {
     detail:
       "Alert settings survived route remount and backend state refresh after activation.",
     id: "alerts-backend-persistence",
+    ok: true,
+  });
+}
+
+async function verifyActivityInboxWorkflow({ latestChatMessageText }) {
+  const reportId = getActivityReportId();
+
+  await openDeepLinkUntilVisible(
+    [
+      "rastro:///actividad",
+      "rastro://actividad",
+      "rastro:///(tabs)/(activity)",
+      "rastro://(tabs)/(activity)",
+    ],
+    "activity-screen",
+  );
+  await waitForTestID("activity-section-nearby-alerts", { timeoutMs: 30000 });
+  await assertVisibleText("HISTORIAL DE ALERTAS", "activity-alert-history");
+  await scrollUntilTestID("activity-section-chats", { maxSwipes: 4 });
+  await assertVisibleText("MENSAJES", "activity-messages");
+  const chatItemTestID = await findVisibleTestIDContainingText({
+    context: "activity-latest-chat-row",
+    testIDPrefix: "activity-item-chat-",
+    text: latestChatMessageText,
+  });
+  await assertVisibleText(latestChatMessageText, "activity-latest-chat-text");
+  await screenshot("activity-inbox.png");
+
+  await tapRequired(chatItemTestID);
+  await waitForTestID("chat-screen", { timeoutMs: 15000 });
+  await waitForTestID("chat-message-list");
+  await assertVisibleText(latestChatMessageText, "activity-chat-navigation");
+
+  await openDeepLinkUntilVisible(
+    ["rastro:///actividad", "rastro://actividad"],
+    "activity-screen",
+  );
+  await scrollUntilTestID(`activity-item-alert-${reportId}`, {
+    maxSwipes: 5,
+  });
+  await tapRequired(`activity-item-alert-${reportId}`);
+  await waitForTestID("public-report-detail-screen", { timeoutMs: 15000 });
+  await waitForTestID("public-report-media-gallery");
+  await waitForTestID("public-report-contact-in-app-chat-0");
+  await screenshot("activity-alert-report-detail.png");
+
+  checks.push({
+    detail:
+      "Activity showed backend alert history and chat rows, then navigated to chat and report detail.",
+    id: "activity-inbox-backend-navigation",
     ok: true,
   });
 }
@@ -528,6 +581,91 @@ async function assertVisibleText(text, context) {
   checks.push({ id: `visible-text:${context}`, ok: true, text });
 }
 
+async function findVisibleTestIDContainingText({ context, testIDPrefix, text }) {
+  const { stdout } = await adb([
+    "exec-out",
+    "uiautomator",
+    "dump",
+    "--compressed",
+    "/dev/tty",
+  ]);
+  const resourceId = findNodeResourceIdContainingText({
+    output: stdout,
+    testIDPrefix,
+    text,
+  });
+
+  if (!resourceId) {
+    throw new Error(
+      `Expected visible ${testIDPrefix} row containing text on ${context}: ${text}`,
+    );
+  }
+
+  checks.push({
+    id: `find-by-text:${context}`,
+    ok: true,
+    testID: resourceId,
+    text,
+  });
+
+  return resourceId;
+}
+
+function findNodeResourceIdContainingText({ output, testIDPrefix, text }) {
+  const xml = extractXmlHierarchy(output);
+  const nodePattern = /<node\b[^>]*>/g;
+  let match;
+
+  while ((match = nodePattern.exec(xml))) {
+    const tag = match[0] ?? "";
+    const resourceId = readXmlAttribute(tag, "resource-id");
+
+    if (!resourceId?.startsWith(testIDPrefix)) {
+      continue;
+    }
+
+    const visibleText = [
+      readXmlAttribute(tag, "text"),
+      readXmlAttribute(tag, "content-desc"),
+    ]
+      .filter((value) => typeof value === "string")
+      .map(decodeXmlAttribute)
+      .join(" ");
+
+    if (visibleText.includes(text)) {
+      return resourceId;
+    }
+  }
+
+  return null;
+}
+
+function readXmlAttribute(tag, name) {
+  const match = new RegExp(`${name}="([^"]*)"`).exec(tag);
+
+  return match?.[1] ?? null;
+}
+
+function decodeXmlAttribute(value) {
+  return value
+    .replaceAll("&quot;", '"')
+    .replaceAll("&apos;", "'")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&amp;", "&");
+}
+
+function extractXmlHierarchy(output) {
+  const endTag = "</hierarchy>";
+  const endIndex = output.indexOf(endTag);
+
+  if (endIndex === -1) {
+    throw new Error("UIAutomator dump did not include a hierarchy document.");
+  }
+
+  return output.slice(0, endIndex + endTag.length);
+}
+
 function reportDeepLink(report) {
   switch (report.type) {
     case "lost_pet":
@@ -541,6 +679,18 @@ function reportDeepLink(report) {
     default:
       throw new Error(`Unsupported report type: ${report.type}`);
   }
+}
+
+function getActivityReportId() {
+  const reportId =
+    manifest.chat.reportId ??
+    manifest.reports.find((report) => report.type === "lost_pet")?.id;
+
+  if (!reportId) {
+    throw new Error("Fixture manifest has no Activity alert report id.");
+  }
+
+  return reportId;
 }
 
 async function adb(args) {
