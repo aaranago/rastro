@@ -180,6 +180,29 @@ export const alertNotificationDeliveryStatus = pgEnum(
   ["pending", "sent", "failed", "skipped"],
 );
 
+function createNotificationDeliveryContentColumns(t: PgTableBuilder) {
+  return {
+    status: alertNotificationDeliveryStatus().default("pending").notNull(),
+    title: t.varchar({ length: 160 }).notNull(),
+    body: t.text().notNull(),
+    deepLink: t.text().notNull(),
+  };
+}
+
+function createNotificationDeliveryDispatchColumns(t: PgTableBuilder) {
+  return {
+    sentAt: t.timestamp(timestampWithTimezone),
+    failedAt: t.timestamp(timestampWithTimezone),
+    failureReason: t.text(),
+    createdAt: t.timestamp(timestampWithTimezone).defaultNow().notNull(),
+    updatedAt: t
+      .timestamp(timestampWithTimezone)
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  };
+}
+
 export const localSponsorPlacementSurface = pgEnum(
   "local_sponsor_placement_surface",
   [
@@ -792,6 +815,53 @@ export const AlertPushToken = pgTable(
   ],
 );
 
+export const ChatNotificationDelivery = pgTable(
+  "chat_notification_delivery",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    conversationId: t
+      .uuid()
+      .notNull()
+      .references(() => ChatConversation.id, { onDelete: "cascade" }),
+    messageId: t
+      .uuid()
+      .notNull()
+      .references(() => ChatMessage.id, { onDelete: "cascade" }),
+    senderMemberId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    recipientMemberId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    pushTokenId: t.uuid().references(() => AlertPushToken.id, {
+      onDelete: "set null",
+    }),
+    ...createNotificationDeliveryContentColumns(t),
+    queuedAt: t.timestamp(timestampWithTimezone).defaultNow().notNull(),
+    ...createNotificationDeliveryDispatchColumns(t),
+  }),
+  (table) => [
+    uniqueIndex("chat_notification_delivery_message_recipient_idx").on(
+      table.messageId,
+      table.recipientMemberId,
+    ),
+    index("chat_notification_delivery_conversation_created_idx").on(
+      table.conversationId,
+      table.createdAt,
+    ),
+    index("chat_notification_delivery_recipient_created_idx").on(
+      table.recipientMemberId,
+      table.createdAt,
+    ),
+    index("chat_notification_delivery_status_created_idx").on(
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const AlertNotificationDelivery = pgTable(
   "alert_notification_delivery",
   (t) => ({
@@ -811,20 +881,9 @@ export const AlertNotificationDelivery = pgTable(
       .text()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    status: alertNotificationDeliveryStatus().default("pending").notNull(),
-    title: t.varchar({ length: 160 }).notNull(),
-    body: t.text().notNull(),
-    deepLink: t.text().notNull(),
+    ...createNotificationDeliveryContentColumns(t),
     matchedAt: t.timestamp(timestampWithTimezone).defaultNow().notNull(),
-    sentAt: t.timestamp(timestampWithTimezone),
-    failedAt: t.timestamp(timestampWithTimezone),
-    failureReason: t.text(),
-    createdAt: t.timestamp(timestampWithTimezone).defaultNow().notNull(),
-    updatedAt: t
-      .timestamp(timestampWithTimezone)
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
+    ...createNotificationDeliveryDispatchColumns(t),
   }),
   (table) => [
     uniqueIndex("alert_notification_delivery_subscription_report_idx").on(
@@ -1197,10 +1256,11 @@ export const chatConversationRelations = relations(
     hiddenStates: many(ChatConversationHidden),
     blocks: many(ChatConversationBlock),
     reports: many(ChatConversationReport),
+    notificationDeliveries: many(ChatNotificationDelivery),
   }),
 );
 
-export const chatMessageRelations = relations(ChatMessage, ({ one }) => ({
+export const chatMessageRelations = relations(ChatMessage, ({ many, one }) => ({
   conversation: one(ChatConversation, {
     fields: [ChatMessage.conversationId],
     references: [ChatConversation.id],
@@ -1209,6 +1269,7 @@ export const chatMessageRelations = relations(ChatMessage, ({ one }) => ({
     fields: [ChatMessage.senderMemberId],
     references: [user.id],
   }),
+  notificationDeliveries: many(ChatNotificationDelivery),
 }));
 
 export const chatConversationHiddenRelations = relations(
@@ -1257,6 +1318,32 @@ export const chatConversationReportRelations = relations(
   }),
 );
 
+export const chatNotificationDeliveryRelations = relations(
+  ChatNotificationDelivery,
+  ({ one }) => ({
+    conversation: one(ChatConversation, {
+      fields: [ChatNotificationDelivery.conversationId],
+      references: [ChatConversation.id],
+    }),
+    message: one(ChatMessage, {
+      fields: [ChatNotificationDelivery.messageId],
+      references: [ChatMessage.id],
+    }),
+    pushToken: one(AlertPushToken, {
+      fields: [ChatNotificationDelivery.pushTokenId],
+      references: [AlertPushToken.id],
+    }),
+    recipient: one(user, {
+      fields: [ChatNotificationDelivery.recipientMemberId],
+      references: [user.id],
+    }),
+    sender: one(user, {
+      fields: [ChatNotificationDelivery.senderMemberId],
+      references: [user.id],
+    }),
+  }),
+);
+
 export const alertSubscriptionRelations = relations(
   AlertSubscription,
   ({ many, one }) => ({
@@ -1268,12 +1355,16 @@ export const alertSubscriptionRelations = relations(
   }),
 );
 
-export const alertPushTokenRelations = relations(AlertPushToken, ({ one }) => ({
-  member: one(user, {
-    fields: [AlertPushToken.memberId],
-    references: [user.id],
+export const alertPushTokenRelations = relations(
+  AlertPushToken,
+  ({ many, one }) => ({
+    chatNotificationDeliveries: many(ChatNotificationDelivery),
+    member: one(user, {
+      fields: [AlertPushToken.memberId],
+      references: [user.id],
+    }),
   }),
-}));
+);
 
 export const alertNotificationDeliveryRelations = relations(
   AlertNotificationDelivery,

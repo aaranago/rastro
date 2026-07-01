@@ -11,6 +11,7 @@ import {
   ChatConversationHidden,
   ChatConversationReport,
   ChatMessage,
+  ChatNotificationDelivery,
   Post,
   Report,
   ReportLifecycleEvent,
@@ -120,6 +121,16 @@ describe("report schema", () => {
     expect(ChatConversationBlock.blockerMemberId).toBeDefined();
     expect(ChatConversationBlock.blockedMemberId).toBeDefined();
     expect(ChatConversationReport.reporterMemberId).toBeDefined();
+    expect(ChatNotificationDelivery.messageId).toBeDefined();
+    expect(ChatNotificationDelivery.recipientMemberId).toBeDefined();
+    expect(ChatNotificationDelivery.pushTokenId).toBeDefined();
+    expect(ChatNotificationDelivery.deepLink).toBeDefined();
+    expect(ChatNotificationDelivery.status.enumValues).toEqual([
+      "pending",
+      "sent",
+      "failed",
+      "skipped",
+    ]);
     expect(ChatConversationReport.reason.enumValues).toEqual([
       "spam",
       "scam",
@@ -146,6 +157,9 @@ describe("report schema", () => {
     const reportIndexes = getTableConfig(ChatConversationReport).indexes.map(
       (index) => index.config.name,
     );
+    const notificationDeliveryIndexes = getTableConfig(
+      ChatNotificationDelivery,
+    ).indexes.map((index) => index.config.name);
 
     expect(conversationIndexes).toEqual(
       expect.arrayContaining([
@@ -169,6 +183,14 @@ describe("report schema", () => {
       expect.arrayContaining([
         "chat_conversation_report_created_idx",
         "chat_conversation_report_reporter_idx",
+      ]),
+    );
+    expect(notificationDeliveryIndexes).toEqual(
+      expect.arrayContaining([
+        "chat_notification_delivery_message_recipient_idx",
+        "chat_notification_delivery_conversation_created_idx",
+        "chat_notification_delivery_recipient_created_idx",
+        "chat_notification_delivery_status_created_idx",
       ]),
     );
   });

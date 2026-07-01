@@ -8,8 +8,11 @@ import {
   ChatConversationHidden,
   ChatConversationReport,
   ChatMessage,
+  ChatNotificationDelivery,
   Report,
 } from "@acme/db/schema";
+
+import { findLatestActiveAlertPushToken } from "./alert-push-token-repository";
 
 export type ChatSubjectKind =
   | "adoption-listing"
@@ -158,6 +161,22 @@ export function buildReportSubjectHref(report: {
   )}`;
 
   return `rastro://${path.replace(/^\//, "")}`;
+}
+
+export function buildChatConversationDeepLink(conversationId: string) {
+  return `rastro://chats/${encodeURIComponent(conversationId)}`;
+}
+
+export function buildChatMessageNotification(input: {
+  conversationId: string;
+  messageText: string;
+  senderDisplayName: string;
+}) {
+  return {
+    body: `${input.senderDisplayName}: ${input.messageText}`,
+    deepLink: buildChatConversationDeepLink(input.conversationId),
+    title: "Nuevo mensaje en Rastro",
+  };
 }
 
 export function createDrizzleChatRepository(
@@ -392,21 +411,36 @@ export function createDrizzleChatRepository(
       assertMemberCanSend(conversation, senderMemberId);
 
       const createdAt = now();
-      const [message] = await db
-        .insert(ChatMessage)
-        .values({
-          conversationId,
-          createdAt,
+      await db.transaction(async (tx) => {
+        const txDb = tx as unknown as Database;
+        const [message] = await tx
+          .insert(ChatMessage)
+          .values({
+            conversationId,
+            createdAt,
+            senderMemberId,
+            text: messageText,
+          })
+          .returning({ id: ChatMessage.id });
+
+        if (!message) {
+          throw new Error("Chat message could not be persisted.");
+        }
+
+        await createChatNotificationDelivery({
+          conversation,
+          db: txDb,
+          messageId: message.id,
+          messageText,
+          queuedAt: createdAt,
           senderMemberId,
-          text: messageText,
-        })
-        .returning({ id: ChatMessage.id });
+        });
 
-      if (!message) {
-        throw new Error("Chat message could not be persisted.");
-      }
-
-      await updateConversationTimestamp(conversationId, createdAt);
+        await tx
+          .update(ChatConversation)
+          .set({ updatedAt: createdAt })
+          .where(eq(ChatConversation.id, conversationId));
+      });
 
       return reloadConversation(conversationId);
     },
@@ -545,6 +579,94 @@ function toPersistedChatSubject(
     subtitle: report.location?.label ?? "Reporte en Rastro",
     title: report.petName ?? report.title,
   };
+}
+
+async function createChatNotificationDelivery(input: {
+  conversation: ChatConversationRow;
+  db: Database;
+  messageId: string;
+  messageText: string;
+  queuedAt: Date;
+  senderMemberId: string;
+}) {
+  const recipientMemberId = getChatNotificationRecipientMemberId(
+    input.conversation,
+    input.senderMemberId,
+  );
+
+  if (!recipientMemberId || input.conversation.blocks.length > 0) {
+    return null;
+  }
+
+  const senderDisplayName = getConversationParticipantDisplayName(
+    input.conversation,
+    input.senderMemberId,
+  );
+  const pushToken = await findLatestActiveAlertPushToken(
+    input.db,
+    recipientMemberId,
+  );
+  const notification = buildChatMessageNotification({
+    conversationId: input.conversation.id,
+    messageText: input.messageText,
+    senderDisplayName,
+  });
+
+  const [delivery] = await input.db
+    .insert(ChatNotificationDelivery)
+    .values({
+      body: notification.body,
+      conversationId: input.conversation.id,
+      createdAt: input.queuedAt,
+      deepLink: notification.deepLink,
+      messageId: input.messageId,
+      pushTokenId: pushToken?.id ?? null,
+      queuedAt: input.queuedAt,
+      recipientMemberId,
+      senderMemberId: input.senderMemberId,
+      title: notification.title,
+      updatedAt: input.queuedAt,
+    })
+    .onConflictDoNothing()
+    .returning({ id: ChatNotificationDelivery.id });
+
+  return delivery ?? null;
+}
+
+function getChatNotificationRecipientMemberId(
+  conversation: Pick<
+    typeof ChatConversation.$inferSelect,
+    "caretakerMemberId" | "contactMemberId"
+  >,
+  senderMemberId: string,
+) {
+  if (conversation.caretakerMemberId === senderMemberId) {
+    return conversation.contactMemberId;
+  }
+
+  if (conversation.contactMemberId === senderMemberId) {
+    return conversation.caretakerMemberId;
+  }
+
+  return null;
+}
+
+function getConversationParticipantDisplayName(
+  conversation: Pick<
+    ChatConversationRow,
+    "caretaker" | "caretakerMemberId" | "contact" | "contactMemberId"
+  >,
+  memberId: string,
+) {
+  if (conversation.caretakerMemberId === memberId) {
+    return conversation.caretaker?.name ?? "Miembro de Rastro";
+  }
+
+  if (conversation.contactMemberId === memberId) {
+    return conversation.contact?.name ?? "Miembro de Rastro";
+  }
+
+  return "Miembro de Rastro";
 }
 
 function assertConversationParticipant(

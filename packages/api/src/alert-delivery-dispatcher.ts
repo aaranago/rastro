@@ -1,16 +1,26 @@
 import type {
   AlertRepository,
-  PendingAlertNotificationDelivery,
+  PersistedAlertPushToken,
 } from "./alert-repository";
+
+export type ExpoPushMessageData =
+  | {
+      deepLink: string;
+      deliveryId: string;
+      reportId: string;
+      type: "alert_delivery";
+    }
+  | {
+      conversationId: string;
+      deepLink: string;
+      deliveryId: string;
+      messageId: string;
+      type: "chat_message";
+    };
 
 export interface ExpoPushMessage {
   body: string;
-  data: {
-    deepLink: string;
-    deliveryId: string;
-    reportId: string;
-    type: "alert_delivery";
-  };
+  data: ExpoPushMessageData;
   sound: "default";
   title: string;
   to: string;
@@ -47,6 +57,46 @@ export interface DispatchPendingAlertDeliveriesInput {
   pushClient: ExpoPushClient;
 }
 
+export interface PendingPushNotificationDelivery {
+  body: string;
+  deepLink: string;
+  id: string;
+  pushToken: PersistedAlertPushToken | null;
+  title: string;
+}
+
+export type PushDeliveryTransitionResult = object;
+
+export interface PushNotificationDeliveryRepository<
+  TDelivery extends PendingPushNotificationDelivery,
+> {
+  disablePushToken(input: {
+    pushTokenId: string;
+  }): Promise<PushDeliveryTransitionResult | null>;
+  listPendingDeliveries(input: { limit?: number }): Promise<TDelivery[]>;
+  markDeliveryFailed(input: {
+    deliveryId: string;
+    reason: string;
+  }): Promise<PushDeliveryTransitionResult | null>;
+  markDeliverySent(input: {
+    deliveryId: string;
+  }): Promise<PushDeliveryTransitionResult | null>;
+  markDeliverySkipped(input: {
+    deliveryId: string;
+    reason: string;
+  }): Promise<PushDeliveryTransitionResult | null>;
+}
+
+export interface DispatchPendingPushDeliveriesInput<
+  TDelivery extends PendingPushNotificationDelivery,
+> {
+  deliveryRepository: PushNotificationDeliveryRepository<TDelivery>;
+  limit?: number;
+  noActivePushTokenReason?: string;
+  pushClient: ExpoPushClient;
+  toMessageData: (delivery: TDelivery) => ExpoPushMessageData;
+}
+
 export interface ExpoPushClientOptions {
   endpoint?: string;
   fetch?: FetchLike;
@@ -77,9 +127,33 @@ export async function dispatchPendingAlertDeliveries({
   limit,
   pushClient,
 }: DispatchPendingAlertDeliveriesInput): Promise<AlertDeliveryDispatchResult> {
-  const pending = await alertRepository.listPendingDeliveries({ limit });
+  return dispatchPendingPushDeliveries({
+    deliveryRepository: alertRepository,
+    limit,
+    pushClient,
+    toMessageData: (delivery) => ({
+      deepLink: delivery.deepLink,
+      deliveryId: delivery.id,
+      reportId: delivery.reportId,
+      type: "alert_delivery",
+    }),
+  });
+}
+
+export async function dispatchPendingPushDeliveries<
+  TDelivery extends PendingPushNotificationDelivery,
+>({
+  deliveryRepository,
+  limit,
+  noActivePushTokenReason: noActivePushTokenReasonOverride,
+  pushClient,
+  toMessageData,
+}: DispatchPendingPushDeliveriesInput<TDelivery>): Promise<AlertDeliveryDispatchResult> {
+  const pending = await deliveryRepository.listPendingDeliveries({ limit });
   const { sendable, skipped } = await skipUndeliverableDeliveries({
-    alertRepository,
+    deliveryRepository,
+    noActivePushTokenReason:
+      noActivePushTokenReasonOverride ?? noActivePushTokenReason,
     pending,
   });
 
@@ -94,14 +168,16 @@ export async function dispatchPendingAlertDeliveries({
   }
 
   const tickets = await sendExpoPushMessagesInBatches({
-    messages: sendable.map(toExpoPushMessage),
+    messages: sendable.map((delivery) =>
+      toExpoPushMessage(delivery, toMessageData(delivery)),
+    ),
     pushClient,
   });
 
   assertTicketCountMatchesDeliveries(tickets, sendable);
 
   const { failed, sent } = await applyExpoPushTickets({
-    alertRepository,
+    deliveryRepository,
     deliveries: sendable,
     tickets,
   });
@@ -115,14 +191,18 @@ export async function dispatchPendingAlertDeliveries({
   };
 }
 
-async function skipUndeliverableDeliveries({
-  alertRepository,
+async function skipUndeliverableDeliveries<
+  TDelivery extends PendingPushNotificationDelivery,
+>({
+  deliveryRepository,
+  noActivePushTokenReason,
   pending,
 }: {
-  alertRepository: AlertRepository;
-  pending: PendingAlertNotificationDelivery[];
+  deliveryRepository: PushNotificationDeliveryRepository<TDelivery>;
+  noActivePushTokenReason: string;
+  pending: TDelivery[];
 }) {
-  const sendable: PendingAlertNotificationDelivery[] = [];
+  const sendable: TDelivery[] = [];
   let skipped = 0;
 
   for (const delivery of pending) {
@@ -131,7 +211,7 @@ async function skipUndeliverableDeliveries({
       continue;
     }
 
-    const transitioned = await alertRepository.markDeliverySkipped({
+    const transitioned = await deliveryRepository.markDeliverySkipped({
       deliveryId: delivery.id,
       reason: noActivePushTokenReason,
     });
@@ -170,20 +250,22 @@ async function sendExpoPushMessagesInBatches({
 
 function assertTicketCountMatchesDeliveries(
   tickets: ExpoPushTicket[],
-  deliveries: PendingAlertNotificationDelivery[],
+  deliveries: PendingPushNotificationDelivery[],
 ) {
   if (tickets.length !== deliveries.length) {
     throw new Error("Expo push did not return one ticket per delivery.");
   }
 }
 
-async function applyExpoPushTickets({
-  alertRepository,
+async function applyExpoPushTickets<
+  TDelivery extends PendingPushNotificationDelivery,
+>({
+  deliveryRepository,
   deliveries,
   tickets,
 }: {
-  alertRepository: AlertRepository;
-  deliveries: PendingAlertNotificationDelivery[];
+  deliveryRepository: PushNotificationDeliveryRepository<TDelivery>;
+  deliveries: TDelivery[];
   tickets: ExpoPushTicket[];
 }) {
   let failed = 0;
@@ -191,7 +273,7 @@ async function applyExpoPushTickets({
 
   for (const [index, delivery] of deliveries.entries()) {
     const result = await applyExpoPushTicket({
-      alertRepository,
+      deliveryRepository,
       delivery,
       ticket: readTicketAt(tickets, index),
     });
@@ -218,17 +300,19 @@ function readTicketAt(tickets: ExpoPushTicket[], index: number) {
   return ticket;
 }
 
-async function applyExpoPushTicket({
-  alertRepository,
+async function applyExpoPushTicket<
+  TDelivery extends PendingPushNotificationDelivery,
+>({
+  deliveryRepository,
   delivery,
   ticket,
 }: {
-  alertRepository: AlertRepository;
-  delivery: PendingAlertNotificationDelivery;
+  deliveryRepository: PushNotificationDeliveryRepository<TDelivery>;
+  delivery: TDelivery;
   ticket: ExpoPushTicket;
 }): Promise<"failed" | "sent" | "unchanged"> {
   if (ticket.status === "ok") {
-    const transitioned = await alertRepository.markDeliverySent({
+    const transitioned = await deliveryRepository.markDeliverySent({
       deliveryId: delivery.id,
     });
 
@@ -236,12 +320,12 @@ async function applyExpoPushTicket({
   }
 
   if (delivery.pushToken && ticket.details?.error === "DeviceNotRegistered") {
-    await alertRepository.disablePushToken({
+    await deliveryRepository.disablePushToken({
       pushTokenId: delivery.pushToken.id,
     });
   }
 
-  const transitioned = await alertRepository.markDeliveryFailed({
+  const transitioned = await deliveryRepository.markDeliveryFailed({
     deliveryId: delivery.id,
     reason: formatExpoPushTicketError(ticket),
   });
@@ -278,7 +362,8 @@ export function createExpoPushClient(
 }
 
 function toExpoPushMessage(
-  delivery: PendingAlertNotificationDelivery,
+  delivery: PendingPushNotificationDelivery,
+  data: ExpoPushMessageData,
 ): ExpoPushMessage {
   const token = delivery.pushToken?.token;
 
@@ -288,12 +373,7 @@ function toExpoPushMessage(
 
   return {
     body: delivery.body,
-    data: {
-      deepLink: delivery.deepLink,
-      deliveryId: delivery.id,
-      reportId: delivery.reportId,
-      type: "alert_delivery",
-    },
+    data,
     sound: "default",
     title: delivery.title,
     to: token,

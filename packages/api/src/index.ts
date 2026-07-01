@@ -36,11 +36,15 @@ export {
   dispatchPendingAlertDeliveries,
   type AlertDeliveryDispatchResult,
   type DispatchPendingAlertDeliveriesInput,
+  type DispatchPendingPushDeliveriesInput,
   type ExpoPushClient,
   type ExpoPushClientOptions,
   type ExpoPushMessage,
+  type ExpoPushMessageData,
   type ExpoPushTicket,
   type FetchLike,
+  type PendingPushNotificationDelivery,
+  type PushNotificationDeliveryRepository,
 } from "./alert-delivery-dispatcher";
 export {
   buildAdminMediaObjectKey,
@@ -50,6 +54,8 @@ export {
 } from "./admin-media-repository";
 export { cleanupAbandonedReportMediaUploads } from "./report-media-cleanup";
 export {
+  buildChatConversationDeepLink,
+  buildChatMessageNotification,
   buildReportSubjectHref,
   createDrizzleChatRepository,
   type ChatRepository,
@@ -61,6 +67,18 @@ export {
   type PersistedChatParticipant,
   type PersistedChatSubject,
 } from "./chat-repository";
+export {
+  createDrizzleChatNotificationDeliveryRepository,
+  type ChatNotificationDeliveryRepository,
+  type DrizzleChatNotificationDeliveryRepositoryOptions,
+  type PendingChatNotificationDelivery,
+  type PersistedChatNotificationDelivery,
+} from "./chat-notification-delivery-repository";
+export {
+  dispatchPendingChatNotificationDeliveries,
+  type ChatNotificationDeliveryDispatchResult,
+  type DispatchPendingChatNotificationDeliveriesInput,
+} from "./chat-notification-delivery-dispatcher";
 export {
   createDrizzleReportMediaRepository,
   type ReportMediaRepository,

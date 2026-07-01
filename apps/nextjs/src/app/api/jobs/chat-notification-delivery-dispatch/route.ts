@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 
 import {
-  createDrizzleAlertRepository,
+  createDrizzleChatNotificationDeliveryRepository,
   createExpoPushClient,
-  dispatchPendingAlertDeliveries,
+  dispatchPendingChatNotificationDeliveries,
 } from "@acme/api";
 import { db } from "@acme/db/client";
 
@@ -13,14 +13,16 @@ export const dynamic = "force-dynamic";
 
 async function handler(request: Request) {
   const invalidResponse = validateJobRequest(request, {
-    unconfiguredMessage: "Alert delivery dispatch job is not configured.",
+    unconfiguredMessage:
+      "Chat notification delivery dispatch job is not configured.",
   });
   if (invalidResponse) {
     return invalidResponse;
   }
 
-  const result = await dispatchPendingAlertDeliveries({
-    alertRepository: createDrizzleAlertRepository(db),
+  const result = await dispatchPendingChatNotificationDeliveries({
+    chatNotificationRepository:
+      createDrizzleChatNotificationDeliveryRepository(db),
     limit: parseJobLimit(request),
     pushClient: createExpoPushClient(),
   });

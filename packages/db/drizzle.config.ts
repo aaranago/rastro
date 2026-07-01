@@ -31,6 +31,7 @@ export default {
     "chat_conversation_hidden",
     "chat_conversation_block",
     "chat_conversation_report",
+    "chat_notification_delivery",
     "alert_subscription",
     "alert_push_token",
     "alert_notification_delivery",
