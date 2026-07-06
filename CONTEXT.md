@@ -1,7 +1,7 @@
 # Rastro
 
 Rastro is a community pet-recovery context. It defines the language for reporting, discovering, and resolving pet cases without treating animals as marketplace goods.
-When reactoring or implementing a feature always take the optimal most maintainable path regardless of effor or time required. It's a hardconstraint to prefer proper systems instead of bandaid patches.
+never go for the simplest solution When reactoring or implementing a feature always take the optimal most maintainable path regardless of effor or time required. It's a hardconstraint to prefer proper systems instead of bandaid patches.
 
 ## Language
 
