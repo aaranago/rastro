@@ -53,6 +53,7 @@ export const activityRouter = {
     .query(async ({ ctx, input }) => {
       const memberId = ctx.session.user.id;
       const limit = input.limit ?? defaultInboxLimit;
+      const focus = input.focus ?? "all";
       const now = new Date();
       const [
         alertDeliveries,
@@ -62,21 +63,33 @@ export const activityRouter = {
         candidateMatches,
         ownedReportPrompts,
       ] = await Promise.all([
-        ctx.alertRepository.listMemberDeliveryHistory({
-          limit,
-          memberId,
-        }),
-        ctx.chatRepository.listConversations({
-          viewerMemberId: memberId,
-        }),
-        listReportUpdateActivityRows(ctx.db, memberId, limit),
-        listModerationEventActivityRows(ctx.db, memberId, limit),
-        listCandidateMatchActivityRows(ctx.db, memberId, limit),
-        listOwnedReportPromptActivityRows(ctx.db, {
-          cutoff: getStaleActiveReportPromptCutoff(now),
-          limit,
-          memberId,
-        }),
+        shouldLoadAlertDeliveries(focus)
+          ? ctx.alertRepository.listMemberDeliveryHistory({
+              limit,
+              memberId,
+            })
+          : Promise.resolve([]),
+        shouldLoadChatConversations(focus)
+          ? ctx.chatRepository.listConversations({
+              viewerMemberId: memberId,
+            })
+          : Promise.resolve([]),
+        shouldLoadReportUpdates(focus)
+          ? listReportUpdateActivityRows(ctx.db, memberId, limit)
+          : Promise.resolve([]),
+        shouldLoadModerationEvents(focus)
+          ? listModerationEventActivityRows(ctx.db, memberId, limit)
+          : Promise.resolve([]),
+        shouldLoadCandidateMatches(focus)
+          ? listCandidateMatchActivityRows(ctx.db, memberId, limit)
+          : Promise.resolve([]),
+        shouldLoadOwnedReportPrompts(focus)
+          ? listOwnedReportPromptActivityRows(ctx.db, {
+              cutoff: getStaleActiveReportPromptCutoff(now),
+              limit,
+              memberId,
+            })
+          : Promise.resolve([]),
       ]);
       const nowIso = toIsoDateTime(now);
       const items = [
@@ -100,6 +113,7 @@ export const activityRouter = {
 
 type ActivityReportAvailability =
   ActivityInboxReportUpdateItemOutput["update"]["report"]["availability"];
+type ActivityInboxFocus = "all" | "conversations" | "reports";
 type ActivityReportKind =
   ActivityInboxReportUpdateItemOutput["update"]["report"]["kind"];
 type ActivityReportSummary =
@@ -158,6 +172,30 @@ const activityReportKindByType = {
   lost_pet: "lost-pet-report",
   sighting: "sighting-report",
 } satisfies Record<ReportType, ActivityReportKind>;
+
+function shouldLoadAlertDeliveries(focus: ActivityInboxFocus) {
+  return focus === "all";
+}
+
+function shouldLoadChatConversations(focus: ActivityInboxFocus) {
+  return focus === "all" || focus === "conversations";
+}
+
+function shouldLoadReportUpdates(focus: ActivityInboxFocus) {
+  return focus === "all" || focus === "reports";
+}
+
+function shouldLoadModerationEvents(focus: ActivityInboxFocus) {
+  return focus === "all";
+}
+
+function shouldLoadCandidateMatches(focus: ActivityInboxFocus) {
+  return focus === "all";
+}
+
+function shouldLoadOwnedReportPrompts(focus: ActivityInboxFocus) {
+  return focus === "all" || focus === "reports";
+}
 
 function listReportUpdateActivityRows(
   db: Database,

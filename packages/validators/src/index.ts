@@ -557,6 +557,7 @@ export const alertRegisterPushTokenOutputSchema = alertPushTokenOutputSchema;
 
 export const activityInboxInputSchema = z
   .object({
+    focus: z.enum(["all", "conversations", "reports"]).optional(),
     limit: z.number().int().min(1).max(100).optional(),
   })
   .strict();

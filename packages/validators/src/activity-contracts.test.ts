@@ -3,9 +3,15 @@ import { describe, expect, it } from "vitest";
 import { activityInboxInputSchema, activityInboxOutputSchema } from "./index";
 
 describe("activity validation contracts", () => {
-  it("accepts only an optional limit for inbox input", () => {
+  it("accepts optional focus and limit for inbox input", () => {
     expect(activityInboxInputSchema.parse({})).toEqual({});
-    expect(activityInboxInputSchema.parse({ limit: 25 })).toEqual({
+    expect(
+      activityInboxInputSchema.parse({
+        focus: "conversations",
+        limit: 25,
+      }),
+    ).toEqual({
+      focus: "conversations",
       limit: 25,
     });
     expect(

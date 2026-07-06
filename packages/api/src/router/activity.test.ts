@@ -246,6 +246,70 @@ describe("activity router", () => {
       },
     ]);
   });
+
+  it("loads conversation-focused inboxes without consuming the global alert/report slice", async () => {
+    const alertRepository = createFakeAlertRepository([createAlertDelivery()]);
+    const chatRepository = createFakeChatRepository([createConversation()]);
+    const db = createFakeActivityDb({
+      candidateMatches: [createCandidateMatchRow()],
+      moderationEvents: [createModerationEventRow()],
+      ownedReportPrompts: [createOwnedReportPromptRow()],
+      reportUpdates: [createReportUpdateRow()],
+    });
+    const caller = createCaller({
+      alertRepository,
+      authApi: {},
+      chatRepository,
+      db,
+      session: {
+        user: {
+          id: "member-camila",
+        },
+      },
+    });
+
+    const inbox = await caller.activity.inbox({
+      focus: "conversations",
+      limit: 1,
+    });
+
+    expect(alertRepository.historyInputs).toEqual([]);
+    expect(chatRepository.listInputs).toEqual([
+      {
+        viewerMemberId: "member-camila",
+      },
+    ]);
+    expect(db.limits).toEqual([]);
+    expect(inbox.items).toEqual([
+      {
+        conversation: {
+          href: `rastro://chats/${conversationId}`,
+          id: conversationId,
+          latestMessage: {
+            createdAt: "2026-07-01T12:05:00.000Z",
+            id: messageId,
+            senderMemberId: "member-diego",
+            text: "Lo vi cerca de la plaza.",
+          },
+          otherParticipant: {
+            displayName: "Diego",
+            memberId: "member-diego",
+          },
+          subject: {
+            href: `rastro://reportes/perdidos/${reportId}`,
+            id: reportId,
+            kind: "lost-pet-report",
+            subtitle: "Sopocachi, La Paz",
+            title: "Toby",
+          },
+          updatedAt: "2026-07-01T12:05:00.000Z",
+        },
+        id: conversationId,
+        occurredAt: "2026-07-01T12:05:00.000Z",
+        type: "chat_conversation",
+      },
+    ]);
+  });
 });
 
 type FakeAlertRepository = AlertRepository & {

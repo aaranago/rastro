@@ -21,6 +21,7 @@ export interface BuildActivityViewModelInput {
 }
 
 export interface ActivityInboxQuery {
+  focus?: "all" | "conversations" | "reports";
   limit?: number;
 }
 

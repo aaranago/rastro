@@ -233,7 +233,10 @@ export function createCachedActivityRepository({
 }
 
 function buildInboxQuery(input: ActivityInboxQuery): ActivityInboxQuery {
-  return typeof input.limit === "number" ? { limit: input.limit } : {};
+  return {
+    ...(input.focus ? { focus: input.focus } : {}),
+    ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
+  };
 }
 
 function normalizeActivityInbox(output: ApiActivityInboxOutput): ActivityInbox {

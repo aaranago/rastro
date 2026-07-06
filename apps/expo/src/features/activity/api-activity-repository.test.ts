@@ -200,11 +200,13 @@ describe("API Activity repository", () => {
     const repository = createApiActivityRepository({ client });
 
     await repository.getInbox({
+      focus: "conversations",
       limit: 20,
       memberId: "member-spoofed",
     } as unknown as Parameters<typeof repository.getInbox>[0]);
 
     expect(client.activity.inbox.query).toHaveBeenCalledWith({
+      focus: "conversations",
       limit: 20,
     });
     expect(

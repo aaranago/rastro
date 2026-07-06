@@ -687,6 +687,7 @@ describe("Activity screen links", () => {
     }>(screen);
 
     expect(findText(listProps.ListHeaderComponent, "Mis reportes")).toBe(true);
+    expect(repository.getInbox).toHaveBeenCalledWith({ focus: "reports" });
     expect(listProps.data.map((item) => item.testID)).toEqual([
       "activity-section-report-updates",
       "activity-item-report-update-report-update-1",
@@ -713,6 +714,9 @@ describe("Activity screen links", () => {
     expect(findText(listProps.ListHeaderComponent, "Mis conversaciones")).toBe(
       true,
     );
+    expect(repository.getInbox).toHaveBeenCalledWith({
+      focus: "conversations",
+    });
     expect(listProps.data.map((item) => item.testID)).toEqual([
       "activity-section-chats",
       "activity-item-chat-chat-conversation-1",
