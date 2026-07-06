@@ -331,6 +331,68 @@ describe("Resource Provider profile screen", () => {
     ).toBe(true);
   });
 
+  it("opens WhatsApp contact actions only through phone-derived wa.me URLs", async () => {
+    const adapter = createAdapter({
+      providerProfile: {
+        ...profile,
+        contactOptions: [
+          {
+            kind: "whatsapp",
+            label: "WhatsApp",
+            value: "+591 70000001",
+          },
+        ],
+      },
+    });
+
+    void renderScreen(createProfileScreen(adapter));
+    await flushEffects();
+    const readyScreen = renderScreen(createProfileScreen(adapter));
+
+    pressByText(readyScreen, "WhatsApp");
+    await flushPromises();
+
+    expect(linking.canOpenURL).toHaveBeenCalledWith(
+      "https://wa.me/59170000001",
+    );
+    expect(linking.openURL).toHaveBeenCalledWith(
+      "https://wa.me/59170000001",
+    );
+  });
+
+  it("does not open arbitrary HTTP links from WhatsApp contact actions", async () => {
+    const adapter = createAdapter({
+      providerProfile: {
+        ...profile,
+        contactOptions: [
+          {
+            kind: "whatsapp",
+            label: "WhatsApp",
+            value: "https://phishing.example/contact",
+          },
+        ],
+      },
+    });
+
+    void renderScreen(createProfileScreen(adapter));
+    await flushEffects();
+    const readyScreen = renderScreen(createProfileScreen(adapter));
+
+    pressByText(readyScreen, "WhatsApp");
+    await flushPromises();
+    const feedbackScreen = renderScreen(createProfileScreen(adapter));
+
+    expect(linking.canOpenURL).not.toHaveBeenCalled();
+    expect(linking.openURL).not.toHaveBeenCalled();
+    expect(findText(feedbackScreen, "No pudimos abrir el enlace")).toBe(true);
+    expect(
+      findText(
+        feedbackScreen,
+        'No encontramos una app compatible para abrir "WhatsApp".',
+      ),
+    ).toBe(true);
+  });
+
   it("shows inline feedback when opening a provider link fails", async () => {
     const adapter = createAdapter({
       providerProfile: {

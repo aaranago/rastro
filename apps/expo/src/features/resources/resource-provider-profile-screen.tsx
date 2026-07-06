@@ -986,19 +986,19 @@ function buildContactUrl(action: {
   value: string;
 }) {
   if (action.kind === "phone") {
-    const phone = action.value.replace(/[^\d+]/g, "");
+    const phone = normalizeContactPhoneForUrl(action.value, {
+      preserveLeadingPlus: true,
+    });
 
-    return phone.length > 0 ? `tel:${phone}` : undefined;
+    return phone ? `tel:${phone}` : undefined;
   }
 
   if (action.kind === "whatsapp") {
-    if (/^https?:\/\//i.test(action.value)) {
-      return action.value;
-    }
+    const phone = normalizeContactPhoneForUrl(action.value, {
+      preserveLeadingPlus: false,
+    });
 
-    const phone = action.value.replace(/\D/g, "");
-
-    return phone.length > 0 ? `https://wa.me/${phone}` : undefined;
+    return phone ? `https://wa.me/${phone}` : undefined;
   }
 
   if (action.kind === "email") {
@@ -1006,6 +1006,23 @@ function buildContactUrl(action: {
   }
 
   return action.value;
+}
+
+function normalizeContactPhoneForUrl(
+  value: string,
+  { preserveLeadingPlus }: { preserveLeadingPlus: boolean },
+) {
+  const trimmed = value.trim();
+
+  if (!/^\+?[0-9][0-9 ().-]*[0-9]$/.test(trimmed)) {
+    return undefined;
+  }
+
+  const normalized = preserveLeadingPlus
+    ? trimmed.replace(/[^\d+]/g, "")
+    : trimmed.replace(/\D/g, "");
+
+  return normalized.replace(/\D/g, "").length >= 6 ? normalized : undefined;
 }
 
 function normalizeProviderId(providerId: string | string[] | undefined) {
