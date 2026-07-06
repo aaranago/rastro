@@ -10,10 +10,20 @@ const alertSubscriptionRepository = createApiAlertSubscriptionRepository({
 });
 
 export default function AlertSubscriptionSettingsRoute() {
-  const { session } = useRastroShell();
+  const { requestAuthPrompt, session } = useRastroShell();
 
   return (
     <AlertSubscriptionSettingsScreen
+      onRequestSignIn={() => {
+        const returnTo = "/(tabs)/(profile)/alertas";
+
+        requestAuthPrompt({
+          returnTo,
+          sourceHref: `rastro://auth/sign-in?returnTo=${encodeURIComponent(
+            returnTo,
+          )}`,
+        });
+      }}
       repository={alertSubscriptionRepository}
       session={
         session.kind === "member"

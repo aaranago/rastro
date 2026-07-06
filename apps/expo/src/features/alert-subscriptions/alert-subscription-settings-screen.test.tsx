@@ -9,6 +9,7 @@ import type {
   AlertSubscription,
   AlertSubscriptionRepository,
   AlertSubscriptionsMemberSession,
+  AlertSubscriptionsSessionState,
 } from "./alert-subscriptions";
 import {
   AlertSubscriptionSettingsScreen,
@@ -238,22 +239,54 @@ describe("AlertSubscriptionSettingsScreen backend behavior", () => {
       ),
     ).toBe(true);
   });
+
+  it("keeps the visitor sign-in CTA enabled instead of disabling the advertised action", () => {
+    const onRequestSignIn = vi.fn();
+    const repository = createScreenRepository();
+    const nativeAdapter = createNativeAdapter();
+    const screen = renderSettingsScreen({
+      nativeAdapter,
+      onRequestSignIn,
+      repository,
+      session: { kind: "visitor" },
+    });
+
+    expect(findText(screen, "Sesión requerida")).toBe(true);
+
+    const signInButton = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.testID === "alert-subscription-enable-button",
+    );
+
+    expect(signInButton?.props.disabled).not.toBe(true);
+    void getPressableOnPress(signInButton)();
+
+    expect(onRequestSignIn).toHaveBeenCalledOnce();
+    expect(repository.enableAlertSubscription).not.toHaveBeenCalled();
+  });
 });
 
 function renderSettingsScreen({
   nativeAdapter,
+  onRequestSignIn,
   repository,
+  session = member,
 }: {
   nativeAdapter: AlertSubscriptionNativeAdapter;
+  onRequestSignIn?: () => void;
   repository: AlertSubscriptionRepository;
+  session?: AlertSubscriptionsSessionState;
 }) {
   reactState.cursor = 0;
 
   return renderFunctionElement(
     <AlertSubscriptionSettingsScreen
       nativeAdapter={nativeAdapter}
+      onRequestSignIn={onRequestSignIn}
       repository={repository}
-      session={member}
+      session={session}
     />,
   );
 }
@@ -416,7 +449,7 @@ function renderFunctionElement(node: React.ReactNode): React.ReactNode {
 
   const Component = node.type as (props: ElementProps) => React.ReactNode;
 
-  return Component(node.props);
+  return renderFunctionElement(Component(node.props));
 }
 
 function findPressableByText(

@@ -20,7 +20,7 @@ import { useRastroShell } from "~/features/shell/shell-provider";
 import { trpcClient } from "~/utils/api";
 
 export default function MisMascotasRoute() {
-  const { session } = useRastroShell();
+  const { requestAuthPrompt, session } = useRastroShell();
   const router = useRouter();
   const draftStore = useMemo(
     () =>
@@ -49,6 +49,16 @@ export default function MisMascotasRoute() {
     },
     [router],
   );
+  const requestSignIn = useCallback(() => {
+    const returnTo = "/(tabs)/(profile)/mis-mascotas";
+
+    requestAuthPrompt({
+      returnTo,
+      sourceHref: `rastro://auth/sign-in?returnTo=${encodeURIComponent(
+        returnTo,
+      )}`,
+    });
+  }, [requestAuthPrompt]);
 
   return (
     <MisMascotasScreen
@@ -56,6 +66,7 @@ export default function MisMascotasRoute() {
       draftStore={draftStore}
       onOpenRelatedRecord={openRelatedRecord}
       onRequestAddPhoto={requestPetProfilePhoto}
+      onRequestSignIn={requestSignIn}
       onStartReportFromProfile={startReportFromProfile}
       repository={repository}
       session={toPetProfilesSession(session)}

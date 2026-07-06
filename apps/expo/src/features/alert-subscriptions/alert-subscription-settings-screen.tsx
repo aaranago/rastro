@@ -32,6 +32,7 @@ import {
 import { createInMemoryAlertSubscriptionRepository } from "./alert-subscriptions";
 
 const bottomInset = 180;
+const noop = () => undefined;
 const defaultRepository = createInMemoryAlertSubscriptionRepository({
   now: () => new Date().toISOString(),
 });
@@ -49,6 +50,7 @@ const defaultLastDetectedLocation: AlertSubscriptionLocationSnapshot = {
 
 export interface AlertSubscriptionSettingsScreenProps {
   nativeAdapter?: AlertSubscriptionNativeAdapter;
+  onRequestSignIn?: () => void;
   repository?: AlertSubscriptionRepository;
   session: AlertSubscriptionsSessionState;
 }
@@ -73,6 +75,7 @@ interface AlertSubscriptionSettingsController {
   pauseAlerts: () => Promise<void>;
   pendingAction: PendingAction | null;
   refreshArea: () => Promise<void>;
+  requestSignIn?: () => void;
   retryNotifications: () => Promise<void>;
   selectRadius: (radiusKm: AlertSubscriptionRadiusKm) => Promise<void>;
   subscription: AlertSubscription | null;
@@ -83,12 +86,14 @@ interface AlertSubscriptionSettingsController {
 
 export function AlertSubscriptionSettingsScreen({
   nativeAdapter = expoAlertSubscriptionNativeAdapter,
+  onRequestSignIn,
   repository = defaultRepository,
   session,
 }: AlertSubscriptionSettingsScreenProps) {
   const safeAreaInsets = useSafeAreaInsets();
   const controller = useAlertSubscriptionSettingsController({
     nativeAdapter,
+    onRequestSignIn,
     repository,
     session,
   });
@@ -119,6 +124,7 @@ export function AlertSubscriptionSettingsScreen({
 
 function useAlertSubscriptionSettingsController({
   nativeAdapter = expoAlertSubscriptionNativeAdapter,
+  onRequestSignIn,
   repository = defaultRepository,
   session,
 }: AlertSubscriptionSettingsScreenProps): AlertSubscriptionSettingsController {
@@ -433,6 +439,7 @@ function useAlertSubscriptionSettingsController({
     pauseAlerts,
     pendingAction,
     refreshArea,
+    requestSignIn: onRequestSignIn,
     retryNotifications,
     selectRadius,
     subscription,
@@ -497,6 +504,32 @@ function SubscriptionPanel({
           value={viewModel.enabled}
         />
       </View>
+      <SubscriptionActionStack controller={controller} />
+    </View>
+  );
+}
+
+function SubscriptionActionStack({
+  controller,
+}: {
+  controller: AlertSubscriptionSettingsController;
+}) {
+  const { pendingAction, viewModel } = controller;
+
+  if (viewModel.action.id === "sign-in") {
+    return (
+      <ActionButton
+        disabled={!controller.requestSignIn || pendingAction !== null}
+        icon="bell.badge.fill"
+        label={getSubscriptionActionLabel(viewModel, pendingAction)}
+        onPress={controller.requestSignIn ?? noop}
+        testID="alert-subscription-enable-button"
+      />
+    );
+  }
+
+  return (
+    <>
       <ActionButton
         disabled={!viewModel.canManage || pendingAction !== null}
         icon={viewModel.enabled ? "bell.slash.fill" : "bell.badge.fill"}
@@ -530,7 +563,7 @@ function SubscriptionPanel({
           variant="danger"
         />
       ) : null}
-    </View>
+    </>
   );
 }
 

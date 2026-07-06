@@ -54,6 +54,7 @@ export interface MisMascotasScreenProps {
   draftStore?: CreationDraftStore;
   initialProfiles?: readonly PetProfileSummary[];
   onOpenRelatedRecord?: (record: PetProfileRelatedRecord) => void;
+  onRequestSignIn?: () => void;
   onRequestAddPhoto?: (
     draft: PetProfileDraft,
   ) => PetProfilePhoto | Promise<PetProfilePhoto | void> | void;
@@ -106,7 +107,12 @@ export function MisMascotasScreen(props: MisMascotasScreenProps) {
   const controller = useMisMascotasController(props);
 
   if (controller.viewModel.kind === "visitor") {
-    return <VisitorMisMascotasScreen viewModel={controller.viewModel} />;
+    return (
+      <VisitorMisMascotasScreen
+        onRequestSignIn={props.onRequestSignIn}
+        viewModel={controller.viewModel}
+      />
+    );
   }
 
   return (
@@ -468,8 +474,10 @@ function usePetProfilesDataSource({
 }
 
 function VisitorMisMascotasScreen({
+  onRequestSignIn,
   viewModel,
 }: {
+  onRequestSignIn?: () => void;
   viewModel: Extract<MisMascotasViewModel, { kind: "visitor" }>;
 }) {
   return (
@@ -498,7 +506,11 @@ function VisitorMisMascotasScreen({
         <Text selectable style={styles.panelBody}>
           {viewModel.explanationBody}
         </Text>
-        <PrimaryButton disabled label={viewModel.createActionLabel} />
+        <PrimaryButton
+          disabled={!onRequestSignIn}
+          label={viewModel.createActionLabel}
+          onPress={onRequestSignIn}
+        />
       </View>
       <PermissionNote />
     </ScrollView>
