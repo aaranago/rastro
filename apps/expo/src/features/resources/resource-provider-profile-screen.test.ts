@@ -733,7 +733,7 @@ describe("Resource Provider profile screen", () => {
     ).toBe(true);
   });
 
-  it("shows backend report failures instead of client-only success", async () => {
+  it("shows stable report failure copy instead of client-only success or raw backend text", async () => {
     const adapter = createAdapter({
       reportProvider: vi
         .fn<ResourcesAdapter["reportProvider"]>()
@@ -762,7 +762,15 @@ describe("Resource Provider profile screen", () => {
     const errorScreen = renderScreen(createProfileScreen(adapter));
 
     expect(findText(errorScreen, "No pudimos reportar")).toBe(true);
-    expect(findText(errorScreen, "Backend moderation unavailable.")).toBe(true);
+    expect(
+      findText(
+        errorScreen,
+        "No pudimos enviar el reporte. Intenta nuevamente.",
+      ),
+    ).toBe(true);
+    expect(findText(errorScreen, "Backend moderation unavailable.")).toBe(
+      false,
+    );
     expect(findText(errorScreen, "Reporte enviado")).toBe(false);
   });
 

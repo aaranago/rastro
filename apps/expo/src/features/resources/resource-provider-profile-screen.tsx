@@ -167,10 +167,7 @@ export function ResourceProviderProfileScreen({
 
         setLoadState({
           kind: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "No pudimos cargar el perfil del proveedor.",
+          message: getProviderProfileLoadFailureMessage(error),
           providerId: resolvedProviderId,
         });
       });
@@ -501,10 +498,7 @@ function useProviderReportWorkflow(adapter: ResourcesAdapter) {
       .catch((error: unknown) => {
         setReportState({
           kind: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "No pudimos enviar el reporte.",
+          message: getProviderReportFailureMessage(error),
         });
       });
   }, [adapter, reportDraft, reportState.kind]);
@@ -570,6 +564,28 @@ async function loadProviderProfile({
     profile: await adapter.getProviderProfile(providerId),
     providerId,
   };
+}
+
+function getProviderProfileLoadFailureMessage(error: unknown) {
+  if (isOfflineLikeError(error)) {
+    return "No pudimos cargar el perfil. Revisa tu conexión e inténtalo de nuevo.";
+  }
+
+  return "No pudimos cargar el perfil del proveedor. Intenta nuevamente.";
+}
+
+function getProviderReportFailureMessage(error: unknown) {
+  if (isOfflineLikeError(error)) {
+    return "No pudimos enviar el reporte. Revisa tu conexión e inténtalo de nuevo.";
+  }
+
+  return "No pudimos enviar el reporte. Intenta nuevamente.";
+}
+
+function isOfflineLikeError(error: unknown) {
+  return (
+    error instanceof Error && /network|fetch|offline|conex/i.test(error.message)
+  );
 }
 
 function recordProviderDetailsSponsorDelivery({
