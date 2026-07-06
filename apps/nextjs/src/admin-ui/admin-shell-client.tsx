@@ -1,8 +1,19 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  MenuIcon,
+  MonitorIcon,
+  MoonIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+  SearchIcon,
+  SunIcon,
+  XIcon,
+} from "lucide-react";
 
 import type { ThemeMode } from "@acme/ui/theme-script";
 import { cn } from "@acme/ui";
@@ -27,12 +38,14 @@ import {
 } from "./admin-navigation";
 
 interface AdminThemeOption {
+  Icon: LucideIcon;
   label: string;
   mode: ThemeMode;
   screenReaderLabel: string;
 }
 
 const defaultAdminThemeOption: AdminThemeOption = {
+  Icon: MonitorIcon,
   label: "Sistema",
   mode: "auto",
   screenReaderLabel: "automático",
@@ -40,11 +53,13 @@ const defaultAdminThemeOption: AdminThemeOption = {
 
 const adminThemeOptions: readonly AdminThemeOption[] = [
   {
+    Icon: SunIcon,
     label: "Claro",
     mode: "light",
     screenReaderLabel: "claro",
   },
   {
+    Icon: MoonIcon,
     label: "Oscuro",
     mode: "dark",
     screenReaderLabel: "oscuro",
@@ -118,11 +133,11 @@ export function AdminShellFrame(props: {
       className={cn(
         "lg:grid lg:min-h-screen",
         isSidebarCollapsed
-          ? "lg:grid-cols-[88px_minmax(0,1fr)]"
-          : "lg:grid-cols-[280px_minmax(0,1fr)]",
+          ? "lg:grid-cols-[64px_minmax(0,1fr)]"
+          : "lg:grid-cols-[220px_minmax(0,1fr)]",
       )}
     >
-      <aside className="border-border bg-background/95 hidden px-4 py-4 lg:sticky lg:top-0 lg:flex lg:min-h-screen lg:flex-col lg:border-r lg:px-5 lg:py-6">
+      <aside className="border-border bg-background/95 hidden px-4 py-4 lg:sticky lg:top-0 lg:flex lg:min-h-screen lg:flex-col lg:border-r">
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           <div
             className={cn(
@@ -144,7 +159,7 @@ export function AdminShellFrame(props: {
                 isSidebarCollapsed && "lg:sr-only",
               )}
             >
-              Operación es-BO
+              Operación
             </h1>
             <span
               aria-hidden="true"
@@ -157,11 +172,11 @@ export function AdminShellFrame(props: {
             </span>
             <p
               className={cn(
-                "text-muted-foreground mt-2 text-sm",
+                "text-muted-foreground mt-1 text-xs leading-5",
                 isSidebarCollapsed && "lg:sr-only",
               )}
             >
-              Panel interno para moderación, proveedores y seguridad.
+              Moderación, proveedores y seguridad.
             </p>
           </div>
           <AdminNavigation
@@ -192,7 +207,11 @@ export function AdminShellFrame(props: {
                 type="button"
                 variant="outline"
               >
-                <CollapseGlyph collapsed={isSidebarCollapsed} />
+                {isSidebarCollapsed ? (
+                  <PanelLeftOpenIcon aria-hidden="true" className="size-4" />
+                ) : (
+                  <PanelLeftCloseIcon aria-hidden="true" className="size-4" />
+                )}
               </Button>
               <AdminBreadcrumbs pathname={pathname} />
             </div>
@@ -210,14 +229,16 @@ export function AdminShellFrame(props: {
                 >
                   {props.roleLabel}
                 </Badge>
-                <span className="text-muted-foreground text-sm">Tema</span>
+                <span className="text-muted-foreground hidden text-sm sm:inline">
+                  Tema
+                </span>
                 <AdminHeaderThemeToggle />
               </div>
             </div>
           </div>
         </header>
 
-        <main className="min-w-0 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+        <main className="min-w-0 px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
           {props.children}
         </main>
       </div>
@@ -240,7 +261,7 @@ function AdminMobileNavigationDrawer(props: {
           type="button"
           variant="outline"
         >
-          <MenuGlyph />
+          <MenuIcon aria-hidden="true" className="size-4" />
         </Button>
       </SheetTrigger>
       <SheetContent
@@ -258,7 +279,7 @@ function AdminMobileNavigationDrawer(props: {
               type="button"
               variant="ghost"
             >
-              <CloseGlyph />
+              <XIcon aria-hidden="true" className="size-4" />
             </Button>
           </SheetClose>
         </SheetHeader>
@@ -348,7 +369,7 @@ function AdminHeaderCommandSearch(props: { pathname: string }) {
   };
 
   return (
-    <div className="relative min-w-0 sm:w-80">
+    <div className="relative hidden min-w-0 md:block md:w-72 xl:w-80">
       <form
         action="/admin"
         className="relative"
@@ -362,7 +383,10 @@ function AdminHeaderCommandSearch(props: { pathname: string }) {
           aria-hidden="true"
           className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
         >
-          <SearchGlyph />
+          <SearchIcon
+            aria-hidden="true"
+            className="text-muted-foreground size-4"
+          />
         </span>
         <Input
           autoComplete="off"
@@ -425,59 +449,26 @@ export function AdminHeaderThemeToggle() {
       className="border-border bg-background/80 grid grid-cols-3 rounded-md border p-1"
       role="group"
     >
-      {adminThemeOptions.map((option) => (
-        <Button
-          aria-label={`Usar tema ${option.screenReaderLabel}`}
-          aria-pressed={selectedMode === option.mode}
-          className="h-8 min-w-0 rounded-sm px-2 text-xs sm:px-3"
-          key={option.mode}
-          onClick={() => handleThemeChange(option.mode)}
-          type="button"
-          variant={selectedMode === option.mode ? "default" : "ghost"}
-        >
-          {option.label}
-        </Button>
-      ))}
+      {adminThemeOptions.map((option) => {
+        const Icon = option.Icon;
+
+        return (
+          <Button
+            aria-label={`Usar tema ${option.screenReaderLabel}`}
+            aria-pressed={selectedMode === option.mode}
+            className="size-8 min-w-0 rounded-sm p-0"
+            key={option.mode}
+            onClick={() => handleThemeChange(option.mode)}
+            title={option.label}
+            type="button"
+            variant={selectedMode === option.mode ? "default" : "ghost"}
+          >
+            <Icon aria-hidden="true" className="size-4" />
+            <span className="sr-only">{option.label}</span>
+          </Button>
+        );
+      })}
     </div>
-  );
-}
-
-function MenuGlyph() {
-  return (
-    <span
-      aria-hidden="true"
-      className="flex size-4 flex-col justify-center gap-1"
-    >
-      <span className="h-0.5 w-4 rounded-full bg-current" />
-      <span className="h-0.5 w-4 rounded-full bg-current" />
-      <span className="h-0.5 w-4 rounded-full bg-current" />
-    </span>
-  );
-}
-
-function CloseGlyph() {
-  return (
-    <span aria-hidden="true" className="relative size-4">
-      <span className="absolute top-1/2 left-0 h-0.5 w-4 rotate-45 rounded-full bg-current" />
-      <span className="absolute top-1/2 left-0 h-0.5 w-4 -rotate-45 rounded-full bg-current" />
-    </span>
-  );
-}
-
-function CollapseGlyph(props: { collapsed: boolean }) {
-  return (
-    <span aria-hidden="true" className="text-base leading-none">
-      {props.collapsed ? ">" : "<"}
-    </span>
-  );
-}
-
-function SearchGlyph() {
-  return (
-    <span aria-hidden="true" className="relative block size-4">
-      <span className="border-muted-foreground absolute top-0 left-0 size-3 rounded-full border-2" />
-      <span className="bg-muted-foreground absolute right-0 bottom-0 h-2 w-0.5 rotate-[-45deg] rounded-full" />
-    </span>
   );
 }
 

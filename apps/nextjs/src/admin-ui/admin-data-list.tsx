@@ -281,8 +281,11 @@ function AdminDataListDesktopTable<TRow>(props: {
   tableCaption: string;
 }) {
   return (
-    <div className="hidden min-w-0 md:block">
-      <Table className="table-fixed">
+    <div
+      className="hidden min-w-0 overflow-x-auto md:block"
+      data-admin-data-list-table-scroll
+    >
+      <Table className="min-w-[760px] table-fixed">
         <TableCaption className="sr-only">{props.tableCaption}</TableCaption>
         <AdminDataListTableHeader
           columns={props.columns}

@@ -37,15 +37,14 @@ describe("public download page", () => {
     expect(html).toContain(
       'href="/adopciones/22222222-2222-4222-8222-222222220001"',
     );
-    expect(html).toContain("Reportes");
     expect(html).toContain("Adopciones");
-    expect(html).toContain("Recursos");
     expect(html).toContain("Instalación");
-    expect(html).toContain("Instalar, abrir o solicitar acceso");
     expect(html).toContain("Disponible pronto");
     expect(html).toContain("Solicitar acceso Android");
     expect(html).toContain("Solicitar aviso iPhone");
     expect(html).toContain("rastro-app-activity.png");
+    expect(html).not.toContain("Instalar, abrir o solicitar acceso");
+    expect(html).not.toContain("Contextos de Rastro");
     expect(html).not.toContain("Instalacion");
     expect(html).not.toMatch(/precio|compra|comprar|venta|vender|marketplace/i);
   });

@@ -14,16 +14,15 @@ export function PublicPhotoGrid({ photos }: PublicPhotoGridProps) {
     return null;
   }
 
+  const [primaryPhoto, ...secondaryPhotos] = photos;
+  const hiddenPhotoCount = Math.max(0, secondaryPhotos.length - 2);
+
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {photos.map((photo, index) => (
+    <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(140px,0.38fr)]">
+      {primaryPhoto ? (
         <div
-          className={
-            index === 0
-              ? "bg-muted relative aspect-[4/3] w-full overflow-hidden rounded-lg sm:col-span-2"
-              : "bg-muted relative aspect-[4/3] w-full overflow-hidden rounded-lg"
-          }
-          key={photo.src}
+          className="bg-muted relative aspect-[4/3] w-full min-w-0 overflow-hidden rounded-lg"
+          key={primaryPhoto.src}
         >
           <div
             aria-hidden="true"
@@ -34,16 +33,40 @@ export function PublicPhotoGrid({ photos }: PublicPhotoGridProps) {
             </span>
           </div>
           <Image
-            alt={photo.alt}
+            alt={primaryPhoto.alt}
             className="object-cover"
             fill
-            priority={index === 0}
-            sizes={index === 0 ? "(min-width: 640px) 60vw, 100vw" : "50vw"}
-            src={photo.src}
+            priority
+            sizes="(min-width: 1024px) 56vw, 100vw"
+            src={primaryPhoto.src}
             unoptimized
           />
         </div>
-      ))}
+      ) : null}
+      {secondaryPhotos.length > 0 ? (
+        <div className="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-1">
+          {secondaryPhotos.slice(0, 2).map((photo, index) => (
+            <div
+              className="bg-muted relative aspect-[4/3] min-w-0 overflow-hidden rounded-lg"
+              key={photo.src}
+            >
+              <Image
+                alt={photo.alt}
+                className="object-cover"
+                fill
+                sizes="(min-width: 1024px) 16rem, 50vw"
+                src={photo.src}
+                unoptimized
+              />
+              {index === 1 && hiddenPhotoCount > 0 ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/45 text-sm font-semibold text-white">
+                  +{hiddenPhotoCount}
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

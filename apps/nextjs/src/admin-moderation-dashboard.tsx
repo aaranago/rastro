@@ -251,7 +251,7 @@ export function AdminModerationDashboard(props: AdminModerationDashboardProps) {
   const summaryStats = getSummaryStats(flaggedItems);
 
   return (
-    <main className="bg-background min-h-screen overflow-x-hidden">
+    <div className="min-w-0">
       <div className="mx-auto grid w-full max-w-[1500px] min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="flex min-w-0 flex-col gap-6">
           <AdminDashboardHeader viewer={props.viewer} />
@@ -278,7 +278,7 @@ export function AdminModerationDashboard(props: AdminModerationDashboardProps) {
           <AbuseMetrics metrics={props.metrics} />
         </aside>
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -298,7 +298,7 @@ export function AdminModerationReviewDetail(props: {
   const risk = getModerationRisk(props.item);
 
   return (
-    <main className="bg-background min-h-screen overflow-x-hidden">
+    <div className="min-w-0">
       <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-6">
         <header className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs">
           <Button asChild className="w-fit" size="sm" variant="outline">
@@ -418,7 +418,7 @@ export function AdminModerationReviewDetail(props: {
           </aside>
         </section>
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -606,10 +606,7 @@ function NativeFilterSelect(props: {
 
 function ModerationQueues(props: {
   filters: AdminModerationFilters;
-  hrefForPage?: (
-    queue: AdminModerationQueueSection,
-    page: number,
-  ) => string;
+  hrefForPage?: (queue: AdminModerationQueueSection, page: number) => string;
   hrefForSort?: (
     queue: AdminModerationQueueSection,
     sort: AdminModerationQueueSortOption,
@@ -677,10 +674,7 @@ function ModerationSummary(props: { stats: AdminModerationSummaryStats }) {
 
 function FlaggedContentQueue(props: {
   filters: AdminModerationFilters;
-  hrefForPage?: (
-    queue: AdminModerationQueueSection,
-    page: number,
-  ) => string;
+  hrefForPage?: (queue: AdminModerationQueueSection, page: number) => string;
   hrefForSort?: (
     queue: AdminModerationQueueSection,
     sort: AdminModerationQueueSortOption,
@@ -784,7 +778,7 @@ function getNextModerationSortDirection(
 
 function AdminAccessDenied(props: { viewer: AdminModerationViewer }) {
   return (
-    <main className="bg-background min-h-screen">
+    <div className="min-w-0">
       <section
         aria-labelledby="admin-access-denied-heading"
         className="container flex min-h-screen items-center justify-center py-8"
@@ -808,7 +802,7 @@ function AdminAccessDenied(props: { viewer: AdminModerationViewer }) {
           </p>
         </div>
       </section>
-    </main>
+    </div>
   );
 }
 

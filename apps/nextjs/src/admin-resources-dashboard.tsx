@@ -198,8 +198,8 @@ export function AdminResourcesDashboard(props: AdminResourcesDashboardProps) {
   const stats = getSummaryStats(props.providers, props.metrics);
 
   return (
-    <main className="bg-background min-h-screen [&_*]:box-border">
-      <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 px-4 sm:px-6 lg:px-8">
+    <div className="min-w-0 [&_*]:box-border">
+      <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6">
         <AdminResourcesHeader title={props.title} viewer={props.viewer} />
         {props.notice ? <AdminResourcesNotice notice={props.notice} /> : null}
         <AdminResourcesSummary stats={stats} />
@@ -220,7 +220,7 @@ export function AdminResourcesDashboard(props: AdminResourcesDashboardProps) {
           </aside>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -2639,7 +2639,7 @@ function AdminResourcesAccessDenied(props: {
   viewer: AdminResourcesViewer;
 }) {
   return (
-    <main className="bg-background min-h-screen">
+    <div className="min-w-0">
       <section
         aria-labelledby="admin-resources-access-denied-heading"
         className="container flex min-h-screen items-center justify-center py-8"
@@ -2662,7 +2662,7 @@ function AdminResourcesAccessDenied(props: {
           </p>
         </div>
       </section>
-    </main>
+    </div>
   );
 }
 

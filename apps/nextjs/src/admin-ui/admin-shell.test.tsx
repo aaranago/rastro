@@ -63,7 +63,7 @@ describe("admin shell foundation", () => {
 
     expect(html).toContain("grid w-full min-w-0 grid-cols-1");
     expect(html).toContain("sm:grid-cols-2");
-    expect(html).toContain("min-h-12");
+    expect(html).toContain("min-h-11");
     expect(html).toContain("focus-visible:ring-[3px]");
     expect(html).not.toContain("overflow-x-auto");
   });
@@ -107,6 +107,7 @@ describe("admin shell foundation", () => {
     expect(html).toContain("Claro");
     expect(html).toContain("Oscuro");
     expect(html).toContain("Sistema");
+    expect(html).toContain("sr-only");
     expect(html).not.toContain("Toggle theme");
   });
 });

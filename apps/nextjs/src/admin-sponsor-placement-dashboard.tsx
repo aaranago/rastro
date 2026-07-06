@@ -107,7 +107,7 @@ export function AdminSponsorPlacementDashboard(
   }
 
   return (
-    <main className="bg-background min-h-screen overflow-x-hidden [&_*]:box-border">
+    <div className="min-w-0 [&_*]:box-border">
       <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6">
         <SponsorHeader
           formAction={props.formAction}
@@ -123,7 +123,7 @@ export function AdminSponsorPlacementDashboard(
           workflowFeedback={props.workflowFeedback}
         />
       </div>
-    </main>
+    </div>
   );
 }
 

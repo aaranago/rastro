@@ -251,6 +251,7 @@ describe("AdminDataList", () => {
 
     expect(html).toContain(longValue);
     expect(html).toContain("table-fixed");
+    expect(html).toContain("data-admin-data-list-table-scroll");
     expect(html).toMatch(/data-slot="table-cell"[^>]*break-words/);
     expect(html).toContain('class="mt-1 min-w-0 break-words"');
   });

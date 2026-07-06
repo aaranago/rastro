@@ -67,7 +67,8 @@ describe("AdminResourcesDashboard", () => {
     expect(html).toContain("min-w-[220px]");
     expect(html).toContain("whitespace-normal");
     expect(html).toContain("text-left");
-    expect(html).toContain("px-4 sm:px-6 lg:px-8");
+    expect(html).toContain("[&amp;_*]:box-border");
+    expect(html).not.toContain("px-4 sm:px-6 lg:px-8");
     expect(html).toContain("table-fixed");
     expect(html).toContain("Verif.");
     expect(html).toContain("Patroc.");

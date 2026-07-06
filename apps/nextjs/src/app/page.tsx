@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { BellIcon, MapIcon, UsersRoundIcon } from "lucide-react";
 
 import { buildAppDownloadPath } from "~/public-report-detail-mapping";
 import { AuthShowcase } from "./_components/auth-showcase";
@@ -34,6 +35,7 @@ const primaryActions = [
 
 const publicSections = [
   {
+    Icon: BellIcon,
     cta: "Abrir reportes en la app",
     heading: "Reportes comunitarios",
     href: buildAppDownloadPath({
@@ -43,6 +45,7 @@ const publicSections = [
     text: "Perdidos, encontrados y avistamientos se organizan por ubicación aproximada para cuidar datos sensibles.",
   },
   {
+    Icon: UsersRoundIcon,
     cta: "Abrir Rastro",
     heading: "Adopciones responsables",
     href: buildAppDownloadPath({
@@ -52,6 +55,7 @@ const publicSections = [
     text: "Las publicaciones de adopción se mantienen fuera de compras, ventas o subastas.",
   },
   {
+    Icon: MapIcon,
     cta: "Ver recursos locales",
     heading: "Recursos en Bolivia",
     href: buildAppDownloadPath({
@@ -71,16 +75,17 @@ export default async function HomePage(props: { searchParams: SearchParams }) {
   const searchParams = await props.searchParams;
   const authStatus = getSingleSearchParam(searchParams, "auth");
   const authReturnTo = getSingleSearchParam(searchParams, "returnTo");
+  const [primaryAction, ...secondaryActions] = primaryActions;
 
   return (
-    <main className="min-h-screen">
-      <section className="border-border bg-card border-b">
-        <div className="container grid gap-10 py-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:py-16">
-          <div className="max-w-3xl">
+    <main className="bg-background min-h-screen">
+      <section className="border-border/70 bg-card border-b">
+        <div className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-7xl gap-8 px-5 py-10 sm:px-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-center lg:px-8 lg:py-12">
+          <div className="max-w-2xl min-w-0">
             <p className="text-primary text-sm font-semibold uppercase">
               Red de recuperación en Bolivia
             </p>
-            <h1 className="mt-3 text-4xl font-extrabold tracking-normal sm:text-6xl">
+            <h1 className="mt-3 text-5xl font-extrabold tracking-normal sm:text-6xl">
               Rastro
             </h1>
             <p className="text-muted-foreground mt-5 max-w-2xl text-lg">
@@ -89,90 +94,92 @@ export default async function HomePage(props: { searchParams: SearchParams }) {
               sensibles.
             </p>
 
-            <div className="mt-8 flex flex-wrap gap-3">
-              {primaryActions.map((action) => (
-                <a
-                  aria-label={action.label}
-                  className={
-                    action.tone === "primary"
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90 inline-flex min-h-11 w-full items-center justify-center rounded-md px-5 py-3 text-sm font-semibold sm:w-auto"
-                      : "border-border bg-background text-foreground hover:bg-muted inline-flex min-h-11 w-full items-center justify-center rounded-md border px-5 py-3 text-sm font-semibold sm:w-auto"
-                  }
-                  href={action.href}
-                  key={action.href}
-                >
-                  {action.label}
-                </a>
-              ))}
+            <div className="mt-8 grid gap-4">
+              <a
+                aria-label={primaryAction.label}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex min-h-12 w-full items-center justify-center rounded-md px-5 py-3 text-sm font-semibold sm:w-fit sm:min-w-64"
+                href={primaryAction.href}
+              >
+                {primaryAction.label}
+              </a>
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                {secondaryActions.map((action) => (
+                  <a
+                    aria-label={action.label}
+                    className="text-primary hover:text-primary/80 inline-flex min-h-9 items-center text-sm font-semibold"
+                    href={action.href}
+                    key={action.href}
+                  >
+                    {action.label}
+                    <span aria-hidden="true" className="ml-2">
+                      &gt;
+                    </span>
+                  </a>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="border-border bg-background rounded-lg border p-5 shadow-xs">
-            <p className="text-muted-foreground text-sm font-medium">
-              Funciones en la app
-            </p>
-            <div className="mt-4 grid gap-4">
-              {publicSections.map((section) => (
-                <a
-                  className="border-border hover:bg-muted/60 block rounded-md border p-4 transition"
-                  href={section.href}
-                  key={section.heading}
-                >
-                  <h2 className="text-base font-semibold">{section.heading}</h2>
-                  <p className="text-muted-foreground mt-2 text-sm">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-[0.9fr_1fr_0.9fr] lg:items-center">
+            <PhoneScreenshot
+              alt="Pantalla de actividad de Rastro con coincidencias, mensajes y actualizaciones"
+              priority
+              src="/rastro-app-activity.png"
+            />
+            <PhoneScreenshot
+              alt="Pantalla de recursos de Rastro con mapa y proveedor local seleccionado"
+              className="hidden sm:block"
+              src="/rastro-app-resources.png"
+            />
+            <PhoneScreenshot
+              alt="Pantalla de acceso de Rastro para gestionar reportes y contactos"
+              className="hidden lg:block"
+              priority
+              src="/rastro-app-activity.png"
+            />
+          </div>
+        </div>
+
+        <div className="border-border bg-background border-t">
+          <div className="mx-auto grid w-full max-w-7xl gap-3 px-5 py-4 sm:px-6 md:grid-cols-3 lg:px-8">
+            {publicSections.map((section) => (
+              <a
+                className="hover:bg-muted/70 flex min-w-0 items-start gap-3 rounded-md px-3 py-3 transition"
+                href={section.href}
+                key={section.heading}
+              >
+                <span className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-md">
+                  <section.Icon aria-hidden="true" className="size-5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold">
+                    {section.heading}
+                  </span>
+                  <span className="text-muted-foreground mt-1 block text-sm leading-5">
                     {section.text}
-                  </p>
-                  <p className="text-primary mt-3 text-sm font-semibold">
+                  </span>
+                  <span className="text-primary mt-1 block text-sm font-semibold">
                     {section.cta}
-                  </p>
-                </a>
-              ))}
-            </div>
+                  </span>
+                </span>
+              </a>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="container grid gap-6 py-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-        <div>
-          <p className="text-muted-foreground text-sm font-medium">
-            Vista real de Rastro
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold">
-            Casos, mensajes y recursos en un solo flujo móvil
-          </h2>
-          <p className="text-muted-foreground mt-3 leading-7">
-            La app muestra actividad comunitaria, reportes y servicios con zonas
-            aproximadas para coordinar ayuda sin publicar coordenadas exactas.
-          </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Image
-            alt="Pantalla de actividad de Rastro con coincidencias, mensajes y actualizaciones"
-            className="border-border bg-card h-96 w-full rounded-lg border object-cover object-top shadow-xs"
-            height={2400}
-            priority
-            src="/rastro-app-activity.png"
-            width={1080}
-          />
-          <Image
-            alt="Pantalla de recursos de Rastro con mapa y proveedor local seleccionado"
-            className="border-border bg-card h-96 w-full rounded-lg border object-cover object-top shadow-xs"
-            height={2400}
-            src="/rastro-app-resources.png"
-            width={1080}
-          />
-        </div>
-      </section>
-
-      <section className="container py-10" aria-labelledby="member-access">
-        <div className="mb-5 max-w-4xl">
+      <section
+        className="mx-auto grid w-full max-w-7xl gap-6 px-5 py-10 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:px-8"
+        aria-labelledby="member-access"
+      >
+        <div className="max-w-xl">
           <p className="text-muted-foreground text-sm font-medium">
             Acceso para miembros
           </p>
-          <h2 id="member-access" className="text-2xl font-semibold">
+          <h2 id="member-access" className="mt-2 text-2xl font-semibold">
             Gestiona tus reportes y contactos
           </h2>
-          <p className="text-muted-foreground mt-2 text-sm">
+          <p className="text-muted-foreground mt-2 text-sm leading-6">
             Inicia sesión para responder mensajes, revisar tus publicaciones y
             mantener actualizada tu información.
           </p>
@@ -181,5 +188,32 @@ export default async function HomePage(props: { searchParams: SearchParams }) {
         <AuthShowcase returnTo={authReturnTo} status={authStatus} />
       </section>
     </main>
+  );
+}
+
+function PhoneScreenshot(props: {
+  alt: string;
+  className?: string;
+  priority?: boolean;
+  src: string;
+}) {
+  return (
+    <div
+      className={[
+        "border-border bg-background relative mx-auto aspect-[9/20] w-full max-w-[13rem] overflow-hidden rounded-lg border shadow-xs sm:max-w-[15rem] lg:max-w-[17rem]",
+        props.className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <Image
+        alt={props.alt}
+        className="object-cover object-top"
+        fill
+        priority={props.priority}
+        sizes="(min-width: 1024px) 17rem, (min-width: 640px) 15rem, 13rem"
+        src={props.src}
+      />
+    </div>
   );
 }

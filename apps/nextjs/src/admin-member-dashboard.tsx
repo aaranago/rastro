@@ -85,7 +85,7 @@ const moderationActionLabels = {
 
 export function AdminMemberDashboard(props: AdminMemberDashboardProps) {
   return (
-    <main className="bg-background min-h-screen overflow-x-hidden [&_*]:box-border">
+    <div className="min-w-0 [&_*]:box-border">
       <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6">
         <AdminMemberHeader viewer={props.viewer} />
         <AdminMemberNotice feedback={props.workflowFeedback} />
@@ -112,7 +112,7 @@ export function AdminMemberDashboard(props: AdminMemberDashboardProps) {
           </section>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -269,9 +269,6 @@ function getMemberListColumns(
           <span className="text-muted-foreground block text-xs break-all">
             {member.email}
           </span>
-          <span className="text-muted-foreground mt-1 block text-xs break-all">
-            {member.id}
-          </span>
         </a>
       ),
       header: "Miembro",
@@ -315,9 +312,6 @@ function MemberListCard(props: { member: AdminMemberListItem; query: string }) {
           </span>
           <span className="text-muted-foreground block truncate text-sm">
             {props.member.email}
-          </span>
-          <span className="text-muted-foreground mt-1 block truncate text-xs">
-            {props.member.id}
           </span>
         </span>
         <MemberStateBadge

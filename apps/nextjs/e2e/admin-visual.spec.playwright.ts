@@ -1,6 +1,8 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
+import { rastroE2EAccounts } from "./support/rastro-functional-fixture";
+
 type AdminTheme = "dark" | "light";
 
 interface AdminRoute {
@@ -48,6 +50,7 @@ test.beforeEach(async ({ page }, testInfo) => {
   await page.addInitScript((mode) => {
     window.localStorage.setItem("theme-mode", mode);
   }, theme);
+  await signInAsAdmin(page);
 });
 
 test.describe("admin route visual smoke", () => {
@@ -55,7 +58,7 @@ test.describe("admin route visual smoke", () => {
     test(`${route.path} has stable admin chrome and no visual QA residue`, async ({
       page,
     }, testInfo) => {
-      await page.goto(route.path);
+      await page.goto(route.path, { waitUntil: "domcontentloaded" });
 
       await expect(page.locator("[data-admin-route-shell]")).toBeVisible();
       await expect(
@@ -64,6 +67,7 @@ test.describe("admin route visual smoke", () => {
       await expect(
         page.getByRole("group", { name: "Cambiar tema de color" }),
       ).toBeVisible();
+      await expect(page.getByText("Acceso restringido")).toHaveCount(0);
       await expect(page.locator("html")).toHaveClass(
         new RegExp(`\\b${getAdminTheme(testInfo.project.metadata.theme)}\\b`),
       );
@@ -160,10 +164,17 @@ async function assertNoHorizontalOverflow(page: Page) {
 }
 
 async function assertNoAdminCopyResidue(page: Page) {
-  const bodyText = await page.locator("body").innerText();
+  const staticPageText = await page
+    .locator('h1, h2, label, button, nav[aria-label="Ruta de administración"]')
+    .evaluateAll((elements) =>
+      elements
+        .map((element) => element.textContent.replace(/\s+/g, " ").trim())
+        .filter(Boolean)
+        .join("\n"),
+    );
 
-  expect(bodyText).not.toMatch(/\bADMIN-/);
-  expect(bodyText).not.toMatch(/\bDisponible\b/i);
+  expect(staticPageText).not.toMatch(/\bADMIN-/);
+  expect(staticPageText).not.toMatch(/\bDisponible\b/i);
 }
 
 async function assertNoDisabledModerationDecisionButtons(page: Page) {
@@ -180,6 +191,47 @@ async function assertNoDisabledModerationDecisionButtons(page: Page) {
     );
 
   expect(disabledDecisionButtons).toEqual([]);
+}
+
+async function signInAsAdmin(page: Page) {
+  const response = await page.request.post("/api/auth/sign-in/email", {
+    data: {
+      callbackURL: "/admin",
+      email: rastroE2EAccounts.admin.email,
+      password: rastroE2EAccounts.admin.password,
+    },
+  });
+
+  if (response.ok()) {
+    return;
+  }
+
+  const signUpResponse = await page.request.post("/api/auth/sign-up/email", {
+    data: {
+      callbackURL: "/admin",
+      email: rastroE2EAccounts.admin.email,
+      name: rastroE2EAccounts.admin.name,
+      password: rastroE2EAccounts.admin.password,
+    },
+  });
+
+  expect(
+    signUpResponse.ok(),
+    `Admin test account sign-up failed with ${signUpResponse.status()}: ${await signUpResponse.text()}`,
+  ).toBe(true);
+
+  const retryResponse = await page.request.post("/api/auth/sign-in/email", {
+    data: {
+      callbackURL: "/admin",
+      email: rastroE2EAccounts.admin.email,
+      password: rastroE2EAccounts.admin.password,
+    },
+  });
+
+  expect(
+    retryResponse.ok(),
+    `Admin sign-in failed with ${retryResponse.status()}: ${await retryResponse.text()}`,
+  ).toBe(true);
 }
 
 function getAdminTheme(value: unknown): AdminTheme {

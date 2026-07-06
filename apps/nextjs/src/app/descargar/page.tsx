@@ -72,21 +72,6 @@ const contextContent = {
   { eyebrow: string; lead: string; title: string }
 >;
 
-const useCases = [
-  {
-    body: "Revisa fotos, zona aproximada, estado del caso y opciones de contacto para ayudar a reunir mascotas.",
-    title: "Reportes",
-  },
-  {
-    body: "Consulta publicaciones de adopción responsable y conversa con la persona a cargo.",
-    title: "Adopciones",
-  },
-  {
-    body: "Encuentra veterinarias, refugios, tiendas y servicios útiles cerca de tu ciudad.",
-    title: "Recursos",
-  },
-];
-
 const installOptions = [
   {
     body: "La publicación en Google Play todavía no está disponible. Conserva el enlace y solicita acceso mientras se habilita la tienda.",
@@ -138,13 +123,13 @@ export default async function DownloadPage(props: DownloadPageProps) {
 
   return (
     <main className="bg-background min-h-screen">
-      <section className="container grid gap-8 py-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)] lg:py-14">
-        <div className="flex flex-col gap-6 lg:pt-24">
-          <div className="flex flex-col gap-3">
+      <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-8 sm:px-6 lg:grid-cols-[minmax(0,0.88fr)_minmax(320px,0.72fr)] lg:items-center lg:gap-8 lg:px-8 lg:py-12">
+        <div className="flex min-w-0 flex-col gap-6">
+          <div className="flex min-w-0 flex-col gap-3">
             <p className="text-primary text-sm font-semibold">
               {content.eyebrow}
             </p>
-            <h1 className="max-w-3xl text-4xl font-bold tracking-normal sm:text-5xl">
+            <h1 className="max-w-2xl text-4xl font-bold tracking-normal sm:text-5xl">
               {content.title}
             </h1>
             <p className="text-muted-foreground max-w-2xl text-lg leading-8">
@@ -168,82 +153,63 @@ export default async function DownloadPage(props: DownloadPageProps) {
           </div>
         </div>
 
-        <div className="flex flex-col gap-5">
-          <section className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs">
-            <p className="text-primary text-sm font-semibold">Instalación</p>
-            <h2 className="mt-2 text-2xl font-semibold">
-              Instalar, abrir o solicitar acceso
-            </h2>
-            <p className="text-muted-foreground mt-3 leading-7">
-              Si ya tienes Rastro instalado, abre la app desde este dispositivo.
-              Si todavía no, esta página conserva el enlace compartido y muestra
-              el estado de descarga para cada plataforma.
-            </p>
-          </section>
-
-          <section
-            className="grid gap-3 sm:grid-cols-2"
-            aria-label="Opciones de instalación"
-          >
-            {installOptions.map((option) => (
-              <article
-                className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs"
-                key={option.title}
-              >
-                <p className="text-primary text-xs font-semibold uppercase">
-                  {option.status}
-                </p>
-                <h2 className="mt-2 text-lg font-semibold">{option.title}</h2>
-                <p className="text-muted-foreground mt-2 text-sm leading-6">
-                  {option.body}
-                </p>
-                <a
-                  className="border-border hover:bg-muted mt-4 inline-flex rounded-md border px-4 py-2 text-sm font-semibold"
-                  href={option.href}
-                >
-                  {option.cta}
-                </a>
-              </article>
-            ))}
-          </section>
-
-          <section
-            className="border-border bg-card text-card-foreground overflow-hidden rounded-lg border shadow-xs"
-            aria-label="Vista de Rastro"
-          >
+        <section
+          className="border-border bg-card text-card-foreground mx-auto w-full max-w-sm overflow-hidden rounded-lg border shadow-xs lg:row-span-2"
+          aria-label="Vista de Rastro"
+        >
+          <div className="relative aspect-[9/14] w-full overflow-hidden lg:aspect-[9/16]">
             <Image
               alt="Pantalla de Rastro con actividad comunitaria, mensajes y actualizaciones"
-              className="h-96 w-full object-cover object-top"
-              height={2400}
+              className="object-cover object-top"
+              fill
               priority
               src="/rastro-app-activity.png"
-              width={1080}
             />
-            <div className="p-5">
-              <h2 className="text-lg font-semibold">
-                Flujo móvil para recuperar y ayudar
-              </h2>
-              <p className="text-muted-foreground mt-2 text-sm leading-6">
-                Reportes, conversaciones y recursos se mantienen dentro de
-                Rastro para cuidar contactos y zonas aproximadas.
-              </p>
-            </div>
-          </section>
+          </div>
+          <div className="p-5">
+            <h2 className="text-lg font-semibold">
+              Flujo móvil para recuperar y ayudar
+            </h2>
+            <p className="text-muted-foreground mt-2 text-sm leading-6">
+              Reportes, conversaciones y recursos se mantienen dentro de Rastro
+              para cuidar contactos y zonas aproximadas.
+            </p>
+          </div>
+        </section>
 
-          <section className="grid gap-3" aria-label="Contextos de Rastro">
-            {useCases.map((useCase) => (
+        <section
+          aria-label="Opciones de instalación"
+          className="grid gap-3 lg:col-start-1"
+        >
+          <p className="text-muted-foreground text-sm font-medium">
+            Instalación
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {installOptions.map((option) => (
               <article
-                className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs"
-                key={useCase.title}
+                className="border-border bg-card text-card-foreground rounded-lg border p-4 shadow-xs"
+                key={option.title}
               >
-                <h2 className="text-lg font-semibold">{useCase.title}</h2>
-                <p className="text-muted-foreground mt-2 leading-7">
-                  {useCase.body}
-                </p>
+                <div className="grid min-w-0 gap-3">
+                  <div className="min-w-0">
+                    <p className="text-primary text-xs font-semibold uppercase">
+                      {option.status}
+                    </p>
+                    <h2 className="mt-1 text-lg font-semibold">
+                      {option.title}
+                    </h2>
+                  </div>
+                  <a
+                    className="border-border hover:bg-muted inline-flex w-full justify-center rounded-md border px-3 py-2 text-sm font-semibold"
+                    href={option.href}
+                  >
+                    {option.cta}
+                  </a>
+                </div>
               </article>
             ))}
-          </section>
-        </div>
+          </div>
+        </section>
       </section>
     </main>
   );

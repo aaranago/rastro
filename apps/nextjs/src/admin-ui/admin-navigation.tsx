@@ -1,10 +1,22 @@
+import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
+import {
+  Building2Icon,
+  ChartNoAxesColumnIcon,
+  ClipboardListIcon,
+  HandCoinsIcon,
+  LayoutDashboardIcon,
+  ShieldCheckIcon,
+  SlidersHorizontalIcon,
+  UsersRoundIcon,
+} from "lucide-react";
 
 import { cn } from "@acme/ui";
 
 export interface AdminNavigationItem {
   description: string;
   href: string;
+  icon: LucideIcon;
   label: string;
   shortLabel: string;
 }
@@ -13,6 +25,7 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
   {
     description: "Resumen operativo y accesos rápidos del área admin.",
     href: "/admin",
+    icon: LayoutDashboardIcon,
     label: "Resumen",
     shortLabel: "RS",
   },
@@ -20,12 +33,14 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
     description:
       "Cola actual para reportes, publicaciones, chats y proveedores.",
     href: "/admin/moderacion",
+    icon: ShieldCheckIcon,
     label: "Moderación",
     shortLabel: "MO",
   },
   {
     description: "Gestión actual de perfiles de proveedores y verificación.",
     href: "/admin/proveedores",
+    icon: Building2Icon,
     label: "Proveedores",
     shortLabel: "PR",
   },
@@ -33,6 +48,7 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
     description:
       "Gestión independiente de patrocinios locales, sin afectar la recuperación.",
     href: "/admin/patrocinios",
+    icon: HandCoinsIcon,
     label: "Patrocinios",
     shortLabel: "PA",
   },
@@ -40,6 +56,7 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
     description:
       "Búsqueda de miembros, perfil de seguridad y suspensión persistida.",
     href: "/admin/miembros",
+    icon: UsersRoundIcon,
     label: "Miembros",
     shortLabel: "MI",
   },
@@ -47,6 +64,7 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
     description:
       "Modo de revisión, correo verificado requerido y reglas operativas.",
     href: "/admin/ajustes",
+    icon: SlidersHorizontalIcon,
     label: "Ajustes",
     shortLabel: "AJ",
   },
@@ -54,12 +72,14 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
     description:
       "Métricas de abuso, contenido y recursos por ciudad y departamento.",
     href: "/admin/metricas",
+    icon: ChartNoAxesColumnIcon,
     label: "Métricas",
     shortLabel: "ME",
   },
   {
     description: "Historial inmutable de acciones administrativas.",
     href: "/admin/auditoria",
+    icon: ClipboardListIcon,
     label: "Auditoría",
     shortLabel: "AU",
   },
@@ -128,8 +148,9 @@ function AdminNavigationEntry(props: {
     props.currentPathname,
     props.item,
   );
+  const Icon = props.item.icon;
   const className = cn(
-    "border-border/70 bg-card/60 text-card-foreground hover:border-primary/50 hover:bg-primary/5 focus-visible:border-ring focus-visible:ring-ring/50 flex min-h-12 w-full min-w-0 items-center gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors outline-none focus-visible:ring-[3px]",
+    "border-border/70 bg-card/70 text-card-foreground hover:border-primary/50 hover:bg-primary/5 focus-visible:border-ring focus-visible:ring-ring/50 flex min-h-11 w-full min-w-0 items-center gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors outline-none focus-visible:ring-[3px]",
     isActive && "border-primary bg-primary/10 text-primary",
     props.collapsed && "lg:justify-center lg:px-2",
   );
@@ -146,11 +167,11 @@ function AdminNavigationEntry(props: {
       <span
         aria-hidden="true"
         className={cn(
-          "bg-muted text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-md text-[0.7rem] font-semibold",
+          "bg-muted text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-md",
           isActive && "bg-primary text-primary-foreground",
         )}
       >
-        {props.item.shortLabel}
+        <Icon className="size-4" strokeWidth={2.2} />
       </span>
       <span
         className={cn(
