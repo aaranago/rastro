@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { MyReportSummary } from "./my-reports";
 import {
+  buildMyReportCardViewModel,
   buildMyReportsViewModel,
   createApiMyReportsRepository,
   getMyReportResolveOptions,
@@ -65,6 +66,7 @@ describe("my reports model", () => {
         availabilityLabel: "Activo",
         canConfirmActive: true,
         canDelete: true,
+        canOpenPublicDetail: true,
         canResolve: true,
         href: "/(tabs)/(nearby)/reportes/perdidos/report-active",
         id: "report-active",
@@ -97,6 +99,60 @@ describe("my reports model", () => {
       outcomeLabel: "Trasladada a refugio",
       primaryActionLabel: "Gestionar",
       statusTone: "closed",
+    });
+  });
+
+  it("only exposes public-detail navigation for owner-readable report states", () => {
+    expect(
+      buildMyReportCardViewModel(
+        createReport({
+          availability: {
+            label: "En revisión",
+            state: "pending_review",
+          },
+          status: "pending_review",
+        }),
+      ),
+    ).toMatchObject({
+      canOpenPublicDetail: true,
+    });
+    expect(
+      buildMyReportCardViewModel(
+        createReport({
+          availability: {
+            label: "Retirado",
+            state: "deleted",
+          },
+          status: "closed",
+        }),
+      ),
+    ).toMatchObject({
+      canOpenPublicDetail: false,
+      primaryActionLabel: "Ver estado",
+    });
+    expect(
+      buildMyReportCardViewModel(
+        createReport({
+          availability: {
+            label: "Oculto por moderación",
+            state: "hidden",
+          },
+        }),
+      ),
+    ).toMatchObject({
+      canOpenPublicDetail: false,
+    });
+    expect(
+      buildMyReportCardViewModel(
+        createReport({
+          availability: {
+            label: "Marcado como falso",
+            state: "false_report",
+          },
+        }),
+      ),
+    ).toMatchObject({
+      canOpenPublicDetail: false,
     });
   });
 

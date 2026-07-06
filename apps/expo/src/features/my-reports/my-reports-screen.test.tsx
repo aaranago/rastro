@@ -1,12 +1,13 @@
 import * as React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { MyReportSummary } from "./my-reports";
+import type { MyReportsFilter, MyReportSummary } from "./my-reports";
 import { MyReportsScreen } from "./my-reports-screen";
 
 (globalThis as { React?: typeof React }).React = React;
 
 const forcedReports = vi.hoisted(() => ({
+  filter: "active" as MyReportsFilter,
   value: [] as MyReportSummary[],
 }));
 
@@ -38,6 +39,10 @@ vi.mock("react", async () => {
           },
           vi.fn(),
         ];
+      }
+
+      if (value === "active") {
+        return [forcedReports.filter, vi.fn()];
       }
 
       return [value, vi.fn()];
@@ -99,6 +104,11 @@ vi.mock("../shell/shell-overlays", () => ({
 }));
 
 describe("MyReportsScreen", () => {
+  beforeEach(() => {
+    forcedReports.filter = "active";
+    forcedReports.value = [];
+  });
+
   it("asks visitors to sign in before showing owned report management", () => {
     const onRequestSignIn = vi.fn();
     const screen = renderFunctionElement(
@@ -156,6 +166,34 @@ describe("MyReportsScreen", () => {
       "/(tabs)/(nearby)/reportes/perdidos/report-active",
     );
   });
+
+  it("does not expose public-detail navigation for retired or moderated reports", () => {
+    const onOpenReport = vi.fn();
+    forcedReports.filter = "retired";
+    forcedReports.value = [
+      createReport({
+        availability: {
+          label: "Oculto por moderación",
+          state: "hidden",
+        },
+        id: "report-hidden",
+      }),
+    ];
+    const screen = renderFunctionElement(
+      <MyReportsScreen
+        onOpenReport={onOpenReport}
+        repository={createRepository()}
+        session={{ kind: "member", memberId: "member-camila" }}
+      />,
+    );
+
+    expect(findText(screen, "No público")).toBe(true);
+    expect(findPressableByText(screen, "Ver")).toBeUndefined();
+
+    pressByText(screen, "Gestionar");
+
+    expect(onOpenReport).not.toHaveBeenCalled();
+  });
 });
 
 function createRepository() {
@@ -167,7 +205,9 @@ function createRepository() {
   };
 }
 
-function createReport(): MyReportSummary {
+function createReport(
+  overrides: Partial<MyReportSummary> = {},
+): MyReportSummary {
   return {
     availability: {
       label: "Activo",
@@ -207,6 +247,7 @@ function createReport(): MyReportSummary {
     title: "Luna perdida en Sopocachi",
     type: "lost_pet",
     updatedAt: new Date("2026-06-24T13:20:00.000Z"),
+    ...overrides,
   };
 }
 

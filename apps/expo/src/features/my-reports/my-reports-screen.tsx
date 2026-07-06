@@ -558,15 +558,30 @@ function MyReportCard({
       </View>
 
       <View style={styles.cardActions}>
-        <Pressable
-          accessibilityLabel={`Ver ${report.title}`}
-          accessibilityRole="button"
-          onPress={onOpen}
-          style={styles.secondaryAction}
-        >
-          <ShellIcon color={shellColors.primary} name="arrow.up.right" size={16} />
-          <Text style={styles.secondaryActionText}>Ver</Text>
-        </Pressable>
+        {report.canOpenPublicDetail ? (
+          <Pressable
+            accessibilityLabel={`Ver ${report.title}`}
+            accessibilityRole="button"
+            onPress={onOpen}
+            style={styles.secondaryAction}
+          >
+            <ShellIcon
+              color={shellColors.primary}
+              name="arrow.up.right"
+              size={16}
+            />
+            <Text style={styles.secondaryActionText}>Ver</Text>
+          </Pressable>
+        ) : (
+          <View
+            accessibilityLabel={`${report.title} no está disponible públicamente`}
+            accessibilityRole="text"
+            style={[styles.secondaryAction, styles.secondaryUnavailableAction]}
+          >
+            <ShellIcon color={shellColors.muted} name="lock.fill" size={16} />
+            <Text style={styles.secondaryUnavailableActionText}>No público</Text>
+          </View>
+        )}
         <Pressable
           accessibilityLabel={`Gestionar ${report.title}`}
           accessibilityRole="button"
@@ -1142,6 +1157,14 @@ const styles = StyleSheet.create({
   },
   secondaryActionText: {
     color: shellColors.primary,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  secondaryUnavailableAction: {
+    backgroundColor: shellColors.surfaceMuted,
+  },
+  secondaryUnavailableActionText: {
+    color: shellColors.muted,
     fontSize: 14,
     fontWeight: "900",
   },

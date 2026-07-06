@@ -59,6 +59,7 @@ export interface MyReportCardViewModel {
   availabilityState: MyReportSummary["availability"]["state"];
   canConfirmActive: boolean;
   canDelete: boolean;
+  canOpenPublicDetail: boolean;
   canResolve: boolean;
   eventLabel: string;
   href: string;
@@ -232,6 +233,7 @@ export function buildMyReportCardViewModel(
     availabilityState: report.availability.state,
     canConfirmActive: report.availability.state === "active",
     canDelete: report.availability.state !== "deleted",
+    canOpenPublicDetail: canOpenMyReportPublicDetail(report),
     canResolve: report.availability.state === "active",
     eventLabel: formatDate(report.updatedAt),
     href: buildMyReportHref(report),
@@ -297,6 +299,12 @@ function getStatusTone(
   }
 
   return "danger";
+}
+
+function canOpenMyReportPublicDetail(report: MyReportSummary) {
+  return !["deleted", "false_report", "hidden"].includes(
+    report.availability.state,
+  );
 }
 
 function buildPetLabel(report: MyReportSummary) {
