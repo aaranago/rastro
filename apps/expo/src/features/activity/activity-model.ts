@@ -31,6 +31,7 @@ export interface ActivityInbox {
   isOffline?: boolean;
   isStale?: boolean;
   moderationEvents: ActivityModerationEvent[];
+  ownedReportPrompts: ActivityOwnedReportPrompt[];
   reportUpdates: ActivityReportUpdate[];
 }
 

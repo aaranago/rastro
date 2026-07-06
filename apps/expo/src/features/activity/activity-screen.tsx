@@ -128,6 +128,7 @@ const emptyActivityInbox: ActivityInbox = {
   candidateMatches: [],
   chatSummaries: [],
   moderationEvents: [],
+  ownedReportPrompts: [],
   reportUpdates: [],
 };
 const activityDateFormatter = new Intl.DateTimeFormat("es-BO", {
@@ -817,6 +818,7 @@ function getActivityModelInput(
     isOffline: activityInbox.isOffline,
     isStale: activityInbox.isStale,
     moderationEvents: activityInbox.moderationEvents,
+    ownedReportPrompts: activityInbox.ownedReportPrompts,
     reportUpdates: activityInbox.reportUpdates,
     session: modelSession,
   };
@@ -886,15 +888,15 @@ function getActivityItemTestID(item: ActivityItemViewModel) {
     return `activity-item-report-update-${getActivityIdWithoutPrefix(item, "report-update-")}`;
   }
 
+  if (item.kind === "owned-report-update") {
+    return `activity-item-owned-report-${getActivityIdWithoutPrefix(item, "report-update-")}`;
+  }
+
   if (item.kind === "moderation-event") {
     return `activity-item-moderation-${getActivityIdWithoutPrefix(item, "moderation-event-")}`;
   }
 
-  if (item.kind === "candidate-match") {
-    return `activity-item-match-${getActivityIdWithoutPrefix(item, "candidate-match-")}`;
-  }
-
-  return undefined;
+  return `activity-item-match-${getActivityIdWithoutPrefix(item, "candidate-match-")}`;
 }
 
 function getActivityIdWithoutPrefix(

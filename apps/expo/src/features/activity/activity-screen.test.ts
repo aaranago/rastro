@@ -342,6 +342,7 @@ describe("Activity screen links", () => {
           },
         ],
         moderationEvents: [],
+        ownedReportPrompts: [],
         reportUpdates: [],
       }),
     );
@@ -399,6 +400,7 @@ describe("Activity screen links", () => {
         ],
         chatSummaries: [],
         moderationEvents: [],
+        ownedReportPrompts: [],
         reportUpdates: [],
       }),
     );
@@ -420,6 +422,53 @@ describe("Activity screen links", () => {
         body: "Perro encontrado en Sopocachi podría coincidir con Toby.",
         href: "rastro://reportes/encontrados/found-report-1",
         testID: "activity-item-match-match:lost-report-1:found-report-1",
+      }),
+    ]);
+  });
+
+  it("renders backend stale owned report prompts with report actions", async () => {
+    shellContext.session = createMemberSession();
+    const repository = createScreenRepository(
+      Promise.resolve({
+        alertDeliveries: [],
+        candidateMatches: [],
+        chatSummaries: [],
+        moderationEvents: [],
+        ownedReportPrompts: [
+          {
+            href: "rastro://reportes/perdidos/lost-report-1",
+            promptedAt: "2026-06-30T13:07:00.000Z",
+            prompt: {
+              actionLabel: "Confirmar o actualizar",
+              message:
+                "Confirma si este reporte sigue activo o elige un resultado.",
+              outcomeOptions: [],
+              reportId: "lost-report-1",
+              title: "Toby",
+            },
+          },
+        ],
+        reportUpdates: [],
+      }),
+    );
+
+    void renderActivityScreen({ repository });
+    await runPendingEffects();
+    const screen = renderActivityScreen({ repository });
+    const listProps = getLegendListProps<{
+      data: Record<string, unknown>[];
+    }>(screen);
+
+    expect(listProps.data).toEqual([
+      expect.objectContaining({
+        testID: "activity-section-report-updates",
+        title: "Actualizaciones",
+      }),
+      expect.objectContaining({
+        actionLabel: "Confirmar o actualizar",
+        body: "Confirma si este reporte sigue activo o elige un resultado.",
+        href: "rastro://reportes/perdidos/lost-report-1",
+        testID: "activity-item-owned-report-lost-report-1",
       }),
     ]);
   });
@@ -451,6 +500,7 @@ describe("Activity screen links", () => {
             },
           },
         ],
+        ownedReportPrompts: [],
         reportUpdates: [
           {
             actorMemberId: "member_ana",
@@ -562,6 +612,7 @@ describe("Activity screen links", () => {
         isOffline: true,
         isStale: true,
         moderationEvents: [],
+        ownedReportPrompts: [],
         reportUpdates: [
           {
             eventType: "updated",
@@ -663,6 +714,7 @@ function createScreenRepository(
     candidateMatches: [],
     chatSummaries: [],
     moderationEvents: [],
+    ownedReportPrompts: [],
     reportUpdates: [],
   }),
 ): ActivityRepository {
@@ -730,6 +782,7 @@ function createMixedActivityInbox(): ActivityInbox {
         },
       },
     ],
+    ownedReportPrompts: [],
     reportUpdates: [
       {
         actorMemberId: "member_ana",

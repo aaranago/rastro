@@ -9,6 +9,7 @@ import type {
   ActivityInbox,
   ActivityInboxQuery,
   ActivityModerationEvent,
+  ActivityOwnedReportPrompt,
   ActivityReportSummary,
   ActivityReportUpdate,
   ActivityRepository,
@@ -120,6 +121,19 @@ export interface ApiActivityModerationEventItem {
   type: "moderation_event";
 }
 
+export interface ApiActivityOwnedReportPrompt {
+  lastConfirmedAt: ApiDateValue;
+  report: ApiActivityReportSummary;
+  staleAfterDays: number;
+}
+
+export interface ApiActivityOwnedReportPromptItem {
+  id: string;
+  occurredAt: ApiDateValue;
+  prompt: ApiActivityOwnedReportPrompt;
+  type: "owned_report_prompt";
+}
+
 export interface ApiActivityChatSubject {
   href: string;
   id: string;
@@ -147,6 +161,7 @@ export type ApiActivityInboxItem =
   | ApiActivityAlertDeliveryItem
   | ApiActivityCandidateMatchItem
   | ApiActivityChatConversationItem
+  | ApiActivityOwnedReportPromptItem
   | ApiActivityReportUpdateItem
   | ApiActivityModerationEventItem;
 
@@ -226,6 +241,7 @@ function normalizeActivityInbox(output: ApiActivityInboxOutput): ActivityInbox {
   const candidateMatches: ActivityCandidateMatch[] = [];
   const chatSummaries: ActivityChatSummary[] = [];
   const moderationEvents: ActivityModerationEvent[] = [];
+  const ownedReportPrompts: ActivityOwnedReportPrompt[] = [];
   const reportUpdates: ActivityReportUpdate[] = [];
 
   for (const item of output.items) {
@@ -249,6 +265,11 @@ function normalizeActivityInbox(output: ApiActivityInboxOutput): ActivityInbox {
       continue;
     }
 
+    if (item.type === "owned_report_prompt") {
+      ownedReportPrompts.push(normalizeOwnedReportPromptItem(item));
+      continue;
+    }
+
     moderationEvents.push(normalizeModerationEventItem(item));
   }
 
@@ -257,6 +278,7 @@ function normalizeActivityInbox(output: ApiActivityInboxOutput): ActivityInbox {
     candidateMatches,
     chatSummaries,
     moderationEvents,
+    ownedReportPrompts,
     reportUpdates,
   };
 }
@@ -336,6 +358,26 @@ function normalizeReportUpdateItem(
   };
 }
 
+function normalizeOwnedReportPromptItem(
+  item: ApiActivityOwnedReportPromptItem,
+): ActivityOwnedReportPrompt {
+  const prompt = item.prompt;
+
+  return {
+    href: prompt.report.href,
+    promptedAt: normalizeDateValue(item.occurredAt),
+    prompt: {
+      actionLabel: "Confirmar o actualizar",
+      message: "Confirma si este reporte sigue activo o elige un resultado.",
+      outcomeOptions: staleActiveReportPromptOutcomeOptions.map((option) => ({
+        ...option,
+      })),
+      reportId: prompt.report.id,
+      title: prompt.report.title,
+    },
+  };
+}
+
 function normalizeModerationEventItem(
   item: ApiActivityModerationEventItem,
 ): ActivityModerationEvent {
@@ -411,6 +453,29 @@ function normalizeLastMessage(
 function normalizeDateValue(value: ApiDateValue) {
   return value instanceof Date ? value.toISOString() : value;
 }
+
+const staleActiveReportPromptOutcomeOptions = [
+  {
+    label: "Sigue activa",
+    outcome: "still-missing",
+  },
+  {
+    label: "Reunida",
+    outcome: "reunited",
+  },
+  {
+    label: "Trasladada a refugio",
+    outcome: "transferred-to-shelter",
+  },
+  {
+    label: "No se pudo ubicar",
+    outcome: "unable-to-locate",
+  },
+  {
+    label: "Inactiva",
+    outcome: "inactive",
+  },
+] as const;
 
 function resolveActivityCacheKey(
   cacheKey: string | ((input: ActivityInboxQuery) => string),

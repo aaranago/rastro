@@ -16,7 +16,7 @@ describe("activity validation contracts", () => {
     ).toBe(false);
   });
 
-  it("validates alert delivery, candidate match, chat, report update, and moderation inbox items", () => {
+  it("validates alert delivery, candidate match, chat, owned report prompt, report update, and moderation inbox items", () => {
     expect(
       activityInboxOutputSchema.safeParse({
         items: [
@@ -121,6 +121,25 @@ describe("activity validation contracts", () => {
                 type: "lost_pet",
               },
               toStatus: "closed",
+            },
+          },
+          {
+            type: "owned_report_prompt",
+            id: "owned-report-prompt:44444444-4444-4444-8444-444444444444",
+            occurredAt: "2026-07-01T12:08:00.000Z",
+            prompt: {
+              lastConfirmedAt: "2026-06-01T12:00:00.000Z",
+              report: {
+                availability: "available",
+                href: "rastro://reportes/perdidos/44444444-4444-4444-8444-444444444444",
+                id: "44444444-4444-4444-8444-444444444444",
+                kind: "lost-pet-report",
+                outcome: null,
+                status: "active",
+                title: "Toby",
+                type: "lost_pet",
+              },
+              staleAfterDays: 14,
             },
           },
           {

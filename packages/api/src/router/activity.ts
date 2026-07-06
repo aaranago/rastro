@@ -5,6 +5,7 @@ import type {
   ActivityInboxCandidateMatchItemOutput,
   ActivityInboxItemOutput,
   ActivityInboxModerationEventItemOutput,
+  ActivityInboxOwnedReportPromptItemOutput,
   ActivityInboxOutput,
   ActivityInboxReportUpdateItemOutput,
   ReportOutcome,
@@ -20,6 +21,7 @@ import {
   gte,
   inArray,
   isNull,
+  lte,
   ne,
   sql,
 } from "@acme/db";
@@ -41,6 +43,8 @@ import { protectedProcedure } from "../trpc";
 
 const defaultInboxLimit = 50;
 const candidateMatchRadiusMeters = 5000;
+const staleActiveReportPromptAfterDays = 14;
+const dayInMs = 24 * 60 * 60 * 1000;
 
 export const activityRouter = {
   inbox: protectedProcedure
@@ -49,12 +53,14 @@ export const activityRouter = {
     .query(async ({ ctx, input }) => {
       const memberId = ctx.session.user.id;
       const limit = input.limit ?? defaultInboxLimit;
+      const now = new Date();
       const [
         alertDeliveries,
         chatConversations,
         reportUpdates,
         moderationEvents,
         candidateMatches,
+        ownedReportPrompts,
       ] = await Promise.all([
         ctx.alertRepository.listMemberDeliveryHistory({
           limit,
@@ -66,7 +72,13 @@ export const activityRouter = {
         listReportUpdateActivityRows(ctx.db, memberId, limit),
         listModerationEventActivityRows(ctx.db, memberId, limit),
         listCandidateMatchActivityRows(ctx.db, memberId, limit),
+        listOwnedReportPromptActivityRows(ctx.db, {
+          cutoff: getStaleActiveReportPromptCutoff(now),
+          limit,
+          memberId,
+        }),
       ]);
+      const nowIso = toIsoDateTime(now);
       const items = [
         ...alertDeliveries.map(toAlertDeliveryInboxItem),
         ...chatConversations.map((conversation) =>
@@ -75,6 +87,9 @@ export const activityRouter = {
         ...reportUpdates.map(toReportUpdateInboxItem),
         ...moderationEvents.map(toModerationEventInboxItem),
         ...candidateMatches.map(toCandidateMatchInboxItem),
+        ...ownedReportPrompts.map((prompt) =>
+          toOwnedReportPromptInboxItem(prompt, nowIso),
+        ),
       ].sort(compareInboxItems);
 
       return {
@@ -129,6 +144,12 @@ interface CandidateMatchActivityRow {
   distanceMeters: number;
   locationLabel: string;
   ownedReport: ActivityReportRow;
+}
+
+interface OwnedReportPromptActivityRow {
+  report: ActivityReportRow & {
+    updatedAt: Date;
+  };
 }
 
 const activityReportKindByType = {
@@ -291,6 +312,43 @@ function listCandidateMatchActivityRows(
     .limit(limit) as Promise<CandidateMatchActivityRow[]>;
 }
 
+function listOwnedReportPromptActivityRows(
+  db: Database,
+  input: {
+    cutoff: Date;
+    limit: number;
+    memberId: string;
+  },
+) {
+  return db
+    .select({
+      report: {
+        deletedAt: Report.deletedAt,
+        falseReportedAt: Report.falseReportedAt,
+        hiddenAt: Report.hiddenAt,
+        id: Report.id,
+        outcome: Report.outcome,
+        status: Report.status,
+        title: Report.title,
+        type: Report.type,
+        updatedAt: Report.updatedAt,
+      },
+    })
+    .from(Report)
+    .where(
+      and(
+        eq(Report.caretakerId, input.memberId),
+        eq(Report.status, "active"),
+        lte(Report.updatedAt, input.cutoff),
+        isNull(Report.deletedAt),
+        isNull(Report.hiddenAt),
+        isNull(Report.falseReportedAt),
+      ),
+    )
+    .orderBy(asc(Report.updatedAt), desc(Report.id))
+    .limit(input.limit) as Promise<OwnedReportPromptActivityRow[]>;
+}
+
 function toAlertDeliveryInboxItem(
   delivery: PersistedAlertNotificationDelivery,
 ): ActivityInboxItemOutput {
@@ -365,6 +423,24 @@ function buildCandidateMatchId(row: CandidateMatchActivityRow) {
   return `match:${row.ownedReport.id}:${row.candidate.id}`;
 }
 
+function toOwnedReportPromptInboxItem(
+  row: OwnedReportPromptActivityRow,
+  occurredAt: string,
+): ActivityInboxItemOutput {
+  const id = `owned-report-prompt:${row.report.id}`;
+
+  return {
+    id,
+    occurredAt,
+    prompt: {
+      lastConfirmedAt: toIsoDateTime(row.report.updatedAt),
+      report: toActivityReportSummary(row.report),
+      staleAfterDays: staleActiveReportPromptAfterDays,
+    },
+    type: "owned_report_prompt",
+  } satisfies ActivityInboxOwnedReportPromptItemOutput;
+}
+
 function toActivityReportSummary(
   report: ActivityReportRow,
 ): ActivityReportSummary {
@@ -432,6 +508,10 @@ function toChatConversationInboxItem(
 
 function toIsoDateTime(value: Date | string) {
   return value instanceof Date ? value.toISOString() : value;
+}
+
+function getStaleActiveReportPromptCutoff(now: Date) {
+  return new Date(now.getTime() - staleActiveReportPromptAfterDays * dayInMs);
 }
 
 function compareInboxItems(

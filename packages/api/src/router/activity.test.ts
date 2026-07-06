@@ -77,12 +77,13 @@ describe("activity router", () => {
     expect(chatRepository.listInputs).toEqual([]);
   });
 
-  it("combines alerts, candidate matches, chats, report updates, and moderation newest first", async () => {
+  it("combines alerts, candidate matches, chats, prompts, report updates, and moderation newest first", async () => {
     const alertRepository = createFakeAlertRepository([createAlertDelivery()]);
     const chatRepository = createFakeChatRepository([createConversation()]);
     const db = createFakeActivityDb({
       candidateMatches: [createCandidateMatchRow()],
       moderationEvents: [createModerationEventRow()],
+      ownedReportPrompts: [createOwnedReportPromptRow()],
       reportUpdates: [createReportUpdateRow()],
     });
     const caller = createCaller({
@@ -97,11 +98,11 @@ describe("activity router", () => {
       },
     });
 
-    const inbox = await caller.activity.inbox({ limit: 5 });
+    const inbox = await caller.activity.inbox({ limit: 6 });
 
     expect(alertRepository.historyInputs).toEqual([
       {
-        limit: 5,
+        limit: 6,
         memberId: "member-camila",
       },
     ]);
@@ -110,8 +111,29 @@ describe("activity router", () => {
         viewerMemberId: "member-camila",
       },
     ]);
-    expect(db.limits).toEqual([5, 5, 5]);
+    expect(db.limits).toEqual([6, 6, 6, 6]);
+    const [ownedPromptItem] = inbox.items;
+    expect(ownedPromptItem?.occurredAt).toEqual(expect.any(String));
     expect(inbox.items).toEqual([
+      {
+        id: `owned-report-prompt:${reportId}`,
+        occurredAt: ownedPromptItem?.occurredAt,
+        prompt: {
+          lastConfirmedAt: "2026-06-01T12:00:00.000Z",
+          report: {
+            availability: "available",
+            href: `rastro://reportes/perdidos/${reportId}`,
+            id: reportId,
+            kind: "lost-pet-report",
+            outcome: null,
+            status: "active",
+            title: "Toby",
+            type: "lost_pet",
+          },
+          staleAfterDays: 14,
+        },
+        type: "owned_report_prompt",
+      },
       {
         id: candidateMatchId,
         match: {
@@ -313,10 +335,12 @@ interface FakeActivityDb {
 function createFakeActivityDb({
   candidateMatches = [],
   moderationEvents = [],
+  ownedReportPrompts = [],
   reportUpdates = [],
 }: {
   candidateMatches?: unknown[];
   moderationEvents?: unknown[];
+  ownedReportPrompts?: unknown[];
   reportUpdates?: unknown[];
 } = {}): FakeActivityDb {
   const limits: number[] = [];
@@ -330,7 +354,9 @@ function createFakeActivityDb({
           ? reportUpdates
           : selectCount === 1
             ? moderationEvents
-            : candidateMatches;
+            : selectCount === 2
+              ? candidateMatches
+              : ownedReportPrompts;
       selectCount += 1;
 
       const builder = {
@@ -417,6 +443,22 @@ function createCandidateMatchRow() {
       status: "active",
       title: "Toby",
       type: "lost_pet",
+    },
+  };
+}
+
+function createOwnedReportPromptRow() {
+  return {
+    report: {
+      deletedAt: null,
+      falseReportedAt: null,
+      hiddenAt: null,
+      id: reportId,
+      outcome: null,
+      status: "active",
+      title: "Toby",
+      type: "lost_pet",
+      updatedAt: new Date("2026-06-01T12:00:00.000Z"),
     },
   };
 }

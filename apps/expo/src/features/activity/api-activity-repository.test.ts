@@ -6,6 +6,7 @@ import type {
   ApiActivityChatConversationItem,
   ApiActivityInboxOutput,
   ApiActivityModerationEventItem,
+  ApiActivityOwnedReportPromptItem,
   ApiActivityReportUpdateItem,
 } from "./api-activity-repository";
 import {
@@ -20,6 +21,7 @@ describe("API Activity repository", () => {
     const chatConversation = createApiChatConversation();
     const reportUpdate = createApiReportUpdate();
     const moderationEvent = createApiModerationEvent();
+    const ownedReportPrompt = createApiOwnedReportPrompt();
     const client = createApiActivityClient({
       items: [
         alertDelivery,
@@ -27,6 +29,7 @@ describe("API Activity repository", () => {
         chatConversation,
         reportUpdate,
         moderationEvent,
+        ownedReportPrompt,
       ],
     });
     const repository = createApiActivityRepository({ client });
@@ -109,6 +112,41 @@ describe("API Activity repository", () => {
           },
         },
       ],
+      ownedReportPrompts: [
+        {
+          href: "rastro://reportes/perdidos/lost-report-1",
+          promptedAt: "2026-06-30T13:07:00.000Z",
+          prompt: {
+            actionLabel: "Confirmar o actualizar",
+            message:
+              "Confirma si este reporte sigue activo o elige un resultado.",
+            outcomeOptions: [
+              {
+                label: "Sigue activa",
+                outcome: "still-missing",
+              },
+              {
+                label: "Reunida",
+                outcome: "reunited",
+              },
+              {
+                label: "Trasladada a refugio",
+                outcome: "transferred-to-shelter",
+              },
+              {
+                label: "No se pudo ubicar",
+                outcome: "unable-to-locate",
+              },
+              {
+                label: "Inactiva",
+                outcome: "inactive",
+              },
+            ],
+            reportId: "lost-report-1",
+            title: "Toby",
+          },
+        },
+      ],
       reportUpdates: [
         {
           actorMemberId: "member-camila",
@@ -180,6 +218,7 @@ describe("API Activity repository", () => {
       candidateMatches: [],
       chatSummaries: [],
       moderationEvents: [normalizeApiModerationEventForCache()],
+      ownedReportPrompts: [],
       reportUpdates: [],
     };
     const cache = {
@@ -335,6 +374,28 @@ function createApiReportUpdate(): ApiActivityReportUpdateItem {
       },
       toStatus: "closed",
     },
+  };
+}
+
+function createApiOwnedReportPrompt(): ApiActivityOwnedReportPromptItem {
+  return {
+    id: "owned-report-prompt:lost-report-1",
+    occurredAt: new Date("2026-06-30T13:07:00.000Z"),
+    prompt: {
+      lastConfirmedAt: "2026-06-01T12:00:00.000Z",
+      report: {
+        availability: "available",
+        href: "rastro://reportes/perdidos/lost-report-1",
+        id: "lost-report-1",
+        kind: "lost-pet-report",
+        outcome: null,
+        status: "active",
+        title: "Toby",
+        type: "lost_pet",
+      },
+      staleAfterDays: 14,
+    },
+    type: "owned_report_prompt",
   };
 }
 

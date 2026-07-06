@@ -651,6 +651,21 @@ export const activityInboxCandidateMatchItemOutputSchema = z
   })
   .strict();
 
+export const activityInboxOwnedReportPromptItemOutputSchema = z
+  .object({
+    type: z.literal("owned_report_prompt"),
+    id: z.string().min(1).max(160),
+    occurredAt: isoDateTimeOutputSchema,
+    prompt: z
+      .object({
+        lastConfirmedAt: isoDateTimeOutputSchema,
+        report: activityReportSummaryOutputSchema,
+        staleAfterDays: z.number().int().min(1).max(365),
+      })
+      .strict(),
+  })
+  .strict();
+
 export const activityInboxReportUpdateItemOutputSchema = z
   .object({
     type: z.literal("report_update"),
@@ -693,6 +708,7 @@ export const activityInboxItemOutputSchema = z.discriminatedUnion("type", [
   activityInboxAlertDeliveryItemOutputSchema,
   activityInboxCandidateMatchItemOutputSchema,
   activityInboxChatConversationItemOutputSchema,
+  activityInboxOwnedReportPromptItemOutputSchema,
   activityInboxReportUpdateItemOutputSchema,
   activityInboxModerationEventItemOutputSchema,
 ]);
@@ -1468,6 +1484,9 @@ export type ActivityInboxChatConversationItemOutput = z.infer<
 >;
 export type ActivityInboxCandidateMatchItemOutput = z.infer<
   typeof activityInboxCandidateMatchItemOutputSchema
+>;
+export type ActivityInboxOwnedReportPromptItemOutput = z.infer<
+  typeof activityInboxOwnedReportPromptItemOutputSchema
 >;
 export type ActivityInboxReportUpdateItemOutput = z.infer<
   typeof activityInboxReportUpdateItemOutputSchema
