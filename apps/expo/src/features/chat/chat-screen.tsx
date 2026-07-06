@@ -5,6 +5,7 @@ import {
   FlatList,
   Keyboard,
   Linking,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -20,9 +21,13 @@ import type {
   ChatRepository,
   ChatSubject,
 } from "~/features/chat/chat-model";
+import type { TrustSafetyReportReason } from "../trust-safety";
 import { buildChatConversationViewModel } from "~/features/chat/chat-model";
+import type { MaterialCommunityIconName } from "../icons/safe-material-community-icon";
+import { SafeMaterialCommunityIcon } from "../icons/safe-material-community-icon";
 import { openInternalRastroHref } from "../navigation/internal-rastro-links";
 import { shellColors } from "../shell/shell-theme";
+import { trustSafetyReportReasonOptions } from "../trust-safety/trust-safety-model";
 
 export type ChatScreenConversation = ChatConversation;
 export type ChatScreenRepository = ChatRepository;
@@ -44,12 +49,16 @@ export interface ChatScreenProps {
 
 export interface ChatScreenViewModel {
   actions: {
+    blockDisabled: boolean;
     blockLabel: string;
     refreshLabel: string;
+    reportDisabled: boolean;
     reportLabel: string;
     sendLabel: string;
     subjectLinkLabel: string;
   };
+  blockStatusLabel?: string;
+  composerDisabledReason?: string;
   composerPlaceholder: string;
   emptyMessageLabel: string;
   errorLabel?: string;
@@ -57,6 +66,7 @@ export interface ChatScreenViewModel {
   headerTitle: string;
   messages: ChatMessageViewModel[];
   otherParticipant?: ChatParticipant;
+  reportStatusLabel?: string;
   statusLabel?: string;
   subject?: {
     href: string;
@@ -69,9 +79,12 @@ export interface ChatScreenViewModel {
 export interface ChatMessageViewModel {
   body: string;
   createdAtLabel: string;
+  groupPosition: "single" | "first" | "middle" | "last";
   id: string;
   isMine: boolean;
   senderLabel: string;
+  showSenderLabel: boolean;
+  showTimestamp: boolean;
 }
 
 export interface OpenChatSubjectHrefInput {
@@ -97,6 +110,7 @@ const messageTimeFormatter = new Intl.DateTimeFormat("es-BO", {
 });
 
 const messageKeyExtractor = (item: ChatMessageViewModel) => item.id;
+const defaultReportReason: TrustSafetyReportReason = "other";
 
 export function buildChatScreenViewModel({
   conversation,
@@ -122,30 +136,45 @@ export function buildChatScreenViewModel({
 
   return {
     actions: {
-      blockLabel: "Bloquear",
+      blockDisabled:
+        conversationViewModel?.controls.block.status !== "available",
+      blockLabel: conversationViewModel?.controls.block.label ?? "Bloquear",
       refreshLabel: "Actualizar",
-      reportLabel: "Reportar",
+      reportDisabled:
+        conversationViewModel?.controls.report.status === "reported",
+      reportLabel: conversationViewModel?.controls.report.label ?? "Reportar",
       sendLabel: conversationViewModel?.composer.sendLabel ?? "Enviar",
       subjectLinkLabel,
     },
+    blockStatusLabel: conversationViewModel?.controls.block.statusLabel,
+    composerDisabledReason: conversationViewModel?.composer.disabledReason,
     composerPlaceholder:
-      conversationViewModel?.composer.placeholder ?? "Escribe un mensaje",
+      conversationViewModel?.composer.disabledReason ??
+      conversationViewModel?.composer.placeholder ??
+      "Escribe un mensaje",
     emptyMessageLabel:
       conversationViewModel?.emptyState ?? "Aun no hay mensajes.",
     errorLabel,
     headerSubtitle: conversationViewModel
-      ? `Con ${conversationViewModel.title}`
+      ? formatChatHeaderSubtitle({
+          subjectSubtitle: conversationViewModel.subjectLink.subtitle,
+          subjectTitle: conversationViewModel.subjectLink.title,
+        })
       : "Conversacion vinculada a Rastro",
-    headerTitle: conversationViewModel?.contactOptionLabel ?? "Chat en Rastro",
+    headerTitle: conversationViewModel?.title ?? "Chat en Rastro",
     messages:
       conversationViewModel?.messages.map((message) => ({
         body: message.text,
         createdAtLabel: formatMessageTime(message.sentAt),
+        groupPosition: message.groupPosition,
         id: message.id,
         isMine: message.isMine,
         senderLabel: message.authorLabel,
+        showSenderLabel: message.showSenderLabel,
+        showTimestamp: message.showTimestamp,
       })) ?? [],
     otherParticipant,
+    reportStatusLabel: conversationViewModel?.controls.report.statusLabel,
     statusLabel:
       conversationViewModel?.refreshPolicy.label ??
       "Se actualiza al abrir, enviar o cada cierto tiempo.",
@@ -186,6 +215,24 @@ export function ChatScreen({
   const [draftMessage, setDraftMessage] = React.useState("");
   const [errorLabel, setErrorLabel] = React.useState<string | undefined>();
   const [isRefreshing, setIsRefreshing] = React.useState(!initialConversation);
+  const [isBlockConfirmOpen, setIsBlockConfirmOpen] = React.useState(false);
+  const [isBlocking, setIsBlocking] = React.useState(false);
+  const [isReportSubmitting, setIsReportSubmitting] = React.useState(false);
+  const [reportDraft, setReportDraft] = React.useState<{
+    isOpen: boolean;
+    note: string;
+    reason: TrustSafetyReportReason;
+  }>({
+    isOpen: false,
+    note: "",
+    reason: defaultReportReason,
+  });
+  const [reportDraftError, setReportDraftError] = React.useState<
+    string | undefined
+  >();
+  const [safetyNoticeLabel, setSafetyNoticeLabel] = React.useState<
+    string | undefined
+  >();
   const [isSending, setIsSending] = React.useState(false);
 
   React.useEffect(() => {
@@ -313,30 +360,96 @@ export function ChatScreen({
     });
   }, [conversation, onOpenHref, onOpenSubject, router]);
 
-  const handleReportConversation = React.useCallback(async () => {
-    if (!conversation) {
+  const openReportConversationDialog = React.useCallback(() => {
+    if (!conversation || viewModel.actions.reportDisabled) {
+      return;
+    }
+
+    setReportDraft({
+      isOpen: true,
+      note: "",
+      reason: defaultReportReason,
+    });
+    setReportDraftError(undefined);
+  }, [conversation, viewModel.actions.reportDisabled]);
+
+  const closeReportConversationDialog = React.useCallback(() => {
+    if (isReportSubmitting) {
+      return;
+    }
+
+    setReportDraft((current) => ({
+      ...current,
+      isOpen: false,
+    }));
+    setReportDraftError(undefined);
+  }, [isReportSubmitting]);
+
+  const submitReportConversation = React.useCallback(async () => {
+    if (!conversation || isReportSubmitting) {
+      return;
+    }
+
+    const note = reportDraft.note.trim();
+
+    if (note.length > 0 && note.length < 10) {
+      setReportDraftError("Si agregas detalle, escribe al menos 10 caracteres.");
       return;
     }
 
     if (onReportConversation) {
       onReportConversation(conversation);
-      return;
     }
+
+    setIsReportSubmitting(true);
+    setReportDraftError(undefined);
+    setErrorLabel(undefined);
 
     try {
       const nextConversation = await repository.reportConversation({
         conversationId: conversation.id,
+        note: note.length > 0 ? note : undefined,
+        reason: reportDraft.reason,
         reporterMemberId: viewerMemberId,
       });
 
       setConversation(nextConversation);
+      setReportDraft((current) => ({
+        ...current,
+        isOpen: false,
+      }));
+      setSafetyNoticeLabel("Reporte enviado. Moderación revisará este chat.");
     } catch {
-      setErrorLabel("No pudimos reportar el chat.");
+      setReportDraftError("No pudimos reportar el chat.");
+    } finally {
+      setIsReportSubmitting(false);
     }
-  }, [conversation, onReportConversation, repository, viewerMemberId]);
+  }, [
+    conversation,
+    isReportSubmitting,
+    onReportConversation,
+    reportDraft.note,
+    reportDraft.reason,
+    repository,
+    viewerMemberId,
+  ]);
 
-  const handleBlockParticipant = React.useCallback(async () => {
-    if (!conversation) {
+  const openBlockParticipantConfirmation = React.useCallback(() => {
+    if (!conversation || viewModel.actions.blockDisabled) {
+      return;
+    }
+
+    setIsBlockConfirmOpen(true);
+  }, [conversation, viewModel.actions.blockDisabled]);
+
+  const closeBlockParticipantConfirmation = React.useCallback(() => {
+    if (!isBlocking) {
+      setIsBlockConfirmOpen(false);
+    }
+  }, [isBlocking]);
+
+  const confirmBlockParticipant = React.useCallback(async () => {
+    if (!conversation || isBlocking) {
       return;
     }
 
@@ -345,12 +458,14 @@ export function ChatScreen({
         conversation,
         participant: viewModel.otherParticipant,
       });
-      return;
     }
 
     if (!viewModel.otherParticipant) {
       return;
     }
+
+    setIsBlocking(true);
+    setErrorLabel(undefined);
 
     try {
       const nextConversation = await repository.blockMember({
@@ -360,11 +475,18 @@ export function ChatScreen({
       });
 
       setConversation(nextConversation);
+      setIsBlockConfirmOpen(false);
+      setSafetyNoticeLabel(
+        `Bloqueaste a ${viewModel.otherParticipant.displayName}. No podrá responder en este chat.`,
+      );
     } catch {
       setErrorLabel("No pudimos bloquear este chat.");
+    } finally {
+      setIsBlocking(false);
     }
   }, [
     conversation,
+    isBlocking,
     onBlockParticipant,
     repository,
     viewerMemberId,
@@ -374,7 +496,7 @@ export function ChatScreen({
   const handleSendMessage = React.useCallback(async () => {
     const body = draftMessage.trim();
 
-    if (!body || !conversation || isSending) {
+    if (!body || !conversation || isSending || viewModel.composerDisabledReason) {
       return;
     }
 
@@ -396,7 +518,14 @@ export function ChatScreen({
     } finally {
       setIsSending(false);
     }
-  }, [conversation, draftMessage, isSending, repository, viewerMemberId]);
+  }, [
+    conversation,
+    draftMessage,
+    isSending,
+    repository,
+    viewerMemberId,
+    viewModel.composerDisabledReason,
+  ]);
 
   const renderMessage = React.useCallback(
     ({ item }: { item: ChatMessageViewModel }) => (
@@ -405,7 +534,10 @@ export function ChatScreen({
     [],
   );
 
-  const canSend = draftMessage.trim().length > 0 && !!conversation;
+  const canSend =
+    draftMessage.trim().length > 0 &&
+    !!conversation &&
+    !viewModel.composerDisabledReason;
 
   return (
     <View style={styles.screen} testID="chat-screen">
@@ -420,12 +552,13 @@ export function ChatScreen({
         }
         ListHeaderComponent={
           <ChatHeader
-            onBlockParticipant={handleBlockParticipant}
+            onBlockParticipant={openBlockParticipantConfirmation}
             onOpenSubject={handleOpenSubject}
             onRefresh={() => {
               void refreshConversation();
             }}
-            onReportConversation={handleReportConversation}
+            onReportConversation={openReportConversationDialog}
+            safetyNoticeLabel={safetyNoticeLabel}
             viewModel={viewModel}
           />
         }
@@ -443,49 +576,94 @@ export function ChatScreen({
         scrollIndicatorInsets={{ bottom: listBottomInset }}
         style={styles.list}
       />
+      {reportDraft.isOpen ? (
+        <ReportConversationModal
+          errorLabel={reportDraftError}
+          isSubmitting={isReportSubmitting}
+          note={reportDraft.note}
+          onCancel={closeReportConversationDialog}
+          onChangeNote={(note) => {
+            setReportDraft((current) => ({
+              ...current,
+              note,
+            }));
+          }}
+          onChangeReason={(reason) => {
+            setReportDraft((current) => ({
+              ...current,
+              reason,
+            }));
+            setReportDraftError(undefined);
+          }}
+          onSubmit={submitReportConversation}
+          reason={reportDraft.reason}
+        />
+      ) : null}
+      {isBlockConfirmOpen ? (
+        <BlockParticipantModal
+          isSubmitting={isBlocking}
+          onCancel={closeBlockParticipantConfirmation}
+          onConfirm={confirmBlockParticipant}
+          participantName={
+            viewModel.otherParticipant?.displayName ?? "este miembro"
+          }
+        />
+      ) : null}
       <View
         style={[
-          styles.composer,
+          styles.composerShell,
           {
             marginBottom: composerBottomMargin,
             paddingBottom: composerBottomPadding,
           },
         ]}
       >
-        <TextInput
-          accessibilityLabel="Mensaje"
-          maxFontSizeMultiplier={1.2}
-          multiline
-          onChangeText={setDraftMessage}
-          placeholder={viewModel.composerPlaceholder}
-          placeholderTextColor={shellColors.muted}
-          style={styles.composerInput}
-          testID="chat-message-input"
-          value={draftMessage}
-        />
-        <Pressable
-          accessibilityLabel={viewModel.actions.sendLabel}
-          accessibilityRole="button"
-          accessibilityState={{
-            busy: isSending,
-            disabled: !canSend || isSending,
-          }}
-          disabled={!canSend || isSending}
-          onPress={handleSendMessage}
-          testID="chat-send-button"
-          style={[
-            styles.sendButton,
-            !canSend || isSending ? styles.disabledButton : null,
-          ]}
-        >
-          {isSending ? (
-            <ActivityIndicator color={shellColors.white} />
-          ) : (
-            <Text maxFontSizeMultiplier={1.1} style={styles.sendButtonText}>
-              {viewModel.actions.sendLabel}
-            </Text>
-          )}
-        </Pressable>
+        {viewModel.composerDisabledReason ? (
+          <Text
+            maxFontSizeMultiplier={1.1}
+            style={styles.composerDisabledText}
+            testID="chat-composer-disabled-reason"
+          >
+            {viewModel.composerDisabledReason}
+          </Text>
+        ) : null}
+        <View style={styles.composerRow}>
+          <TextInput
+            accessibilityLabel="Mensaje"
+            editable={!viewModel.composerDisabledReason}
+            maxFontSizeMultiplier={1.2}
+            multiline
+            onChangeText={setDraftMessage}
+            placeholder={viewModel.composerPlaceholder}
+            placeholderTextColor={shellColors.muted}
+            style={styles.composerInput}
+            testID="chat-message-input"
+            value={draftMessage}
+          />
+          <Pressable
+            accessibilityLabel={viewModel.actions.sendLabel}
+            accessibilityRole="button"
+            accessibilityState={{
+              busy: isSending,
+              disabled: !canSend || isSending,
+            }}
+            disabled={!canSend || isSending}
+            onPress={handleSendMessage}
+            testID="chat-send-button"
+            style={[
+              styles.sendButton,
+              !canSend || isSending ? styles.disabledButton : null,
+            ]}
+          >
+            {isSending ? (
+              <ActivityIndicator color={shellColors.white} />
+            ) : (
+              <Text maxFontSizeMultiplier={1.1} style={styles.sendButtonText}>
+                {viewModel.actions.sendLabel}
+              </Text>
+            )}
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -577,72 +755,86 @@ function ChatHeader({
   onOpenSubject,
   onRefresh,
   onReportConversation,
+  safetyNoticeLabel,
   viewModel,
 }: {
   onBlockParticipant: () => void;
   onOpenSubject: () => void;
   onRefresh: () => void;
   onReportConversation: () => void;
+  safetyNoticeLabel?: string;
   viewModel: ChatScreenViewModel;
 }) {
+  const statusLabel =
+    safetyNoticeLabel ??
+    viewModel.blockStatusLabel ??
+    viewModel.reportStatusLabel ??
+    viewModel.statusLabel;
+
   return (
     <View style={styles.header}>
-      <View style={styles.titleBlock}>
-        <Text selectable style={styles.eyebrow}>
-          Actividad
-        </Text>
-        <Text maxFontSizeMultiplier={1.2} selectable style={styles.title}>
-          {viewModel.headerTitle}
-        </Text>
-        <Text maxFontSizeMultiplier={1.2} selectable style={styles.subtitle}>
-          {viewModel.headerSubtitle}
-        </Text>
+      <View style={styles.headerTopRow}>
+        <View style={styles.titleBlock}>
+          <Text maxFontSizeMultiplier={1.15} selectable style={styles.title}>
+            {viewModel.headerTitle}
+          </Text>
+          <Text maxFontSizeMultiplier={1.1} selectable style={styles.subtitle}>
+            {viewModel.headerSubtitle}
+          </Text>
+        </View>
+
+        <View style={styles.actionRow}>
+          <HeaderAction
+            iconName="refresh"
+            label={viewModel.actions.refreshLabel}
+            onPress={onRefresh}
+          />
+          <HeaderAction
+            disabled={viewModel.actions.reportDisabled}
+            iconName="flag-outline"
+            label={viewModel.actions.reportLabel}
+            onPress={onReportConversation}
+          />
+          <HeaderAction
+            disabled={viewModel.actions.blockDisabled}
+            iconName="block-helper"
+            label={viewModel.actions.blockLabel}
+            onPress={onBlockParticipant}
+          />
+        </View>
       </View>
 
       {viewModel.subject ? (
         <Pressable
+          accessibilityLabel={viewModel.actions.subjectLinkLabel}
           accessibilityRole="button"
           onPress={onOpenSubject}
           testID="chat-subject-link"
-          style={styles.subjectCard}
+          style={styles.subjectPill}
         >
-          <View style={styles.subjectCopy}>
-            <Text selectable style={styles.subjectLabel}>
+          <View style={styles.subjectPillCopy}>
+            <Text numberOfLines={1} style={styles.subjectPillLabel}>
               {viewModel.subject.label}
             </Text>
-            <Text maxFontSizeMultiplier={1.15} style={styles.subjectTitle}>
+            <Text
+              maxFontSizeMultiplier={1.1}
+              numberOfLines={1}
+              style={styles.subjectPillTitle}
+            >
               {viewModel.subject.title}
             </Text>
-            {viewModel.subject.subtitle ? (
-              <Text maxFontSizeMultiplier={1.15} style={styles.subjectMeta}>
-                {viewModel.subject.subtitle}
-              </Text>
-            ) : null}
           </View>
-          <Text maxFontSizeMultiplier={1.05} style={styles.subjectAction}>
-            {viewModel.actions.subjectLinkLabel}
-          </Text>
+          <SafeMaterialCommunityIcon
+            color={shellColors.primary}
+            name="chevron-right"
+            size={18}
+          />
         </Pressable>
       ) : null}
 
-      <View style={styles.actionRow}>
-        <HeaderAction
-          label={viewModel.actions.refreshLabel}
-          onPress={onRefresh}
-        />
-        <HeaderAction
-          label={viewModel.actions.reportLabel}
-          onPress={onReportConversation}
-        />
-        <HeaderAction
-          label={viewModel.actions.blockLabel}
-          onPress={onBlockParticipant}
-        />
-      </View>
-
-      {viewModel.statusLabel ? (
-        <Text selectable style={styles.statusLabel}>
-          {viewModel.statusLabel}
+      {statusLabel ? (
+        <Text selectable style={styles.safetyNoticeLabel}>
+          {statusLabel}
         </Text>
       ) : null}
       {viewModel.errorLabel ? (
@@ -655,22 +847,31 @@ function ChatHeader({
 }
 
 function HeaderAction({
+  disabled = false,
+  iconName,
   label,
   onPress,
 }: {
+  disabled?: boolean;
+  iconName: MaterialCommunityIconName;
   label: string;
   onPress: () => void;
 }) {
   return (
     <Pressable
+      accessibilityLabel={label}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
       testID={`chat-header-action-${toTestIdSegment(label)}`}
-      style={styles.headerAction}
+      style={[styles.headerAction, disabled ? styles.disabledButton : null]}
     >
-      <Text maxFontSizeMultiplier={1.05} style={styles.headerActionText}>
-        {label}
-      </Text>
+      <SafeMaterialCommunityIcon
+        color={shellColors.primary}
+        name={iconName}
+        size={19}
+      />
     </Pressable>
   );
 }
@@ -681,17 +882,20 @@ function MessageBubble({ message }: { message: ChatMessageViewModel }) {
       style={[
         styles.messageBubble,
         message.isMine ? styles.messageBubbleMine : styles.messageBubbleTheirs,
+        styles[`messageGroup_${message.groupPosition}`],
       ]}
     >
-      <Text
-        maxFontSizeMultiplier={1.1}
-        style={[
-          styles.messageSender,
-          message.isMine ? styles.messageSenderMine : null,
-        ]}
-      >
-        {message.senderLabel}
-      </Text>
+      {message.showSenderLabel ? (
+        <Text
+          maxFontSizeMultiplier={1.1}
+          style={[
+            styles.messageSender,
+            message.isMine ? styles.messageSenderMine : null,
+          ]}
+        >
+          {message.senderLabel}
+        </Text>
+      ) : null}
       <Text
         maxFontSizeMultiplier={1.2}
         selectable
@@ -702,16 +906,180 @@ function MessageBubble({ message }: { message: ChatMessageViewModel }) {
       >
         {message.body}
       </Text>
-      <Text
-        maxFontSizeMultiplier={1.05}
-        style={[
-          styles.messageTime,
-          message.isMine ? styles.messageTimeMine : null,
-        ]}
-      >
-        {message.createdAtLabel}
-      </Text>
+      {message.showTimestamp ? (
+        <Text
+          maxFontSizeMultiplier={1.05}
+          style={[
+            styles.messageTime,
+            message.isMine ? styles.messageTimeMine : null,
+          ]}
+        >
+          {message.createdAtLabel}
+        </Text>
+      ) : null}
     </View>
+  );
+}
+
+function ReportConversationModal({
+  errorLabel,
+  isSubmitting,
+  note,
+  onCancel,
+  onChangeNote,
+  onChangeReason,
+  onSubmit,
+  reason,
+}: {
+  errorLabel?: string;
+  isSubmitting: boolean;
+  note: string;
+  onCancel: () => void;
+  onChangeNote: (note: string) => void;
+  onChangeReason: (reason: TrustSafetyReportReason) => void;
+  onSubmit: () => void;
+  reason: TrustSafetyReportReason;
+}) {
+  return (
+    <Modal animationType="fade" transparent visible>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalSurface}>
+          <Text maxFontSizeMultiplier={1.15} style={styles.modalTitle}>
+            Reportar chat
+          </Text>
+          <Text maxFontSizeMultiplier={1.1} style={styles.modalBody}>
+            Rastro revisará este chat y el reporte vinculado. La otra persona no
+            verá tu reporte.
+          </Text>
+          <View style={styles.reasonGrid}>
+            {trustSafetyReportReasonOptions.map((option) => {
+              const isSelected = option.value === reason;
+
+              return (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  key={option.value}
+                  onPress={() => {
+                    onChangeReason(option.value);
+                  }}
+                  style={[
+                    styles.reasonChip,
+                    isSelected ? styles.reasonChipSelected : null,
+                  ]}
+                >
+                  <Text
+                    maxFontSizeMultiplier={1.05}
+                    style={[
+                      styles.reasonChipText,
+                      isSelected ? styles.reasonChipTextSelected : null,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text maxFontSizeMultiplier={1.05} style={styles.inputLabel}>
+            Detalle opcional
+          </Text>
+          <TextInput
+            maxFontSizeMultiplier={1.1}
+            multiline
+            onChangeText={onChangeNote}
+            placeholder="Describe el problema con este chat"
+            placeholderTextColor={shellColors.muted}
+            style={styles.reportDetailInput}
+            value={note}
+          />
+          <Text maxFontSizeMultiplier={1.05} style={styles.inputHelper}>
+            Si agregas detalle, escribe al menos 10 caracteres.
+          </Text>
+          {errorLabel ? (
+            <Text maxFontSizeMultiplier={1.05} style={styles.errorLabel}>
+              {errorLabel}
+            </Text>
+          ) : null}
+          <View style={styles.modalActions}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={isSubmitting}
+              onPress={onCancel}
+              style={styles.secondaryModalButton}
+            >
+              <Text style={styles.secondaryModalButtonText}>Cancelar</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ busy: isSubmitting }}
+              disabled={isSubmitting}
+              onPress={onSubmit}
+              style={[
+                styles.primaryModalButton,
+                isSubmitting ? styles.disabledButton : null,
+              ]}
+            >
+              <Text style={styles.primaryModalButtonText}>
+                {isSubmitting ? "Enviando..." : "Enviar reporte"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function BlockParticipantModal({
+  isSubmitting,
+  onCancel,
+  onConfirm,
+  participantName,
+}: {
+  isSubmitting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+  participantName: string;
+}) {
+  return (
+    <Modal animationType="fade" transparent visible>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalSurface}>
+          <Text maxFontSizeMultiplier={1.15} style={styles.modalTitle}>
+            Bloquear a {participantName}
+          </Text>
+          <Text maxFontSizeMultiplier={1.1} style={styles.modalBody}>
+            No podrá enviarte nuevos mensajes en este chat. También puedes
+            reportar el chat si hay estafa, acoso o riesgo para una mascota.
+          </Text>
+          <View style={styles.modalActions}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={isSubmitting}
+              onPress={onCancel}
+              style={styles.secondaryModalButton}
+            >
+              <Text style={styles.secondaryModalButtonText}>Cancelar</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ busy: isSubmitting }}
+              disabled={isSubmitting}
+              onPress={onConfirm}
+              style={[
+                styles.dangerModalButton,
+                isSubmitting ? styles.disabledButton : null,
+              ]}
+            >
+              <Text style={styles.primaryModalButtonText}>
+                {isSubmitting ? "Bloqueando..." : "Bloquear"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -760,6 +1128,16 @@ function getSubjectKindLabel(subject: ChatSubject) {
     : "Reporte vinculado";
 }
 
+function formatChatHeaderSubtitle({
+  subjectSubtitle,
+  subjectTitle,
+}: {
+  subjectSubtitle: string;
+  subjectTitle: string;
+}) {
+  return [subjectTitle, subjectSubtitle].filter(Boolean).join(" - ");
+}
+
 function formatMessageTime(value: string) {
   const date = new Date(value);
 
@@ -773,31 +1151,49 @@ function formatMessageTime(value: string) {
 const styles = StyleSheet.create({
   actionRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
+    gap: 8,
   },
-  composer: {
-    backgroundColor: shellColors.surface,
-    borderColor: shellColors.border,
-    borderTopWidth: 1,
-    flexDirection: "row",
-    gap: 10,
-    padding: 12,
+  composerDisabledText: {
+    color: shellColors.muted,
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 16,
   },
   composerInput: {
     backgroundColor: shellColors.surfaceMuted,
     borderColor: shellColors.border,
     borderCurve: "continuous",
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     color: shellColors.text,
     flex: 1,
     fontSize: 15,
     lineHeight: 20,
-    maxHeight: 110,
-    minHeight: 46,
+    maxHeight: 96,
+    minHeight: 44,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+  },
+  composerRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  composerShell: {
+    backgroundColor: shellColors.surface,
+    borderColor: shellColors.border,
+    borderTopWidth: 1,
+    gap: 8,
+    padding: 12,
+  },
+  dangerModalButton: {
+    alignItems: "center",
+    backgroundColor: shellColors.lost,
+    borderCurve: "continuous",
+    borderRadius: 14,
+    flex: 1,
+    minHeight: 44,
+    justifyContent: "center",
     paddingHorizontal: 14,
-    paddingVertical: 12,
   },
   disabledButton: {
     opacity: 0.45,
@@ -808,30 +1204,35 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 18,
   },
-  eyebrow: {
-    color: shellColors.primary,
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 0,
-    textTransform: "uppercase",
-  },
   header: {
-    gap: 14,
-    paddingBottom: 18,
+    gap: 10,
+    paddingBottom: 10,
   },
   headerAction: {
     alignItems: "center",
     borderColor: shellColors.border,
     borderCurve: "continuous",
-    borderRadius: 999,
+    borderRadius: 14,
     borderWidth: 1,
-    minHeight: 42,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
   },
-  headerActionText: {
-    color: shellColors.primary,
-    fontSize: 14,
+  headerTopRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  inputHelper: {
+    color: shellColors.muted,
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 16,
+  },
+  inputLabel: {
+    color: shellColors.text,
+    fontSize: 13,
     fontWeight: "900",
   },
   list: {
@@ -839,9 +1240,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    gap: 12,
-    padding: 18,
-    paddingTop: 24,
+    gap: 4,
+    padding: 12,
+    paddingTop: 12,
   },
   messageBody: {
     color: shellColors.text,
@@ -853,11 +1254,11 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     borderCurve: "continuous",
-    borderRadius: 18,
-    gap: 5,
+    borderRadius: 16,
+    gap: 4,
     maxWidth: "86%",
-    paddingHorizontal: 14,
-    paddingVertical: 11,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
   },
   messageBubbleMine: {
     alignSelf: "flex-end",
@@ -877,6 +1278,18 @@ const styles = StyleSheet.create({
   messageSenderMine: {
     color: shellColors.primarySoft,
   },
+  messageGroup_first: {
+    marginTop: 8,
+  },
+  messageGroup_last: {
+    marginBottom: 4,
+  },
+  messageGroup_middle: {
+    marginVertical: 0,
+  },
+  messageGroup_single: {
+    marginVertical: 4,
+  },
   messageTime: {
     color: shellColors.muted,
     fontSize: 11,
@@ -885,6 +1298,89 @@ const styles = StyleSheet.create({
   },
   messageTimeMine: {
     color: shellColors.primarySoft,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  modalBackdrop: {
+    backgroundColor: "rgba(16, 24, 40, 0.38)",
+    flex: 1,
+    justifyContent: "flex-end",
+    padding: 14,
+  },
+  modalBody: {
+    color: shellColors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  modalSurface: {
+    backgroundColor: shellColors.surface,
+    borderColor: shellColors.border,
+    borderCurve: "continuous",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 12,
+    padding: 16,
+  },
+  modalTitle: {
+    color: shellColors.text,
+    fontSize: 20,
+    fontWeight: "900",
+    lineHeight: 25,
+  },
+  primaryModalButton: {
+    alignItems: "center",
+    backgroundColor: shellColors.primary,
+    borderCurve: "continuous",
+    borderRadius: 14,
+    flex: 1,
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+  },
+  primaryModalButtonText: {
+    color: shellColors.white,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  reasonChip: {
+    borderColor: shellColors.border,
+    borderCurve: "continuous",
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  reasonChipSelected: {
+    backgroundColor: shellColors.primary,
+    borderColor: shellColors.primary,
+  },
+  reasonChipText: {
+    color: shellColors.text,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  reasonChipTextSelected: {
+    color: shellColors.white,
+  },
+  reasonGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  reportDetailInput: {
+    backgroundColor: shellColors.surfaceMuted,
+    borderColor: shellColors.border,
+    borderCurve: "continuous",
+    borderRadius: 14,
+    borderWidth: 1,
+    color: shellColors.text,
+    fontSize: 14,
+    lineHeight: 19,
+    minHeight: 88,
+    padding: 12,
+    textAlignVertical: "top",
   },
   screen: {
     backgroundColor: shellColors.background,
@@ -895,12 +1391,12 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
     backgroundColor: shellColors.primary,
     borderCurve: "continuous",
-    borderRadius: 16,
+    borderRadius: 14,
     justifyContent: "center",
-    minHeight: 46,
-    minWidth: 86,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    minHeight: 44,
+    minWidth: 80,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   sendButtonText: {
     color: shellColors.white,
@@ -923,61 +1419,71 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
   },
-  statusLabel: {
+  safetyNoticeLabel: {
     color: shellColors.muted,
     fontSize: 12,
-    lineHeight: 17,
+    fontWeight: "700",
+    lineHeight: 16,
   },
-  subjectAction: {
-    color: shellColors.primary,
-    fontSize: 13,
+  secondaryModalButton: {
+    alignItems: "center",
+    borderColor: shellColors.border,
+    borderCurve: "continuous",
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+  },
+  secondaryModalButtonText: {
+    color: shellColors.text,
+    fontSize: 14,
     fontWeight: "900",
   },
-  subjectCard: {
+  subjectPill: {
     alignItems: "center",
     backgroundColor: shellColors.surface,
     borderColor: shellColors.border,
     borderCurve: "continuous",
-    borderRadius: 18,
+    borderRadius: 14,
     borderWidth: 1,
     flexDirection: "row",
-    gap: 12,
-    justifyContent: "space-between",
-    padding: 14,
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
   },
-  subjectCopy: {
+  subjectPillCopy: {
     flex: 1,
-    gap: 4,
+    flexDirection: "row",
+    gap: 8,
+    minWidth: 0,
   },
-  subjectLabel: {
+  subjectPillLabel: {
     color: shellColors.primary,
     fontSize: 12,
     fontWeight: "900",
-    textTransform: "uppercase",
   },
-  subjectMeta: {
+  subjectPillTitle: {
+    color: shellColors.text,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  subtitle: {
     color: shellColors.muted,
     fontSize: 13,
     lineHeight: 18,
   },
-  subjectTitle: {
-    color: shellColors.text,
-    fontSize: 16,
-    fontWeight: "900",
-    lineHeight: 21,
-  },
-  subtitle: {
-    color: shellColors.muted,
-    fontSize: 15,
-    lineHeight: 21,
-  },
   title: {
     color: shellColors.text,
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: "900",
-    lineHeight: 34,
+    lineHeight: 25,
   },
   titleBlock: {
-    gap: 6,
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
   },
 });

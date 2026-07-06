@@ -140,6 +140,7 @@ export interface ChatRepository {
 
 export interface ChatConversationViewModel {
   composer: {
+    disabledReason?: string;
     placeholder: string;
     sendLabel: string;
   };
@@ -147,15 +148,16 @@ export interface ChatConversationViewModel {
   controls: {
     block: {
       blockedMemberId: string;
-      isBlocked: boolean;
       label: string;
+      status: "available" | "blocked_by_viewer" | "viewer_blocked";
+      statusLabel?: string;
     };
     hide: {
       label: string;
     };
     report: {
-      isReported: boolean;
       label: string;
+      status: "available" | "reported";
       statusLabel: string;
     };
   };
@@ -176,8 +178,11 @@ export interface ChatConversationViewModel {
 
 export interface ChatConversationMessageViewModel {
   authorLabel: string;
+  groupPosition: "single" | "first" | "middle" | "last";
   id: string;
   isMine: boolean;
+  showSenderLabel: boolean;
+  showTimestamp: boolean;
   sentAt: string;
   text: string;
 }
@@ -439,9 +444,19 @@ export function buildChatConversationViewModel({
       membership.blockerMemberId === viewerMemberId &&
       membership.blockedMemberId === otherParticipant.memberId,
   );
+  const isViewerBlocked = conversation.blockedMemberships.some(
+    (membership) =>
+      membership.blockerMemberId === otherParticipant.memberId &&
+      membership.blockedMemberId === viewerMemberId,
+  );
+  const blockStatus = getChatBlockStatus({
+    isBlocked,
+    isViewerBlocked,
+  });
 
   return {
     composer: {
+      disabledReason: getChatComposerDisabledReason(blockStatus),
       placeholder: "Escribe un mensaje",
       sendLabel: "Enviar",
     },
@@ -449,34 +464,34 @@ export function buildChatConversationViewModel({
     controls: {
       block: {
         blockedMemberId: otherParticipant.memberId,
-        isBlocked,
-        label: "Bloquear miembro",
+        label:
+          blockStatus === "available"
+            ? `Bloquear a ${otherParticipant.displayName}`
+            : "Chat bloqueado",
+        status: blockStatus,
+        statusLabel: getChatBlockStatusLabel({
+          otherParticipantName: otherParticipant.displayName,
+          status: blockStatus,
+        }),
       },
       hide: {
         label: "Ocultar conversacion",
       },
       report: {
-        isReported,
-        label: "Reportar conversacion",
+        label: isReported ? "Chat reportado" : "Reportar chat",
+        status: isReported ? "reported" : "available",
         statusLabel: isReported
-          ? "Ya reportaste esta conversacion."
-          : "Puedes reportar esta conversacion a Rastro.",
+          ? "Reporte enviado. Moderación revisará este chat."
+          : "Rastro puede revisar este chat y el reporte vinculado.",
       },
     },
     conversationId: conversation.id,
     emptyState: "Aun no hay mensajes.",
-    messages: [...conversation.messages]
-      .sort(compareMessagesByCreatedAt)
-      .map((message) => ({
-        authorLabel:
-          message.senderMemberId === viewer.memberId
-            ? "Tu"
-            : otherParticipant.displayName,
-        id: message.id,
-        isMine: message.senderMemberId === viewer.memberId,
-        sentAt: message.createdAt,
-        text: message.text,
-      })),
+    messages: buildGroupedMessageViewModels({
+      messages: conversation.messages,
+      otherParticipantName: otherParticipant.displayName,
+      viewerMemberId: viewer.memberId,
+    }),
     refreshPolicy: {
       alwaysOnSocket: false,
       label: "Se actualiza al abrir, enviar y por sondeo.",
@@ -495,6 +510,124 @@ export function buildChatConversationViewModel({
     subtitle: conversation.subject.subtitle,
     title: otherParticipant.displayName,
   };
+}
+
+function buildGroupedMessageViewModels({
+  messages,
+  otherParticipantName,
+  viewerMemberId,
+}: {
+  messages: readonly ChatMessage[];
+  otherParticipantName: string;
+  viewerMemberId: string;
+}): ChatConversationMessageViewModel[] {
+  const sortedMessages = [...messages].sort(compareMessagesByCreatedAt);
+
+  return sortedMessages.map((message, index) => {
+    const previousMessage = sortedMessages[index - 1];
+    const nextMessage = sortedMessages[index + 1];
+    const followsPrevious = previousMessage
+      ? areMessagesGrouped(previousMessage, message)
+      : false;
+    const continuesNext = nextMessage
+      ? areMessagesGrouped(message, nextMessage)
+      : false;
+
+    return {
+      authorLabel:
+        message.senderMemberId === viewerMemberId ? "Tu" : otherParticipantName,
+      groupPosition: getMessageGroupPosition({
+        continuesNext,
+        followsPrevious,
+      }),
+      id: message.id,
+      isMine: message.senderMemberId === viewerMemberId,
+      showSenderLabel:
+        message.senderMemberId !== viewerMemberId && !followsPrevious,
+      showTimestamp: !continuesNext,
+      sentAt: message.createdAt,
+      text: message.text,
+    };
+  });
+}
+
+function areMessagesGrouped(left: ChatMessage, right: ChatMessage) {
+  if (left.senderMemberId !== right.senderMemberId) {
+    return false;
+  }
+
+  const leftTime = new Date(left.createdAt).getTime();
+  const rightTime = new Date(right.createdAt).getTime();
+
+  if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) {
+    return false;
+  }
+
+  return rightTime - leftTime <= 5 * 60 * 1000;
+}
+
+function getMessageGroupPosition({
+  continuesNext,
+  followsPrevious,
+}: {
+  continuesNext: boolean;
+  followsPrevious: boolean;
+}): ChatConversationMessageViewModel["groupPosition"] {
+  if (!followsPrevious && !continuesNext) {
+    return "single";
+  }
+
+  if (!followsPrevious) {
+    return "first";
+  }
+
+  return continuesNext ? "middle" : "last";
+}
+
+function getChatBlockStatus({
+  isBlocked,
+  isViewerBlocked,
+}: {
+  isBlocked: boolean;
+  isViewerBlocked: boolean;
+}): ChatConversationViewModel["controls"]["block"]["status"] {
+  if (isBlocked) {
+    return "blocked_by_viewer";
+  }
+
+  return isViewerBlocked ? "viewer_blocked" : "available";
+}
+
+function getChatComposerDisabledReason(
+  status: ChatConversationViewModel["controls"]["block"]["status"],
+) {
+  if (status === "blocked_by_viewer") {
+    return "Chat bloqueado";
+  }
+
+  if (status === "viewer_blocked") {
+    return "No puedes enviar mensajes porque este chat fue bloqueado.";
+  }
+
+  return undefined;
+}
+
+function getChatBlockStatusLabel({
+  otherParticipantName,
+  status,
+}: {
+  otherParticipantName: string;
+  status: ChatConversationViewModel["controls"]["block"]["status"];
+}) {
+  if (status === "blocked_by_viewer") {
+    return `Bloqueaste a ${otherParticipantName}. No podrá responder en este chat.`;
+  }
+
+  if (status === "viewer_blocked") {
+    return "No puedes enviar mensajes porque este chat fue bloqueado.";
+  }
+
+  return undefined;
 }
 
 function hasUnsupportedAttachmentInput(input: SendChatMessageInput) {

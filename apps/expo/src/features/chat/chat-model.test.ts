@@ -236,9 +236,9 @@ describe("Chat repository", () => {
       },
     ]);
     expect(viewModel.controls.report).toEqual({
-      isReported: true,
-      label: "Reportar conversacion",
-      statusLabel: "Ya reportaste esta conversacion.",
+      label: "Chat reportado",
+      status: "reported",
+      statusLabel: "Reporte enviado. Moderación revisará este chat.",
     });
     await expect(trustSafety.listAdminReviewItems()).resolves.toEqual([
       expect.objectContaining({
@@ -302,15 +302,16 @@ describe("Chat repository", () => {
       controls: {
         block: {
           blockedMemberId: finder.memberId,
-          isBlocked: false,
-          label: "Bloquear miembro",
+          label: "Bloquear a Diego",
+          status: "available",
+          statusLabel: undefined,
         },
         hide: {
           label: "Ocultar conversacion",
         },
         report: {
-          isReported: false,
-          label: "Reportar conversacion",
+          label: "Reportar chat",
+          status: "available",
         },
       },
       refreshPolicy: {
@@ -337,5 +338,82 @@ describe("Chat repository", () => {
     expect(visibleCopy.toLocaleLowerCase("es-BO")).not.toMatch(
       /comentarios|comentario|grupo|adjuntos|adjunto|archivos|archivo|dm|mensaje directo/,
     );
+  });
+
+  it("groups consecutive messages by sender and exposes blocked composer states", async () => {
+    const repository = createInMemoryChatRepository({
+      now: () => "2026-06-18T12:00:00.000Z",
+    });
+    const conversation = await repository.getOrCreateConversation({
+      participants: [caretaker, finder],
+      subject: lostReportSubject,
+    });
+    const groupedConversation = {
+      ...conversation,
+      blockedMemberships: [
+        {
+          blockedAt: "2026-06-18T12:20:00.000Z",
+          blockedMemberId: finder.memberId,
+          blockerMemberId: caretaker.memberId,
+        },
+      ],
+      messages: [
+        {
+          conversationId: conversation.id,
+          createdAt: "2026-06-18T12:01:00.000Z",
+          id: "message-1",
+          senderMemberId: finder.memberId,
+          text: "Estoy en la plaza.",
+        },
+        {
+          conversationId: conversation.id,
+          createdAt: "2026-06-18T12:03:00.000Z",
+          id: "message-2",
+          senderMemberId: finder.memberId,
+          text: "Lo vi cruzar.",
+        },
+        {
+          conversationId: conversation.id,
+          createdAt: "2026-06-18T12:11:00.000Z",
+          id: "message-3",
+          senderMemberId: finder.memberId,
+          text: "Ya no lo veo.",
+        },
+      ],
+    };
+
+    const viewModel = buildChatConversationViewModel({
+      conversation: groupedConversation,
+      viewerMemberId: caretaker.memberId,
+    });
+
+    expect(viewModel.composer.disabledReason).toBe("Chat bloqueado");
+    expect(viewModel.controls.block).toMatchObject({
+      status: "blocked_by_viewer",
+      statusLabel: "Bloqueaste a Diego. No podrá responder en este chat.",
+    });
+    expect(
+      viewModel.messages.map((message) => ({
+        groupPosition: message.groupPosition,
+        showSenderLabel: message.showSenderLabel,
+        showTimestamp: message.showTimestamp,
+      })),
+    ).toEqual([
+      {
+        groupPosition: "first",
+        showSenderLabel: true,
+        showTimestamp: false,
+      },
+      {
+        groupPosition: "last",
+        showSenderLabel: false,
+        showTimestamp: true,
+      },
+      {
+        groupPosition: "single",
+        showSenderLabel: true,
+        showTimestamp: true,
+      },
+    ]);
   });
 });

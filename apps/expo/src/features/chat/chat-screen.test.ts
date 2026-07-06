@@ -50,6 +50,7 @@ vi.mock("react-native", () => ({
   Linking: {
     openURL: () => Promise.resolve(),
   },
+  Modal: "Modal",
   Platform: {
     OS: "ios",
   },
@@ -61,6 +62,10 @@ vi.mock("react-native", () => ({
   Text: "Text",
   TextInput: "TextInput",
   View: "View",
+}));
+
+vi.mock("@expo/vector-icons", () => ({
+  MaterialCommunityIcons: "MaterialCommunityIcons",
 }));
 
 vi.mock("react-native-safe-area-context", () => ({
@@ -102,15 +107,37 @@ describe("ChatScreen view model", () => {
     });
 
     expect(viewModel.actions).toMatchObject({
-      blockLabel: "Bloquear",
+      blockDisabled: false,
+      blockLabel: "Bloquear a Diego",
       refreshLabel: "Actualizar",
-      reportLabel: "Reportar",
+      reportDisabled: false,
+      reportLabel: "Reportar chat",
       sendLabel: "Enviar",
       subjectLinkLabel: "Ver reporte",
     });
     expect(viewModel.composerPlaceholder).toBe("Escribe un mensaje");
+    expect(viewModel.headerTitle).toBe("Diego");
+    expect(viewModel.headerSubtitle).toBe("Toby - Sopocachi");
 
-    const renderedCopy = JSON.stringify(viewModel).toLowerCase();
+    const renderedCopy = [
+      viewModel.actions.blockLabel,
+      viewModel.actions.refreshLabel,
+      viewModel.actions.reportLabel,
+      viewModel.actions.sendLabel,
+      viewModel.actions.subjectLinkLabel,
+      viewModel.composerPlaceholder,
+      viewModel.emptyMessageLabel,
+      viewModel.headerSubtitle,
+      viewModel.headerTitle,
+      viewModel.messages.map((message) => message.body).join(" "),
+      viewModel.reportStatusLabel,
+      viewModel.statusLabel,
+      viewModel.subject?.label,
+      viewModel.subject?.subtitle,
+      viewModel.subject?.title,
+    ]
+      .join(" ")
+      .toLowerCase();
 
     for (const forbiddenCopy of [
       "archivo",
@@ -172,6 +199,77 @@ describe("ChatScreen view model", () => {
       busy: false,
       disabled: true,
     });
+  });
+
+  it("opens safety workflows from header actions without instant mutation", () => {
+    const conversation = createChatConversation();
+    const repository = createSpyChatRepository(conversation);
+    const screen = renderFunctionElement(
+      ChatScreen({
+        conversationId: conversation.id,
+        initialConversation: conversation,
+        pollIntervalMs: 0,
+        repository,
+        viewerMemberId: "member-camila",
+      }),
+    );
+    const header = getFlatListHeader(screen);
+    const reportAction = findElement(
+      header,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.testID === "chat-header-action-reportar-chat",
+    );
+    const blockAction = findElement(
+      header,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.testID === "chat-header-action-bloquear-a-diego",
+    );
+
+    toPressHandler(reportAction?.props.onPress)();
+    toPressHandler(blockAction?.props.onPress)();
+
+    expect(repository.reportConversation).not.toHaveBeenCalled();
+    expect(repository.blockMember).not.toHaveBeenCalled();
+  });
+
+  it("disables the composer when the viewer blocked the chat", () => {
+    const conversation = {
+      ...createChatConversation(),
+      blockedMemberships: [
+        {
+          blockedAt: "2026-06-18T12:20:00.000Z",
+          blockedMemberId: "member-diego",
+          blockerMemberId: "member-camila",
+        },
+      ],
+    };
+    const repository = createStaticChatRepository(conversation);
+    const screen = renderFunctionElement(
+      ChatScreen({
+        conversationId: conversation.id,
+        initialConversation: conversation,
+        pollIntervalMs: 0,
+        repository,
+        viewerMemberId: "member-camila",
+      }),
+    );
+    const input = findElement(
+      screen,
+      (element) =>
+        element.type === "TextInput" &&
+        element.props.testID === "chat-message-input",
+    );
+    const disabledReason = findElement(
+      screen,
+      (element) =>
+        element.type === "Text" &&
+        element.props.testID === "chat-composer-disabled-reason",
+    );
+
+    expect(input?.props.editable).toBe(false);
+    expect(disabledReason?.props.children).toBe("Chat bloqueado");
   });
 
   it("keeps tab clearance at rest and compacts the composer when the keyboard is visible", () => {
@@ -237,6 +335,24 @@ function createStaticChatRepository(
   };
 }
 
+function createSpyChatRepository(
+  conversation: ChatConversation,
+): ChatScreenRepository & {
+  blockMember: ReturnType<typeof vi.fn>;
+  reportConversation: ReturnType<typeof vi.fn>;
+} {
+  return {
+    blockMember: vi.fn(() => Promise.resolve(conversation)),
+    getConversation: () => Promise.resolve(conversation),
+    getOrCreateConversation: () => Promise.resolve(conversation),
+    hideConversation: () => Promise.resolve(conversation),
+    listConversations: () => Promise.resolve([conversation]),
+    refreshConversation: () => Promise.resolve(conversation),
+    reportConversation: vi.fn(() => Promise.resolve(conversation)),
+    sendMessage: () => Promise.resolve(conversation),
+  };
+}
+
 type ElementProps = Record<string, unknown> & {
   children?: React.ReactNode;
 };
@@ -255,6 +371,25 @@ function renderFunctionElement(node: React.ReactNode): React.ReactNode {
   const Component = node.type as (props: ElementProps) => React.ReactNode;
 
   return Component(node.props);
+}
+
+function getFlatListHeader(node: React.ReactNode): React.ReactNode {
+  const flatList = findElement(node, (element) => element.type === "FlatList");
+  const header = flatList?.props.ListHeaderComponent;
+
+  if (!React.isValidElement(header)) {
+    throw new Error("Expected chat list header.");
+  }
+
+  return renderFunctionElement(header);
+}
+
+function toPressHandler(value: unknown): () => void {
+  if (typeof value !== "function") {
+    throw new Error("Expected press handler.");
+  }
+
+  return value as () => void;
 }
 
 function findElement(
