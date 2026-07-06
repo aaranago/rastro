@@ -101,6 +101,10 @@ describe("public Lost Pet Report page data", () => {
       publicLostReportPathForId("report-lost-bruno-db"),
     );
     expect(report).toMatchObject({
+      abuseReport: {
+        isOwner: false,
+        reportId: "report-lost-bruno-db",
+      },
       appPrompts: {
         downloadHref: "https://rastro.bo/descargar",
         downloadLabel: "Descargar Rastro",

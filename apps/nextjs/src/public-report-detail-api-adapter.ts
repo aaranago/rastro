@@ -1,5 +1,7 @@
 import type { RouterOutputs } from "@acme/api";
 
+import { readTrpcErrorCode } from "~/trpc-error-code";
+
 export type PublicReportDetail = RouterOutputs["report"]["detail"];
 
 export type PublicReportDetailLoader = (
@@ -59,45 +61,11 @@ async function createPublicReportDetailCaller(): Promise<PublicReportDetailCalle
 }
 
 function isTrpcNotFoundError(error: unknown) {
-  const errorCode =
-    readStringProperty(error, "code") ??
-    readStringProperty(readRecordProperty(error, "data"), "code") ??
-    readStringProperty(readRecordProperty(error, "shape"), "code") ??
-    readStringProperty(
-      readRecordProperty(readRecordProperty(error, "shape"), "data"),
-      "code",
-    );
-
-  return errorCode === "NOT_FOUND";
+  return readTrpcErrorCode(error) === "NOT_FOUND";
 }
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value,
   );
-}
-
-function readRecordProperty(
-  value: unknown,
-  property: string,
-): Record<string, unknown> | null {
-  if (typeof value !== "object" || value === null) {
-    return null;
-  }
-
-  const propertyValue = (value as Record<string, unknown>)[property];
-
-  return typeof propertyValue === "object" && propertyValue !== null
-    ? (propertyValue as Record<string, unknown>)
-    : null;
-}
-
-function readStringProperty(value: unknown, property: string) {
-  if (typeof value !== "object" || value === null) {
-    return undefined;
-  }
-
-  const propertyValue = (value as Record<string, unknown>)[property];
-
-  return typeof propertyValue === "string" ? propertyValue : undefined;
 }

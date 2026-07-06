@@ -6,11 +6,22 @@ import {
   getPublicLostReportViewModel,
 } from "~/public-lost-reports";
 import { PublicPhotoGrid } from "~/public-photo-grid";
+import {
+  parsePublicReportAbuseStatus,
+  PublicReportAbuseCard,
+} from "~/public-report-abuse";
+import { getSession } from "~/auth/server";
+
+type PublicLostReportSearchParams = Record<
+  string,
+  string | string[] | undefined
+>;
 
 interface PublicLostReportPageProps {
   params: Promise<{
     reportId: string;
   }>;
+  searchParams?: Promise<PublicLostReportSearchParams>;
 }
 
 export async function generateMetadata(
@@ -32,7 +43,13 @@ export default async function PublicLostReportPage(
   props: PublicLostReportPageProps,
 ) {
   const { reportId } = await props.params;
-  const report = await getPublicLostReportViewModel(reportId);
+  const searchParamsPromise: Promise<PublicLostReportSearchParams> =
+    props.searchParams ?? Promise.resolve({});
+  const [report, session, searchParams] = await Promise.all([
+    getPublicLostReportViewModel(reportId),
+    getSession(),
+    searchParamsPromise,
+  ]);
 
   if (!report) {
     notFound();
@@ -97,6 +114,14 @@ export default async function PublicLostReportPage(
               ))}
             </div>
           </div>
+
+          <PublicReportAbuseCard
+            isOwner={report.abuseReport.isOwner}
+            isSignedIn={Boolean(session)}
+            reportId={report.abuseReport.reportId}
+            returnTo={report.sharePath}
+            status={parsePublicReportAbuseStatus(searchParams.reportAbuse)}
+          />
 
           <div className="bg-primary text-primary-foreground rounded-lg p-5">
             <h2 className="text-xl font-semibold">Rastro</h2>

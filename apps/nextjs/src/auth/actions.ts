@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod/v4";
 
 import type { SocialAuthProvider } from "~/auth/server";
+import { buildAuthHomeHref, sanitizeAuthReturnTo } from "~/auth/return-to";
 import { auth, getEnabledSocialAuthProviders, getSession } from "~/auth/server";
 import { env } from "~/env";
 
@@ -31,8 +32,15 @@ const readString = (formData: FormData, key: string) => {
   return typeof value === "string" ? value.trim() : "";
 };
 
-const redirectToAuth = (status: string): never => {
-  redirect(`/?auth=${status}#auth`);
+const readReturnTo = (formData: FormData) =>
+  sanitizeAuthReturnTo(readString(formData, "returnTo"));
+
+const redirectToAuth = (status: string, returnTo?: string): never => {
+  redirect(buildAuthHomeHref(status, returnTo));
+};
+
+const redirectAfterAuthSuccess = (status: string, returnTo?: string): never => {
+  redirect(returnTo ?? buildAuthHomeHref(status));
 };
 
 const getAuthFailureStatus = (error: unknown, fallback: string): string => {
@@ -80,7 +88,10 @@ const getAccountDeletionFailureStatus = (error: unknown): string => {
   return "account-deletion-error";
 };
 
-const parseSignInCredentials = (formData: FormData): SignInCredentials => {
+const parseSignInCredentials = (
+  formData: FormData,
+  returnTo?: string,
+): SignInCredentials => {
   const parsed = signInSchema.safeParse({
     email: readString(formData, "email"),
     password: readString(formData, "password"),
@@ -90,10 +101,13 @@ const parseSignInCredentials = (formData: FormData): SignInCredentials => {
     return parsed.data;
   }
 
-  return redirectToAuth("signin-invalid");
+  return redirectToAuth("signin-invalid", returnTo);
 };
 
-const parseSignUpAccount = (formData: FormData): SignUpAccount => {
+const parseSignUpAccount = (
+  formData: FormData,
+  returnTo?: string,
+): SignUpAccount => {
   const parsed = signUpSchema.safeParse({
     email: readString(formData, "email"),
     name: readString(formData, "name"),
@@ -104,10 +118,13 @@ const parseSignUpAccount = (formData: FormData): SignUpAccount => {
     return parsed.data;
   }
 
-  return redirectToAuth("signup-invalid");
+  return redirectToAuth("signup-invalid", returnTo);
 };
 
-const parseSocialProvider = (formData: FormData): SocialAuthProvider => {
+const parseSocialProvider = (
+  formData: FormData,
+  returnTo?: string,
+): SocialAuthProvider => {
   const parsed = socialProviderSchema.safeParse(
     readString(formData, "provider"),
   );
@@ -116,11 +133,12 @@ const parseSocialProvider = (formData: FormData): SocialAuthProvider => {
     return parsed.data;
   }
 
-  return redirectToAuth("social-unavailable");
+  return redirectToAuth("social-unavailable", returnTo);
 };
 
 const parsePasswordResetRequest = (
   formData: FormData,
+  returnTo?: string,
 ): PasswordResetRequest => {
   const parsed = passwordResetRequestSchema.safeParse({
     email: readString(formData, "email"),
@@ -130,35 +148,40 @@ const parsePasswordResetRequest = (
     return parsed.data;
   }
 
-  return redirectToAuth("password-reset-invalid");
+  return redirectToAuth("password-reset-invalid", returnTo);
 };
 
 export async function signInWithEmail(formData: FormData) {
-  const credentials = parseSignInCredentials(formData);
+  const returnTo = readReturnTo(formData);
+  const credentials = parseSignInCredentials(formData, returnTo);
 
   try {
     await auth.api.signInEmail({
       body: {
-        callbackURL: "/",
+        callbackURL: returnTo ?? "/",
         email: credentials.email,
         password: credentials.password,
       },
     });
   } catch (error) {
-    return redirectToAuth(getAuthFailureStatus(error, "signin-error"));
+    return redirectToAuth(
+      getAuthFailureStatus(error, "signin-error"),
+      returnTo,
+    );
   }
 
-  return redirectToAuth("signin-success");
+  return redirectAfterAuthSuccess("signin-success", returnTo);
 }
 
 export async function signUpWithEmail(formData: FormData) {
-  const account = parseSignUpAccount(formData);
+  const returnTo = readReturnTo(formData);
+  const account = parseSignUpAccount(formData, returnTo);
   let successStatus = "signup-success";
 
   try {
     const response = await auth.api.signUpEmail({
       body: {
-        callbackURL: "/",
+        callbackURL: returnTo ?? "/",
         email: account.email,
         name: account.name,
         password: account.password,
@@ -169,18 +192,24 @@ export async function signUpWithEmail(formData: FormData) {
       successStatus = "signup-verify-email";
     }
   } catch (error) {
-    return redirectToAuth(getAuthFailureStatus(error, "signup-error"));
+    return redirectToAuth(
+      getAuthFailureStatus(error, "signup-error"),
+      returnTo,
+    );
   }
 
-  return redirectToAuth(successStatus);
+  return successStatus === "signup-success"
+    ? redirectAfterAuthSuccess(successStatus, returnTo)
+    : redirectToAuth(successStatus, returnTo);
 }
 
 export async function signInWithSocialProvider(formData: FormData) {
-  const provider = parseSocialProvider(formData);
+  const returnTo = readReturnTo(formData);
+  const provider = parseSocialProvider(formData, returnTo);
   const enabledProviders = getEnabledSocialAuthProviders();
 
   if (!enabledProviders.includes(provider)) {
-    return redirectToAuth("social-unavailable");
+    return redirectToAuth("social-unavailable", returnTo);
   }
 
   let redirectUrl: string | undefined;
@@ -188,39 +217,40 @@ export async function signInWithSocialProvider(formData: FormData) {
   try {
     const response = await auth.api.signInSocial({
       body: {
-        callbackURL: "/",
+        callbackURL: returnTo ?? "/",
         provider,
       },
     });
 
     redirectUrl = response.url;
   } catch (error) {
-    return redirectToAuth(getAuthFailureStatus(error, "social-error"));
+    return redirectToAuth(getAuthFailureStatus(error, "social-error"), returnTo);
   }
 
   if (redirectUrl === undefined) {
-    return redirectToAuth("social-unavailable");
+    return redirectToAuth("social-unavailable", returnTo);
   }
 
   redirect(redirectUrl);
 }
 
 export async function requestPasswordReset(formData: FormData) {
-  const request = parsePasswordResetRequest(formData);
+  const returnTo = readReturnTo(formData);
+  const request = parsePasswordResetRequest(formData, returnTo);
 
   try {
     await auth.api.requestPasswordReset({
       body: {
         email: request.email,
-        redirectTo: "/",
+        redirectTo: returnTo ?? "/",
       },
       headers: await headers(),
     });
   } catch (error) {
-    return redirectToAuth(getPasswordResetFailureStatus(error));
+    return redirectToAuth(getPasswordResetFailureStatus(error), returnTo);
   }
 
-  return redirectToAuth("password-reset-sent");
+  return redirectToAuth("password-reset-sent", returnTo);
 }
 
 export async function initiateAccountDeletion() {

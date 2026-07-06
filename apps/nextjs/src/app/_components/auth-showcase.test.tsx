@@ -1,8 +1,12 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { SocialAuthProvider } from "~/auth/server";
+
 const authServer = vi.hoisted(() => ({
-  getEnabledSocialAuthProviders: vi.fn(() => []),
+  getEnabledSocialAuthProviders: vi.fn<() => SocialAuthProvider[]>(
+    () => [],
+  ),
   getSession: vi.fn(),
   socialAuthProviderLabels: {
     apple: "Continuar con Apple",
@@ -48,5 +52,24 @@ describe("AuthShowcase account settings", () => {
     expect(html).toContain("conversaciones");
     expect(html).toContain("contenido publico");
     expect(html).toContain("registros de seguridad");
+  });
+
+  it("preserves a safe local return path for visitor sign-in forms", async () => {
+    authServer.getSession.mockResolvedValue(null);
+    authServer.getEnabledSocialAuthProviders.mockReturnValue(["google"]);
+    const { AuthShowcase } = await import("./auth-showcase");
+
+    const html = renderToStaticMarkup(
+      await AuthShowcase({
+        returnTo: "/reportes/perdidos/report-lost-bruno-db",
+        status: "signin-required",
+      }),
+    );
+
+    expect(html).toContain("Ingresa para continuar con esta accion en Rastro.");
+    expect(html).toContain(
+      'name="returnTo" value="/reportes/perdidos/report-lost-bruno-db"',
+    );
+    expect(html).toContain("Continuar con Google");
   });
 });

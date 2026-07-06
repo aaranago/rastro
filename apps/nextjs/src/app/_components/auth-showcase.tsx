@@ -9,6 +9,7 @@ import {
   signOut,
   signUpWithEmail,
 } from "~/auth/actions";
+import { sanitizeAuthReturnTo } from "~/auth/return-to";
 import {
   getEnabledSocialAuthProviders,
   getSession,
@@ -63,6 +64,10 @@ const authMessages = {
   "signin-invalid": {
     tone: "error",
     text: "Ingresa un correo valido y una contrasena de al menos 8 caracteres.",
+  },
+  "signin-required": {
+    tone: "error",
+    text: "Ingresa para continuar con esta accion en Rastro.",
   },
   "signin-success": {
     tone: "success",
@@ -131,10 +136,14 @@ function AuthMessage(props: {
   );
 }
 
-export async function AuthShowcase(props: { status?: string }) {
+export async function AuthShowcase(props: {
+  returnTo?: string;
+  status?: string;
+}) {
   const session = await getSession();
   const socialProviders = getEnabledSocialAuthProviders();
   const message = getAuthMessage(props.status);
+  const returnTo = sanitizeAuthReturnTo(props.returnTo);
 
   if (session) {
     const displayName = session.user.name || session.user.email;
@@ -176,6 +185,9 @@ export async function AuthShowcase(props: { status?: string }) {
               </p>
             </div>
             <input type="hidden" name="email" value={session.user.email} />
+            {returnTo ? (
+              <input type="hidden" name="returnTo" value={returnTo} />
+            ) : null}
             <Button type="submit" variant="outline" className="w-fit">
               Solicitar enlace
             </Button>
@@ -242,6 +254,9 @@ export async function AuthShowcase(props: { status?: string }) {
 
       <div className="grid gap-6 md:grid-cols-2">
         <form action={signInWithEmail} className="flex flex-col gap-4">
+          {returnTo ? (
+            <input type="hidden" name="returnTo" value={returnTo} />
+          ) : null}
           <div>
             <h3 className="text-base font-semibold">Ingresar</h3>
             <p className="text-muted-foreground mt-1 text-sm">
@@ -275,6 +290,9 @@ export async function AuthShowcase(props: { status?: string }) {
         </form>
 
         <form action={signUpWithEmail} className="flex flex-col gap-4">
+          {returnTo ? (
+            <input type="hidden" name="returnTo" value={returnTo} />
+          ) : null}
           <div>
             <h3 className="text-base font-semibold">Crear cuenta</h3>
             <p className="text-muted-foreground mt-1 text-sm">
@@ -327,6 +345,9 @@ export async function AuthShowcase(props: { status?: string }) {
             {socialProviders.map((provider) => (
               <form action={signInWithSocialProvider} key={provider}>
                 <input type="hidden" name="provider" value={provider} />
+                {returnTo ? (
+                  <input type="hidden" name="returnTo" value={returnTo} />
+                ) : null}
                 <Button type="submit" variant="outline">
                   {socialAuthProviderLabels[provider]}
                 </Button>

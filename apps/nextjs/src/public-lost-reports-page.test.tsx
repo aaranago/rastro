@@ -7,6 +7,10 @@ const publicReportDetailApi = vi.hoisted(() => ({
   getPublicReportDetail: vi.fn(),
 }));
 
+const authServer = vi.hoisted(() => ({
+  getSession: vi.fn(),
+}));
+
 const navigation = vi.hoisted(() => ({
   notFound: vi.fn(() => {
     throw new Error("NEXT_NOT_FOUND");
@@ -14,6 +18,7 @@ const navigation = vi.hoisted(() => ({
 }));
 
 vi.mock("~/public-report-detail-api-adapter", () => publicReportDetailApi);
+vi.mock("~/auth/server", () => authServer);
 vi.mock("next/navigation", () => navigation);
 
 const privateCoordinateLabel = "Pin manual -16.536229, -68.073419";
@@ -86,6 +91,8 @@ function persistedLostReport(
 describe("public Lost Pet Report page", () => {
   beforeEach(() => {
     vi.resetModules();
+    authServer.getSession.mockReset();
+    authServer.getSession.mockResolvedValue(null);
     publicReportDetailApi.getPublicReportDetail.mockReset();
     navigation.notFound.mockClear();
   });
@@ -120,11 +127,76 @@ describe("public Lost Pet Report page", () => {
     expect(html).toContain("bo lpb achumani - zona aproximada");
     expect(html).toContain("Escribir por WhatsApp");
     expect(html).toContain("Enviar mensaje en Rastro");
+    expect(html).toContain("Reportar");
+    expect(html).toContain("Inicia sesión para reportar");
+    expect(html).toContain(
+      "/?auth=signin-required&amp;returnTo=%2Freportes%2Fperdidos%2Freport-lost-bruno-db#auth",
+    );
     expect(html).toContain("Imagen no disponible");
     expect(html).not.toContain(privateCoordinateLabel);
     expect(html).not.toContain("-16.536229");
     expect(html).not.toContain("-68.073419");
     expect(html).not.toContain("Coordenadas");
+  });
+
+  it("renders a signed-in abuse report form for non-owner visitors", async () => {
+    authServer.getSession.mockResolvedValue({
+      user: {
+        id: "member-diego",
+      },
+    });
+    publicReportDetailApi.getPublicReportDetail.mockResolvedValue(
+      persistedLostReport(),
+    );
+    const { default: PublicLostReportPage } = await import(
+      "./app/reportes/perdidos/[reportId]/page"
+    );
+
+    const html = renderToStaticMarkup(
+      await PublicLostReportPage({
+        params: Promise.resolve({
+          reportId: "report-lost-bruno-db",
+        }),
+        searchParams: Promise.resolve({
+          reportAbuse: "created",
+        }),
+      }),
+    );
+
+    expect(html).toContain("Gracias. El equipo de Rastro revisará este reporte.");
+    expect(html).toContain('name="reportId" value="report-lost-bruno-db"');
+    expect(html).toContain('name="reason"');
+    expect(html).toContain("Enviar reporte");
+    expect(html).not.toContain("Inicia sesión para reportar");
+  });
+
+  it("suppresses the abuse report card for the report owner", async () => {
+    authServer.getSession.mockResolvedValue({
+      user: {
+        id: "member-camila",
+      },
+    });
+    publicReportDetailApi.getPublicReportDetail.mockResolvedValue(
+      persistedLostReport({
+        owner: {
+          isCurrentMember: true,
+        },
+      }),
+    );
+    const { default: PublicLostReportPage } = await import(
+      "./app/reportes/perdidos/[reportId]/page"
+    );
+
+    const html = renderToStaticMarkup(
+      await PublicLostReportPage({
+        params: Promise.resolve({
+          reportId: "report-lost-bruno-db",
+        }),
+      }),
+    );
+
+    expect(html).not.toContain("Inicia sesión para reportar");
+    expect(html).not.toContain("Enviar reporte");
   });
 
   it("returns route metadata for persisted lost reports without coordinates", async () => {

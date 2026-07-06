@@ -28,6 +28,10 @@ export type PublicAdoptionListingPhoto = PublicReportPagePhoto;
 export type PublicAdoptionListingPet = PublicReportPagePet;
 
 export interface PublicAdoptionListingViewModel {
+  abuseReport: {
+    isOwner: boolean;
+    reportId: string;
+  };
   appPrompts: {
     downloadHref: string;
     downloadLabel: string;
@@ -111,6 +115,10 @@ function buildPublicAdoptionListingViewModel(
   });
 
   return {
+    abuseReport: {
+      isOwner: report.owner.isCurrentMember,
+      reportId: report.id,
+    },
     appPrompts: {
       downloadHref: appDownloadHref,
       downloadLabel: "Descargar Rastro",

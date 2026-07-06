@@ -92,6 +92,10 @@ describe("public Adoption Listing page data", () => {
       publicAdoptionListingPathForId("adoption-nala-db"),
     );
     expect(listing).toMatchObject({
+      abuseReport: {
+        isOwner: false,
+        reportId: "adoption-nala-db",
+      },
       appPrompts: {
         downloadHref: "https://rastro.bo/descargar",
         downloadLabel: "Descargar Rastro",

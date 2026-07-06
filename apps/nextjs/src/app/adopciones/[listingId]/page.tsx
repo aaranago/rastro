@@ -6,11 +6,22 @@ import {
   getPublicAdoptionListingViewModel,
 } from "~/public-adoption-listings";
 import { PublicPhotoGrid } from "~/public-photo-grid";
+import {
+  parsePublicReportAbuseStatus,
+  PublicReportAbuseCard,
+} from "~/public-report-abuse";
+import { getSession } from "~/auth/server";
+
+type PublicAdoptionListingSearchParams = Record<
+  string,
+  string | string[] | undefined
+>;
 
 interface PublicAdoptionListingPageProps {
   params: Promise<{
     listingId: string;
   }>;
+  searchParams?: Promise<PublicAdoptionListingSearchParams>;
 }
 
 export async function generateMetadata(
@@ -32,7 +43,13 @@ export default async function PublicAdoptionListingPage(
   props: PublicAdoptionListingPageProps,
 ) {
   const { listingId } = await props.params;
-  const listing = await getPublicAdoptionListingViewModel(listingId);
+  const searchParamsPromise: Promise<PublicAdoptionListingSearchParams> =
+    props.searchParams ?? Promise.resolve({});
+  const [listing, session, searchParams] = await Promise.all([
+    getPublicAdoptionListingViewModel(listingId),
+    getSession(),
+    searchParamsPromise,
+  ]);
 
   if (!listing) {
     notFound();
@@ -99,6 +116,14 @@ export default async function PublicAdoptionListingPage(
               ))}
             </div>
           </div>
+
+          <PublicReportAbuseCard
+            isOwner={listing.abuseReport.isOwner}
+            isSignedIn={Boolean(session)}
+            reportId={listing.abuseReport.reportId}
+            returnTo={listing.sharePath}
+            status={parsePublicReportAbuseStatus(searchParams.reportAbuse)}
+          />
 
           <div className="bg-primary text-primary-foreground rounded-lg p-5">
             <h2 className="text-xl font-semibold">Rastro</h2>

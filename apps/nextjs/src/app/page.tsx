@@ -18,6 +18,7 @@ const getSingleSearchParam = (params: Awaited<SearchParams>, key: string) => {
 export default async function HomePage(props: { searchParams: SearchParams }) {
   const searchParams = await props.searchParams;
   const authStatus = getSingleSearchParam(searchParams, "auth");
+  const authReturnTo = getSingleSearchParam(searchParams, "returnTo");
 
   prefetch(trpc.post.all.queryOptions());
 
@@ -35,7 +36,7 @@ export default async function HomePage(props: { searchParams: SearchParams }) {
             </p>
           </div>
 
-          <AuthShowcase status={authStatus} />
+          <AuthShowcase returnTo={authReturnTo} status={authStatus} />
 
           <CreatePostForm />
           <div className="w-full max-w-2xl overflow-y-scroll">

@@ -10,6 +10,10 @@ const publicReportDetailApi = vi.hoisted(() => ({
   getPublicReportDetail: vi.fn(),
 }));
 
+const authServer = vi.hoisted(() => ({
+  getSession: vi.fn(),
+}));
+
 const navigation = vi.hoisted(() => ({
   notFound: vi.fn(() => {
     throw new Error("NEXT_NOT_FOUND");
@@ -17,6 +21,7 @@ const navigation = vi.hoisted(() => ({
 }));
 
 vi.mock("~/public-report-detail-api-adapter", () => publicReportDetailApi);
+vi.mock("~/auth/server", () => authServer);
 vi.mock("next/navigation", () => navigation);
 
 const privateCoordinateLabel = "Pin manual -16.506789, -68.123456";
@@ -89,6 +94,8 @@ function persistedAdoptionReport(
 describe("public Adoption Listing page", () => {
   beforeEach(() => {
     vi.resetModules();
+    authServer.getSession.mockReset();
+    authServer.getSession.mockResolvedValue(null);
     publicReportDetailApi.getPublicReportDetail.mockReset();
     navigation.notFound.mockClear();
   });
@@ -125,12 +132,77 @@ describe("public Adoption Listing page", () => {
     expect(html).toContain("bo lpb sopocachi - zona aproximada");
     expect(html).toContain("Enviar mensaje en Rastro");
     expect(html).toContain("Escribir por WhatsApp");
+    expect(html).toContain("Reportar");
+    expect(html).toContain("Inicia sesión para reportar");
+    expect(html).toContain(
+      "/?auth=signin-required&amp;returnTo=%2Fadopciones%2Fadoption-nala-db#auth",
+    );
     expect(html).toContain("Imagen no disponible");
     expect(html).not.toMatch(commerceTerms);
     expect(html).not.toContain(privateCoordinateLabel);
     expect(html).not.toContain("-16.506789");
     expect(html).not.toContain("-68.123456");
     expect(html).not.toContain("Coordenadas");
+  });
+
+  it("renders a signed-in abuse report form for non-owner adoption visitors", async () => {
+    authServer.getSession.mockResolvedValue({
+      user: {
+        id: "member-diego",
+      },
+    });
+    publicReportDetailApi.getPublicReportDetail.mockResolvedValue(
+      persistedAdoptionReport(),
+    );
+    const { default: PublicAdoptionListingPage } = await import(
+      "./app/adopciones/[listingId]/page"
+    );
+
+    const html = renderToStaticMarkup(
+      await PublicAdoptionListingPage({
+        params: Promise.resolve({
+          listingId: "adoption-nala-db",
+        }),
+        searchParams: Promise.resolve({
+          reportAbuse: "already_reported",
+        }),
+      }),
+    );
+
+    expect(html).toContain("Ya recibimos tu reporte sobre este motivo.");
+    expect(html).toContain('name="reportId" value="adoption-nala-db"');
+    expect(html).toContain('name="reason"');
+    expect(html).toContain("Enviar reporte");
+    expect(html).not.toContain("Inicia sesión para reportar");
+  });
+
+  it("suppresses the abuse report card for the adoption owner", async () => {
+    authServer.getSession.mockResolvedValue({
+      user: {
+        id: "member-camila",
+      },
+    });
+    publicReportDetailApi.getPublicReportDetail.mockResolvedValue(
+      persistedAdoptionReport({
+        owner: {
+          isCurrentMember: true,
+        },
+      }),
+    );
+    const { default: PublicAdoptionListingPage } = await import(
+      "./app/adopciones/[listingId]/page"
+    );
+
+    const html = renderToStaticMarkup(
+      await PublicAdoptionListingPage({
+        params: Promise.resolve({
+          listingId: "adoption-nala-db",
+        }),
+      }),
+    );
+
+    expect(html).not.toContain("Inicia sesión para reportar");
+    expect(html).not.toContain("Enviar reporte");
   });
 
   it("returns route metadata for persisted adoption reports without coordinates", async () => {

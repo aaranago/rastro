@@ -28,6 +28,10 @@ export type PublicLostReportPhoto = PublicReportPagePhoto;
 export type PublicLostReportPet = PublicReportPagePet;
 
 export interface PublicLostReportViewModel {
+  abuseReport: {
+    isOwner: boolean;
+    reportId: string;
+  };
   appPrompts: {
     downloadHref: string;
     downloadLabel: string;
@@ -108,6 +112,10 @@ function buildPublicLostReportViewModel(
   });
 
   return {
+    abuseReport: {
+      isOwner: report.owner.isCurrentMember,
+      reportId: report.id,
+    },
     appPrompts: {
       downloadHref: appDownloadHref,
       downloadLabel: "Descargar Rastro",
