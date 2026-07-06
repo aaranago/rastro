@@ -155,6 +155,8 @@ function useMisMascotasController({
   const [profileSaveError, setProfileSaveError] = useState<
     string | undefined
   >();
+  const [isNameValidationVisible, setIsNameValidationVisible] =
+    useState(false);
   const emptyDraft = useMemo(() => createEmptyDraft(), []);
   const { clearDraft, draft, draftPersistence, restoredDraft, setDraft } =
     useDurableCreationDraft({
@@ -179,17 +181,21 @@ function useMisMascotasController({
   const formViewModel = useMemo(
     () =>
       activeFormMode
-        ? buildPetProfileFormViewModel({
-            draft,
-            mode: activeFormMode,
+        ? hidePendingPetProfileValidation({
+            form: buildPetProfileFormViewModel({
+              draft,
+              mode: activeFormMode,
+            }),
+            isNameValidationVisible,
           })
         : undefined,
-    [activeFormMode, draft],
+    [activeFormMode, draft, isNameValidationVisible],
   );
 
   const beginCreate = useCallback(() => {
     setDraft(createEmptyDraft());
     setFormMode("create");
+    setIsNameValidationVisible(false);
     setPhotoPickerError(undefined);
     setProfileSaveError(undefined);
   }, [setDraft]);
@@ -205,6 +211,7 @@ function useMisMascotasController({
       setSelectedProfileId(profileId);
       setDraft(toDraft(profile));
       setFormMode("edit");
+      setIsNameValidationVisible(false);
       setPhotoPickerError(undefined);
       setProfileSaveError(undefined);
     },
@@ -214,6 +221,7 @@ function useMisMascotasController({
   const cancelForm = useCallback(() => {
     void clearDraft();
     setFormMode(null);
+    setIsNameValidationVisible(false);
   }, [clearDraft]);
 
   const selectProfile = useCallback(
@@ -240,6 +248,7 @@ function useMisMascotasController({
       );
       setSelectedProfileId(nextProfile.id);
       setFormMode(null);
+      setIsNameValidationVisible(false);
     },
     [setProfiles, setSelectedProfileId],
   );
@@ -250,7 +259,7 @@ function useMisMascotasController({
     setDraft,
     setPhotoPickerError,
   });
-  const submitDraft = usePetProfileSubmitAction({
+  const submitPersistedDraft = usePetProfileSubmitAction({
     activeFormMode,
     clearDraft,
     commitProfileToScreen,
@@ -260,6 +269,20 @@ function useMisMascotasController({
     setIsSavingProfile,
     setProfileSaveError,
   });
+  const submitDraft = useCallback(() => {
+    setIsNameValidationVisible(true);
+    submitPersistedDraft();
+  }, [submitPersistedDraft]);
+  const updateDraft = useCallback(
+    (nextDraft: PetProfileDraft) => {
+      if (hasPetProfileNameChanged(draft, nextDraft)) {
+        setIsNameValidationVisible(true);
+      }
+
+      setDraft(nextDraft);
+    },
+    [draft, setDraft],
+  );
 
   return {
     addDraftPhoto,
@@ -280,9 +303,39 @@ function useMisMascotasController({
     removeDraftPhoto,
     selectProfile,
     submitDraft,
-    updateDraft: setDraft,
+    updateDraft,
     viewModel,
   };
+}
+
+function hidePendingPetProfileValidation({
+  form,
+  isNameValidationVisible,
+}: {
+  form: PetProfileFormViewModel;
+  isNameValidationVisible: boolean;
+}): PetProfileFormViewModel {
+  if (isNameValidationVisible || !form.fields.name.error) {
+    return form;
+  }
+
+  return {
+    ...form,
+    fields: {
+      ...form.fields,
+      name: {
+        ...form.fields.name,
+        error: undefined,
+      },
+    },
+  };
+}
+
+function hasPetProfileNameChanged(
+  currentDraft: PetProfileDraft,
+  nextDraft: PetProfileDraft,
+) {
+  return currentDraft.name !== nextDraft.name;
 }
 
 function resolveActivePetProfileFormMode(

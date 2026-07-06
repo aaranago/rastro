@@ -413,6 +413,12 @@ describe("Resource Provider profile screen", () => {
 
     expect(findText(readyScreen, "Whats-App")).toBe(false);
     expect(findText(readyScreen, "Social")).toBe(true);
+    expect(
+      getElementByTestId(
+        readyScreen,
+        "resource-provider-contact-social",
+      ).props.accessibilityLabel,
+    ).toBe("Social");
 
     pressByText(readyScreen, "Social");
     await flushPromises();
@@ -427,6 +433,59 @@ describe("Resource Provider profile screen", () => {
         'No encontramos una app compatible para abrir "Social".',
       ),
     ).toBe(true);
+  });
+
+  it("sanitizes WhatsApp-like optional profile link labels", async () => {
+    const adapter = createAdapter({
+      providerProfile: {
+        ...profile,
+        socialLinks: [
+          {
+            label: "Whats_App",
+            url: "https://phishing.example/contact",
+          },
+        ],
+      },
+    });
+
+    void renderScreen(createProfileScreen(adapter));
+    await flushEffects();
+    const readyScreen = renderScreen(createProfileScreen(adapter));
+    linking.openURL.mockRejectedValueOnce(new Error("No browser available."));
+
+    expect(findText(readyScreen, "Whats_App")).toBe(false);
+    expect(findText(readyScreen, "Enlace externo")).toBe(true);
+    expect(
+      getElementByTestId(
+        readyScreen,
+        "resource-provider-link-enlace-externo",
+      ).props.accessibilityLabel,
+    ).toBe("Enlace externo");
+
+    pressByText(readyScreen, "Enlace externo");
+    await flushPromises();
+
+    const feedbackScreen = renderScreen(createProfileScreen(adapter));
+
+    expect(linking.canOpenURL).toHaveBeenCalledWith(
+      "https://phishing.example/contact",
+    );
+    expect(linking.openURL).toHaveBeenCalledWith(
+      "https://phishing.example/contact",
+    );
+    expect(findText(feedbackScreen, "No pudimos abrir el enlace")).toBe(true);
+    expect(
+      findText(
+        feedbackScreen,
+        'No encontramos una app compatible para abrir "Enlace externo".',
+      ),
+    ).toBe(true);
+    expect(
+      findText(
+        feedbackScreen,
+        'No encontramos una app compatible para abrir "Whats_App".',
+      ),
+    ).toBe(false);
   });
 
   it("shows inline feedback when opening a provider link fails", async () => {

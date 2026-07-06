@@ -160,9 +160,79 @@ describe("MisMascotasScreen visitor actions", () => {
 
     expect(containsText(nextEmptyState, "Crear perfil de mascota")).toBe(true);
     expect(containsText(nextEmptyState, "Nombre")).toBe(true);
+    expect(containsText(nextEmptyState, "Ingresa el nombre.")).toBe(false);
     expect(containsText(nextEmptyState, "Aún no tienes mascotas")).toBe(false);
     expect(containsText(nextFooter, "Crear perfil de mascota")).toBe(false);
     expect(containsText(nextHeader, "Crear perfil de mascota")).toBe(false);
+  });
+
+  it("waits for name input before showing create-form validation copy", () => {
+    const screen = renderFunctionElement(
+      <MisMascotasScreen
+        initialProfiles={[]}
+        session={{ kind: "member", memberId: "member-camila" }}
+      />,
+    );
+    const initialListProps = getLegendListProps<{
+      ListEmptyComponent: React.ReactNode;
+    }>(screen);
+    const initialEmptyState = renderFunctionElement(
+      initialListProps.ListEmptyComponent,
+    );
+
+    getPressableOnPress(findPressableByText(initialEmptyState, "Crear ahora"))();
+    resetRenderCursor();
+
+    const emptyFormScreen = renderFunctionElement(
+      <MisMascotasScreen
+        initialProfiles={[]}
+        session={{ kind: "member", memberId: "member-camila" }}
+      />,
+    );
+    const emptyFormListProps = getLegendListProps<{
+      ListEmptyComponent: React.ReactNode;
+    }>(emptyFormScreen);
+    const emptyForm = renderFunctionElement(
+      emptyFormListProps.ListEmptyComponent,
+    );
+
+    expect(containsText(emptyForm, "Ingresa el nombre.")).toBe(false);
+
+    changeTextByPlaceholder(emptyForm, "Nombre de la mascota", "Mora");
+    resetRenderCursor();
+
+    const namedFormScreen = renderFunctionElement(
+      <MisMascotasScreen
+        initialProfiles={[]}
+        session={{ kind: "member", memberId: "member-camila" }}
+      />,
+    );
+    const namedFormListProps = getLegendListProps<{
+      ListEmptyComponent: React.ReactNode;
+    }>(namedFormScreen);
+    const namedForm = renderFunctionElement(
+      namedFormListProps.ListEmptyComponent,
+    );
+
+    expect(containsText(namedForm, "Ingresa el nombre.")).toBe(false);
+
+    changeTextByPlaceholder(namedForm, "Nombre de la mascota", "");
+    resetRenderCursor();
+
+    const clearedFormScreen = renderFunctionElement(
+      <MisMascotasScreen
+        initialProfiles={[]}
+        session={{ kind: "member", memberId: "member-camila" }}
+      />,
+    );
+    const clearedFormListProps = getLegendListProps<{
+      ListEmptyComponent: React.ReactNode;
+    }>(clearedFormScreen);
+    const clearedForm = renderFunctionElement(
+      clearedFormListProps.ListEmptyComponent,
+    );
+
+    expect(containsText(clearedForm, "Ingresa el nombre.")).toBe(true);
   });
 
   it("does not show an empty-pets state while member profiles are loading", () => {
@@ -303,6 +373,25 @@ function findPressableByText(
     node,
     (element) => element.type === "Pressable" && containsText(element, text),
   );
+}
+
+function changeTextByPlaceholder(
+  node: React.ReactNode,
+  placeholder: string,
+  value: string,
+) {
+  const input = findElement(
+    node,
+    (element) =>
+      element.type === "TextInput" && element.props.placeholder === placeholder,
+  );
+  const onChangeText = input?.props.onChangeText;
+
+  if (typeof onChangeText !== "function") {
+    throw new Error(`Expected text input with placeholder ${placeholder}.`);
+  }
+
+  (onChangeText as (nextValue: string) => void)(value);
 }
 
 function findElement(

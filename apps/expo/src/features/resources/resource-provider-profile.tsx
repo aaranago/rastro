@@ -574,7 +574,7 @@ function ProfileActionButton({
 
   return (
     <Pressable
-      accessibilityLabel={label}
+      accessibilityLabel={displayLabel}
       accessibilityRole="button"
       onPress={handlePress}
       testID={`resource-provider-contact-${kind}`}
@@ -639,6 +639,16 @@ function isWhatsAppLikeLabel(label: string) {
   return normalized.includes("whatsapp") || normalized === "wame";
 }
 
+function getProfileLinkDisplayLabel(label: string) {
+  const trimmedLabel = label.trim();
+
+  if (trimmedLabel.length === 0 || isWhatsAppLikeLabel(trimmedLabel)) {
+    return "Enlace externo";
+  }
+
+  return trimmedLabel;
+}
+
 function ProfileLink({
   providerId,
   label,
@@ -650,28 +660,30 @@ function ProfileLink({
   url: string;
   onOpenLink?: ResourceProviderProfileProps["onOpenLink"];
 }) {
+  const displayLabel = getProfileLinkDisplayLabel(label);
   const handlePress = React.useCallback(() => {
     onOpenLink?.({
       providerId,
-      label,
+      label: displayLabel,
       url,
     });
-  }, [label, onOpenLink, providerId, url]);
+  }, [displayLabel, onOpenLink, providerId, url]);
 
   return (
     <Pressable
+      accessibilityLabel={displayLabel}
       accessibilityRole="link"
       onPress={handlePress}
-      testID={`resource-provider-link-${toTestIdSegment(label)}`}
+      testID={`resource-provider-link-${toTestIdSegment(displayLabel)}`}
       style={({ pressed }) => [styles.linkRow, pressed ? styles.pressed : null]}
     >
       <ResourceIcon
         color={resourcesColors.primary}
-        name={getLinkIcon(label, url)}
+        name={getLinkIcon(displayLabel, url)}
       />
       <View style={styles.linkCopy}>
         <Text selectable style={styles.linkLabel}>
-          {label}
+          {displayLabel}
         </Text>
         <Text selectable numberOfLines={1} style={styles.linkUrl}>
           {url}
