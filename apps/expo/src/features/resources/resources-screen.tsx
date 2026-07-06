@@ -264,6 +264,12 @@ export function ResourcesScreen({
     onManualSearchPress,
   ]);
 
+  const revealManualSearch = useCallback(() => {
+    onManualSearchPress?.();
+    setManualSearchFeedback(undefined);
+    setIsManualSearchFocused(true);
+  }, [onManualSearchPress]);
+
   const handleUseCurrentLocation = useCallback(async () => {
     onUseCurrentLocationPress?.();
     setIsResolvingLocation(true);
@@ -327,7 +333,7 @@ export function ResourcesScreen({
   const handleNoticeAction = useCallback(
     (kind: ResourceNoticeAction["kind"]) => {
       if (kind === "manual_search") {
-        onManualSearchPress?.();
+        revealManualSearch();
         return;
       }
 
@@ -343,7 +349,7 @@ export function ResourcesScreen({
 
       handleRefresh();
     },
-    [handleRefresh, handleUseCurrentLocation, onManualSearchPress],
+    [handleRefresh, handleUseCurrentLocation, revealManualSearch],
   );
 
   const recordSponsorDelivery = useCallback(
