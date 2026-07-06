@@ -240,6 +240,132 @@ describe("AlertSubscriptionSettingsScreen backend behavior", () => {
     ).toBe(true);
   });
 
+  it("does not activate alerts around a fallback location when native location is unavailable", async () => {
+    const repository = createScreenRepository();
+    const nativeAdapter = createNativeAdapter({
+      getForegroundLocationSnapshot: vi.fn<
+        AlertSubscriptionNativeAdapter["getForegroundLocationSnapshot"]
+      >(() =>
+        Promise.resolve({
+          kind: "permission-denied",
+          permission: {
+            granted: false,
+            precision: "unknown",
+            status: "denied",
+          },
+        }),
+      ),
+    });
+
+    let screen = renderSettingsScreen({ nativeAdapter, repository });
+    runEffects();
+    await flushPromises();
+    screen = renderSettingsScreen({ nativeAdapter, repository });
+
+    await getPressableOnPress(findPressableByText(screen, "Activar alertas"))();
+    await flushPromises();
+    screen = renderSettingsScreen({ nativeAdapter, repository });
+
+    expect(repository.enableAlertSubscription).not.toHaveBeenCalled();
+    expect(findText(screen, "Alertas activas")).toBe(false);
+    expect(
+      findText(
+        screen,
+        "No pudimos detectar tu ubicación. Activa ubicación o abre Rastro en el lugar donde quieres recibir alertas.",
+      ),
+    ).toBe(true);
+  });
+
+  it("reuses a saved backend alert area when reactivating without native location", async () => {
+    const pausedSubscription = createSubscription({ enabled: false });
+    const repository = createScreenRepository({
+      get: pausedSubscription,
+    });
+    const nativeAdapter = createNativeAdapter({
+      getForegroundLocationSnapshot: vi.fn<
+        AlertSubscriptionNativeAdapter["getForegroundLocationSnapshot"]
+      >(() =>
+        Promise.resolve({
+          kind: "permission-denied",
+          permission: {
+            granted: false,
+            precision: "unknown",
+            status: "denied",
+          },
+        }),
+      ),
+    });
+
+    let screen = renderSettingsScreen({ nativeAdapter, repository });
+    runEffects();
+    await flushPromises();
+    screen = renderSettingsScreen({ nativeAdapter, repository });
+
+    await getPressableOnPress(findPressableByText(screen, "Activar alertas"))();
+    await flushPromises();
+
+    const savedLocation = pausedSubscription.dynamicAlertArea?.location;
+    if (!savedLocation) {
+      throw new Error("Expected paused subscription to include a saved area.");
+    }
+
+    expect(repository.enableAlertSubscription).toHaveBeenCalledWith(
+      member,
+      {
+        lastDetectedLocation: {
+          ...savedLocation,
+          label: "Ultima ubicacion detectada en Sopocachi",
+          source: "last",
+        },
+        radiusKm: 5,
+        reason: "manual-refresh",
+      },
+    );
+  });
+
+  it("persists moving-alert interest as pending background permission", async () => {
+    const updatedSubscription = createSubscription({
+      movingAlerts: {
+        backgroundTracking: "not-started",
+        enabled: true,
+        label: "Alertas mientras me muevo",
+        permissionState: "not-requested",
+        status: "needs-background-permission",
+      },
+    });
+    const repository = createScreenRepository({
+      get: createSubscription({ enabled: true }),
+      movingAlerts: updatedSubscription,
+    });
+    const nativeAdapter = createNativeAdapter();
+
+    let screen = renderSettingsScreen({ nativeAdapter, repository });
+    runEffects();
+    await flushPromises();
+    screen = renderSettingsScreen({ nativeAdapter, repository });
+
+    await getSwitchOnValueChange(
+      findSwitchByTestId(screen, "alert-subscription-moving-alerts-switch"),
+    )(true);
+    await flushPromises();
+    screen = renderSettingsScreen({ nativeAdapter, repository });
+
+    expect(repository.updateMovingAlertsPreference).toHaveBeenCalledWith(
+      member,
+      {
+        enabled: true,
+        permissionState: "not-requested",
+      },
+    );
+    expect(findText(screen, "Necesita permiso")).toBe(true);
+    expect(
+      findText(
+        screen,
+        "Guardamos tu preferencia. Falta conceder ubicación en segundo plano antes de activar seguimiento mientras te mueves.",
+      ),
+    ).toBe(true);
+  });
+
   it("keeps the visitor sign-in CTA enabled instead of disabling the advertised action", () => {
     const onRequestSignIn = vi.fn();
     const repository = createScreenRepository();
@@ -308,6 +434,7 @@ async function flushPromises() {
 function createScreenRepository(
   overrides: Partial<{
     get: AlertSubscription | null;
+    movingAlerts: AlertSubscription;
     pause: AlertSubscription;
     unsubscribe: AlertSubscription | null;
   }> = {},
@@ -347,7 +474,7 @@ function createScreenRepository(
     ),
     updateMovingAlertsPreference: vi.fn<
       AlertSubscriptionRepository["updateMovingAlertsPreference"]
-    >(() => Promise.resolve(fallbackSubscription)),
+    >(() => Promise.resolve(overrides.movingAlerts ?? fallbackSubscription)),
   } satisfies AlertSubscriptionRepository;
 }
 
@@ -462,6 +589,16 @@ function findPressableByText(
   );
 }
 
+function findSwitchByTestId(
+  node: React.ReactNode,
+  testID: string,
+): TestElement | undefined {
+  return findElement(
+    node,
+    (element) => element.type === "Switch" && element.props.testID === testID,
+  );
+}
+
 function findText(node: React.ReactNode, text: string): boolean {
   return containsText(node, text);
 }
@@ -517,4 +654,16 @@ function getPressableOnPress(element: TestElement | undefined) {
   }
 
   return element.props.onPress as () => Promise<void> | void;
+}
+
+function getSwitchOnValueChange(element: TestElement | undefined) {
+  if (!element) {
+    throw new Error("Expected switch element to exist.");
+  }
+
+  if (typeof element.props.onValueChange !== "function") {
+    throw new Error("Expected switch element to have an onValueChange handler.");
+  }
+
+  return element.props.onValueChange as (enabled: boolean) => Promise<void> | void;
 }

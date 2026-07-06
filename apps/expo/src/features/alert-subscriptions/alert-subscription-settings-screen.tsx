@@ -36,17 +36,8 @@ const noop = () => undefined;
 const defaultRepository = createInMemoryAlertSubscriptionRepository({
   now: () => new Date().toISOString(),
 });
-const defaultLastDetectedLocation: AlertSubscriptionLocationSnapshot = {
-  coordinates: {
-    latitude: -16.5,
-    longitude: -68.1193,
-  },
-  countryCode: "BO",
-  detectedAt: "2026-06-18T08:00:00.000Z",
-  label: "Última ubicación detectada en La Paz",
-  locationCellLabel: "La Paz",
-  source: "last",
-};
+const unavailableLocationMessage =
+  "No pudimos detectar tu ubicación. Activa ubicación o abre Rastro en el lugar donde quieres recibir alertas.";
 
 export interface AlertSubscriptionSettingsScreenProps {
   nativeAdapter?: AlertSubscriptionNativeAdapter;
@@ -132,9 +123,9 @@ function useAlertSubscriptionSettingsController({
     React.useState<AlertSubscription | null>(null);
   const [selectedRadiusKm, setSelectedRadiusKm] =
     React.useState<AlertSubscriptionRadiusKm>(5);
-  const [lastDetectedLocation, setLastDetectedLocation] = React.useState(
-    defaultLastDetectedLocation,
-  );
+  const [lastDetectedLocation, setLastDetectedLocation] = React.useState<
+    AlertSubscriptionLocationSnapshot | undefined
+  >();
   const [feedback, setFeedback] = React.useState<Feedback | null>(null);
   const [pendingAction, setPendingAction] =
     React.useState<PendingAction | null>(null);
@@ -153,6 +144,7 @@ function useAlertSubscriptionSettingsController({
 
     if (session.kind === "visitor") {
       setSubscription(null);
+      setLastDetectedLocation(undefined);
       return;
     }
 
@@ -168,6 +160,8 @@ function useAlertSubscriptionSettingsController({
         if (nextSubscription) {
           setSelectedRadiusKm(nextSubscription.radiusKm);
         }
+
+        setLastDetectedLocation(nextSubscription?.dynamicAlertArea?.location);
       })
       .catch(() => {
         if (isActive) {
@@ -379,6 +373,11 @@ function useAlertSubscriptionSettingsController({
           subscription,
           lastDetectedLocation,
         );
+
+        if (!existingLocation) {
+          throw new Error(unavailableLocationMessage);
+        }
+
         const updated = await repository.enableAlertSubscription(
           memberSession,
           {
@@ -416,11 +415,17 @@ function useAlertSubscriptionSettingsController({
           memberSession,
           {
             enabled,
-            permissionState: enabled ? "foreground-only" : "not-requested",
+            permissionState: "not-requested",
           },
         );
 
         setSubscription(updated);
+        setFeedback({
+          message: enabled
+            ? "Guardamos tu preferencia. Falta conceder ubicación en segundo plano antes de activar seguimiento mientras te mueves."
+            : "Alertas mientras me muevo desactivadas.",
+          tone: "success",
+        });
       } catch {
         setFeedback({
           message: "No pudimos actualizar alertas mientras me muevo.",
@@ -695,6 +700,7 @@ function MovingAlertsPanel({
           onValueChange={(enabled) => {
             void controller.toggleMovingAlerts(enabled);
           }}
+          testID="alert-subscription-moving-alerts-switch"
           value={viewModel.movingAlerts.enabled}
         />
       </View>
@@ -745,7 +751,7 @@ async function resolveLocationSnapshot({
   nativeAdapter,
   requestPermission,
 }: {
-  lastDetectedLocation: AlertSubscriptionLocationSnapshot;
+  lastDetectedLocation?: AlertSubscriptionLocationSnapshot;
   nativeAdapter: AlertSubscriptionNativeAdapter;
   requestPermission: boolean;
 }) {
@@ -755,17 +761,31 @@ async function resolveLocationSnapshot({
   });
   const location = toAlertSubscriptionLocationSnapshot(nativeSnapshot);
 
-  return location ?? lastDetectedLocation;
+  if (location) {
+    return location;
+  }
+
+  if (lastDetectedLocation) {
+    return toLastDetectedLocationFallback(lastDetectedLocation);
+  }
+
+  throw new Error(unavailableLocationMessage);
 }
 
 function buildLocationUpdateInput(
   location: AlertSubscriptionLocationSnapshot,
-  fallback: AlertSubscriptionLocationSnapshot,
+  fallback?: AlertSubscriptionLocationSnapshot,
 ): {
   currentLocation?: AlertSubscriptionLocationSnapshot;
-  lastDetectedLocation: AlertSubscriptionLocationSnapshot;
+  lastDetectedLocation?: AlertSubscriptionLocationSnapshot;
 } {
   if (location.source === "current") {
+    if (!fallback) {
+      return {
+        currentLocation: location,
+      };
+    }
+
     return {
       currentLocation: location,
       lastDetectedLocation: fallback,
@@ -779,9 +799,25 @@ function buildLocationUpdateInput(
 
 function getExistingAlertAreaLocation(
   subscription: AlertSubscription,
-  fallback: AlertSubscriptionLocationSnapshot,
+  fallback?: AlertSubscriptionLocationSnapshot,
 ) {
   return subscription.dynamicAlertArea?.location ?? fallback;
+}
+
+function toLastDetectedLocationFallback(
+  location: AlertSubscriptionLocationSnapshot,
+): AlertSubscriptionLocationSnapshot {
+  if (location.source === "last") {
+    return location;
+  }
+
+  return {
+    ...location,
+    label: location.label
+      .replace("Ubicación actual", "Última ubicación detectada")
+      .replace("Ubicacion actual", "Ultima ubicacion detectada"),
+    source: "last",
+  };
 }
 
 async function resolvePushRegistrationFeedback({
