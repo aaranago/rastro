@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 
 import type { AppDownloadContext } from "~/public-report-detail-mapping";
 import {
@@ -84,6 +85,23 @@ const useCases = [
   },
 ];
 
+const installOptions = [
+  {
+    body: "La publicacion en Google Play todavia no esta disponible. Conserva el enlace y solicita acceso mientras se habilita la tienda.",
+    cta: "Solicitar acceso Android",
+    href: "mailto:hola@rastro.bo?subject=Acceso%20Android%20a%20Rastro",
+    status: "Disponible pronto",
+    title: "Android",
+  },
+  {
+    body: "La distribucion para iPhone todavia no esta disponible. Puedes pedir aviso y volver al enlace compartido cuando tengas acceso.",
+    cta: "Solicitar aviso iPhone",
+    href: "mailto:hola@rastro.bo?subject=Acceso%20iPhone%20a%20Rastro",
+    status: "Disponible pronto",
+    title: "iPhone",
+  },
+] as const;
+
 const downloadContextAliases: Record<string, DownloadContext> = {
   adopcion: "adoption",
   adoption: "adoption",
@@ -133,7 +151,7 @@ export default async function DownloadPage(props: DownloadPageProps) {
               className="bg-primary text-primary-foreground rounded-md px-5 py-3 text-center text-sm font-semibold"
               href={openHref}
             >
-              Abrir en Rastro
+              Abrir app instalada
             </a>
             <a
               className="border-border bg-card text-card-foreground hover:bg-muted rounded-md border px-5 py-3 text-center text-sm font-semibold"
@@ -148,13 +166,61 @@ export default async function DownloadPage(props: DownloadPageProps) {
           <section className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs">
             <p className="text-primary text-sm font-semibold">Instalacion</p>
             <h2 className="mt-2 text-2xl font-semibold">
-              Instalar o abrir Rastro
+              Instalar, abrir o solicitar acceso
             </h2>
             <p className="text-muted-foreground mt-3 leading-7">
-              Si ya tienes Rastro instalado, abre la app desde este dispositivo.
-              Si todavia no, esta pagina conserva el enlace compartido mientras
-              la descarga publica queda disponible.
+              Si ya tienes Rastro instalado, abre la app desde este
+              dispositivo. Si todavia no, esta pagina conserva el enlace
+              compartido y muestra el estado de descarga para cada plataforma.
             </p>
+          </section>
+
+          <section
+            className="grid gap-3 sm:grid-cols-2"
+            aria-label="Opciones de instalacion"
+          >
+            {installOptions.map((option) => (
+              <article
+                className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs"
+                key={option.title}
+              >
+                <p className="text-primary text-xs font-semibold uppercase">
+                  {option.status}
+                </p>
+                <h2 className="mt-2 text-lg font-semibold">{option.title}</h2>
+                <p className="text-muted-foreground mt-2 text-sm leading-6">
+                  {option.body}
+                </p>
+                <a
+                  className="border-border hover:bg-muted mt-4 inline-flex rounded-md border px-4 py-2 text-sm font-semibold"
+                  href={option.href}
+                >
+                  {option.cta}
+                </a>
+              </article>
+            ))}
+          </section>
+
+          <section
+            className="border-border bg-card text-card-foreground overflow-hidden rounded-lg border shadow-xs"
+            aria-label="Vista de Rastro"
+          >
+            <Image
+              alt="Pantalla de Rastro con actividad comunitaria, mensajes y actualizaciones"
+              className="h-96 w-full object-cover object-top"
+              height={2400}
+              src="/rastro-app-activity.png"
+              width={1080}
+            />
+            <div className="p-5">
+              <h2 className="text-lg font-semibold">
+                Flujo movil para recuperar y ayudar
+              </h2>
+              <p className="text-muted-foreground mt-2 text-sm leading-6">
+                Reportes, conversaciones y recursos se mantienen dentro de
+                Rastro para cuidar contactos y zonas aproximadas.
+              </p>
+            </div>
           </section>
 
           <section className="grid gap-3" aria-label="Contextos de Rastro">

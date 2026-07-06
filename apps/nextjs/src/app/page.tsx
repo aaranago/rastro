@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { buildAppDownloadPath } from "~/public-report-detail-mapping";
 
 import { AuthShowcase } from "./_components/auth-showcase";
@@ -33,15 +35,30 @@ const primaryActions = [
 
 const publicSections = [
   {
+    cta: "Abrir reportes en la app",
     heading: "Reportes comunitarios",
+    href: buildAppDownloadPath({
+      context: "report",
+      target: "rastro://actividad",
+    }),
     text: "Perdidos, encontrados y avistamientos se organizan por ubicacion aproximada para cuidar datos sensibles.",
   },
   {
+    cta: "Abrir adopciones",
     heading: "Adopciones responsables",
+    href: buildAppDownloadPath({
+      context: "adoption",
+      target: "rastro://adopciones",
+    }),
     text: "Las publicaciones de adopcion se mantienen fuera de compras, ventas o subastas.",
   },
   {
+    cta: "Ver recursos locales",
     heading: "Recursos en Bolivia",
+    href: buildAppDownloadPath({
+      context: "resource",
+      target: "rastro://recursos",
+    }),
     text: "El directorio prioriza ayuda practica: veterinarias, hogares temporales, rescate y transporte.",
   },
 ] as const;
@@ -93,22 +110,58 @@ export default async function HomePage(props: { searchParams: SearchParams }) {
 
           <div className="border-border bg-background rounded-lg border p-5 shadow-xs">
             <p className="text-muted-foreground text-sm font-medium">
-              Entradas publicas
+              Funciones en la app
             </p>
             <div className="mt-4 grid gap-4">
               {publicSections.map((section) => (
-                <div
-                  className="border-border rounded-md border p-4"
+                <a
+                  className="border-border hover:bg-muted/60 block rounded-md border p-4 transition"
+                  href={section.href}
                   key={section.heading}
                 >
                   <h2 className="text-base font-semibold">{section.heading}</h2>
                   <p className="text-muted-foreground mt-2 text-sm">
                     {section.text}
                   </p>
-                </div>
+                  <p className="text-primary mt-3 text-sm font-semibold">
+                    {section.cta}
+                  </p>
+                </a>
               ))}
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="container grid gap-6 py-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+        <div>
+          <p className="text-muted-foreground text-sm font-medium">
+            Vista real de Rastro
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold">
+            Casos, mensajes y recursos en un solo flujo movil
+          </h2>
+          <p className="text-muted-foreground mt-3 leading-7">
+            La app muestra actividad comunitaria, reportes y servicios con
+            zonas aproximadas para coordinar ayuda sin publicar coordenadas
+            exactas.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Image
+            alt="Pantalla de actividad de Rastro con coincidencias, mensajes y actualizaciones"
+            className="border-border bg-card h-96 w-full rounded-lg border object-cover object-top shadow-xs"
+            height={2400}
+            src="/rastro-app-activity.png"
+            width={1080}
+          />
+          <Image
+            alt="Pantalla de recursos de Rastro con mapa y proveedor local seleccionado"
+            className="border-border bg-card h-96 w-full rounded-lg border object-cover object-top shadow-xs"
+            height={2400}
+            src="/rastro-app-resources.png"
+            width={1080}
+          />
         </div>
       </section>
 

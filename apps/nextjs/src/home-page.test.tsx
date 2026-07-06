@@ -43,6 +43,11 @@ describe("public home page", () => {
     expect(html).toContain("Reportes comunitarios");
     expect(html).toContain("Adopciones responsables");
     expect(html).toContain("Recursos en Bolivia");
+    expect(html).toContain("Abrir reportes en la app");
+    expect(html).toContain("Abrir adopciones");
+    expect(html).toContain("Ver recursos locales");
+    expect(html).toContain("rastro-app-activity.png");
+    expect(html).toContain("rastro-app-resources.png");
     expect(html).toContain('data-status="signin-required"');
     expect(html).toContain(
       'data-return-to="/reportes/perdidos/report-lost-bruno-db"',

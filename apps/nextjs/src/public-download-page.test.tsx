@@ -36,8 +36,11 @@ describe("public download page", () => {
     expect(html).toContain("Reportes");
     expect(html).toContain("Adopciones");
     expect(html).toContain("Recursos");
-    expect(html).toContain("Instalar o abrir Rastro");
-    expect(html).toContain("la descarga publica queda disponible");
+    expect(html).toContain("Instalar, abrir o solicitar acceso");
+    expect(html).toContain("Disponible pronto");
+    expect(html).toContain("Solicitar acceso Android");
+    expect(html).toContain("Solicitar aviso iPhone");
+    expect(html).toContain("rastro-app-activity.png");
     expect(html).not.toMatch(/precio|compra|comprar|venta|vender|marketplace/i);
   });
 
