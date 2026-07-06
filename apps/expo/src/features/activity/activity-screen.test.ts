@@ -12,6 +12,8 @@ import {
 
 (globalThis as { React?: typeof React }).React = React;
 
+type PressableStyleCallback = (state: { pressed: boolean }) => unknown;
+
 const reactState = vi.hoisted(() => ({
   cursor: 0,
   effectCursor: 0,
@@ -443,6 +445,99 @@ describe("Activity screen links", () => {
         testID: "activity-item-match-match:lost-report-1:found-report-1",
       }),
     ]);
+  });
+
+  it("keeps activity row identity readable beside action chips", async () => {
+    shellContext.session = createMemberSession();
+    const repository = createScreenRepository(
+      Promise.resolve({
+        alertDeliveries: [],
+        candidateMatches: [
+          {
+            candidate: {
+              href: "rastro://reportes/encontrados/found-report-1",
+              id: "found-report-1",
+              kind: "found-pet-report",
+              title: "Perro encontrado en Sopocachi",
+            },
+            confidence: "possible",
+            createdAt: "2026-06-30T13:02:00.000Z",
+            id: "match:lost-report-1:found-report-1",
+            locationLabel: "Sopocachi, La Paz",
+            ownedReport: {
+              href: "rastro://reportes/perdidos/lost-report-1",
+              id: "lost-report-1",
+              title: "Toby",
+            },
+          },
+        ],
+        chatSummaries: [],
+        moderationEvents: [],
+        ownedReportPrompts: [],
+        reportUpdates: [],
+      }),
+    );
+
+    void renderActivityScreen({ repository });
+    await runPendingEffects();
+    const screen = renderActivityScreen({ repository });
+    const listProps = getLegendListProps<{
+      data: Record<string, unknown>[];
+      renderItem: (input: { item: Record<string, unknown> }) => React.ReactNode;
+    }>(screen);
+    const candidateRow = listProps.data[1];
+
+    if (!candidateRow) {
+      throw new Error("Expected candidate activity row data.");
+    }
+
+    const row = renderFunctionElement(listProps.renderItem({ item: candidateRow }));
+
+    if (!React.isValidElement<ElementProps>(row)) {
+      throw new Error("Expected activity row to render.");
+    }
+
+    const rowStyle =
+      typeof row.props.style === "function"
+        ? (row.props.style as PressableStyleCallback)({ pressed: false })
+        : row.props.style;
+
+    expect(rowStyle).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          alignItems: "stretch",
+          flexDirection: "column",
+        }),
+      ]),
+    );
+    expect(
+      findElement(
+        row,
+        (element) => element.props.children === "Coincidencia posible",
+      )?.props.numberOfLines,
+    ).toBe(2);
+    expect(
+      findElement(
+        row,
+        (element) =>
+          typeof element.props.children === "string" &&
+          element.props.children.includes("podría coincidir"),
+      )?.props.numberOfLines,
+    ).toBe(3);
+    expect(
+      findElement(
+        row,
+        (element) =>
+          typeof element.props.children === "string" &&
+          element.props.children.includes("Sopocachi, La Paz"),
+      )?.props.numberOfLines,
+    ).toBe(2);
+    expect(
+      findElement(
+        row,
+        (element) => element.props.children === "Revisar coincidencia",
+      )?.props.style,
+    ).toEqual(expect.objectContaining({ alignSelf: "flex-start" }));
   });
 
   it("renders backend stale owned report prompts with report actions", async () => {

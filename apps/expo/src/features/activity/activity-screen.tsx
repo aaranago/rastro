@@ -521,19 +521,27 @@ const ActivityRow = React.memo(function ActivityRow({
       style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]}
       testID={testID}
     >
-      <View style={[styles.rowIcon, tone.iconStyle]}>
-        <ShellIcon color={tone.iconColor} name={resolvedIconName} size={21} />
+      <View style={styles.rowMain}>
+        <View style={[styles.rowIcon, tone.iconStyle]}>
+          <ShellIcon color={tone.iconColor} name={resolvedIconName} size={21} />
+        </View>
+
+        <ActivityRowCopy
+          badgeLabel={resolvedBadgeLabel}
+          body={body}
+          isUnread={isUnread}
+          meta={meta}
+          title={title}
+          type={type}
+        />
+        {!actionLabel ? <ActivityRowAccessory /> : null}
       </View>
 
-      <ActivityRowCopy
-        badgeLabel={resolvedBadgeLabel}
-        body={body}
-        isUnread={isUnread}
-        meta={meta}
-        title={title}
-        type={type}
-      />
-      <ActivityRowAccessory actionLabel={actionLabel} />
+      {actionLabel ? (
+        <View style={styles.rowActionFooter}>
+          <ActivityRowAccessory actionLabel={actionLabel} />
+        </View>
+      ) : null}
     </Pressable>
   );
 });
@@ -560,7 +568,7 @@ const ActivityRowCopy = React.memo(function ActivityRowCopy({
       <View style={styles.rowTopLine}>
         <Text
           maxFontSizeMultiplier={1.18}
-          numberOfLines={1}
+          numberOfLines={2}
           style={styles.rowTitle}
         >
           {title}
@@ -571,7 +579,7 @@ const ActivityRowCopy = React.memo(function ActivityRowCopy({
       {body ? (
         <Text
           maxFontSizeMultiplier={1.2}
-          numberOfLines={2}
+          numberOfLines={3}
           style={styles.rowBody}
         >
           {body}
@@ -589,7 +597,7 @@ const ActivityRowCopy = React.memo(function ActivityRowCopy({
         {meta ? (
           <Text
             maxFontSizeMultiplier={1.15}
-            numberOfLines={1}
+            numberOfLines={2}
             style={styles.rowMeta}
           >
             {meta}
@@ -1109,12 +1117,12 @@ function getActivityTone(type: ActivityItemType) {
 
 const styles = StyleSheet.create({
   actionLabel: {
+    alignSelf: "flex-start",
     backgroundColor: shellColors.primarySoft,
     borderRadius: 14,
     color: shellColors.primaryDark,
     fontSize: 12,
     fontWeight: "900",
-    maxWidth: 112,
     overflow: "hidden",
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -1260,15 +1268,19 @@ const styles = StyleSheet.create({
     backgroundColor: shellColors.primarySoft,
   },
   row: {
-    alignItems: "center",
+    alignItems: "stretch",
     backgroundColor: shellColors.surface,
     borderColor: shellColors.border,
     borderRadius: 22,
     borderWidth: 1,
-    flexDirection: "row",
+    flexDirection: "column",
     gap: 12,
     minHeight: 82,
     padding: 12,
+  },
+  rowActionFooter: {
+    alignItems: "flex-start",
+    marginLeft: 56,
   },
   rowBody: {
     color: shellColors.muted,
@@ -1292,11 +1304,18 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: "700",
+    lineHeight: 17,
   },
   rowMetaLine: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexDirection: "row",
     gap: 8,
+  },
+  rowMain: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    minWidth: 0,
   },
   rowPressed: {
     opacity: 0.84,
