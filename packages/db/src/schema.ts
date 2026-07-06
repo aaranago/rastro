@@ -1223,6 +1223,7 @@ export const LocalSponsorPlacement = pgTable(
     imageUrl: t.text(),
     startsAt: t.timestamp({ mode: "date", withTimezone: true }).notNull(),
     endsAt: t.timestamp({ mode: "date", withTimezone: true }).notNull(),
+    detachedAt: t.timestamp({ mode: "date", withTimezone: true }),
     createdByAdminId: t.text().references(() => user.id, {
       onDelete: "set null",
     }),

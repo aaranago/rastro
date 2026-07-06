@@ -102,12 +102,13 @@ describe("public Adoption Listing page data", () => {
         downloadHref:
           "https://rastro.bo/descargar?context=adoption&returnTo=%2Fadopciones%2F22222222-2222-4222-8222-222222220001&target=rastro%3A%2F%2Fadopciones%2F22222222-2222-4222-8222-222222220001",
         downloadLabel: "Instalar o abrir Rastro",
-        openHref: "rastro://adopciones/22222222-2222-4222-8222-222222220001",
+        openHref:
+          "https://rastro.bo/descargar?context=adoption&returnTo=%2Fadopciones%2F22222222-2222-4222-8222-222222220001&target=rastro%3A%2F%2Fadopciones%2F22222222-2222-4222-8222-222222220001",
         openLabel: "Abrir en la app",
       },
       contactOptions: [
         {
-          href: "rastro://adopciones/22222222-2222-4222-8222-222222220001",
+          href: "https://rastro.bo/descargar?context=adoption&returnTo=%2Fadopciones%2F22222222-2222-4222-8222-222222220001&target=rastro%3A%2F%2Fchats%2Freport%2F22222222-2222-4222-8222-222222220001",
           kind: "app-chat",
           label: "Enviar mensaje en Rastro",
         },

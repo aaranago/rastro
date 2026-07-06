@@ -112,7 +112,7 @@ describe("public Lost Pet Report page data", () => {
           "https://rastro.bo/descargar?context=report&returnTo=%2Freportes%2Fperdidos%2F11111111-1111-4111-8111-111111110001&target=rastro%3A%2F%2Freportes%2Fperdidos%2F11111111-1111-4111-8111-111111110001",
         downloadLabel: "Instalar o abrir Rastro",
         openHref:
-          "rastro://reportes/perdidos/11111111-1111-4111-8111-111111110001",
+          "https://rastro.bo/descargar?context=report&returnTo=%2Freportes%2Fperdidos%2F11111111-1111-4111-8111-111111110001&target=rastro%3A%2F%2Freportes%2Fperdidos%2F11111111-1111-4111-8111-111111110001",
         openLabel: "Abrir en la app",
       },
       contactOptions: [
@@ -122,7 +122,7 @@ describe("public Lost Pet Report page data", () => {
           label: "Escribir por WhatsApp",
         },
         {
-          href: "rastro://reportes/perdidos/11111111-1111-4111-8111-111111110001",
+          href: "https://rastro.bo/descargar?context=report&returnTo=%2Freportes%2Fperdidos%2F11111111-1111-4111-8111-111111110001&target=rastro%3A%2F%2Fchats%2Freport%2F11111111-1111-4111-8111-111111110001",
           kind: "app-chat",
           label: "Enviar mensaje en Rastro",
         },

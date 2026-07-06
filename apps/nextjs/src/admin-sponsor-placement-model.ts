@@ -30,7 +30,9 @@ export interface AdminSponsorPlacementDashboardViewModel {
   list: AdminSponsorPlacementListStateViewModel;
   locale: "es-BO";
   placements: AdminSponsorPlacementViewModel[];
+  providerOptionsTotal: number;
   providerOptions: AdminSponsorProviderOption[];
+  providerSearch?: string;
   safetyPolicy: AdminSponsorPlacementSafetyPolicyViewModel;
   stats: AdminSponsorPlacementStatsViewModel;
   surfaceOptions: AdminSponsorPlacementSurfaceOption[];
@@ -134,6 +136,7 @@ export function buildAdminSponsorPlacementDashboardViewModel(input: {
   providers:
     | readonly AdminResourceProviderProfile[]
     | { items: readonly AdminResourceProviderProfile[] };
+  providerSearch?: string;
   today?: string;
 }): AdminSponsorPlacementDashboardViewModel {
   const today = input.today ?? new Date().toISOString().slice(0, 10);
@@ -143,6 +146,10 @@ export function buildAdminSponsorPlacementDashboardViewModel(input: {
   const placements = placementList.items.map((placement) =>
     toSponsorPlacementViewModel(placement, today),
   );
+  const providerOptionsTotal =
+    "total" in input.providers && typeof input.providers.total === "number"
+      ? input.providers.total
+      : providerItems.length;
 
   return {
     createActionLabel: "Crear patrocinio",
@@ -162,12 +169,14 @@ export function buildAdminSponsorPlacementDashboardViewModel(input: {
     },
     locale: "es-BO",
     placements,
+    providerOptionsTotal,
     providerOptions: providerItems.map((provider) => ({
       city: provider.city,
       department: provider.department,
       id: provider.id,
       name: provider.name,
     })),
+    providerSearch: input.providerSearch,
     safetyPolicy: buildSponsorSafetyPolicy(
       adminSponsorPlacementSurfaceOptions.map((option) => option.id),
     ),

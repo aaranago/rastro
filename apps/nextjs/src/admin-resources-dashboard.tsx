@@ -2,6 +2,7 @@
 
 import type { Control, FieldPath, UseFormRegister } from "react-hook-form";
 import * as React from "react";
+import NextImage from "next/image";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowDownIcon, ArrowUpIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
@@ -2083,17 +2084,25 @@ function SponsorMediaPreview(props: {
   return (
     <div className="mt-2 grid gap-2 sm:grid-cols-[64px_minmax(0,1fr)] sm:items-center">
       {props.logoUrl ? (
-        <img
+        <NextImage
           alt={`Logo de patrocinio de ${props.providerName}`}
           className="border-border bg-muted h-14 w-14 rounded-md border object-cover"
+          height={56}
+          loading="eager"
           src={props.logoUrl}
+          unoptimized
+          width={56}
         />
       ) : null}
       {props.imageUrl ? (
-        <img
+        <NextImage
           alt={`Imagen de patrocinio de ${props.providerName}`}
           className={`border-border bg-muted h-20 w-full rounded-md border object-cover ${props.logoUrl ? "" : "sm:col-span-2"}`}
+          height={80}
+          loading="eager"
           src={props.imageUrl}
+          unoptimized
+          width={640}
         />
       ) : null}
     </div>

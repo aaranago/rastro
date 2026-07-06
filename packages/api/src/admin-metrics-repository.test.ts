@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAdminMetricsOverviewFromGroups } from "./admin-metrics-repository";
+import {
+  buildAdminMetricsOverviewFromGroups,
+  buildCurrentSponsorPlacementMetricCondition,
+} from "./admin-metrics-repository";
 
 describe("admin metrics repository", () => {
   it("aggregates content, abuse, resources, and sponsor metrics by structured city and department", () => {
@@ -125,4 +128,42 @@ describe("admin metrics repository", () => {
       ]),
     );
   });
+
+  it("excludes detached sponsor placements from current placement counts", () => {
+    const condition = buildCurrentSponsorPlacementMetricCondition(
+      new Date("2026-07-01T12:00:00.000Z"),
+    );
+
+    expect(conditionIncludesColumn(condition, "detachedAt")).toBe(true);
+  });
 });
+
+function conditionIncludesColumn(
+  value: unknown,
+  columnName: string,
+  seen = new WeakSet<object>(),
+): boolean {
+  if (typeof value !== "object" || value === null || seen.has(value)) {
+    return false;
+  }
+
+  seen.add(value);
+
+  if (
+    "name" in value &&
+    typeof value.name === "string" &&
+    value.name === columnName
+  ) {
+    return true;
+  }
+
+  if ("queryChunks" in value && Array.isArray(value.queryChunks)) {
+    return value.queryChunks.some((chunk) =>
+      conditionIncludesColumn(chunk, columnName, seen),
+    );
+  }
+
+  return Object.values(value).some((child) =>
+    conditionIncludesColumn(child, columnName, seen),
+  );
+}

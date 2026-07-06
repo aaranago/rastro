@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import NextImage from "next/image";
 
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Badge } from "@acme/ui/badge";
@@ -146,17 +147,58 @@ function SponsorHeader(props: {
           pagos, recuperación ni notificaciones.
         </p>
       </div>
-      <CreateSponsorPlacementWorkflow
-        feedback={
-          props.workflowFeedback?.action === "create_sponsor_placement"
-            ? props.workflowFeedback
-            : undefined
-        }
-        formAction={props.formAction}
-        providerOptions={props.viewModel.providerOptions}
-        surfaceOptions={props.viewModel.surfaceOptions}
-      />
+      <div className="grid min-w-0 gap-3 sm:min-w-[320px]">
+        <ProviderOptionSearch viewModel={props.viewModel} />
+        <CreateSponsorPlacementWorkflow
+          feedback={
+            props.workflowFeedback?.action === "create_sponsor_placement"
+              ? props.workflowFeedback
+              : undefined
+          }
+          formAction={props.formAction}
+          providerOptions={props.viewModel.providerOptions}
+          surfaceOptions={props.viewModel.surfaceOptions}
+        />
+      </div>
     </header>
+  );
+}
+
+function ProviderOptionSearch(props: {
+  viewModel: AdminSponsorPlacementDashboardViewModel;
+}) {
+  const search = props.viewModel.providerSearch ?? "";
+  const resultLabel =
+    props.viewModel.providerOptionsTotal === 1
+      ? "1 proveedor disponible"
+      : `${formatSponsorMetricNumber(
+          props.viewModel.providerOptionsTotal,
+        )} proveedores disponibles`;
+
+  return (
+    <form action="/admin/patrocinios" className="grid gap-2" method="get">
+      <Field>
+        <FieldLabel htmlFor="sponsor-provider-search">
+          Buscar proveedor para crear
+        </FieldLabel>
+        <div className="flex min-w-0 gap-2">
+          <Input
+            className="min-w-0"
+            defaultValue={search}
+            id="sponsor-provider-search"
+            name="providerSearch"
+            placeholder="Nombre, ciudad o zona"
+            type="search"
+          />
+          <Button type="submit" variant="outline">
+            Buscar
+          </Button>
+        </div>
+        <FieldDescription>
+          {resultLabel} para el selector de creación.
+        </FieldDescription>
+      </Field>
+    </form>
   );
 }
 
@@ -186,13 +228,13 @@ function SponsorStats(props: {
       aria-label="Resumen de patrocinios"
       className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7"
     >
-      <SummaryStat label="Patrocinios" value={stats.placementCount} />
-      <SummaryStat label="Activos" value={stats.activeCount} />
-      <SummaryStat label="Programados" value={stats.scheduledCount} />
-      <SummaryStat label="Expirados" value={stats.expiredCount} />
-      <SummaryStat label="Proveedores" value={stats.providerCount} />
-      <SummaryStat label="Impresiones" value={stats.impressionCount} />
-      <SummaryStat label="Aperturas" value={stats.openCount} />
+      <SummaryStat label="Patrocinios visibles" value={stats.placementCount} />
+      <SummaryStat label="Activos visibles" value={stats.activeCount} />
+      <SummaryStat label="Programados visibles" value={stats.scheduledCount} />
+      <SummaryStat label="Expirados visibles" value={stats.expiredCount} />
+      <SummaryStat label="Proveedores visibles" value={stats.providerCount} />
+      <SummaryStat label="Impresiones visibles" value={stats.impressionCount} />
+      <SummaryStat label="Aperturas visibles" value={stats.openCount} />
     </section>
   );
 }
@@ -1057,24 +1099,32 @@ function SponsorMediaPreview(props: {
   return (
     <div className="mb-3 grid gap-2 sm:grid-cols-[72px_minmax(0,1fr)] sm:items-center">
       {props.logoUrl ? (
-        <img
+        <NextImage
           alt={`Logo de patrocinio de ${props.providerName}`}
           className="border-border bg-muted h-16 w-16 rounded-md border object-cover"
+          height={64}
+          loading="eager"
           src={props.logoUrl}
+          unoptimized
+          width={64}
         />
       ) : null}
       {props.imageUrl ? (
-        <img
+        <NextImage
           alt={`Imagen de patrocinio de ${props.providerName}`}
           className={`border-border bg-muted h-24 w-full rounded-md border object-cover ${props.logoUrl ? "" : "sm:col-span-2"}`}
+          height={96}
+          loading="eager"
           src={props.imageUrl}
+          unoptimized
+          width={640}
         />
       ) : null}
     </div>
   );
 }
 
-function SponsorProviderField(props: {
+export function SponsorProviderField(props: {
   error?: string;
   feedback?: AdminSponsorPlacementFeedback;
   id: string;
@@ -1082,45 +1132,75 @@ function SponsorProviderField(props: {
   providerOptions: readonly AdminSponsorProviderOption[];
 }) {
   const errorId = `${props.id}-error`;
+  const selectedProviderId = getSubmittedValue(
+    props.feedback,
+    "providerId",
+    props.placement?.providerId ?? props.providerOptions[0]?.id,
+  );
+
+  if (props.placement) {
+    return (
+      <>
+        <Field>
+          <FieldLabel>Proveedor</FieldLabel>
+          <div className="border-border bg-muted/40 text-muted-foreground rounded-md border px-3 py-2 text-sm">
+            <span className="text-foreground block font-medium">
+              {props.placement.providerName}
+            </span>
+            <span>El proveedor no se cambia al editar un patrocinio.</span>
+          </div>
+        </Field>
+        <input
+          name="providerId"
+          type="hidden"
+          value={props.placement.providerId}
+        />
+        <input
+          name="providerName"
+          type="hidden"
+          value={getSubmittedValue(
+            props.feedback,
+            "providerName",
+            props.placement.providerName,
+          )}
+        />
+      </>
+    );
+  }
 
   return (
     <>
       <Field data-invalid={Boolean(props.error)}>
         <FieldLabel htmlFor={props.id}>Proveedor</FieldLabel>
-        <Select
-          defaultValue={getSubmittedValue(
-            props.feedback,
-            "providerId",
-            props.placement?.providerId ?? props.providerOptions[0]?.id,
-          )}
-          name="providerId"
-        >
-          <SelectTrigger
-            aria-describedby={props.error ? errorId : undefined}
-            aria-invalid={Boolean(props.error)}
-            className="w-full"
-            id={props.id}
-          >
-            <SelectValue placeholder="Selecciona proveedor" />
-          </SelectTrigger>
-          <SelectContent>
-            {props.providerOptions.map((provider) => (
-              <SelectItem key={provider.id} value={provider.id}>
-                {provider.name} - {provider.city}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {props.providerOptions.length === 0 ? (
+          <div className="border-border bg-muted/40 text-muted-foreground rounded-md border px-3 py-2 text-sm">
+            Busca un proveedor por nombre o ciudad antes de crear el patrocinio.
+          </div>
+        ) : (
+          <Select defaultValue={selectedProviderId} name="providerId">
+            <SelectTrigger
+              aria-describedby={props.error ? errorId : undefined}
+              aria-invalid={Boolean(props.error)}
+              className="w-full"
+              id={props.id}
+            >
+              <SelectValue placeholder="Selecciona proveedor" />
+            </SelectTrigger>
+            <SelectContent>
+              {props.providerOptions.map((provider) => (
+                <SelectItem key={provider.id} value={provider.id}>
+                  {provider.name} - {provider.city}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <FieldError id={errorId}>{props.error}</FieldError>
       </Field>
       <input
         name="providerName"
         type="hidden"
-        value={getSubmittedValue(
-          props.feedback,
-          "providerName",
-          props.placement?.providerName ?? "",
-        )}
+        value={getSubmittedValue(props.feedback, "providerName", "")}
       />
     </>
   );

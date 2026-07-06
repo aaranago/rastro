@@ -199,15 +199,72 @@ If you need to share runtime code between the client and server, such as input v
 > **Note**
 > Please note that the Next.js application with tRPC must be deployed in order for the Expo app to communicate with the server in a production environment.
 
-#### Deploy to Vercel
+#### Deploy the Rastro Next.js app
 
-Let's deploy the Next.js application to [Vercel](https://vercel.com). If you've never deployed a Turborepo app there, don't worry, the steps are quite straightforward. You can also read the [official Turborepo guide](https://vercel.com/docs/concepts/monorepos/turborepo) on deploying to Vercel.
+The Next.js app is the public web surface, admin console, tRPC API, Better Auth
+server, media proxy, and scheduled-job endpoint host. For Vercel, set the
+project root to `apps/nextjs`; for Dokploy or another Node host, run the same
+package scripts from that workspace.
 
-1. Create a new project on Vercel, select the `apps/nextjs` folder as the root directory. Vercel's zero-config system should handle all configurations for you.
+Required production env:
 
-2. Add your `POSTGRES_URL` environment variable.
+```env
+POSTGRES_URL="postgres://..."
+BETTER_AUTH_URL="https://app.rastro.bo"
+AUTH_SECRET="<32+ byte high-entropy secret>"
+AUTH_REQUIRE_EMAIL_VERIFICATION="false"
+RASTRO_ADMIN_EMAILS="admin@rastro.bo,ops@rastro.bo"
+RASTRO_ANDROID_INSTALL_URL="https://play.google.com/store/apps/details?id=..."
+RASTRO_IOS_INSTALL_URL="https://apps.apple.com/app/..."
+RASTRO_JOB_SECRET="<32+ byte scheduler bearer secret>"
+RASTRO_SPONSOR_DELIVERY_TOKEN_SECRET="<32+ byte sponsor token secret>"
+RASTRO_AUTH_EMAIL_FROM="Rastro <no-reply@rastro.bo>"
+RASTRO_AUTH_EMAIL_WEBHOOK_URL="https://mail.example.com/rastro-auth-email"
+RASTRO_AUTH_EMAIL_WEBHOOK_SECRET="<32+ byte mail webhook bearer secret>"
+RASTRO_STORAGE_BUCKET="rastro-media"
+RASTRO_STORAGE_REGION="us-east-1"
+RASTRO_STORAGE_ACCESS_KEY_ID="<storage access key>"
+RASTRO_STORAGE_SECRET_ACCESS_KEY="<storage secret key>"
+```
 
-3. Done! Your app should successfully deploy. Assign your domain and use that instead of `localhost` for the `url` in the Expo app so that your Expo app can communicate with your backend when you are not in development.
+Storage endpoints depend on the provider:
+
+- AWS S3: leave `RASTRO_STORAGE_INTERNAL_ENDPOINT` and
+  `RASTRO_STORAGE_PRESIGN_ENDPOINT` blank unless using a custom endpoint.
+- MinIO/Dokploy: set `RASTRO_STORAGE_INTERNAL_ENDPOINT`,
+  `RASTRO_STORAGE_PRESIGN_ENDPOINT`, `RASTRO_STORAGE_FORCE_PATH_STYLE=true`,
+  and `RASTRO_STORAGE_TLS` to match the deployment.
+- Optional read CDN: set `RASTRO_STORAGE_DELIVERY_BASE_URL`.
+
+`/descargar` uses `RASTRO_ANDROID_INSTALL_URL` and
+`RASTRO_IOS_INSTALL_URL` for the public acquisition path. These can point to
+Play Store, App Store, TestFlight, Play internal testing, an APK, or a PWA
+install URL, but production must not ship with mail-only install placeholders.
+Password reset and account-deletion emails use the auth email webhook; in
+production, missing webhook configuration fails the request instead of logging a
+private reset link.
+
+OAuth/social auth env is optional until provider apps are configured:
+`AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_FACEBOOK_ID`,
+`AUTH_FACEBOOK_SECRET`, `AUTH_APPLE_CLIENT_ID`, `AUTH_APPLE_CLIENT_SECRET`, and
+`AUTH_APPLE_APP_BUNDLE_IDENTIFIER`. If using the Better Auth Expo OAuth proxy,
+also set `AUTH_REDIRECT_PROXY_URL` and keep provider callback URLs aligned with
+`BETTER_AUTH_URL`.
+
+Create scheduler jobs that call these routes with
+`Authorization: Bearer $RASTRO_JOB_SECRET`:
+
+```bash
+POST /api/jobs/report-media-cleanup
+POST /api/jobs/alert-delivery-dispatch?limit=100
+POST /api/jobs/chat-notification-delivery-dispatch?limit=100
+```
+
+After deployment, set the Expo/EAS environment to point at the deployed API:
+
+```env
+EXPO_PUBLIC_API_BASE_URL="https://app.rastro.bo"
+```
 
 ### Auth Proxy
 

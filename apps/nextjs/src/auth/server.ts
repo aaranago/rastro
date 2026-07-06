@@ -66,6 +66,8 @@ export const getEnabledSocialAuthProviders = (): SocialAuthProvider[] => {
 
 const baseUrl = getBaseUrl();
 const productionUrl = env.BETTER_AUTH_URL ?? baseUrl;
+const isProductionRuntime =
+  env.VERCEL_ENV === "production" || env.NODE_ENV === "production";
 const socialProviders: AuthSocialProviders = {
   google: {
     clientId: env.AUTH_GOOGLE_ID,
@@ -82,31 +84,66 @@ const socialProviders: AuthSocialProviders = {
   },
 };
 
-function assertDevelopmentEmailBoundary(kind: string) {
-  if (env.NODE_ENV === "production") {
-    throw new Error(`${kind} email delivery is not configured for production.`);
+type AuthEmailKind = "account_deletion_verification" | "password_reset";
+
+async function sendAuthEmail(input: {
+  kind: AuthEmailKind;
+  subject: string;
+  to: string;
+  url: string;
+}) {
+  if (!env.RASTRO_AUTH_EMAIL_WEBHOOK_URL) {
+    if (isProductionRuntime) {
+      throw new Error("Auth email delivery is not configured.");
+    }
+
+    console.info("[Rastro auth] Auth email link requested", input);
+    return;
+  }
+
+  if (!env.RASTRO_AUTH_EMAIL_FROM || !env.RASTRO_AUTH_EMAIL_WEBHOOK_SECRET) {
+    throw new Error("Auth email delivery is not configured.");
+  }
+
+  const response = await fetch(env.RASTRO_AUTH_EMAIL_WEBHOOK_URL, {
+    body: JSON.stringify({
+      from: env.RASTRO_AUTH_EMAIL_FROM,
+      kind: input.kind,
+      subject: input.subject,
+      to: input.to,
+      url: input.url,
+    }),
+    headers: {
+      authorization: `Bearer ${env.RASTRO_AUTH_EMAIL_WEBHOOK_SECRET}`,
+      "content-type": "application/json",
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Auth email webhook failed with status ${response.status}.`,
+    );
   }
 }
 
 const sendPasswordResetEmail: SendPasswordResetEmail = ({ url, user }) => {
-  assertDevelopmentEmailBoundary("Password reset");
-  console.info("[Rastro auth] Password reset link requested", {
+  return sendAuthEmail({
+    kind: "password_reset",
+    subject: "Restablece tu contraseña de Rastro",
     to: user.email,
     url,
   });
-
-  return Promise.resolve();
 };
 
 const sendDeleteAccountVerificationEmail: SendDeleteAccountVerificationEmail =
   ({ url, user }) => {
-    assertDevelopmentEmailBoundary("Account deletion verification");
-    console.info("[Rastro auth] Account deletion confirmation link requested", {
+    return sendAuthEmail({
+      kind: "account_deletion_verification",
+      subject: "Confirma la eliminación de tu cuenta de Rastro",
       to: user.email,
       url,
     });
-
-    return Promise.resolve();
   };
 
 const accountDeletionCleanup: AccountDeletionCleanupBoundary = {

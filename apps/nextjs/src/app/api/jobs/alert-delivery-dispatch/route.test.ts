@@ -104,4 +104,38 @@ describe("alert delivery dispatch job route", () => {
     });
     expect(JSON.stringify(body)).not.toContain("job-secret");
   });
+
+  it("clamps overly large dispatch limits", async () => {
+    nextEnv.env.RASTRO_JOB_SECRET = "job-secret";
+    const repository = { repository: true };
+    const pushClient = { pushClient: true };
+    api.createDrizzleAlertRepository.mockReturnValue(repository);
+    api.createExpoPushClient.mockReturnValue(pushClient);
+    api.dispatchPendingAlertDeliveries.mockResolvedValue({
+      failed: 0,
+      pending: 0,
+      requested: 100,
+      sent: 0,
+      skipped: 100,
+    });
+    const { POST } = await import("./route");
+
+    await POST(
+      new Request(
+        "http://localhost/api/jobs/alert-delivery-dispatch?limit=9999",
+        {
+          headers: {
+            authorization: "Bearer job-secret",
+          },
+          method: "POST",
+        },
+      ),
+    );
+
+    expect(api.dispatchPendingAlertDeliveries).toHaveBeenCalledWith({
+      alertRepository: repository,
+      limit: 100,
+      pushClient,
+    });
+  });
 });

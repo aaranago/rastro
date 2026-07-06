@@ -169,6 +169,13 @@
       "when": 1783392000000,
       "tag": "0023_require_sponsor_delivery_idempotency",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1783395600000,
+      "tag": "0024_archive_sponsor_placements",
+      "breakpoints": true
     }
   ]
 }

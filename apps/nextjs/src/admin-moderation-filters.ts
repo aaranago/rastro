@@ -1,5 +1,6 @@
 import type {
   AdminModerationFilters,
+  AdminModerationListQuery,
   AdminModerationRiskFilter,
   AdminModerationTargetType,
 } from "./admin-moderation-dashboard";
@@ -25,14 +26,43 @@ export function buildAdminModerationFilters(
 export function buildAdminModerationReturnPath(
   pathname: string,
   filters: AdminModerationFilters,
+  listQuery?: AdminModerationListQuery,
 ) {
   const params = new URLSearchParams();
 
   appendAdminModerationFilterParams(params, filters);
+  appendAdminModerationListParams(params, listQuery);
 
   const query = params.toString();
 
   return query ? `${pathname}?${query}` : pathname;
+}
+
+function appendAdminModerationListParams(
+  params: URLSearchParams,
+  listQuery: AdminModerationListQuery | undefined,
+) {
+  if (!listQuery) {
+    return;
+  }
+
+  if (listQuery.search) {
+    params.set("search", listQuery.search);
+  }
+
+  if (listQuery.page > 1) {
+    params.set("page", String(listQuery.page));
+  }
+
+  params.set("pageSize", String(listQuery.pageSize));
+
+  if (listQuery.sortBy) {
+    params.set("sortBy", listQuery.sortBy);
+  }
+
+  if (listQuery.sortDirection) {
+    params.set("sortDirection", listQuery.sortDirection);
+  }
 }
 
 export function appendAdminModerationFilterParams(

@@ -8,6 +8,7 @@ import type {
 import {
   AdminSponsorPlacementDashboard,
   AdminSponsorPlacementMediaFields,
+  SponsorProviderField,
 } from "./admin-sponsor-placement-dashboard";
 import { buildAdminSponsorPlacementDashboardViewModel } from "./admin-sponsor-placement-model";
 
@@ -29,8 +30,11 @@ describe("admin sponsor placement dashboard", () => {
 
     expect(html).toContain("Gestión de patrocinios locales");
     expect(html).toContain("Crear patrocinio");
+    expect(html).toContain("Buscar proveedor para crear");
     expect(html).toContain("Clínica Veterinaria San Roque");
     expect(html).toContain("Patitas La Paz");
+    expect(html).toContain("Patrocinios visibles");
+    expect(html).toContain("Impresiones visibles");
     expect(html).toContain("Directorio de recursos");
     expect(html).toContain("Perfil del proveedor");
     expect(html).toContain("Impresiones");
@@ -83,6 +87,34 @@ describe("admin sponsor placement dashboard", () => {
     expect(html).toContain("Ana miembro");
     expect(html).not.toContain("Crear patrocinio");
     expect(html).not.toContain("Patrocinios por proveedor");
+  });
+
+  it("renders the edit workflow with a read-only provider field", () => {
+    const placement = dashboardViewModel().placements[0];
+
+    if (!placement) {
+      throw new Error("Expected sponsor placement fixture");
+    }
+
+    const html = renderToStaticMarkup(
+      <SponsorProviderField
+        id="sponsor-provider-field"
+        placement={placement}
+        providerOptions={[]}
+        feedback={{
+          action: "update_sponsor_placement",
+          fieldErrors: [],
+          ok: false,
+          placementId: "22222222-2222-4222-8222-222222222222",
+          providerId: "11111111-1111-4111-8111-111111111111",
+          providerName: "Clínica Veterinaria San Roque",
+        }}
+      />,
+    );
+
+    expect(html).toContain("El proveedor no se cambia al editar");
+    expect(html).toContain('name="providerId"');
+    expect(html).toContain('value="11111111-1111-4111-8111-111111111111"');
   });
 
   it("hides sponsor external URL fallback fields until the advanced disclosure is opened", () => {

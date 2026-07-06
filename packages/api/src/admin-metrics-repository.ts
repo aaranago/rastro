@@ -305,13 +305,7 @@ async function listSponsorPlacementMetricRows(db: Database, generatedAt: Date) {
       ResourceProviderLocation,
       eq(ResourceProviderLocation.providerId, ResourceProvider.id),
     )
-    .where(
-      and(
-        isNull(ResourceProvider.deletedAt),
-        sql`${LocalSponsorPlacement.startsAt} <= ${generatedAt}`,
-        sql`${LocalSponsorPlacement.endsAt} >= ${generatedAt}`,
-      ),
-    )
+    .where(buildCurrentSponsorPlacementMetricCondition(generatedAt))
     .groupBy(
       ResourceProviderLocation.city,
       ResourceProviderLocation.department,
@@ -335,6 +329,15 @@ async function listSponsorPlacementMetricRows(db: Database, generatedAt: Date) {
       verifiedResourceProviderCount: 0,
     },
   }));
+}
+
+export function buildCurrentSponsorPlacementMetricCondition(generatedAt: Date) {
+  return and(
+    isNull(ResourceProvider.deletedAt),
+    isNull(LocalSponsorPlacement.detachedAt),
+    sql`${LocalSponsorPlacement.startsAt} <= ${generatedAt}`,
+    sql`${LocalSponsorPlacement.endsAt} >= ${generatedAt}`,
+  );
 }
 
 async function listSponsorDeliveryMetricRows(db: Database) {

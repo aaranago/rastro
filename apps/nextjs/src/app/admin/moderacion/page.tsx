@@ -105,7 +105,18 @@ export default async function AdminModerationPage(
       notice={buildAdminModerationNotice(
         buildAdminModerationFeedback(searchParams),
       )}
-      returnTo={buildAdminModerationReturnPath("/admin/moderacion", filters)}
+      returnTo={buildAdminModerationReturnPath(
+        "/admin/moderacion",
+        filters,
+        listQuery,
+      )}
+      reviewHrefForItem={(item) =>
+        buildAdminModerationReturnPath(
+          `/admin/moderacion/${item.id}`,
+          filters,
+          listQuery,
+        )
+      }
       {...toPersistedAdminModerationDashboardProps(
         viewer.dashboardViewer,
         {

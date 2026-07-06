@@ -7,8 +7,14 @@ const api = vi.hoisted(() => ({
 const nextEnv = vi.hoisted(() => ({
   env: {} as Record<string, string | undefined>,
 }));
+const dbMock = vi.hoisted(() => ({
+  db: {
+    select: vi.fn(),
+  },
+}));
 
 vi.mock("@acme/api", () => api);
+vi.mock("@acme/db/client", () => dbMock);
 vi.mock("~/env", () => nextEnv);
 
 function resetNextEnv() {
@@ -25,6 +31,7 @@ describe("report media delivery route", () => {
 
   it("streams report media through the server-side storage adapter", async () => {
     nextEnv.env.RASTRO_STORAGE_BUCKET = "rastro-media";
+    mockVisibleMedia();
     const storage = {
       getObject: vi.fn().mockResolvedValue({
         body: new Uint8Array([0x52, 0x41, 0x53, 0x54, 0x52, 0x4f]),
@@ -72,6 +79,7 @@ describe("report media delivery route", () => {
 
   it("streams admin-managed media through the server-side storage adapter", async () => {
     nextEnv.env.RASTRO_STORAGE_BUCKET = "rastro-media";
+    mockVisibleMedia();
     const storage = {
       getObject: vi.fn().mockResolvedValue({
         body: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
@@ -129,4 +137,107 @@ describe("report media delivery route", () => {
     expect(api.parseMediaStorageConfig).not.toHaveBeenCalled();
     expect(api.createS3MediaStorage).not.toHaveBeenCalled();
   });
+
+  it("does not proxy report media that is no longer visible", async () => {
+    nextEnv.env.RASTRO_STORAGE_BUCKET = "rastro-media";
+    mockVisibleMedia([]);
+    const storage = {
+      getObject: vi.fn(),
+    };
+    api.parseMediaStorageConfig.mockReturnValue({ bucket: "rastro-media" });
+    api.createS3MediaStorage.mockReturnValue(storage);
+    const { GET } = await import("./route");
+
+    const response = await GET(
+      new Request(
+        "http://localhost/api/report-media/report-media/member/hidden.webp",
+      ),
+      {
+        params: Promise.resolve({
+          objectKey: ["report-media", "member", "hidden.webp"],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(404);
+    expect(api.parseMediaStorageConfig).not.toHaveBeenCalled();
+    expect(api.createS3MediaStorage).not.toHaveBeenCalled();
+    expect(storage.getObject).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when storage reports a missing media object", async () => {
+    nextEnv.env.RASTRO_STORAGE_BUCKET = "rastro-media";
+    mockVisibleMedia();
+    const storage = {
+      getObject: vi.fn().mockRejectedValue(
+        Object.assign(new Error("missing"), {
+          name: "NoSuchKey",
+          $metadata: { httpStatusCode: 404 },
+        }),
+      ),
+    };
+    api.parseMediaStorageConfig.mockReturnValue({ bucket: "rastro-media" });
+    api.createS3MediaStorage.mockReturnValue(storage);
+    const { GET } = await import("./route");
+
+    const response = await GET(
+      new Request(
+        "http://localhost/api/report-media/report-media/member/missing.webp",
+      ),
+      {
+        params: Promise.resolve({
+          objectKey: ["report-media", "member", "missing.webp"],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(404);
+  });
+
+  it("returns 503 for non-missing storage failures", async () => {
+    nextEnv.env.RASTRO_STORAGE_BUCKET = "rastro-media";
+    mockVisibleMedia();
+    const storage = {
+      getObject: vi.fn().mockRejectedValue(new Error("storage unavailable")),
+    };
+    api.parseMediaStorageConfig.mockReturnValue({ bucket: "rastro-media" });
+    api.createS3MediaStorage.mockReturnValue(storage);
+    const { GET } = await import("./route");
+
+    const response = await GET(
+      new Request(
+        "http://localhost/api/report-media/report-media/member/original.webp",
+      ),
+      {
+        params: Promise.resolve({
+          objectKey: ["report-media", "member", "original.webp"],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(503);
+  });
 });
+
+function mockVisibleMedia(rows: { id: string }[] = [{ id: "media-id" }]) {
+  dbMock.db.select.mockReturnValueOnce(createSelectChain(rows));
+}
+
+function createSelectChain<T>(rows: T[]) {
+  const chain = {
+    from() {
+      return chain;
+    },
+    innerJoin() {
+      return chain;
+    },
+    where() {
+      return chain;
+    },
+    limit() {
+      return rows;
+    },
+  };
+
+  return chain;
+}

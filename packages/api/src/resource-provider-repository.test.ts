@@ -207,6 +207,7 @@ function sponsorPlacementRows(provider: PersistedResourceProvider) {
     providerId: provider.id,
     startsAt: placement.startsAt,
     surface: placement.surface,
+    detachedAt: null,
     updatedAt: provider.updatedAt,
   }));
 }
@@ -495,6 +496,62 @@ function createActiveSponsorPlacementDb(input: {
         },
       },
       select,
+    },
+  };
+}
+
+function createDetachSponsorPlacementDb(input: {
+  provider: PersistedResourceProvider;
+}) {
+  const calls = {
+    deleteCalled: false,
+    updateValues: [] as Record<string, unknown>[],
+  };
+  let detached = false;
+  const select = () =>
+    createSelectChain(({ fromTable }) => {
+      if (fromTable === ResourceProviderContactOption) {
+        return contactOptionRows(input.provider);
+      }
+
+      if (fromTable === LocalSponsorPlacement) {
+        return detached ? [] : sponsorPlacementRows(input.provider);
+      }
+
+      return [];
+    });
+
+  return {
+    calls,
+    db: {
+      delete: () => {
+        calls.deleteCalled = true;
+
+        throw new Error("Sponsor placements must be archived, not deleted.");
+      },
+      query: {
+        ResourceProvider: {
+          findFirst: () => Promise.resolve(providerRow(input.provider)),
+        },
+      },
+      select,
+      update: () => ({
+        set(values: Record<string, unknown>) {
+          calls.updateValues.push(values);
+
+          return {
+            where: () => ({
+              returning: () => {
+                detached = true;
+
+                return Promise.resolve([
+                  { id: input.provider.sponsorPlacements[0]?.id },
+                ]);
+              },
+            }),
+          };
+        },
+      }),
     },
   };
 }
@@ -1391,6 +1448,31 @@ describe("resource provider repository", () => {
       providerName: "Clínica Veterinaria San Roque",
       surface: "resources_directory",
     });
+  });
+
+  it("archives detached sponsor placements without deleting delivery history", async () => {
+    const now = new Date("2026-07-15T12:00:00.000Z");
+    const provider = persistedProvider();
+    const { calls, db } = createDetachSponsorPlacementDb({ provider });
+    const repository = createDrizzleResourceProviderRepository(db as never, {
+      now: () => now,
+    });
+
+    const detached = await repository.detachSponsor({
+      placementId: "22222222-2222-4222-8222-222222222222",
+      providerId: "11111111-1111-4111-8111-111111111111",
+    });
+
+    expect(calls.deleteCalled).toBe(false);
+    expect(calls.updateValues).toEqual([
+      {
+        detachedAt: now,
+        updatedAt: now,
+      },
+    ]);
+    expect(JSON.stringify(detached)).not.toContain(
+      "22222222-2222-4222-8222-222222222222",
+    );
   });
 
   it("provides field-specific sponsor placement overlap errors", () => {

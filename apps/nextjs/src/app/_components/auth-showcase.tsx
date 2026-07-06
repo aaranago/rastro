@@ -336,6 +336,32 @@ export async function AuthShowcase(props: {
         </form>
       </div>
 
+      <form
+        action={requestPasswordReset}
+        className="border-border mt-6 grid gap-3 border-t pt-5"
+      >
+        {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
+        <div>
+          <h3 className="text-base font-semibold">¿Olvidaste tu contraseña?</h3>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Solicita un enlace seguro para recuperar el acceso por correo.
+          </p>
+        </div>
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+          <Input
+            autoComplete="email"
+            inputMode="email"
+            name="email"
+            placeholder="tu@correo.com"
+            required
+            type="email"
+          />
+          <Button className="sm:w-fit" type="submit" variant="outline">
+            Solicitar enlace
+          </Button>
+        </div>
+      </form>
+
       {socialProviders.length > 0 ? (
         <div className="border-border mt-6 border-t pt-5">
           <p className="text-muted-foreground mb-3 text-sm">

@@ -12,6 +12,21 @@ const booleanString = z
   .optional()
   .default("false")
   .transform((value) => value === "true");
+const isProductionDeployment =
+  process.env.VERCEL_ENV === "production" ||
+  process.env.NODE_ENV === "production";
+const authSecret = isProductionDeployment
+  ? z
+      .string()
+      .min(32, "AUTH_SECRET must be at least 32 characters in production.")
+      .refine(
+        (value) => !/^dev-only/i.test(value),
+        "AUTH_SECRET must not use the dev-only placeholder in production.",
+      )
+  : z.string().min(1).optional();
+const betterAuthUrl = isProductionDeployment
+  ? z.url("BETTER_AUTH_URL must be a valid URL in production.")
+  : optionalString;
 
 export function authEnv() {
   return createEnv({
@@ -23,16 +38,15 @@ export function authEnv() {
       AUTH_FACEBOOK_SECRET: optionalString,
       AUTH_GOOGLE_ID: optionalString,
       AUTH_GOOGLE_SECRET: optionalString,
+      AUTH_REDIRECT_PROXY_URL: optionalString,
       AUTH_REQUIRE_EMAIL_VERIFICATION: booleanString,
-      AUTH_SECRET:
-        process.env.NODE_ENV === "production"
-          ? z.string().min(1)
-          : z.string().min(1).optional(),
-      BETTER_AUTH_URL: optionalString,
-      NODE_ENV: z.enum(["development", "production"]).optional(),
+      AUTH_SECRET: authSecret,
+      BETTER_AUTH_URL: betterAuthUrl,
+      NODE_ENV: z.enum(["development", "production", "test"]).optional(),
     },
     runtimeEnv: process.env,
     skipValidation:
-      !!process.env.CI || process.env.npm_lifecycle_event === "lint",
+      process.env.npm_lifecycle_event === "lint" ||
+      (!!process.env.CI && !isProductionDeployment),
   });
 }

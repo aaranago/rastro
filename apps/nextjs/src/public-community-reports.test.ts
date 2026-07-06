@@ -101,12 +101,12 @@ describe("public found and sighting report page data", () => {
           "https://rastro.bo/descargar?context=report&returnTo=%2Freportes%2Fencontrados%2F33333333-3333-4333-8333-333333330001&target=rastro%3A%2F%2Freportes%2Fencontrados%2F33333333-3333-4333-8333-333333330001",
         downloadLabel: "Instalar o abrir Rastro",
         openHref:
-          "rastro://reportes/encontrados/33333333-3333-4333-8333-333333330001",
+          "https://rastro.bo/descargar?context=report&returnTo=%2Freportes%2Fencontrados%2F33333333-3333-4333-8333-333333330001&target=rastro%3A%2F%2Freportes%2Fencontrados%2F33333333-3333-4333-8333-333333330001",
         openLabel: "Abrir en la app",
       },
       contactOptions: [
         {
-          href: "rastro://chats/report/33333333-3333-4333-8333-333333330001",
+          href: "https://rastro.bo/descargar?context=report&returnTo=%2Freportes%2Fencontrados%2F33333333-3333-4333-8333-333333330001&target=rastro%3A%2F%2Fchats%2Freport%2F33333333-3333-4333-8333-333333330001",
           kind: "app-chat",
           label: "Enviar mensaje en Rastro",
         },
@@ -167,7 +167,7 @@ describe("public found and sighting report page data", () => {
     expect(report).toMatchObject({
       appPrompts: {
         openHref:
-          "rastro://reportes/avistamientos/44444444-4444-4444-8444-444444440001",
+          "https://rastro.bo/descargar?context=report&returnTo=%2Freportes%2Favistamientos%2F44444444-4444-4444-8444-444444440001&target=rastro%3A%2F%2Freportes%2Favistamientos%2F44444444-4444-4444-8444-444444440001",
       },
       description:
         "Caminaba hacia la plaza y parecía desorientado pero sin heridas visibles.",

@@ -1,4 +1,7 @@
 import { createS3MediaStorage, parseMediaStorageConfig } from "@acme/api";
+import { and, eq, inArray, isNull } from "@acme/db";
+import { db } from "@acme/db/client";
+import { AdminMediaAsset, Report, ReportMedia } from "@acme/db/schema";
 
 import { env } from "~/env";
 
@@ -50,6 +53,10 @@ export async function GET(
   }
 
   try {
+    if (!(await isPublicMediaObjectAvailable(objectKey))) {
+      return responseForUnavailableMedia();
+    }
+
     const storage = createS3MediaStorage(
       parseMediaStorageConfig(mediaStorageEnv()),
     );
@@ -70,7 +77,64 @@ export async function GET(
       headers,
       status: 200,
     });
-  } catch {
-    return responseForUnavailableMedia(503);
+  } catch (error) {
+    return responseForUnavailableMedia(isMissingObjectError(error) ? 404 : 503);
   }
+}
+
+async function isPublicMediaObjectAvailable(objectKey: string) {
+  if (objectKey.startsWith("report-media/")) {
+    const [media] = await db
+      .select({ id: ReportMedia.id })
+      .from(ReportMedia)
+      .innerJoin(Report, eq(Report.id, ReportMedia.reportId))
+      .where(
+        and(
+          eq(ReportMedia.objectKey, objectKey),
+          eq(ReportMedia.status, "ready"),
+          inArray(Report.status, ["active", "closed"]),
+          isNull(Report.deletedAt),
+          isNull(Report.hiddenAt),
+          isNull(Report.falseReportedAt),
+        ),
+      )
+      .limit(1);
+
+    return Boolean(media);
+  }
+
+  const [asset] = await db
+    .select({ id: AdminMediaAsset.id })
+    .from(AdminMediaAsset)
+    .where(
+      and(
+        eq(AdminMediaAsset.objectKey, objectKey),
+        eq(AdminMediaAsset.status, "ready"),
+        isNull(AdminMediaAsset.removedAt),
+      ),
+    )
+    .limit(1);
+
+  return Boolean(asset);
+}
+
+function isMissingObjectError(error: unknown) {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+
+  const candidate = error as {
+    $metadata?: { httpStatusCode?: number };
+    Code?: string;
+    code?: string;
+    name?: string;
+  };
+  const code = candidate.Code ?? candidate.code ?? candidate.name;
+
+  return (
+    candidate.$metadata?.httpStatusCode === 404 ||
+    code === "NoSuchKey" ||
+    code === "NotFound" ||
+    code === "NotFoundError"
+  );
 }

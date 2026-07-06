@@ -113,6 +113,11 @@ function buildPublicAdoptionListingViewModel(
     publicWebBaseUrl,
     title: pet.name,
   });
+  const appHandoffHref = buildAppDownloadHref({
+    context: "adoption",
+    returnTo: shareTarget.path,
+    target: shareTarget.appDeepLink,
+  });
 
   return {
     abuseReport: {
@@ -120,19 +125,16 @@ function buildPublicAdoptionListingViewModel(
       reportId: report.id,
     },
     appPrompts: {
-      downloadHref: buildAppDownloadHref({
-        context: "adoption",
-        returnTo: shareTarget.path,
-        target: shareTarget.appDeepLink,
-      }),
+      downloadHref: appHandoffHref,
       downloadLabel: "Instalar o abrir Rastro",
-      openHref: shareTarget.appDeepLink,
+      openHref: appHandoffHref,
       openLabel: "Abrir en la app",
     },
-    contactOptions: buildPublicReportContactOptions(
-      report,
-      shareTarget.appDeepLink,
-    ),
+    contactOptions: buildPublicReportContactOptions(report, {
+      context: "adoption",
+      fallbackHref: appHandoffHref,
+      returnTo: shareTarget.path,
+    }),
     description: report.description.trim(),
     pet,
     photos: buildPublicReportPhotos(report, pet.name),

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { isPublicReportId } from "@acme/validators";
 
 import type { AppDownloadContext } from "~/public-report-detail-mapping";
+import { env } from "~/env";
 import {
   appDownloadHref,
   appDownloadPath,
@@ -72,23 +73,6 @@ const contextContent = {
   { eyebrow: string; lead: string; title: string }
 >;
 
-const installOptions = [
-  {
-    body: "La publicación en Google Play todavía no está disponible. Conserva el enlace y solicita acceso mientras se habilita la tienda.",
-    cta: "Solicitar acceso Android",
-    href: "mailto:hola@rastro.bo?subject=Acceso%20Android%20a%20Rastro",
-    status: "Disponible pronto",
-    title: "Android",
-  },
-  {
-    body: "La distribución para iPhone todavía no está disponible. Puedes pedir aviso y volver al enlace compartido cuando tengas acceso.",
-    cta: "Solicitar aviso iPhone",
-    href: "mailto:hola@rastro.bo?subject=Acceso%20iPhone%20a%20Rastro",
-    status: "Disponible pronto",
-    title: "iPhone",
-  },
-] as const;
-
 const downloadContextAliases: Record<string, DownloadContext> = {
   adopcion: "adoption",
   adopción: "adoption",
@@ -120,6 +104,7 @@ export default async function DownloadPage(props: DownloadPageProps) {
   const returnLabel =
     returnHref === "/" ? "Volver al inicio" : "Volver al enlace compartido";
   const content = contextContent[context];
+  const installOptions = buildInstallOptions(returnHref);
 
   return (
     <main className="bg-background min-h-screen">
@@ -230,6 +215,35 @@ function resolveDownloadContext(value: string | undefined): DownloadContext {
   return normalized
     ? (downloadContextAliases[normalized] ?? "general")
     : "general";
+}
+
+function buildInstallOptions(returnHref: string) {
+  const fallbackHref = returnHref === "/" ? appDownloadHref : returnHref;
+
+  return [
+    {
+      body: env.RASTRO_ANDROID_INSTALL_URL
+        ? "Instala Rastro en Android y vuelve al enlace compartido para abrir el reporte, adopción o recurso en contexto."
+        : "Continúa desde el enlace web mientras el acceso Android se configura para este entorno.",
+      cta: env.RASTRO_ANDROID_INSTALL_URL
+        ? "Instalar en Android"
+        : "Continuar en la web",
+      href: env.RASTRO_ANDROID_INSTALL_URL ?? fallbackHref,
+      status: env.RASTRO_ANDROID_INSTALL_URL ? "Disponible" : "Acceso web",
+      title: "Android",
+    },
+    {
+      body: env.RASTRO_IOS_INSTALL_URL
+        ? "Abre TestFlight, App Store o el canal iOS configurado y conserva este enlace para volver al caso."
+        : "Continúa desde el enlace web mientras el acceso iPhone se configura para este entorno.",
+      cta: env.RASTRO_IOS_INSTALL_URL
+        ? "Instalar en iPhone"
+        : "Continuar en la web",
+      href: env.RASTRO_IOS_INSTALL_URL ?? fallbackHref,
+      status: env.RASTRO_IOS_INSTALL_URL ? "Disponible" : "Acceso web",
+      title: "iPhone",
+    },
+  ] as const;
 }
 
 function resolveReturnHref(value: string | undefined) {

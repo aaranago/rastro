@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { AdminSponsorPlacementActionState } from "~/admin-sponsor-placement-actions";
 import { buildAdminModerationViewer } from "~/admin-moderation-access";
 import { listAdminResourceProviderProfiles } from "~/admin-resource-provider-api-adapter";
+import { getTrimmedSearchParam } from "~/admin-search-params";
 import {
   applyAdminSponsorPlacementAction,
   buildAdminSponsorPlacementActionState,
@@ -51,11 +52,15 @@ export default async function AdminSponsorPlacementsPage(
   }
 
   const listInput = parseAdminSponsorPlacementListSearchParams(searchParams);
+  const providerSearch = getTrimmedSearchParam(searchParams, "providerSearch");
   const [placements, providers] = await Promise.all([
     listAdminSponsorPlacements(listInput),
     listAdminResourceProviderProfiles({
       page: 1,
-      pageSize: 100,
+      pageSize: 25,
+      search: providerSearch,
+      sortBy: "name",
+      sortDirection: "asc",
     }),
   ]);
   const workflowFeedback = buildAdminSponsorPlacementFeedback(searchParams);
@@ -69,6 +74,7 @@ export default async function AdminSponsorPlacementsPage(
       viewModel={buildAdminSponsorPlacementDashboardViewModel({
         listInput,
         placements,
+        providerSearch,
         providers,
       })}
       workflowFeedback={workflowFeedback}

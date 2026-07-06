@@ -146,8 +146,16 @@ function readReportPetName(report: PublicReportDetail) {
 
 export function buildPublicReportContactOptions(
   report: PublicReportDetail,
-  appDeepLink: string,
+  appHandoff: {
+    context: AppDownloadContext;
+    fallbackHref: string;
+    returnTo: string;
+  },
 ): PublicReportPageContactOption[] {
+  if (report.owner.isCurrentMember) {
+    return [];
+  }
+
   const contactOptions: PublicReportPageContactOption[] = [];
   const seen = new Set<string>();
 
@@ -160,7 +168,11 @@ export function buildPublicReportContactOptions(
             label: "Escribir por WhatsApp",
           }
         : {
-            href: action.href || appDeepLink,
+            href: buildAppDownloadHref({
+              context: appHandoff.context,
+              returnTo: appHandoff.returnTo,
+              target: resolveReportChatDeepLink(report.id, action.href),
+            }),
             kind: "app-chat" as const,
             label: "Enviar mensaje en Rastro",
           };
@@ -178,13 +190,52 @@ export function buildPublicReportContactOptions(
       report.contact.preference === "both")
   ) {
     contactOptions.push({
-      href: appDeepLink,
+      href: buildAppDownloadHref({
+        context: appHandoff.context,
+        returnTo: appHandoff.returnTo,
+        target: resolveReportChatDeepLink(report.id),
+      }),
       kind: "app-chat",
       label: "Enviar mensaje en Rastro",
     });
   }
 
+  if (contactOptions.length === 0) {
+    contactOptions.push({
+      href: appHandoff.fallbackHref,
+      kind: "app-chat",
+      label: "Abrir en Rastro",
+    });
+  }
+
   return contactOptions;
+}
+
+function resolveReportChatDeepLink(reportId: string, value?: string) {
+  const fallback = `rastro://chats/report/${reportId}`;
+  const trimmed = readNonEmptyString(value);
+
+  if (!trimmed) {
+    return fallback;
+  }
+
+  try {
+    const url = new URL(trimmed);
+
+    if (
+      url.protocol === "rastro:" &&
+      url.hostname === "chats" &&
+      url.pathname.replace(/\/+$/, "") === `/report/${reportId}` &&
+      !url.search &&
+      !url.hash
+    ) {
+      return trimmed;
+    }
+  } catch {
+    return fallback;
+  }
+
+  return fallback;
 }
 
 export function buildPublicReportPhotos(

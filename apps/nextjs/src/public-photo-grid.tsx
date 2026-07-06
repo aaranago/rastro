@@ -15,14 +15,16 @@ export function PublicPhotoGrid({ photos }: PublicPhotoGridProps) {
   }
 
   const [primaryPhoto, ...secondaryPhotos] = photos;
-  const hiddenPhotoCount = Math.max(0, secondaryPhotos.length - 2);
-
   return (
     <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(140px,0.38fr)]">
       {primaryPhoto ? (
-        <div
+        <a
+          aria-label={`Abrir foto principal: ${primaryPhoto.alt}`}
           className="bg-muted relative aspect-[4/3] w-full min-w-0 overflow-hidden rounded-lg"
+          href={primaryPhoto.src}
           key={primaryPhoto.src}
+          target="_blank"
+          rel="noreferrer"
         >
           <div
             aria-hidden="true"
@@ -41,14 +43,18 @@ export function PublicPhotoGrid({ photos }: PublicPhotoGridProps) {
             src={primaryPhoto.src}
             unoptimized
           />
-        </div>
+        </a>
       ) : null}
       {secondaryPhotos.length > 0 ? (
         <div className="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-1">
-          {secondaryPhotos.slice(0, 2).map((photo, index) => (
-            <div
+          {secondaryPhotos.map((photo) => (
+            <a
+              aria-label={`Abrir foto: ${photo.alt}`}
               className="bg-muted relative aspect-[4/3] min-w-0 overflow-hidden rounded-lg"
+              href={photo.src}
               key={photo.src}
+              target="_blank"
+              rel="noreferrer"
             >
               <Image
                 alt={photo.alt}
@@ -58,12 +64,7 @@ export function PublicPhotoGrid({ photos }: PublicPhotoGridProps) {
                 src={photo.src}
                 unoptimized
               />
-              {index === 1 && hiddenPhotoCount > 0 ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/45 text-sm font-semibold text-white">
-                  +{hiddenPhotoCount}
-                </div>
-              ) : null}
-            </div>
+            </a>
           ))}
         </div>
       ) : null}

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { env } from "~/env";
 
+const maxJobLimit = 100;
+
 export function validateJobRequest(
   request: Request,
   options: { unconfiguredMessage: string },
@@ -35,5 +37,5 @@ export function parseJobLimit(request: Request) {
     return undefined;
   }
 
-  return parsed;
+  return Math.min(parsed, maxJobLimit);
 }

@@ -206,7 +206,7 @@ describe("admin moderation page", () => {
     );
     expect(html).not.toContain("Clínica San Roque");
     expect(html).toContain("Modo de revisión para adopciones");
-    expect(html).toContain("Métricas de abuso por ciudad");
+    expect(html).toContain("Métricas visibles de abuso por ciudad");
     expect(html).toContain("Admin Rastro");
     expect(
       resourceProviderModerationApi.listAdminResourceProviderModerationQueueList,
@@ -286,6 +286,9 @@ describe("admin moderation page", () => {
     expect(html).not.toContain("Michi busca nuevo hogar");
     expect(html).not.toContain('name="confirmModerationAction"');
     expect(html).toContain("Luna perdida cerca de la plaza quedó oculto");
+    expect(html).toContain(
+      "/admin/moderacion/report-review-luna?targetType=lost_pet_report&amp;risk=high&amp;search=Luna&amp;pageSize=10&amp;sortBy=updatedAt&amp;sortDirection=asc",
+    );
     expect(
       reportModerationApi.listAdminReportModerationQueueList,
     ).toHaveBeenCalledWith({
@@ -359,6 +362,13 @@ describe("admin moderation page", () => {
           accion: "hide_target",
           estado: "error",
           error: "confirmation",
+          page: "3",
+          pageSize: "25",
+          risk: "high",
+          search: "Luna",
+          sortBy: "updatedAt",
+          sortDirection: "asc",
+          targetType: "lost_pet_report",
         }),
       }),
     );
@@ -371,6 +381,12 @@ describe("admin moderation page", () => {
     expect(html).toContain("Confirmo ocultar reporte");
     expect(html).toContain("Marcar reporte falso");
     expect(html).toContain("/admin/miembros?memberId=member-mateo");
+    expect(html).toContain(
+      "/admin/moderacion?targetType=lost_pet_report&amp;risk=high&amp;search=Luna&amp;page=3&amp;pageSize=25&amp;sortBy=updatedAt&amp;sortDirection=asc",
+    );
+    expect(html).toContain(
+      "/admin/moderacion/report-review-luna?targetType=lost_pet_report&amp;risk=high&amp;search=Luna&amp;page=3&amp;pageSize=25&amp;sortBy=updatedAt&amp;sortDirection=asc",
+    );
     expect(
       reportModerationApi.getAdminReportModerationQueueItem,
     ).toHaveBeenCalledWith("report-review-luna");

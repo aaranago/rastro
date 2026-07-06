@@ -54,6 +54,33 @@ describe("local sponsor placement delivery repository", () => {
     });
     expect(fakeDb.insertCount).toBe(1);
   });
+
+  it("queries only non-detached placements before recording delivery events", async () => {
+    const createdEvent = deliveryEventRow();
+    const fakeDb = createSponsorDeliveryFakeDb({
+      activePlacements: [
+        [
+          {
+            placementId: "22222222-2222-4222-8222-222222222222",
+            providerId: "11111111-1111-4111-8111-111111111111",
+          },
+        ],
+      ],
+      eventSelects: [[]],
+      insertResults: [[createdEvent]],
+      requireDetachedFilterForActivePlacement: true,
+    });
+    const repository = createDrizzleLocalSponsorPlacementDeliveryRepository(
+      fakeDb.db,
+      { now: () => new Date("2026-07-01T12:00:00.000Z") },
+    );
+
+    await expect(repository.record(recordInput())).resolves.toEqual({
+      event: toExpectedEvent(createdEvent),
+      status: "recorded",
+    });
+    expect(fakeDb.insertCount).toBe(1);
+  });
 });
 
 function recordInput() {
@@ -116,10 +143,12 @@ function createSponsorDeliveryFakeDb({
   activePlacements = [],
   eventSelects = [],
   insertResults = [],
+  requireDetachedFilterForActivePlacement = false,
 }: {
   activePlacements?: ActivePlacementRow[][];
   eventSelects?: DeliveryEventRow[][];
   insertResults?: DeliveryEventRow[][];
+  requireDetachedFilterForActivePlacement?: boolean;
 }) {
   let insertCount = 0;
   let activePlacementSelectIndex = 0;
@@ -140,7 +169,7 @@ function createSponsorDeliveryFakeDb({
         const rows = activePlacements[activePlacementSelectIndex] ?? [];
         activePlacementSelectIndex += 1;
         return rows;
-      });
+      }, requireDetachedFilterForActivePlacement);
     },
     insert() {
       insertCount += 1;
@@ -171,7 +200,11 @@ function createSponsorDeliveryFakeDb({
   };
 }
 
-function createSelectChain<T>(getRows: () => T[]) {
+function createSelectChain<T>(
+  getRows: () => T[],
+  requireDetachedFilter = false,
+) {
+  let whereCondition: unknown;
   const chain = {
     from() {
       return chain;
@@ -179,16 +212,54 @@ function createSelectChain<T>(getRows: () => T[]) {
     innerJoin() {
       return chain;
     },
-    where() {
+    where(condition: unknown) {
+      whereCondition = condition;
       return chain;
     },
     orderBy() {
       return chain;
     },
     limit() {
+      if (
+        requireDetachedFilter &&
+        !conditionIncludesColumn(whereCondition, "detachedAt")
+      ) {
+        return [];
+      }
+
       return getRows();
     },
   };
 
   return chain;
+}
+
+function conditionIncludesColumn(
+  value: unknown,
+  columnName: string,
+  seen = new WeakSet<object>(),
+): boolean {
+  if (typeof value !== "object" || value === null || seen.has(value)) {
+    return false;
+  }
+
+  seen.add(value);
+
+  if (
+    "name" in value &&
+    typeof value.name === "string" &&
+    value.name === columnName
+  ) {
+    return true;
+  }
+
+  if ("queryChunks" in value && Array.isArray(value.queryChunks)) {
+    return value.queryChunks.some((chunk) =>
+      conditionIncludesColumn(chunk, columnName, seen),
+    );
+  }
+
+  return Object.values(value).some((child) =>
+    conditionIncludesColumn(child, columnName, seen),
+  );
 }

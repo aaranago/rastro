@@ -131,6 +131,7 @@ export interface AdminModerationDashboardProps {
   metrics: readonly AdminModerationMetric[];
   notice?: AdminModerationNotice;
   queues: readonly AdminModerationQueueSection[];
+  reviewHrefForItem?: (item: AdminModerationFlaggedItem) => string;
   returnTo?: string;
   settings: AdminModerationSettings;
   viewer: AdminModerationViewer;
@@ -204,10 +205,18 @@ const emptyModerationListQuery = {
   pageSize: 10,
 } as const satisfies AdminModerationListQuery;
 
-function getModerationQueueColumns(): readonly AdminDataListColumn<AdminModerationFlaggedItem>[] {
+function getModerationQueueColumns(
+  reviewHrefForItem: (item: AdminModerationFlaggedItem) => string = (item) =>
+    `/admin/moderacion/${item.id}`,
+): readonly AdminDataListColumn<AdminModerationFlaggedItem>[] {
   return [
     {
-      cell: (item) => <FlaggedItemTargetSummary item={item} />,
+      cell: (item) => (
+        <FlaggedItemTargetSummary
+          item={item}
+          reviewHref={reviewHrefForItem(item)}
+        />
+      ),
       header: "Superficie",
       headerClassName: "w-[30%]",
       id: "target",
@@ -232,7 +241,9 @@ function getModerationQueueColumns(): readonly AdminDataListColumn<AdminModerati
       id: "status",
     },
     {
-      cell: (item) => <FlaggedItemActions item={item} />,
+      cell: (item) => (
+        <FlaggedItemActions item={item} reviewHref={reviewHrefForItem(item)} />
+      ),
       header: "Acciones",
       headerClassName: "w-[14%] text-right",
       id: "actions",
@@ -270,6 +281,7 @@ export function AdminModerationDashboard(props: AdminModerationDashboardProps) {
             hrefForSort={props.listHrefForSort}
             query={listQuery}
             queues={props.queues}
+            reviewHrefForItem={props.reviewHrefForItem}
           />
         </section>
 
@@ -283,6 +295,7 @@ export function AdminModerationDashboard(props: AdminModerationDashboardProps) {
 }
 
 export function AdminModerationReviewDetail(props: {
+  backHref?: string;
   formAction?: React.ComponentProps<"form">["action"];
   item: AdminModerationFlaggedItem;
   notice?: AdminModerationNotice;
@@ -302,7 +315,9 @@ export function AdminModerationReviewDetail(props: {
       <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-6">
         <header className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs">
           <Button asChild className="w-fit" size="sm" variant="outline">
-            <Link href="/admin/moderacion">Volver a la cola</Link>
+            <Link href={props.backHref ?? "/admin/moderacion"}>
+              Volver a la cola
+            </Link>
           </Button>
           <p className="text-primary mt-5 text-sm font-semibold">
             Revisión de moderación
@@ -493,8 +508,8 @@ function ModerationFilters(props: {
           Filtros de revisión
         </h2>
         <p className="text-muted-foreground text-sm">
-          Acota la cola por tipo, motivo, ciudad, departamento y nivel de
-          riesgo.
+          Acota la cola por tipo, motivo, ciudad, departamento y riesgo. Las
+          opciones reflejan la página de resultados cargada.
         </p>
       </div>
       <form
@@ -614,6 +629,7 @@ function ModerationQueues(props: {
   ) => string;
   query: AdminModerationListQuery;
   queues: readonly AdminModerationQueueSection[];
+  reviewHrefForItem?: (item: AdminModerationFlaggedItem) => string;
 }) {
   if (props.queues.length === 0) {
     return (
@@ -650,6 +666,7 @@ function ModerationQueues(props: {
           key={queue.id}
           query={props.query}
           queue={queue}
+          reviewHrefForItem={props.reviewHrefForItem}
         />
       ))}
     </div>
@@ -662,10 +679,13 @@ function ModerationSummary(props: { stats: AdminModerationSummaryStats }) {
       aria-label="Resumen de moderación"
       className="grid gap-3 sm:grid-cols-3"
     >
-      <SummaryStat label="Pendientes" value={props.stats.flaggedCount} />
-      <SummaryStat label="Ocultos" value={props.stats.hiddenCount} />
       <SummaryStat
-        label="Miembros suspendidos"
+        label="Pendientes visibles"
+        value={props.stats.flaggedCount}
+      />
+      <SummaryStat label="Ocultos visibles" value={props.stats.hiddenCount} />
+      <SummaryStat
+        label="Miembros suspendidos visibles"
         value={props.stats.bannedMemberCount}
       />
     </section>
@@ -682,8 +702,12 @@ function FlaggedContentQueue(props: {
   ) => string;
   query: AdminModerationListQuery;
   queue: AdminModerationQueueSection;
+  reviewHrefForItem?: (item: AdminModerationFlaggedItem) => string;
 }) {
-  const columns = getModerationQueueColumns();
+  const reviewHrefForItem =
+    props.reviewHrefForItem ??
+    ((item: AdminModerationFlaggedItem) => `/admin/moderacion/${item.id}`);
+  const columns = getModerationQueueColumns(reviewHrefForItem);
   const queue = props.queue;
 
   return (
@@ -714,7 +738,9 @@ function FlaggedContentQueue(props: {
         pageSize: queue.pageSize,
         totalItems: queue.total,
       }}
-      renderMobileCard={(item) => <FlaggedItemCard item={item} />}
+      renderMobileCard={(item) => (
+        <FlaggedItemCard item={item} reviewHref={reviewHrefForItem(item)} />
+      )}
       rows={queue.items}
       tableCaption={queue.tableCaption}
       title={queue.title}
@@ -815,7 +841,10 @@ function SummaryStat(props: { label: string; value: number }) {
   );
 }
 
-function FlaggedItemCard(props: { item: AdminModerationFlaggedItem }) {
+function FlaggedItemCard(props: {
+  item: AdminModerationFlaggedItem;
+  reviewHref: string;
+}) {
   const item = props.item;
   const targetLabel = targetTypeLabels[item.target.type];
 
@@ -824,7 +853,7 @@ function FlaggedItemCard(props: { item: AdminModerationFlaggedItem }) {
       <div className="min-w-0">
         <a
           className="text-foreground hover:text-primary focus-visible:border-ring focus-visible:ring-ring/50 font-semibold break-words underline-offset-4 outline-none hover:underline focus-visible:ring-[3px]"
-          href={`/admin/moderacion/${item.id}`}
+          href={props.reviewHref}
         >
           {item.target.title}
         </a>
@@ -866,7 +895,7 @@ function FlaggedItemCard(props: { item: AdminModerationFlaggedItem }) {
       <div className="mt-4 grid gap-2">
         <a
           className="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:border-ring focus-visible:ring-ring/50 rounded-md px-3 py-2 text-center text-sm font-semibold outline-none focus-visible:ring-[3px]"
-          href={`/admin/moderacion/${item.id}`}
+          href={props.reviewHref}
         >
           Abrir revisión
         </a>
@@ -883,7 +912,10 @@ function FlaggedItemCard(props: { item: AdminModerationFlaggedItem }) {
   );
 }
 
-function FlaggedItemTargetSummary(props: { item: AdminModerationFlaggedItem }) {
+function FlaggedItemTargetSummary(props: {
+  item: AdminModerationFlaggedItem;
+  reviewHref: string;
+}) {
   const item = props.item;
   const targetLabel = targetTypeLabels[item.target.type];
 
@@ -891,7 +923,7 @@ function FlaggedItemTargetSummary(props: { item: AdminModerationFlaggedItem }) {
     <div className="flex min-w-0 flex-col gap-1">
       <a
         className="text-foreground hover:text-primary focus-visible:border-ring focus-visible:ring-ring/50 font-semibold break-words underline-offset-4 outline-none hover:underline focus-visible:ring-[3px]"
-        href={`/admin/moderacion/${item.id}`}
+        href={props.reviewHref}
       >
         {item.target.title}
       </a>
@@ -945,12 +977,15 @@ function FlaggedItemStatusSummary(props: { item: AdminModerationFlaggedItem }) {
   );
 }
 
-function FlaggedItemActions(props: { item: AdminModerationFlaggedItem }) {
+function FlaggedItemActions(props: {
+  item: AdminModerationFlaggedItem;
+  reviewHref: string;
+}) {
   return (
     <div className="flex flex-col items-stretch gap-2">
       <a
         className="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:border-ring focus-visible:ring-ring/50 rounded-md px-3 py-2 text-center text-sm font-semibold outline-none focus-visible:ring-[3px]"
-        href={`/admin/moderacion/${props.item.id}`}
+        href={props.reviewHref}
       >
         Abrir revisión
       </a>
@@ -1296,7 +1331,7 @@ function AbuseMetrics(props: { metrics: readonly AdminModerationMetric[] }) {
       className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs"
     >
       <h2 id="abuse-metrics-heading" className="text-xl font-semibold">
-        Métricas de abuso por ciudad
+        Métricas visibles de abuso por ciudad
       </h2>
       <div className="mt-4 overflow-x-auto">
         <table className="w-full text-left text-sm">

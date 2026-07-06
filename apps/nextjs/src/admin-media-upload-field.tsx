@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import NextImage from "next/image";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { RotateCcwIcon, Trash2Icon, UploadIcon } from "lucide-react";
 import SuperJSON from "superjson";
@@ -210,10 +211,14 @@ export function AdminMediaUploadField(props: AdminMediaUploadFieldProps) {
         </div>
 
         {previewUrl ? (
-          <img
+          <NextImage
             alt={props.previewAlt}
             className="border-border bg-muted h-24 w-full rounded-md border object-cover"
+            height={96}
+            loading="eager"
             src={previewUrl}
+            unoptimized
+            width={640}
           />
         ) : (
           <div className="bg-muted text-muted-foreground flex h-24 items-center justify-center rounded-md border text-sm">

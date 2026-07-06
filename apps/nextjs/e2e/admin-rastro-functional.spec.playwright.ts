@@ -217,6 +217,14 @@ test("public report pages render second-user contact and photos", async ({
       report: requireReport(fixture, "lost_pet"),
     },
     {
+      pathPrefix: "/reportes/encontrados",
+      report: requireReport(fixture, "found_pet"),
+    },
+    {
+      pathPrefix: "/reportes/avistamientos",
+      report: requireReport(fixture, "sighting"),
+    },
+    {
       pathPrefix: "/adopciones",
       report: requireReport(fixture, "adoption"),
     },
@@ -229,8 +237,17 @@ test("public report pages render second-user contact and photos", async ({
     ).toBeVisible();
     await expect(page.getByRole("heading", { name: "Contacto" })).toBeVisible();
 
-    if (report.contactPreference === "both") {
+    if (
+      report.contactPreference === "both" ||
+      report.contactPreference === "whatsapp"
+    ) {
       await expect(page.getByRole("link", { name: /WhatsApp/i })).toBeVisible();
+    }
+
+    if (
+      report.contactPreference === "both" ||
+      report.contactPreference === "in_app_chat"
+    ) {
       await expect(
         page.getByRole("link", { name: /Rastro/i }).first(),
       ).toBeVisible();

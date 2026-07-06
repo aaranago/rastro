@@ -227,7 +227,7 @@ describe("AdminModerationDashboard", () => {
     expect(html).toContain("/admin/miembros?memberId=member-mateo");
     expect(html).toContain("Modo de revisión para adopciones");
     expect(html).toContain("Correo verificado requerido para publicar");
-    expect(html).toContain("Métricas de abuso por ciudad");
+    expect(html).toContain("Métricas visibles de abuso por ciudad");
     expect(html).toContain("La Paz");
     expect(html).toContain("Cochabamba");
     expect(html).not.toMatch(/marketplace|seller|comprar|vender/i);
@@ -313,6 +313,6 @@ describe("AdminModerationDashboard", () => {
     expect(html).toContain("Solo administradores de Rastro");
     expect(html).not.toContain("Cola de revisión");
     expect(html).not.toContain("Suspender miembro");
-    expect(html).not.toContain("Métricas de abuso por ciudad");
+    expect(html).not.toContain("Métricas visibles de abuso por ciudad");
   });
 });

@@ -71,7 +71,11 @@ export function PublicCommunityReportPageContent({
         </section>
 
         <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-6 lg:col-start-2 lg:row-span-3 lg:self-start">
-          <ContactCard contactOptions={report.contactOptions} />
+          <ContactCard
+            appHandoffHref={report.appPrompts.downloadHref}
+            contactOptions={report.contactOptions}
+            isOwner={report.abuseReport.isOwner}
+          />
           <PrivacyCard location={report.publicLocation} />
           <AppPromptCard prompts={report.appPrompts} />
         </aside>
@@ -150,8 +154,28 @@ function PublicReportHeader(props: { report: PublicReportPageContentReport }) {
 }
 
 function ContactCard(props: {
+  appHandoffHref: string;
   contactOptions: readonly PublicReportPageContactOption[];
+  isOwner: boolean;
 }) {
+  if (props.isOwner) {
+    return (
+      <section className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs">
+        <h2 className="text-xl font-semibold">Tu reporte</h2>
+        <p className="text-muted-foreground mt-1 text-sm leading-6">
+          Gestiona actualizaciones, mensajes y cierre del caso desde Rastro.
+        </p>
+        <a
+          className="bg-primary text-primary-foreground hover:bg-primary/90 mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md px-4 py-3 text-center text-sm font-semibold"
+          href={props.appHandoffHref}
+        >
+          <SmartphoneIcon aria-hidden="true" className="size-4 shrink-0" />
+          Gestionar en Rastro
+        </a>
+      </section>
+    );
+  }
+
   return (
     <section className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs">
       <h2 className="text-xl font-semibold">Contacto</h2>
@@ -159,20 +183,33 @@ function ContactCard(props: {
         Elige la forma más segura para coordinar ayuda.
       </p>
       <div className="mt-4 grid gap-3">
-        {props.contactOptions.map((contactOption) => (
+        {props.contactOptions.length > 0 ? (
+          props.contactOptions.map((contactOption) => (
+            <a
+              className={
+                contactOption.kind === "whatsapp"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90 inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-md px-4 py-3 text-center text-sm font-semibold [overflow-wrap:anywhere] break-words"
+                  : "border-primary text-primary hover:bg-primary/10 inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-md border px-4 py-3 text-center text-sm font-semibold [overflow-wrap:anywhere] break-words"
+              }
+              href={contactOption.href}
+              key={contactOption.kind}
+            >
+              <MessageCircleIcon
+                aria-hidden="true"
+                className="size-4 shrink-0"
+              />
+              {contactOption.label}
+            </a>
+          ))
+        ) : (
           <a
-            className={
-              contactOption.kind === "whatsapp"
-                ? "bg-primary text-primary-foreground hover:bg-primary/90 inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-md px-4 py-3 text-center text-sm font-semibold [overflow-wrap:anywhere] break-words"
-                : "border-primary text-primary hover:bg-primary/10 inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-md border px-4 py-3 text-center text-sm font-semibold [overflow-wrap:anywhere] break-words"
-            }
-            href={contactOption.href}
-            key={contactOption.kind}
+            className="border-primary text-primary hover:bg-primary/10 inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-md border px-4 py-3 text-center text-sm font-semibold"
+            href={props.appHandoffHref}
           >
             <MessageCircleIcon aria-hidden="true" className="size-4 shrink-0" />
-            {contactOption.label}
+            Contactar en Rastro
           </a>
-        ))}
+        )}
       </div>
     </section>
   );

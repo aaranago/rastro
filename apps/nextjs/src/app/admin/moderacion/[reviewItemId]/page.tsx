@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import type { AdminModerationListQuery } from "~/admin-moderation-dashboard";
 import { buildAdminModerationViewer } from "~/admin-moderation-access";
 import {
   applyAdminModerationForm,
@@ -18,6 +19,12 @@ import {
 } from "~/admin-moderation-filters";
 import { getAdminReportModerationQueueItem } from "~/admin-report-moderation-api-adapter";
 import { getAdminResourceProviderModerationQueueItem } from "~/admin-resource-provider-moderation-api-adapter";
+import {
+  getPositiveIntegerSearchParam,
+  getSingleSearchParam,
+  getSortDirectionSearchParam,
+  getTrimmedSearchParam,
+} from "~/admin-search-params";
 import { getAdminSettings } from "~/admin-settings-api-adapter";
 import { getSession } from "~/auth/server";
 import { env } from "~/env";
@@ -59,9 +66,15 @@ export default async function AdminModerationReviewItemPage(
   }
 
   const filters = buildAdminModerationFilters(searchParams);
+  const listQuery = buildAdminModerationListQuery(searchParams);
 
   return (
     <AdminModerationReviewDetail
+      backHref={buildAdminModerationReturnPath(
+        "/admin/moderacion",
+        filters,
+        listQuery,
+      )}
       formAction={applyAdminModerationForm}
       item={item}
       notice={buildAdminModerationNotice(
@@ -70,6 +83,7 @@ export default async function AdminModerationReviewItemPage(
       returnTo={buildAdminModerationReturnPath(
         `/admin/moderacion/${reviewItemId}`,
         filters,
+        listQuery,
       )}
       settings={{
         reviewModeEnabled: settings.adoptionReviewModeEnabled,
@@ -78,6 +92,32 @@ export default async function AdminModerationReviewItemPage(
       viewer={viewer.dashboardViewer}
     />
   );
+}
+
+function buildAdminModerationListQuery(
+  searchParams: Record<string, string | string[] | undefined>,
+): AdminModerationListQuery {
+  const query: AdminModerationListQuery = {
+    page: getPositiveIntegerSearchParam(searchParams, "page", 1),
+    pageSize: getPositiveIntegerSearchParam(searchParams, "pageSize", 10),
+  };
+  const search = getTrimmedSearchParam(searchParams, "search");
+  const sortBy = getSingleSearchParam(searchParams, "sortBy")?.trim();
+  const sortDirection = getSortDirectionSearchParam(searchParams);
+
+  if (search) {
+    query.search = search;
+  }
+
+  if (sortBy) {
+    query.sortBy = sortBy;
+  }
+
+  if (sortDirection) {
+    query.sortDirection = sortDirection;
+  }
+
+  return query;
 }
 
 async function getAdminModerationReviewItem(reviewItemId: string) {

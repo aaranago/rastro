@@ -170,6 +170,7 @@ async function findActivePlacementForDeliveryEvent(
           ? eq(LocalSponsorPlacement.id, input.placementId)
           : undefined,
         eq(LocalSponsorPlacement.surface, input.surface),
+        isNull(LocalSponsorPlacement.detachedAt),
         isNull(ResourceProvider.deletedAt),
         lte(LocalSponsorPlacement.startsAt, input.occurredAt),
         gte(LocalSponsorPlacement.endsAt, input.occurredAt),

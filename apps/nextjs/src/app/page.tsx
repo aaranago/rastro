@@ -140,12 +140,20 @@ export default async function HomePage(props: { searchParams: SearchParams }) {
           </div>
         </div>
 
-        <div className="border-border bg-background border-t">
+        <div
+          id="reportes"
+          className="border-border bg-background scroll-mt-6 border-t"
+        >
           <div className="mx-auto grid w-full max-w-7xl gap-3 px-5 py-4 sm:px-6 md:grid-cols-3 lg:px-8">
             {publicSections.map((section) => (
               <a
                 className="hover:bg-muted/70 flex min-w-0 items-start gap-3 rounded-md px-3 py-3 transition"
                 href={section.href}
+                id={
+                  section.heading === "Recursos en Bolivia"
+                    ? "recursos"
+                    : undefined
+                }
                 key={section.heading}
               >
                 <span className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-md">

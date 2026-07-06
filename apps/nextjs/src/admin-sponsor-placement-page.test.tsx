@@ -80,7 +80,10 @@ describe("admin sponsor placement page", () => {
       resourceProviderApi.listAdminResourceProviderProfiles,
     ).toHaveBeenCalledWith({
       page: 1,
-      pageSize: 100,
+      pageSize: 25,
+      search: undefined,
+      sortBy: "name",
+      sortDirection: "asc",
     });
   });
 
@@ -149,11 +152,54 @@ describe("admin sponsor placement page", () => {
       resourceProviderApi.listAdminResourceProviderProfiles,
     ).toHaveBeenCalledWith({
       page: 1,
-      pageSize: 100,
+      pageSize: 25,
+      search: undefined,
+      sortBy: "name",
+      sortDirection: "asc",
     });
     expect(html).toContain("Búsqueda: San Roque");
     expect(html).toContain("Estado: Activo");
     expect(html).toContain("Mostrando 26-40 de 40");
+  });
+
+  it("loads provider options from a dedicated provider search query", async () => {
+    authServer.getSession.mockResolvedValue({
+      user: {
+        email: "admin@rastro.bo",
+        id: "member-admin-la-paz",
+        name: "Admin Rastro",
+      },
+    });
+    sponsorApi.listAdminSponsorPlacements.mockResolvedValue(
+      adminSponsorListResult([sponsorPlacement()], { total: 1 }),
+    );
+    resourceProviderApi.listAdminResourceProviderProfiles.mockResolvedValue(
+      adminProviderListResult([providerProfile()], { total: 1 }),
+    );
+    const { default: AdminSponsorPlacementsPage } = await import(
+      "./app/admin/patrocinios/page"
+    );
+
+    const html = renderToStaticMarkup(
+      await AdminSponsorPlacementsPage({
+        searchParams: Promise.resolve({
+          providerSearch: "San Roque",
+        }),
+      }),
+    );
+
+    expect(
+      resourceProviderApi.listAdminResourceProviderProfiles,
+    ).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 25,
+      search: "San Roque",
+      sortBy: "name",
+      sortDirection: "asc",
+    });
+    expect(html).toContain('name="providerSearch"');
+    expect(html).toContain('value="San Roque"');
+    expect(html).toContain("1 proveedor disponible");
   });
 
   it("renders access denied without fetching placements for non-admin members", async () => {
@@ -325,7 +371,10 @@ function adminSponsorListResult(
   };
 }
 
-function adminProviderListResult(items: AdminResourceProviderProfile[]) {
+function adminProviderListResult(
+  items: AdminResourceProviderProfile[],
+  overrides: { total?: number } = {},
+) {
   return {
     availableFilters: [],
     availableSorts: [],
@@ -335,6 +384,6 @@ function adminProviderListResult(items: AdminResourceProviderProfile[]) {
     page: 1,
     pageCount: items.length > 0 ? 1 : 0,
     pageSize: 10,
-    total: items.length,
+    total: overrides.total ?? items.length,
   };
 }

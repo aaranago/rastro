@@ -583,6 +583,7 @@ export function createDrizzleResourceProviderRepository(
         .where(
           and(
             eq(LocalSponsorPlacement.surface, input.surface),
+            isNull(LocalSponsorPlacement.detachedAt),
             isNull(ResourceProvider.deletedAt),
             lte(LocalSponsorPlacement.startsAt, currentNow),
             gte(LocalSponsorPlacement.endsAt, currentNow),
@@ -690,7 +691,10 @@ export function createDrizzleResourceProviderRepository(
         normalized,
         currentNow,
       );
-      const whereClause = filters.length > 0 ? and(...filters) : sql`true`;
+      const whereClause = and(
+        isNull(LocalSponsorPlacement.detachedAt),
+        ...(filters.length > 0 ? filters : [sql`true`]),
+      );
       const [countRow] = await db
         .select({
           total: sql<number>`count(*)::int`,
@@ -945,6 +949,7 @@ export function createDrizzleResourceProviderRepository(
           and(
             eq(LocalSponsorPlacement.id, sponsorPlacement.placementId),
             eq(LocalSponsorPlacement.providerId, sponsorPlacement.providerId),
+            isNull(LocalSponsorPlacement.detachedAt),
           ),
         )
         .limit(1);
@@ -979,6 +984,7 @@ export function createDrizzleResourceProviderRepository(
           and(
             eq(LocalSponsorPlacement.id, sponsorPlacement.placementId),
             eq(LocalSponsorPlacement.providerId, sponsorPlacement.providerId),
+            isNull(LocalSponsorPlacement.detachedAt),
           ),
         )
         .returning({ id: LocalSponsorPlacement.id });
@@ -997,17 +1003,23 @@ export function createDrizzleResourceProviderRepository(
         return null;
       }
 
-      const [deleted] = await db
-        .delete(LocalSponsorPlacement)
+      const detachedAt = now();
+      const [detached] = await db
+        .update(LocalSponsorPlacement)
+        .set({
+          detachedAt,
+          updatedAt: detachedAt,
+        })
         .where(
           and(
             eq(LocalSponsorPlacement.id, input.placementId),
             eq(LocalSponsorPlacement.providerId, input.providerId),
+            isNull(LocalSponsorPlacement.detachedAt),
           ),
         )
         .returning({ id: LocalSponsorPlacement.id });
 
-      return deleted ? repository.findProfile(input.providerId) : null;
+      return detached ? repository.findProfile(input.providerId) : null;
     },
   };
 
@@ -1034,6 +1046,7 @@ export function createDrizzleResourceProviderRepository(
         and(
           eq(LocalSponsorPlacement.id, placementId),
           eq(LocalSponsorPlacement.providerId, providerId),
+          isNull(LocalSponsorPlacement.detachedAt),
           isNull(ResourceProvider.deletedAt),
         ),
       )
@@ -1060,6 +1073,7 @@ async function assertNoOverlappingSponsorPlacement(
   const filters = [
     eq(LocalSponsorPlacement.providerId, input.providerId),
     eq(LocalSponsorPlacement.surface, input.surface),
+    isNull(LocalSponsorPlacement.detachedAt),
     lte(LocalSponsorPlacement.startsAt, input.endsAt),
     gte(LocalSponsorPlacement.endsAt, input.startsAt),
     input.excludingPlacementId
@@ -1089,7 +1103,12 @@ async function loadSponsorPlacements(db: Database, providerId: string) {
   return db
     .select()
     .from(LocalSponsorPlacement)
-    .where(eq(LocalSponsorPlacement.providerId, providerId));
+    .where(
+      and(
+        eq(LocalSponsorPlacement.providerId, providerId),
+        isNull(LocalSponsorPlacement.detachedAt),
+      ),
+    );
 }
 
 async function listAdminResourceProviderProfilesById(
@@ -1155,7 +1174,12 @@ async function loadSponsorPlacementsForProviders(
   const rows = await db
     .select()
     .from(LocalSponsorPlacement)
-    .where(inArray(LocalSponsorPlacement.providerId, providerIds))
+    .where(
+      and(
+        inArray(LocalSponsorPlacement.providerId, providerIds),
+        isNull(LocalSponsorPlacement.detachedAt),
+      ),
+    )
     .orderBy(
       asc(LocalSponsorPlacement.providerId),
       asc(LocalSponsorPlacement.startsAt),
@@ -1940,6 +1964,7 @@ function providerSponsorPlacementExists(extraCondition = sql`true`) {
     SELECT 1
     FROM ${LocalSponsorPlacement}
     WHERE ${LocalSponsorPlacement.providerId} = ${ResourceProvider.id}
+      AND ${LocalSponsorPlacement.detachedAt} IS NULL
       AND ${extraCondition}
   )`;
 }

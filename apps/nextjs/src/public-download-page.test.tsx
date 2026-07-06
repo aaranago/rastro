@@ -1,5 +1,12 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("~/env", () => ({
+  env: {
+    RASTRO_ANDROID_INSTALL_URL: undefined,
+    RASTRO_IOS_INSTALL_URL: undefined,
+  },
+}));
 
 describe("public download page", () => {
   it("renders a Spanish install fallback for public adoption links", async () => {
@@ -39,10 +46,13 @@ describe("public download page", () => {
     );
     expect(html).toContain("Adopciones");
     expect(html).toContain("Instalación");
-    expect(html).toContain("Disponible pronto");
-    expect(html).toContain("Solicitar acceso Android");
-    expect(html).toContain("Solicitar aviso iPhone");
+    expect(html).toContain("Acceso web");
+    expect(html).toContain("Continuar en la web");
     expect(html).toContain("rastro-app-activity.png");
+    expect(html).not.toContain("Disponible pronto");
+    expect(html).not.toContain("mailto:");
+    expect(html).not.toContain("Solicitar acceso Android");
+    expect(html).not.toContain("Solicitar aviso iPhone");
     expect(html).not.toContain("Instalar, abrir o solicitar acceso");
     expect(html).not.toContain("Contextos de Rastro");
     expect(html).not.toContain("Instalacion");
