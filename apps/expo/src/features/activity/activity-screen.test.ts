@@ -26,6 +26,9 @@ const shellContext = vi.hoisted(() => ({
   requestAuthPrompt: vi.fn(),
   session: { kind: "visitor" } as ShellSession,
 }));
+const navigationFocus = vi.hoisted(() => ({
+  callbacks: [] as (() => void | undefined)[],
+}));
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof React>("react");
@@ -60,6 +63,16 @@ vi.mock("react", async () => {
       reactState.pendingEffects.push(effect);
     },
     useMemo: <TValue>(factory: () => TValue) => factory(),
+    useRef: <TValue>(initialValue: TValue) => {
+      const index = reactState.cursor;
+      reactState.cursor += 1;
+
+      if (reactState.values.length <= index) {
+        reactState.values[index] = { current: initialValue };
+      }
+
+      return reactState.values[index] as React.MutableRefObject<TValue>;
+    },
     useState: <TValue>(initialValue: TValue | (() => TValue)) => {
       const index = reactState.cursor;
       reactState.cursor += 1;
@@ -91,6 +104,9 @@ vi.mock("@legendapp/list", () => ({
 }));
 
 vi.mock("expo-router", () => ({
+  useFocusEffect: (callback: () => void | undefined) => {
+    navigationFocus.callbacks.push(callback);
+  },
   useRouter: () => ({
     push: vi.fn(),
   }),
@@ -129,6 +145,7 @@ describe("Activity screen links", () => {
     reactState.effects = [];
     reactState.pendingEffects = [];
     reactState.values = [];
+    navigationFocus.callbacks = [];
     shellContext.requestAuthPrompt.mockReset();
     shellContext.session = { kind: "visitor" };
   });
@@ -473,6 +490,106 @@ describe("Activity screen links", () => {
     ]);
   });
 
+  it("keeps current Activity visible while pull-to-refresh loads the latest inbox", async () => {
+    shellContext.session = createMemberSession();
+    const refreshInbox = createDeferred<ActivityInbox>();
+    const repository: ActivityRepository = {
+      getInbox: vi
+        .fn<ActivityRepository["getInbox"]>()
+        .mockResolvedValueOnce(createAlertOnlyActivityInbox())
+        .mockReturnValueOnce(refreshInbox.promise),
+    };
+
+    void renderActivityScreen({ repository });
+    await runPendingEffects();
+    let screen = renderActivityScreen({ repository });
+    let listProps = getLegendListProps<{
+      data: Record<string, unknown>[];
+      onRefresh: () => void;
+      refreshing: boolean;
+    }>(screen);
+
+    listProps.onRefresh();
+    screen = renderActivityScreen({ repository });
+    listProps = getLegendListProps<{
+      data: Record<string, unknown>[];
+      onRefresh: () => void;
+      refreshing: boolean;
+    }>(screen);
+
+    expect(repository.getInbox).toHaveBeenCalledTimes(2);
+    expect(listProps.refreshing).toBe(true);
+    expect(listProps.data).toEqual([
+      expect.objectContaining({
+        testID: "activity-section-nearby-alerts",
+      }),
+      expect.objectContaining({
+        testID: "activity-item-alert-lost-report-1",
+      }),
+    ]);
+
+    refreshInbox.resolve(createChatOnlyActivityInbox());
+    await flushMicrotasks();
+
+    screen = renderActivityScreen({ repository });
+    listProps = getLegendListProps<{
+      data: Record<string, unknown>[];
+      onRefresh: () => void;
+      refreshing: boolean;
+    }>(screen);
+
+    expect(listProps.refreshing).toBe(false);
+    expect(listProps.data).toEqual([
+      expect.objectContaining({
+        testID: "activity-section-chats",
+      }),
+      expect.objectContaining({
+        testID: "activity-item-chat-chat-conversation-1",
+      }),
+    ]);
+  });
+
+  it("refreshes member Activity when the tab receives focus again", async () => {
+    shellContext.session = createMemberSession();
+    const repository: ActivityRepository = {
+      getInbox: vi
+        .fn<ActivityRepository["getInbox"]>()
+        .mockResolvedValueOnce(createEmptyActivityInbox())
+        .mockResolvedValueOnce(createChatOnlyActivityInbox()),
+    };
+
+    void renderActivityScreen({ repository });
+    await runPendingEffects();
+    expect(repository.getInbox).toHaveBeenCalledTimes(1);
+
+    const focusCallback = navigationFocus.callbacks.at(-1);
+
+    if (!focusCallback) {
+      throw new Error("Expected Activity screen to register a focus callback.");
+    }
+
+    focusCallback();
+    expect(repository.getInbox).toHaveBeenCalledTimes(1);
+
+    focusCallback();
+    await flushMicrotasks();
+
+    const screen = renderActivityScreen({ repository });
+    const listProps = getLegendListProps<{
+      data: Record<string, unknown>[];
+    }>(screen);
+
+    expect(repository.getInbox).toHaveBeenCalledTimes(2);
+    expect(listProps.data).toEqual([
+      expect.objectContaining({
+        testID: "activity-section-chats",
+      }),
+      expect.objectContaining({
+        testID: "activity-item-chat-chat-conversation-1",
+      }),
+    ]);
+  });
+
   it("renders backend report update and moderation sections with report links", async () => {
     shellContext.session = createMemberSession();
     const repository = createScreenRepository(
@@ -723,6 +840,65 @@ function createScreenRepository(
   };
 }
 
+function createEmptyActivityInbox(): ActivityInbox {
+  return {
+    alertDeliveries: [],
+    candidateMatches: [],
+    chatSummaries: [],
+    moderationEvents: [],
+    ownedReportPrompts: [],
+    reportUpdates: [],
+  };
+}
+
+function createAlertOnlyActivityInbox(): ActivityInbox {
+  return {
+    ...createEmptyActivityInbox(),
+    alertDeliveries: [
+      {
+        body: "Toby fue reportado cerca de Sopocachi.",
+        deliveryId: "alert-delivery-1",
+        href: "rastro://reportes/perdidos/lost-report-1",
+        id: "activity-alert-1",
+        occurredAt: "2026-06-30T13:00:00.000Z",
+        reportId: "lost-report-1",
+        status: "delivered",
+        title: "Mascota perdida cerca de ti",
+      },
+    ],
+  };
+}
+
+function createChatOnlyActivityInbox(): ActivityInbox {
+  return {
+    ...createEmptyActivityInbox(),
+    chatSummaries: [
+      {
+        conversationId: "chat-conversation-1",
+        href: "rastro://chats/chat-conversation-1",
+        id: "activity-chat-1",
+        lastMessage: {
+          authorLabel: "Diego",
+          id: "chat-message-1",
+          text: "Lo vi cerca de la plaza.",
+        },
+        occurredAt: "2026-06-30T13:04:00.000Z",
+        otherParticipant: {
+          displayName: "Diego",
+          memberId: "member-diego",
+        },
+        subject: {
+          href: "rastro://reportes/perdidos/lost-report-1",
+          id: "lost-report-1",
+          kind: "lost-pet-report",
+          subtitle: "Sopocachi",
+          title: "Toby",
+        },
+      },
+    ],
+  };
+}
+
 function createMixedActivityInbox(): ActivityInbox {
   return {
     alertDeliveries: [
@@ -846,6 +1022,12 @@ async function runPendingEffects() {
     effect();
   }
 
+  await flushMicrotasks();
+}
+
+async function flushMicrotasks() {
+  await Promise.resolve();
+  await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
 }

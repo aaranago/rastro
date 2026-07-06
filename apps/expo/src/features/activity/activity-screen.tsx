@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { LegendList } from "@legendapp/list";
 
 import type { InternalAuthPromptRequest } from "../navigation/internal-rastro-links";
@@ -120,6 +120,7 @@ type ActivityInboxLoadState =
   | { kind: "idle" }
   | { kind: "loading" }
   | { inbox: ActivityInbox; kind: "ready" };
+type ActivityInboxLoadMode = "initial" | "refresh";
 
 const bottomInset = 156;
 const defaultEstimatedItemSize = 96;
@@ -220,35 +221,76 @@ export function ActivityScreen({
   const [loadState, setLoadState] = React.useState<ActivityInboxLoadState>({
     kind: "idle",
   });
-  const [requestVersion, setRequestVersion] = React.useState(0);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const requestIdRef = React.useRef(0);
+  const focusRefreshKeyRef = React.useRef<string | null>(null);
   const memberSessionKey = session.kind === "member" ? session.id : "visitor";
+
+  const loadInbox = React.useCallback(
+    (mode: ActivityInboxLoadMode) => {
+      if (session.kind !== "member") {
+        return;
+      }
+
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
+      const isRefresh = mode === "refresh";
+
+      if (isRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setLoadState({ kind: "loading" });
+      }
+
+      repository
+        .getInbox(buildActivityInboxQuery(inboxLimit))
+        .then((inbox) => {
+          if (requestIdRef.current === requestId) {
+            setLoadState({ inbox, kind: "ready" });
+          }
+        })
+        .catch(() => {
+          if (requestIdRef.current === requestId && !isRefresh) {
+            setLoadState({ kind: "error" });
+          }
+        })
+        .finally(() => {
+          if (requestIdRef.current === requestId && isRefresh) {
+            setIsRefreshing(false);
+          }
+        });
+    },
+    [inboxLimit, repository, session.kind],
+  );
 
   React.useEffect(() => {
     if (session.kind !== "member") {
+      requestIdRef.current += 1;
+      focusRefreshKeyRef.current = null;
+      setIsRefreshing(false);
       setLoadState({ kind: "idle" });
       return;
     }
 
-    let isCurrent = true;
+    loadInbox("initial");
+  }, [loadInbox, memberSessionKey, session.kind]);
 
-    setLoadState({ kind: "loading" });
-    repository
-      .getInbox(buildActivityInboxQuery(inboxLimit))
-      .then((inbox) => {
-        if (isCurrent) {
-          setLoadState({ inbox, kind: "ready" });
-        }
-      })
-      .catch(() => {
-        if (isCurrent) {
-          setLoadState({ kind: "error" });
-        }
-      });
+  useFocusEffect(
+    React.useCallback(() => {
+      if (session.kind !== "member") {
+        return undefined;
+      }
 
-    return () => {
-      isCurrent = false;
-    };
-  }, [inboxLimit, memberSessionKey, repository, requestVersion, session.kind]);
+      if (focusRefreshKeyRef.current !== memberSessionKey) {
+        focusRefreshKeyRef.current = memberSessionKey;
+        return undefined;
+      }
+
+      loadInbox("refresh");
+
+      return undefined;
+    }, [loadInbox, memberSessionKey, session.kind]),
+  );
 
   const viewModel = React.useMemo(
     () =>
@@ -262,8 +304,11 @@ export function ActivityScreen({
   );
   const data = React.useMemo(() => buildListData(viewModel), [viewModel]);
   const handleRetry = React.useCallback(() => {
-    setRequestVersion((version) => version + 1);
-  }, []);
+    loadInbox("initial");
+  }, [loadInbox]);
+  const handleRefresh = React.useCallback(() => {
+    loadInbox("refresh");
+  }, [loadInbox]);
   const listBottomInset = bottomInset + safeAreaInsets.bottom;
   const listTopInset = Math.max(14, safeAreaInsets.top + 10);
 
@@ -361,8 +406,10 @@ export function ActivityScreen({
         keyExtractor={activityKeyExtractor}
         ListEmptyComponent={emptyState}
         ListHeaderComponent={header}
+        onRefresh={handleRefresh}
         recycleItems
         renderItem={renderItem}
+        refreshing={isRefreshing}
         scrollIndicatorInsets={{ bottom: listBottomInset }}
         style={styles.list}
         testID="activity-list"
