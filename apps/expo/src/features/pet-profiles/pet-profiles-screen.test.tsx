@@ -126,11 +126,17 @@ describe("MisMascotasScreen visitor actions", () => {
     );
     const initialListProps = getLegendListProps<{
       ListEmptyComponent: React.ReactNode;
+      ListHeaderComponent: React.ReactNode;
     }>(screen);
     const initialEmptyState = renderFunctionElement(
       initialListProps.ListEmptyComponent,
     );
+    const initialHeader = renderFunctionElement(
+      initialListProps.ListHeaderComponent,
+    );
 
+    expect(containsText(initialHeader, "Crear perfil de mascota")).toBe(false);
+    expect(containsText(initialEmptyState, "Crear ahora")).toBe(true);
     getPressableOnPress(findPressableByText(initialEmptyState, "Crear ahora"))();
 
     resetRenderCursor();

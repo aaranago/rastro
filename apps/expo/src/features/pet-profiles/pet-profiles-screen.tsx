@@ -606,10 +606,7 @@ function MemberMisMascotasScreen({
         <MemberPetProfilesHeader
           createActionLabel={viewModel.createActionLabel}
           hideCreateAction={
-            Boolean(controller.formViewModel) ||
-            (isListEmpty &&
-              (controller.isLoadingProfiles ||
-                Boolean(controller.profileLoadError)))
+            Boolean(controller.formViewModel) || isListEmpty
           }
           isLoadingProfiles={controller.isLoadingProfiles && !isListEmpty}
           onCreate={controller.beginCreate}
