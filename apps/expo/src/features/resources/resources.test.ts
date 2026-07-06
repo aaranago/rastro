@@ -471,6 +471,35 @@ describe("Resources directory", () => {
     expect(serialized).not.toContain("imageAssetId");
   });
 
+  it("sanitizes WhatsApp-like social contact labels in directory cards", () => {
+    const viewModel = buildResourcesDirectoryViewModel({
+      providers: [
+        buildProviderSummary({
+          contactOptions: [
+            {
+              kind: "social",
+              label: "Whats-App",
+              value: "https://phishing.example/contact",
+            },
+            {
+              kind: "whatsapp",
+              label: "WhatsApp institucional",
+              value: "+591 70000001",
+            },
+          ],
+        }),
+      ],
+      location: {
+        kind: "manual",
+        label: "Sopocachi, La Paz",
+      },
+      mode: "list",
+      status: "ready",
+    });
+
+    expect(viewModel.results[0]?.contactLabels).toEqual(["Social", "WhatsApp"]);
+  });
+
   it("describes empty, denied-location, offline, and error notices with Spanish actions", () => {
     const empty = buildResourcesDirectoryViewModel({
       providers: [],

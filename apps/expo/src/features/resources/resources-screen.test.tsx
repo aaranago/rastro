@@ -1,10 +1,13 @@
 import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ResourceProviderSummaryViewModel } from "./resources-view-model";
 import type { ResourceManualLocationOption } from "./resource-location-options";
+import type { ResourceProviderSummaryViewModel } from "./resources-view-model";
 import type { ResourcesAdapter } from "./static-resources-adapter";
-import { ResourceMapSelectedProvider, ResourcesScreen } from "./resources-screen";
+import {
+  ResourceMapSelectedProvider,
+  ResourcesScreen,
+} from "./resources-screen";
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -102,10 +105,7 @@ vi.mock("@legendapp/list", async () => {
       data?: readonly unknown[];
       ListEmptyComponent?: React.ReactNode;
       ListHeaderComponent?: React.ReactNode;
-      renderItem?: (props: {
-        index: number;
-        item: unknown;
-      }) => React.ReactNode;
+      renderItem?: (props: { index: number; item: unknown }) => React.ReactNode;
     }) =>
       actualReact.createElement(
         "LegendList",
@@ -246,8 +246,9 @@ describe("ResourcesScreen", () => {
     pressByText(readyScreen, "Buscar zona manual");
     const focusedScreen = renderResourcesScreen(props);
 
-    expect(getElementByTestId(focusedScreen, "resources-location-suggestions"))
-      .toBeDefined();
+    expect(
+      getElementByTestId(focusedScreen, "resources-location-suggestions"),
+    ).toBeDefined();
     expect(findText(focusedScreen, "Sopocachi, La Paz")).toBe(true);
     expect(adapter.searchProviders).toHaveBeenCalled();
   });
@@ -296,6 +297,25 @@ describe("ResourcesScreen", () => {
       getElementByTestId(readyScreen, "resources-category-veterinary").props
         .accessibilityState,
     ).toEqual({ selected: false });
+
+    const input = getElementByTestId(readyScreen, "resources-search-input");
+    const onFocus = input.props.onFocus;
+
+    if (typeof onFocus !== "function") {
+      throw new Error("Expected resource search input to expose onFocus.");
+    }
+
+    (onFocus as () => void)();
+    const focusedScreen = renderResourcesScreen(props);
+
+    expect(
+      getElementByTestId(focusedScreen, "resources-location-sopocachi-la-paz")
+        .props.accessibilityLabel,
+    ).toBe("Sopocachi, La Paz");
+    expect(
+      getElementByTestId(focusedScreen, "resources-location-sopocachi-la-paz")
+        .props.accessibilityState,
+    ).toEqual({ selected: true });
   });
 });
 

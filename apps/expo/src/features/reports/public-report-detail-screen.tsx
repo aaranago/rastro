@@ -18,23 +18,23 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Galeria } from "@nandorojo/galeria";
 
+import type { TrustSafetyReportReason } from "../trust-safety";
 import type {
-  PublicReportDetailAdapter,
-  PublicReportAbuseReportResult,
   PublicReportAbuseReportInput,
+  PublicReportAbuseReportResult,
   PublicReportDetailAbuseReportAction,
+  PublicReportDetailAdapter,
   PublicReportDetailType,
   PublicReportDetailViewModel,
 } from "./public-report-detail";
-import type { TrustSafetyReportReason } from "../trust-safety";
 import { runPublicContactAction } from "../contact-actions/contact-actions";
 import {
   openInternalRastroHref,
   resolveInternalRastroHref,
 } from "../navigation/internal-rastro-links";
 import { ShellIcon } from "../shell/shell-overlays";
-import { shellColors } from "../shell/shell-theme";
 import { useRastroShell } from "../shell/shell-provider";
+import { shellColors } from "../shell/shell-theme";
 import { trustSafetyReportReasonOptions } from "../trust-safety/trust-safety-model";
 import {
   buildPublicReportDetailViewModel,
@@ -1064,6 +1064,8 @@ function ReportAbuseSheet({
             {action.detailLabel}
           </Text>
           <TextInput
+            accessibilityHint={action.detailHelper}
+            accessibilityLabel={action.detailLabel}
             editable={!isSubmitting}
             multiline
             onChangeText={onChangeDetail}

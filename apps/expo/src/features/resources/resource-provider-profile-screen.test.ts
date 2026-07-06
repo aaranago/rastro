@@ -355,9 +355,7 @@ describe("Resource Provider profile screen", () => {
     expect(linking.canOpenURL).toHaveBeenCalledWith(
       "https://wa.me/59170000001",
     );
-    expect(linking.openURL).toHaveBeenCalledWith(
-      "https://wa.me/59170000001",
-    );
+    expect(linking.openURL).toHaveBeenCalledWith("https://wa.me/59170000001");
   });
 
   it("does not open arbitrary HTTP links from WhatsApp contact actions", async () => {
@@ -414,10 +412,8 @@ describe("Resource Provider profile screen", () => {
     expect(findText(readyScreen, "Whats-App")).toBe(false);
     expect(findText(readyScreen, "Social")).toBe(true);
     expect(
-      getElementByTestId(
-        readyScreen,
-        "resource-provider-contact-social",
-      ).props.accessibilityLabel,
+      getElementByTestId(readyScreen, "resource-provider-contact-social").props
+        .accessibilityLabel,
     ).toBe("Social");
 
     pressByText(readyScreen, "Social");
@@ -442,7 +438,7 @@ describe("Resource Provider profile screen", () => {
         socialLinks: [
           {
             label: "Whats_App",
-            url: "https://phishing.example/contact",
+            url: "https://phishing.example/whatsapp/contact",
           },
         ],
       },
@@ -456,11 +452,18 @@ describe("Resource Provider profile screen", () => {
     expect(findText(readyScreen, "Whats_App")).toBe(false);
     expect(findText(readyScreen, "Enlace externo")).toBe(true);
     expect(
-      getElementByTestId(
-        readyScreen,
-        "resource-provider-link-enlace-externo",
-      ).props.accessibilityLabel,
+      getElementByTestId(readyScreen, "resource-provider-link-enlace-externo")
+        .props.accessibilityLabel,
     ).toBe("Enlace externo");
+    expect(
+      hasIconName(
+        getElementByTestId(
+          readyScreen,
+          "resource-provider-link-enlace-externo",
+        ),
+        "whatsapp",
+      ),
+    ).toBe(false);
 
     pressByText(readyScreen, "Enlace externo");
     await flushPromises();
@@ -468,10 +471,10 @@ describe("Resource Provider profile screen", () => {
     const feedbackScreen = renderScreen(createProfileScreen(adapter));
 
     expect(linking.canOpenURL).toHaveBeenCalledWith(
-      "https://phishing.example/contact",
+      "https://phishing.example/whatsapp/contact",
     );
     expect(linking.openURL).toHaveBeenCalledWith(
-      "https://phishing.example/contact",
+      "https://phishing.example/whatsapp/contact",
     );
     expect(findText(feedbackScreen, "No pudimos abrir el enlace")).toBe(true);
     expect(
@@ -621,7 +624,7 @@ describe("Resource Provider profile screen", () => {
     let resolveReport:
       | ((
           receipt: Awaited<ReturnType<ResourcesAdapter["reportProvider"]>>,
-      ) => void)
+        ) => void)
       | undefined;
     const reportDetail = "La dirección publicada no coincide con el local.";
     const reportProvider = vi.fn(
@@ -948,7 +951,11 @@ function pressByText(node: React.ReactNode, text: string) {
   (onPress as () => void)();
 }
 
-function changeTextByTestId(node: React.ReactNode, testID: string, text: string) {
+function changeTextByTestId(
+  node: React.ReactNode,
+  testID: string,
+  text: string,
+) {
   const input = getElementByTestId(node, testID);
   const onChangeText = input.props.onChangeText;
 
@@ -970,6 +977,17 @@ function getElementByTestId(node: React.ReactNode, testID: string) {
   }
 
   return element;
+}
+
+function hasIconName(node: React.ReactNode, iconName: string): boolean {
+  return (
+    findElement(
+      node,
+      (candidate) =>
+        typeof candidate.props.name === "string" &&
+        candidate.props.name === iconName,
+    ) !== undefined
+  );
 }
 
 function findText(node: React.ReactNode, text: string): boolean {

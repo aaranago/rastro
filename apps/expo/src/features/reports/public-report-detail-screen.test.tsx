@@ -338,9 +338,11 @@ describe("PublicReportDetailContent", () => {
     );
 
     expect(findText(screen, "Reportar este reporte")).toBe(true);
-    expect(findText(screen, "Describe el problema con al menos")).toBe(
-      true,
-    );
+    expect(findText(screen, "Describe el problema con al menos")).toBe(true);
+    expect(
+      findElementByAccessibilityLabel(screen, "Detalle")?.props
+        .accessibilityHint,
+    ).toBe("Describe el problema con al menos 10 caracteres.");
     expect(findText(screen, "Inicia sesión para reportar")).toBe(true);
   });
 

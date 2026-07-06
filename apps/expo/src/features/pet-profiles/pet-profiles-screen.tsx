@@ -15,6 +15,7 @@ import { LegendList } from "@legendapp/list";
 
 import type { CreationDraftStore } from "../resilience/creation-drafts";
 import type { DurableCreationDraftPersistence } from "../resilience/use-durable-creation-draft";
+import type { PetProfileReportCreationIntent } from "./pet-profile-navigation";
 import type {
   PetProfileDraft,
   PetProfilePhoto,
@@ -27,7 +28,6 @@ import type {
   CreatePetProfileInput,
   PetProfileRepository,
 } from "./pet-profiles";
-import type { PetProfileReportCreationIntent } from "./pet-profile-navigation";
 import type {
   MisMascotasViewModel,
   PetProfileCardViewModel,
@@ -155,8 +155,7 @@ function useMisMascotasController({
   const [profileSaveError, setProfileSaveError] = useState<
     string | undefined
   >();
-  const [isNameValidationVisible, setIsNameValidationVisible] =
-    useState(false);
+  const [isNameValidationVisible, setIsNameValidationVisible] = useState(false);
   const emptyDraft = useMemo(() => createEmptyDraft(), []);
   const { clearDraft, draft, draftPersistence, restoredDraft, setDraft } =
     useDurableCreationDraft({
@@ -658,9 +657,7 @@ function MemberMisMascotasScreen({
       ListHeaderComponent={
         <MemberPetProfilesHeader
           createActionLabel={viewModel.createActionLabel}
-          hideCreateAction={
-            Boolean(controller.formViewModel) || isListEmpty
-          }
+          hideCreateAction={Boolean(controller.formViewModel) || isListEmpty}
           isLoadingProfiles={controller.isLoadingProfiles && !isListEmpty}
           onCreate={controller.beginCreate}
           profileLoadError={
@@ -1155,7 +1152,7 @@ function PetProfileFormSurface({
       <View style={styles.formActions}>
         <SecondaryButton label="Cancelar" onPress={onCancel} />
         <PrimaryButton
-          disabled={!form.canSubmit || isSaving}
+          disabled={isSaving}
           label={isSaving ? "Guardando" : form.submitLabel}
           onPress={onSubmit}
         />
@@ -1212,8 +1209,8 @@ function PermissionNote() {
     <View style={styles.permissionNote}>
       <ShellIcon color={shellColors.sighting} name="camera.fill" size={20} />
       <Text selectable style={styles.permissionText}>
-        Las fotos se piden solo cuando eliges agregarlas. Úsalas como
-        referencia visual para reconocer mejor a tu mascota.
+        Las fotos se piden solo cuando eliges agregarlas. Úsalas como referencia
+        visual para reconocer mejor a tu mascota.
       </Text>
     </View>
   );

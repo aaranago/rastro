@@ -137,7 +137,9 @@ describe("MisMascotasScreen visitor actions", () => {
 
     expect(containsText(initialHeader, "Crear perfil de mascota")).toBe(false);
     expect(containsText(initialEmptyState, "Crear ahora")).toBe(true);
-    getPressableOnPress(findPressableByText(initialEmptyState, "Crear ahora"))();
+    getPressableOnPress(
+      findPressableByText(initialEmptyState, "Crear ahora"),
+    )();
 
     resetRenderCursor();
 
@@ -180,7 +182,9 @@ describe("MisMascotasScreen visitor actions", () => {
       initialListProps.ListEmptyComponent,
     );
 
-    getPressableOnPress(findPressableByText(initialEmptyState, "Crear ahora"))();
+    getPressableOnPress(
+      findPressableByText(initialEmptyState, "Crear ahora"),
+    )();
     resetRenderCursor();
 
     const emptyFormScreen = renderFunctionElement(
@@ -235,6 +239,58 @@ describe("MisMascotasScreen visitor actions", () => {
     expect(containsText(clearedForm, "Ingresa el nombre.")).toBe(true);
   });
 
+  it("shows name validation when saving an untouched empty create form", () => {
+    const screen = renderFunctionElement(
+      <MisMascotasScreen
+        initialProfiles={[]}
+        session={{ kind: "member", memberId: "member-camila" }}
+      />,
+    );
+    const initialListProps = getLegendListProps<{
+      ListEmptyComponent: React.ReactNode;
+    }>(screen);
+    const initialEmptyState = renderFunctionElement(
+      initialListProps.ListEmptyComponent,
+    );
+
+    getPressableOnPress(
+      findPressableByText(initialEmptyState, "Crear ahora"),
+    )();
+    resetRenderCursor();
+
+    const emptyFormScreen = renderFunctionElement(
+      <MisMascotasScreen
+        initialProfiles={[]}
+        session={{ kind: "member", memberId: "member-camila" }}
+      />,
+    );
+    const emptyFormListProps = getLegendListProps<{
+      ListEmptyComponent: React.ReactNode;
+    }>(emptyFormScreen);
+    const emptyForm = renderFunctionElement(
+      emptyFormListProps.ListEmptyComponent,
+    );
+
+    expect(containsText(emptyForm, "Ingresa el nombre.")).toBe(false);
+    getPressableOnPress(findPressableByText(emptyForm, "Guardar perfil"))();
+    resetRenderCursor();
+
+    const submittedFormScreen = renderFunctionElement(
+      <MisMascotasScreen
+        initialProfiles={[]}
+        session={{ kind: "member", memberId: "member-camila" }}
+      />,
+    );
+    const submittedFormListProps = getLegendListProps<{
+      ListEmptyComponent: React.ReactNode;
+    }>(submittedFormScreen);
+    const submittedForm = renderFunctionElement(
+      submittedFormListProps.ListEmptyComponent,
+    );
+
+    expect(containsText(submittedForm, "Ingresa el nombre.")).toBe(true);
+  });
+
   it("does not show an empty-pets state while member profiles are loading", () => {
     const screen = renderFunctionElement(
       <MisMascotasScreen
@@ -242,9 +298,9 @@ describe("MisMascotasScreen visitor actions", () => {
         session={{ kind: "member", memberId: "member-camila" }}
       />,
     );
-    const listProps = getLegendListProps<{ ListEmptyComponent: React.ReactNode }>(
-      screen,
-    );
+    const listProps = getLegendListProps<{
+      ListEmptyComponent: React.ReactNode;
+    }>(screen);
     const emptyState = renderFunctionElement(listProps.ListEmptyComponent);
 
     expect(containsText(emptyState, "Cargando tus mascotas")).toBe(true);
@@ -269,9 +325,9 @@ describe("MisMascotasScreen visitor actions", () => {
         session={{ kind: "member", memberId: "member-camila" }}
       />,
     );
-    const listProps = getLegendListProps<{ ListEmptyComponent: React.ReactNode }>(
-      nextScreen,
-    );
+    const listProps = getLegendListProps<{
+      ListEmptyComponent: React.ReactNode;
+    }>(nextScreen);
     const emptyState = renderFunctionElement(listProps.ListEmptyComponent);
 
     expect(containsText(emptyState, "No pudimos cargar tus mascotas")).toBe(

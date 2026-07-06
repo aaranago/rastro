@@ -585,6 +585,7 @@ function ResourcesHeader({
         manualSearchFeedback={manualSearchFeedback}
         manualSearchText={manualSearchText}
         matches={manualLocationMatches}
+        selectedLocationLabel={getSelectedManualLocationLabel(location)}
         onBlur={onManualSearchBlur}
         onChangeText={onManualSearchTextChange}
         onFocus={onManualSearchFocus}
@@ -701,12 +702,17 @@ function ResourcesHeaderTitle({ locationLabel }: { locationLabel: string }) {
   );
 }
 
+function getSelectedManualLocationLabel(location: ResourceSearchLocation) {
+  return location.kind === "manual" ? location.label : undefined;
+}
+
 function ResourcesSearchSection({
   isFocused,
   isResolvingLocation,
   manualSearchFeedback,
   manualSearchText,
   matches,
+  selectedLocationLabel,
   onBlur,
   onChangeText,
   onFocus,
@@ -719,6 +725,7 @@ function ResourcesSearchSection({
   manualSearchFeedback?: string;
   manualSearchText: string;
   matches: readonly ResourceManualLocationOption[];
+  selectedLocationLabel?: string;
   onBlur: () => void;
   onChangeText: (value: string) => void;
   onFocus: () => void;
@@ -779,6 +786,7 @@ function ResourcesSearchSection({
         <ManualLocationSuggestions
           feedback={manualSearchFeedback}
           matches={matches}
+          selectedLocationLabel={selectedLocationLabel}
           onSelectManualLocation={onSelectManualLocation}
         />
       ) : null}
@@ -987,10 +995,12 @@ function CategoryChip({
 function ManualLocationSuggestions({
   feedback,
   matches,
+  selectedLocationLabel,
   onSelectManualLocation,
 }: {
   feedback?: string;
   matches: readonly ResourceManualLocationOption[];
+  selectedLocationLabel?: string;
   onSelectManualLocation: (option: ResourceManualLocationOption) => void;
 }) {
   return (
@@ -1010,6 +1020,7 @@ function ManualLocationSuggestions({
         {matches.map((option) => (
           <ManualLocationChip
             key={option.location.label}
+            isSelected={option.location.label === selectedLocationLabel}
             option={option}
             onSelectManualLocation={onSelectManualLocation}
           />
@@ -1020,9 +1031,11 @@ function ManualLocationSuggestions({
 }
 
 function ManualLocationChip({
+  isSelected,
   option,
   onSelectManualLocation,
 }: {
+  isSelected: boolean;
   option: ResourceManualLocationOption;
   onSelectManualLocation: (option: ResourceManualLocationOption) => void;
 }) {
@@ -1034,6 +1047,7 @@ function ManualLocationChip({
     <Pressable
       accessibilityLabel={option.location.label}
       accessibilityRole="button"
+      accessibilityState={{ selected: isSelected }}
       onPress={handlePress}
       testID={`resources-location-${toTestIdSegment(option.location.label)}`}
       style={({ pressed }) => [

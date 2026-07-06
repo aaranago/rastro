@@ -1,5 +1,5 @@
 import * as React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ChatConversation, ChatSubject } from "./chat-model";
 import type { ChatScreenRepository } from "./chat-screen";
@@ -10,25 +10,51 @@ import {
   openChatSubjectHref,
 } from "./chat-screen";
 
+const reactHookState = vi.hoisted(() => ({
+  cursor: 0,
+  values: [] as unknown[],
+}));
+
 vi.mock("react", async () => {
   const actual = await vi.importActual("react");
 
   return {
     ...actual,
     useCallback: <TCallback>(callback: TCallback) => callback,
-    useEffect: () => undefined,
+    useEffect: (effect: () => void | (() => void)) => {
+      effect();
+    },
     useMemo: <TValue>(factory: () => TValue) => factory(),
-    useState: <TValue>(initialValue: TValue | (() => TValue)) => [
-      typeof initialValue === "function"
-        ? (initialValue as () => TValue)()
-        : initialValue,
-      () => undefined,
-    ],
+    useState: <TValue>(initialValue: TValue | (() => TValue)) => {
+      const index = reactHookState.cursor;
+      reactHookState.cursor += 1;
+
+      if (reactHookState.values.length <= index) {
+        reactHookState.values[index] =
+          typeof initialValue === "function"
+            ? (initialValue as () => TValue)()
+            : initialValue;
+      }
+
+      return [
+        reactHookState.values[index] as TValue,
+        (nextValue: React.SetStateAction<TValue>) => {
+          reactHookState.values[index] =
+            typeof nextValue === "function"
+              ? (nextValue as (current: TValue) => TValue)(
+                  reactHookState.values[index] as TValue,
+                )
+              : nextValue;
+        },
+      ];
+    },
   };
 });
 
 vi.mock("expo-router", () => ({
-  useFocusEffect: () => undefined,
+  useFocusEffect: (callback: () => void | (() => void)) => {
+    callback();
+  },
   useRouter: () => ({
     push: vi.fn(),
   }),
@@ -71,6 +97,11 @@ vi.mock("@expo/vector-icons", () => ({
 vi.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ bottom: 0, left: 0, right: 0, top: 0 }),
 }));
+
+beforeEach(() => {
+  reactHookState.cursor = 0;
+  reactHookState.values = [];
+});
 
 describe("ChatScreen view model", () => {
   it("surfaces Spanish report-linked chat labels without unsupported chat surfaces", () => {
@@ -201,6 +232,28 @@ describe("ChatScreen view model", () => {
     });
   });
 
+  it("loads a conversation once on first focus", async () => {
+    const conversation = createChatConversation();
+    const repository = createStaticChatRepository(conversation);
+    const refreshConversation = vi.fn(repository.refreshConversation);
+    const screen = renderFunctionElement(
+      ChatScreen({
+        conversationId: conversation.id,
+        pollIntervalMs: 0,
+        repository: {
+          ...repository,
+          refreshConversation,
+        },
+        viewerMemberId: "member-camila",
+      }),
+    );
+
+    expect(screen).toBeDefined();
+    await flushPromises();
+
+    expect(refreshConversation).toHaveBeenCalledOnce();
+  });
+
   it("opens safety workflows from header actions without instant mutation", () => {
     const conversation = createChatConversation();
     const repository = createSpyChatRepository(conversation);
@@ -232,6 +285,102 @@ describe("ChatScreen view model", () => {
 
     expect(repository.reportConversation).not.toHaveBeenCalled();
     expect(repository.blockMember).not.toHaveBeenCalled();
+  });
+
+  it("wires safety modal close handlers and report detail accessibility", () => {
+    const conversation = createChatConversation();
+    const repository = createSpyChatRepository(conversation);
+    const screen = renderFunctionElement(
+      ChatScreen({
+        conversationId: conversation.id,
+        initialConversation: conversation,
+        pollIntervalMs: 0,
+        repository,
+        viewerMemberId: "member-camila",
+      }),
+    );
+    const header = getFlatListHeader(screen);
+    const reportAction = findElement(
+      header,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.testID === "chat-header-action-reportar-chat",
+    );
+
+    toPressHandler(reportAction?.props.onPress)();
+    reactHookState.cursor = 0;
+
+    const reportScreen = renderFunctionElement(
+      ChatScreen({
+        conversationId: conversation.id,
+        initialConversation: conversation,
+        pollIntervalMs: 0,
+        repository,
+        viewerMemberId: "member-camila",
+      }),
+    );
+    const reportModal = findElement(
+      reportScreen,
+      (element) => element.type === "Modal" && element.props.visible === true,
+    );
+    const reportDetailInput = findElement(
+      reportScreen,
+      (element) =>
+        element.type === "TextInput" &&
+        element.props.accessibilityLabel ===
+          "Detalle opcional del reporte de chat",
+    );
+
+    expect(typeof reportModal?.props.onRequestClose).toBe("function");
+    expect(reportDetailInput?.props.accessibilityHint).toBe(
+      "Opcional. Si escribes un detalle, usa al menos 10 caracteres.",
+    );
+
+    toPressHandler(reportModal?.props.onRequestClose)();
+    reactHookState.cursor = 0;
+
+    const closedReportScreen = renderFunctionElement(
+      ChatScreen({
+        conversationId: conversation.id,
+        initialConversation: conversation,
+        pollIntervalMs: 0,
+        repository,
+        viewerMemberId: "member-camila",
+      }),
+    );
+    const closedReportModal = findElement(
+      closedReportScreen,
+      (element) => element.type === "Modal" && element.props.visible === true,
+    );
+
+    expect(closedReportModal).toBeUndefined();
+
+    const closedReportHeader = getFlatListHeader(closedReportScreen);
+    const blockAction = findElement(
+      closedReportHeader,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.testID === "chat-header-action-bloquear-a-diego",
+    );
+
+    toPressHandler(blockAction?.props.onPress)();
+    reactHookState.cursor = 0;
+
+    const blockScreen = renderFunctionElement(
+      ChatScreen({
+        conversationId: conversation.id,
+        initialConversation: conversation,
+        pollIntervalMs: 0,
+        repository,
+        viewerMemberId: "member-camila",
+      }),
+    );
+    const blockModal = findElement(
+      blockScreen,
+      (element) => element.type === "Modal" && element.props.visible === true,
+    );
+
+    expect(typeof blockModal?.props.onRequestClose).toBe("function");
   });
 
   it("disables the composer when the viewer blocked the chat", () => {
@@ -390,6 +539,11 @@ function toPressHandler(value: unknown): () => void {
   }
 
   return value as () => void;
+}
+
+async function flushPromises() {
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
 function findElement(

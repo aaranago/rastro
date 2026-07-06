@@ -786,21 +786,28 @@ function getCategoryIcon(
 }
 
 function getLinkIcon(label: string, url: string): ResourceIconName {
-  const normalized = `${label} ${url}`.toLowerCase();
+  const normalizedLabel = label.toLowerCase();
+  const normalizedUrl = url.toLowerCase();
 
-  if (normalized.includes("instagram")) {
+  if (
+    normalizedLabel.includes("instagram") ||
+    normalizedUrl.includes("instagram")
+  ) {
     return "instagram";
   }
 
-  if (normalized.includes("facebook")) {
+  if (
+    normalizedLabel.includes("facebook") ||
+    normalizedUrl.includes("facebook")
+  ) {
     return "facebook";
   }
 
-  if (normalized.includes("whatsapp")) {
+  if (isWhatsAppLikeLabel(label)) {
     return "whatsapp";
   }
 
-  if (normalized.includes("web") || normalized.includes("sitio")) {
+  if (normalizedLabel.includes("web") || normalizedLabel.includes("sitio")) {
     return "web";
   }
 

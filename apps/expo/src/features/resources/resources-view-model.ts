@@ -396,9 +396,47 @@ function buildProviderSummaryViewModel(
     logoUrl: provider.logoUrl,
     photoUrl: provider.photoUrl,
     contactLabels: getVisibleContactOptions(provider.contactOptions).map(
-      (contact) => contact.label,
+      getProviderCardContactLabel,
     ),
   };
+}
+
+function getProviderCardContactLabel(contact: ResourceContactOption) {
+  if (contact.kind === "phone") {
+    return "Llamar";
+  }
+
+  if (contact.kind === "whatsapp") {
+    return "WhatsApp";
+  }
+
+  if (contact.kind === "website") {
+    return "Web";
+  }
+
+  if (contact.kind === "email") {
+    return "Correo";
+  }
+
+  if (contact.kind === "directions") {
+    return "Mapa";
+  }
+
+  if (isWhatsAppLikeContactLabel(contact.label)) {
+    return "Social";
+  }
+
+  return contact.label;
+}
+
+function isWhatsAppLikeContactLabel(label: string) {
+  const normalized = label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/gi, "")
+    .toLowerCase();
+
+  return normalized.includes("whatsapp") || normalized === "wame";
 }
 
 function buildProfileSections(profile: ResourceProviderProfile) {

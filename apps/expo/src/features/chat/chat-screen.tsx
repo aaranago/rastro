@@ -15,15 +15,15 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 
+import type { MaterialCommunityIconName } from "../icons/safe-material-community-icon";
+import type { TrustSafetyReportReason } from "../trust-safety";
 import type {
   ChatConversation,
   ChatParticipant,
   ChatRepository,
   ChatSubject,
 } from "~/features/chat/chat-model";
-import type { TrustSafetyReportReason } from "../trust-safety";
 import { buildChatConversationViewModel } from "~/features/chat/chat-model";
-import type { MaterialCommunityIconName } from "../icons/safe-material-community-icon";
 import { SafeMaterialCommunityIcon } from "../icons/safe-material-community-icon";
 import { openInternalRastroHref } from "../navigation/internal-rastro-links";
 import { shellColors } from "../shell/shell-theme";
@@ -236,9 +236,12 @@ export function ChatScreen({
   const [isSending, setIsSending] = React.useState(false);
 
   React.useEffect(() => {
-    const showSubscription = Keyboard.addListener("keyboardDidShow", (event) => {
-      setKeyboardBottomInset(Math.max(event.endCoordinates.height, 0));
-    });
+    const showSubscription = Keyboard.addListener(
+      "keyboardDidShow",
+      (event) => {
+        setKeyboardBottomInset(Math.max(event.endCoordinates.height, 0));
+      },
+    );
     const hideSubscription = Keyboard.addListener("keyboardDidHide", () => {
       setKeyboardBottomInset(0);
     });
@@ -276,41 +279,6 @@ export function ChatScreen({
     },
     [conversationId, repository, viewerMemberId],
   );
-
-  React.useEffect(() => {
-    let isCurrent = true;
-
-    async function loadInitialConversation() {
-      try {
-        const nextConversation = await loadChatConversation({
-          conversationId,
-          repository,
-          viewerMemberId,
-        });
-
-        if (isCurrent) {
-          setConversation(nextConversation);
-          setErrorLabel(
-            nextConversation ? undefined : "No encontramos este chat.",
-          );
-        }
-      } catch {
-        if (isCurrent) {
-          setErrorLabel("No pudimos cargar el chat.");
-        }
-      } finally {
-        if (isCurrent) {
-          setIsRefreshing(false);
-        }
-      }
-    }
-
-    void loadInitialConversation();
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [conversationId, repository, viewerMemberId]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -393,7 +361,9 @@ export function ChatScreen({
     const note = reportDraft.note.trim();
 
     if (note.length > 0 && note.length < 10) {
-      setReportDraftError("Si agregas detalle, escribe al menos 10 caracteres.");
+      setReportDraftError(
+        "Si agregas detalle, escribe al menos 10 caracteres.",
+      );
       return;
     }
 
@@ -496,7 +466,12 @@ export function ChatScreen({
   const handleSendMessage = React.useCallback(async () => {
     const body = draftMessage.trim();
 
-    if (!body || !conversation || isSending || viewModel.composerDisabledReason) {
+    if (
+      !body ||
+      !conversation ||
+      isSending ||
+      viewModel.composerDisabledReason
+    ) {
       return;
     }
 
@@ -941,7 +916,7 @@ function ReportConversationModal({
   reason: TrustSafetyReportReason;
 }) {
   return (
-    <Modal animationType="fade" transparent visible>
+    <Modal animationType="fade" onRequestClose={onCancel} transparent visible>
       <View style={styles.modalBackdrop}>
         <View style={styles.modalSurface}>
           <Text maxFontSizeMultiplier={1.15} style={styles.modalTitle}>
@@ -985,6 +960,8 @@ function ReportConversationModal({
             Detalle opcional
           </Text>
           <TextInput
+            accessibilityHint="Opcional. Si escribes un detalle, usa al menos 10 caracteres."
+            accessibilityLabel="Detalle opcional del reporte de chat"
             maxFontSizeMultiplier={1.1}
             multiline
             onChangeText={onChangeNote}
@@ -1043,7 +1020,7 @@ function BlockParticipantModal({
   participantName: string;
 }) {
   return (
-    <Modal animationType="fade" transparent visible>
+    <Modal animationType="fade" onRequestClose={onCancel} transparent visible>
       <View style={styles.modalBackdrop}>
         <View style={styles.modalSurface}>
           <Text maxFontSizeMultiplier={1.15} style={styles.modalTitle}>
