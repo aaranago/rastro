@@ -1,7 +1,9 @@
 import type { RouterInputs, RouterOutputs } from "@acme/api";
 import {
   buildPublicAdoptionListingShareTarget,
+  buildPublicFoundReportShareTarget,
   buildPublicLostReportShareTarget,
+  buildPublicSightingReportShareTarget,
 } from "@acme/validators";
 
 import type {
@@ -231,7 +233,7 @@ function toFoundPetReportSummary({
     photoUrl: getPrimaryPhotoUrl(report),
     publicLocation: toPublicLocation(report),
     reportKind: "found-pet-report",
-    shareTarget: buildFoundReportShareTarget({
+    shareTarget: buildPublicFoundReportShareTarget({
       publicWebBaseUrl,
       reportId: report.id,
       title: report.title,
@@ -301,7 +303,7 @@ function toSightingReportSummary({
     photoUrl: getPrimaryPhotoUrl(report),
     publicLocation: toPublicLocation(report),
     reportKind: "sighting-report",
-    shareTarget: buildSightingReportShareTarget({
+    shareTarget: buildPublicSightingReportShareTarget({
       publicWebBaseUrl,
       reportId: report.id,
       title: report.title,
@@ -369,48 +371,6 @@ function getReportCoordinates(report: ApiNearbyReport) {
   return {
     latitude: report.location.latitude,
     longitude: report.location.longitude,
-  };
-}
-
-function buildFoundReportShareTarget({
-  publicWebBaseUrl,
-  reportId,
-  title,
-}: {
-  publicWebBaseUrl: string;
-  reportId: string;
-  title: string;
-}) {
-  const path = `/reportes/encontrados/${encodeURIComponent(reportId)}`;
-  const webUrl = `${publicWebBaseUrl.replace(/\/+$/, "")}${path}`;
-
-  return {
-    appDeepLink: `rastro://${path.replace(/^\//, "")}`,
-    message: `Ayuda a reunir a ${title} en Rastro: ${webUrl}`,
-    path,
-    title: `Mascota encontrada: ${title}`,
-    webUrl,
-  };
-}
-
-function buildSightingReportShareTarget({
-  publicWebBaseUrl,
-  reportId,
-  title,
-}: {
-  publicWebBaseUrl: string;
-  reportId: string;
-  title: string;
-}) {
-  const path = `/reportes/avistamientos/${encodeURIComponent(reportId)}`;
-  const webUrl = `${publicWebBaseUrl.replace(/\/+$/, "")}${path}`;
-
-  return {
-    appDeepLink: `rastro://${path.replace(/^\//, "")}`,
-    message: `Ayuda a ubicar este avistamiento de ${title} en Rastro: ${webUrl}`,
-    path,
-    title: `Avistamiento de mascota: ${title}`,
-    webUrl,
   };
 }
 

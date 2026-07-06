@@ -1,6 +1,8 @@
 import {
   buildPublicAdoptionListingShareTarget,
+  buildPublicFoundReportShareTarget,
   buildPublicLostReportShareTarget,
+  buildPublicSightingReportShareTarget,
 } from "@acme/validators";
 
 import type { RouterOutputs } from "../../utils/api";
@@ -422,12 +424,10 @@ function buildShareTarget(report: PublicReportDetailApiReport) {
         title,
       });
     case "found_pet":
-      return buildReportShareTarget({
-        messagePrefix: "Ayuda a reunir a",
-        pathPrefix: "/reportes/encontrados",
+      return buildPublicFoundReportShareTarget({
+        publicWebBaseUrl,
         reportId: report.id,
         title,
-        titlePrefix: "Mascota encontrada",
       });
     case "lost_pet":
       return buildPublicLostReportShareTarget({
@@ -436,39 +436,12 @@ function buildShareTarget(report: PublicReportDetailApiReport) {
         title,
       });
     case "sighting":
-      return buildReportShareTarget({
-        messagePrefix: "Ayuda a ubicar este avistamiento de",
-        pathPrefix: "/reportes/avistamientos",
+      return buildPublicSightingReportShareTarget({
+        publicWebBaseUrl,
         reportId: report.id,
         title,
-        titlePrefix: "Avistamiento de mascota",
       });
   }
-}
-
-function buildReportShareTarget({
-  messagePrefix,
-  pathPrefix,
-  reportId,
-  title,
-  titlePrefix,
-}: {
-  messagePrefix: string;
-  pathPrefix: string;
-  reportId: string;
-  title: string;
-  titlePrefix: string;
-}) {
-  const path = `${pathPrefix}/${encodeURIComponent(reportId)}`;
-  const webUrl = `${publicWebBaseUrl}${path}`;
-
-  return {
-    appDeepLink: `rastro://${path.replace(/^\//, "")}`,
-    message: `${messagePrefix} ${title} en Rastro: ${webUrl}`,
-    path,
-    title: `${titlePrefix}: ${title}`,
-    webUrl,
-  };
 }
 
 function getContactActions(

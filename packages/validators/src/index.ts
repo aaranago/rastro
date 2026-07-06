@@ -1486,8 +1486,38 @@ export interface PublicAdoptionListingShareTarget {
   webUrl: string;
 }
 
+export interface PublicFoundReportShareTargetInput {
+  publicWebBaseUrl: string;
+  reportId: string;
+  title: string;
+}
+
+export interface PublicFoundReportShareTarget {
+  appDeepLink: string;
+  message: string;
+  path: string;
+  title: string;
+  webUrl: string;
+}
+
+export interface PublicSightingReportShareTargetInput {
+  publicWebBaseUrl: string;
+  reportId: string;
+  title: string;
+}
+
+export interface PublicSightingReportShareTarget {
+  appDeepLink: string;
+  message: string;
+  path: string;
+  title: string;
+  webUrl: string;
+}
+
 const publicAdoptionListingPathPrefix = "/adopciones";
+const publicFoundReportPathPrefix = "/reportes/encontrados";
 const publicLostReportPathPrefix = "/reportes/perdidos";
+const publicSightingReportPathPrefix = "/reportes/avistamientos";
 
 export function publicAdoptionListingPathForId(listingId: string) {
   return `${publicAdoptionListingPathPrefix}/${encodeURIComponent(listingId)}`;
@@ -1495,6 +1525,14 @@ export function publicAdoptionListingPathForId(listingId: string) {
 
 export function publicLostReportPathForId(reportId: string) {
   return `${publicLostReportPathPrefix}/${encodeURIComponent(reportId)}`;
+}
+
+export function publicFoundReportPathForId(reportId: string) {
+  return `${publicFoundReportPathPrefix}/${encodeURIComponent(reportId)}`;
+}
+
+export function publicSightingReportPathForId(reportId: string) {
+  return `${publicSightingReportPathPrefix}/${encodeURIComponent(reportId)}`;
 }
 
 export function buildPublicAdoptionListingShareTarget({
@@ -1509,6 +1547,42 @@ export function buildPublicAdoptionListingShareTarget({
   return {
     appDeepLink: `rastro://${path.replace(/^\//, "")}`,
     message: `Conoce a ${title} en adopcion en Rastro: ${webUrl}`,
+    path,
+    title: shareTitle,
+    webUrl,
+  };
+}
+
+export function buildPublicFoundReportShareTarget({
+  publicWebBaseUrl,
+  reportId,
+  title,
+}: PublicFoundReportShareTargetInput): PublicFoundReportShareTarget {
+  const path = publicFoundReportPathForId(reportId);
+  const webUrl = `${publicWebBaseUrl.replace(/\/+$/, "")}${path}`;
+  const shareTitle = `Mascota encontrada: ${title}`;
+
+  return {
+    appDeepLink: `rastro://${path.replace(/^\//, "")}`,
+    message: `Ayuda a reunir a ${title} en Rastro: ${webUrl}`,
+    path,
+    title: shareTitle,
+    webUrl,
+  };
+}
+
+export function buildPublicSightingReportShareTarget({
+  publicWebBaseUrl,
+  reportId,
+  title,
+}: PublicSightingReportShareTargetInput): PublicSightingReportShareTarget {
+  const path = publicSightingReportPathForId(reportId);
+  const webUrl = `${publicWebBaseUrl.replace(/\/+$/, "")}${path}`;
+  const shareTitle = `Avistamiento de mascota: ${title}`;
+
+  return {
+    appDeepLink: `rastro://${path.replace(/^\//, "")}`,
+    message: `Ayuda a ubicar este avistamiento de ${title} en Rastro: ${webUrl}`,
     path,
     title: shareTitle,
     webUrl,
