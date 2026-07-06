@@ -58,6 +58,7 @@ import { buildResourcesDirectoryViewModel } from "./resources-view-model";
 import { createSponsorDeliverySessionId } from "./sponsor-delivery-session";
 
 const defaultResourcesAdapter = defaultApiResourcesAdapter;
+const resourcesMinimumTopInset = 64;
 
 type ResourceScreenIconName = MaterialCommunityIconName;
 
@@ -212,6 +213,10 @@ export function ResourcesScreen({
   const estimatedItemSize = width > 520 ? 132 : 156;
   const listBottomInset = getResourcesScrollableBottomInset(
     safeAreaInsets.bottom,
+  );
+  const listTopInset = Math.max(
+    resourcesMinimumTopInset,
+    safeAreaInsets.top + 10,
   );
   const manualLocationMatches = useMemo(
     () =>
@@ -513,7 +518,7 @@ export function ResourcesScreen({
           styles.listContent,
           {
             paddingBottom: listBottomInset,
-            paddingTop: Math.max(16, safeAreaInsets.top + 10),
+            paddingTop: listTopInset,
           },
         ]}
         contentInsetAdjustmentBehavior="automatic"

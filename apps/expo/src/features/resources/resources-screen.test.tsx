@@ -319,6 +319,24 @@ describe("ResourcesScreen", () => {
     ).toEqual({ selected: true });
   });
 
+  it("keeps category filters below Android status bars when top safe-area is unavailable", async () => {
+    const adapter = createResourcesAdapter();
+    const props = {
+      adapter,
+      initialLocation: testManualLocationOptions[0]?.location,
+      manualLocationOptions: testManualLocationOptions,
+    };
+
+    void renderResourcesScreen(props);
+    await runPendingEffects();
+    const readyScreen = renderResourcesScreen(props);
+    const list = getElementByTestId(readyScreen, "resources-list");
+
+    expect(list.props.contentContainerStyle).toEqual(
+      expect.arrayContaining([expect.objectContaining({ paddingTop: 64 })]),
+    );
+  });
+
   it("labels map provider actions for assistive navigation", async () => {
     const adapter = createResourcesAdapter([buildProviderSummary()]);
     const onOpenProvider = vi.fn();
