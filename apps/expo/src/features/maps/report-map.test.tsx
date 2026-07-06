@@ -8,6 +8,9 @@ import { clusterReportMapPins, ReportMap } from "./report-map";
 
 vi.mock("react-native", () => ({
   ActivityIndicator: "ActivityIndicator",
+  Platform: {
+    OS: "android",
+  },
   Pressable: "Pressable",
   ScrollView: "ScrollView",
   StyleSheet: {
@@ -21,6 +24,14 @@ vi.mock("react-native", () => ({
 
 vi.mock("expo-image", () => ({
   Image: "Image",
+}));
+
+vi.mock("expo-constants", () => ({
+  default: {
+    expoConfig: {
+      extra: {},
+    },
+  },
 }));
 
 vi.mock("react-native-maps", () => ({

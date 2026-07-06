@@ -6,8 +6,10 @@ import {
   Text,
   View,
 } from "react-native";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Marker } from "react-native-maps";
 import { Image } from "expo-image";
+
+import { getNativeMapProvider } from "./map-provider-config";
 
 export interface ReportMapCoordinate {
   latitude: number;
@@ -121,7 +123,7 @@ export function ReportMap({
               longitude: region.longitude,
             })
           }
-          provider={PROVIDER_GOOGLE}
+          provider={getNativeMapProvider()}
           region={controlledRegion}
           style={styles.map}
         >

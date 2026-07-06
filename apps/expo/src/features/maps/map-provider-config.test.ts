@@ -25,6 +25,10 @@ vi.mock("react-native", () => ({
   },
 }));
 
+vi.mock("react-native-maps", () => ({
+  PROVIDER_GOOGLE: "google",
+}));
+
 describe("getNativeMapProviderState", () => {
   beforeEach(() => {
     nativeState.extra = {};
@@ -50,15 +54,54 @@ describe("getNativeMapProviderState", () => {
     });
   });
 
-  it("uses the current platform before deciding a map key is missing", () => {
+  it("uses the current platform before deciding an Android map key is missing", () => {
     nativeState.extra = {
       maps: {
         androidGoogleMapsConfigured: false,
-        iosGoogleMapsConfigured: true,
+        iosGoogleMapsConfigured: false,
       },
     };
     nativeState.os = "ios";
 
     expect(getNativeMapProviderState()).toEqual({ kind: "ready" });
+  });
+});
+
+describe("getNativeMapProvider", () => {
+  beforeEach(() => {
+    nativeState.extra = {};
+    nativeState.os = "android";
+  });
+
+  it("uses Google Maps on Android", async () => {
+    const { getNativeMapProvider } = await import("./map-provider-config");
+
+    expect(getNativeMapProvider()).toBe("google");
+  });
+
+  it("uses Apple Maps on iOS when Google Maps is not configured", async () => {
+    const { getNativeMapProvider } = await import("./map-provider-config");
+
+    nativeState.os = "ios";
+    nativeState.extra = {
+      maps: {
+        iosGoogleMapsConfigured: false,
+      },
+    };
+
+    expect(getNativeMapProvider()).toBeUndefined();
+  });
+
+  it("uses Google Maps on iOS only when explicitly configured", async () => {
+    const { getNativeMapProvider } = await import("./map-provider-config");
+
+    nativeState.os = "ios";
+    nativeState.extra = {
+      maps: {
+        iosGoogleMapsConfigured: true,
+      },
+    };
+
+    expect(getNativeMapProvider()).toBe("google");
   });
 });

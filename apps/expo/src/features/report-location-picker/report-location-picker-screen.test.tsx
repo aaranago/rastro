@@ -82,6 +82,7 @@ vi.mock("react-native-safe-area-context", () => ({
 }));
 
 vi.mock("../maps/map-provider-config", () => ({
+  getNativeMapProvider: () => "google",
   getNativeMapProviderState: () => ({ kind: "ready" }),
 }));
 

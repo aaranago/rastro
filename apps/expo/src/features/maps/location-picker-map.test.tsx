@@ -6,6 +6,9 @@ import { ManualLocationPickerMap } from "./location-picker-map";
 (globalThis as { React?: typeof React }).React = React;
 
 vi.mock("react-native", () => ({
+  Platform: {
+    OS: "android",
+  },
   Pressable: "Pressable",
   StyleSheet: {
     absoluteFillObject: {},
@@ -14,6 +17,14 @@ vi.mock("react-native", () => ({
   },
   Text: "Text",
   View: "View",
+}));
+
+vi.mock("expo-constants", () => ({
+  default: {
+    expoConfig: {
+      extra: {},
+    },
+  },
 }));
 
 vi.mock("react-native-maps", () => ({

@@ -62,6 +62,7 @@ vi.mock("../nearby/nearby-expo-location-adapter", () => ({
 }));
 
 vi.mock("../maps/map-provider-config", () => ({
+  getNativeMapProvider: () => "google",
   getNativeMapProviderState: () => ({ kind: "ready" }),
 }));
 

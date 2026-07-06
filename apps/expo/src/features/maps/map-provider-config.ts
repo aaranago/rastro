@@ -1,6 +1,7 @@
 import type { ReportMapProviderState } from "./report-map";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
+import { PROVIDER_GOOGLE } from "react-native-maps";
 
 export function getNativeMapProviderState(): ReportMapProviderState {
   const mapsConfig = getMapsConfig();
@@ -16,18 +17,21 @@ export function getNativeMapProviderState(): ReportMapProviderState {
     };
   }
 
-  if (
-    Platform.OS === "ios" &&
-    mapsConfig?.iosGoogleMapsConfigured === false
-  ) {
-    return {
-      kind: "error",
-      message:
-        "Este build no tiene Google Maps configurado. Puedes elegir por ciudad o departamento mientras se actualiza el mapa.",
-    };
+  return { kind: "ready" };
+}
+
+export function getNativeMapProvider(): typeof PROVIDER_GOOGLE | undefined {
+  const mapsConfig = getMapsConfig();
+
+  if (Platform.OS === "android") {
+    return PROVIDER_GOOGLE;
   }
 
-  return { kind: "ready" };
+  if (Platform.OS === "ios" && mapsConfig?.iosGoogleMapsConfigured === true) {
+    return PROVIDER_GOOGLE;
+  }
+
+  return undefined;
 }
 
 function getMapsConfig():

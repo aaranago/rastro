@@ -11,7 +11,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Marker } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LegendList } from "@legendapp/list";
 
@@ -40,7 +40,10 @@ import type {
   ResourcesAdapter,
 } from "./static-resources-adapter";
 import { SafeMaterialCommunityIcon } from "../icons/safe-material-community-icon";
-import { getNativeMapProviderState } from "../maps/map-provider-config";
+import {
+  getNativeMapProvider,
+  getNativeMapProviderState,
+} from "../maps/map-provider-config";
 import { expoNearbyLocationAdapter } from "../nearby/nearby-expo-location-adapter";
 import {
   getResourceManualLocationMatches,
@@ -1114,7 +1117,7 @@ function ResourcesMapPanel({
                 longitude: region.longitude,
               })
             }
-            provider={PROVIDER_GOOGLE}
+            provider={getNativeMapProvider()}
             style={styles.resourceMap}
           >
             {pins.map((provider) => (

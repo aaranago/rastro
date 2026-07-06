@@ -1,11 +1,12 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Marker } from "react-native-maps";
 
 import type {
   NearbyCoordinates,
   NearbySearchLocation,
 } from "../nearby/nearby-types";
 import type { ReportMapProviderState } from "./report-map";
+import { getNativeMapProvider } from "./map-provider-config";
 
 export interface ManualLocationPickerMapProps {
   cancelAccessibilityLabel?: string;
@@ -66,7 +67,7 @@ export function ManualLocationPickerMap({
           onPress={(event) =>
             onSelectedCoordinateChange(event.nativeEvent.coordinate)
           }
-          provider={PROVIDER_GOOGLE}
+          provider={getNativeMapProvider()}
           style={styles.map}
         >
           <Marker
