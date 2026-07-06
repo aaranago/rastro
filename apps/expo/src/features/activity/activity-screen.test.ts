@@ -193,7 +193,7 @@ describe("Activity screen links", () => {
 
     expect(button?.props.accessibilityRole).toBe("button");
     expect(button?.props.accessibilityHint).toBe(
-      "Abre el ingreso o la creacion de cuenta.",
+      "Abre el ingreso o la creación de cuenta.",
     );
     expect(button?.props.accessibilityState).toEqual({ disabled: false });
 
@@ -266,21 +266,38 @@ describe("Activity screen links", () => {
 
   it("shows an empty member Activity state when the backend inbox is empty", async () => {
     shellContext.session = createMemberSession();
+    const onOpenHref = vi.fn();
     const repository = createScreenRepository();
 
-    void renderActivityScreen({ repository });
+    void renderActivityScreen({ onOpenHref, repository });
     await runPendingEffects();
-    const screen = renderActivityScreen({ repository });
+    const screen = renderActivityScreen({ onOpenHref, repository });
     const listProps = getLegendListProps<{
       ListEmptyComponent: React.ReactNode;
       data: unknown[];
     }>(screen);
+    const emptyAction = findElement(
+      listProps.ListEmptyComponent,
+      (element) => element.props.testID === "activity-empty-action",
+    );
 
     expect(repository.getInbox).toHaveBeenCalledWith({});
     expect(listProps.data).toEqual([]);
     expect(
       findText(listProps.ListEmptyComponent, "Sin actividad todavía"),
     ).toBe(true);
+    expect(findText(listProps.ListEmptyComponent, "Ver reportes cercanos")).toBe(
+      true,
+    );
+
+    const onPress = emptyAction?.props.onPress;
+
+    if (typeof onPress !== "function") {
+      throw new Error("Expected empty Activity CTA to be pressable.");
+    }
+
+    (onPress as () => void)();
+    expect(onOpenHref).toHaveBeenCalledWith("/(tabs)/(nearby)");
   });
 
   it("renders backend alert and chat rows with stable testIDs", async () => {
@@ -428,8 +445,8 @@ describe("Activity screen links", () => {
         title: "Moderación",
       }),
       expect.objectContaining({
-        body: "El equipo retiro temporalmente este reporte: Ubicación exacta expuesta.",
-        href: "rastro://reportes/perdidos/lost-report-1",
+        body: "El equipo retiró temporalmente este reporte: Ubicación exacta expuesta.",
+        href: "/mis-reportes",
         testID: "activity-item-moderation-moderation-event-1",
       }),
     ]);
@@ -521,7 +538,7 @@ describe("Activity screen links", () => {
     expect(
       findText(
         listProps.ListHeaderComponent,
-        "Sin conexion - actividad guardada",
+        "Sin conexión - actividad guardada",
       ),
     ).toBe(true);
   });

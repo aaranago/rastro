@@ -77,6 +77,7 @@ type ActivityScreenViewModel =
     }
   | {
       empty?: {
+        action?: ActivityActionViewModel;
         body?: string;
         title: string;
       };
@@ -138,6 +139,7 @@ const allActivitySectionIds = [
 
 interface ActivityScreenFocusConfig {
   empty?: {
+    action?: ActivityActionViewModel;
     body: string;
     title: string;
   };
@@ -155,6 +157,10 @@ const activityScreenFocusConfig: Record<
   },
   conversations: {
     empty: {
+      action: {
+        href: "/(tabs)/(nearby)",
+        label: "Ver reportes cercanos",
+      },
       body: "Tus chats sobre reportes aparecerán aquí cuando tengas conversaciones activas.",
       title: "Sin conversaciones todavía",
     },
@@ -164,6 +170,10 @@ const activityScreenFocusConfig: Record<
   },
   reports: {
     empty: {
+      action: {
+        href: "/report-create/lost",
+        label: "Crear reporte",
+      },
       body: "Los cambios y recordatorios de tus reportes aparecerán aquí.",
       title: "Sin actualizaciones de reportes",
     },
@@ -317,7 +327,9 @@ export function ActivityScreen({
       <ActivityErrorState onRetry={handleRetry} />
     ) : (
       <ActivityEmptyState
+        action={viewModel.empty?.action}
         body={viewModel.empty?.body}
+        onOpenHref={openHref}
         title={viewModel.empty?.title ?? "No hay actividad reciente"}
       />
     );
@@ -575,7 +587,7 @@ const SignedOutState = React.memo(function SignedOutState({
         {body}
       </Text>
       <Pressable
-        accessibilityHint="Abre el ingreso o la creacion de cuenta."
+        accessibilityHint="Abre el ingreso o la creación de cuenta."
         accessibilityLabel={action.label}
         accessibilityRole="button"
         accessibilityState={{ disabled: false }}
@@ -594,12 +606,22 @@ const SignedOutState = React.memo(function SignedOutState({
 });
 
 const ActivityEmptyState = React.memo(function ActivityEmptyState({
+  action,
   body,
+  onOpenHref,
   title,
 }: {
+  action?: ActivityActionViewModel;
   body?: string;
+  onOpenHref: (href: string) => void;
   title: string;
 }) {
+  const handlePress = React.useCallback(() => {
+    if (action) {
+      onOpenHref(action.href);
+    }
+  }, [action, onOpenHref]);
+
   return (
     <View style={styles.emptyState}>
       <Text maxFontSizeMultiplier={1.2} style={styles.emptyTitle}>
@@ -609,6 +631,22 @@ const ActivityEmptyState = React.memo(function ActivityEmptyState({
         <Text maxFontSizeMultiplier={1.25} style={styles.emptyBody}>
           {body}
         </Text>
+      ) : null}
+      {action ? (
+        <Pressable
+          accessibilityLabel={action.label}
+          accessibilityRole="button"
+          onPress={handlePress}
+          style={({ pressed }) => [
+            styles.secondaryButton,
+            pressed ? styles.secondaryButtonPressed : null,
+          ]}
+          testID="activity-empty-action"
+        >
+          <Text maxFontSizeMultiplier={1.12} style={styles.secondaryButtonLabel}>
+            {action.label}
+          </Text>
+        </Pressable>
       ) : null}
     </View>
   );
@@ -639,7 +677,7 @@ const ActivityErrorState = React.memo(function ActivityErrorState({
         No pudimos cargar tu actividad
       </Text>
       <Text maxFontSizeMultiplier={1.25} style={styles.emptyBody}>
-        Revisa tu conexion e intenta nuevamente.
+        Revisa tu conexión e intenta nuevamente.
       </Text>
       <Pressable
         accessibilityLabel="Reintentar carga de actividad"
@@ -1124,6 +1162,25 @@ const styles = StyleSheet.create({
   },
   primaryButtonPressed: {
     opacity: 0.84,
+  },
+  secondaryButton: {
+    alignItems: "center",
+    borderColor: shellColors.primary,
+    borderRadius: 16,
+    borderWidth: 1,
+    justifyContent: "center",
+    marginTop: 4,
+    minHeight: 44,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  secondaryButtonLabel: {
+    color: shellColors.primary,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  secondaryButtonPressed: {
+    backgroundColor: shellColors.primarySoft,
   },
   row: {
     alignItems: "center",

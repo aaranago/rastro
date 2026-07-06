@@ -241,6 +241,7 @@ export interface ActivitySignedOutViewModel {
 
 export interface ActivityMemberViewModel {
   emptyState: {
+    action?: ActivityActionViewModel;
     body: string;
     title: string;
   };
@@ -263,7 +264,11 @@ const activityCopy = {
     viewReport: "Ver reporte",
   },
   emptyMember: {
-    body: "Tus alertas cercanas, chats, actualizaciones y coincidencias aparecerán aquí.",
+    action: {
+      href: "/(tabs)/(nearby)",
+      label: "Ver reportes cercanos",
+    },
+    body: "Cuando publiques un reporte, recibas un mensaje o una alerta cercana, lo verás aquí.",
     title: "Sin actividad todavía",
   },
   memberSubtitle: "Alertas, mensajes y actualizaciones",
@@ -312,6 +317,7 @@ export function buildActivityViewModel({
 
   return {
     emptyState: {
+      action: activityCopy.emptyMember.action,
       body: activityCopy.emptyMember.body,
       title: activityCopy.emptyMember.title,
     },
@@ -423,11 +429,11 @@ function buildActivityOfflineLabel({
   isStale: boolean;
 }) {
   if (isOffline && isStale) {
-    return "Sin conexion - actividad guardada";
+    return "Sin conexión - actividad guardada";
   }
 
   if (isOffline) {
-    return "Sin conexion";
+    return "Sin conexión";
   }
 
   if (isStale) {
@@ -528,11 +534,10 @@ function toChatActivityItem(
 function toReportUpdateActivityItem(
   update: ActivityReportUpdate,
 ): ActivityItemViewModel {
+  const action = getReportActivityAction(update.report);
+
   return {
-    action: {
-      href: update.report.href,
-      label: activityCopy.actions.viewReport,
-    },
+    action,
     body: formatReportUpdateBody(update),
     id: `report-update-${update.id}`,
     kind: "report-update",
@@ -547,11 +552,10 @@ function toReportUpdateActivityItem(
 function toModerationEventActivityItem(
   event: ActivityModerationEvent,
 ): ActivityItemViewModel {
+  const action = getReportActivityAction(event.report);
+
   return {
-    action: {
-      href: event.report.href,
-      label: activityCopy.actions.viewReport,
-    },
+    action,
     body: formatModerationEventBody(event),
     id: `moderation-event-${event.id}`,
     kind: "moderation-event",
@@ -632,7 +636,7 @@ function formatReportUpdateBody(update: ActivityReportUpdate) {
     case "created":
       return "Tu reporte fue creado.";
     case "deleted":
-      return "Tu reporte fue cerrado y ya no se muestra en busqueda.";
+      return "Tu reporte fue cerrado y ya no se muestra en búsqueda.";
     case "resolved":
       return update.outcome
         ? `Resultado registrado: ${formatActivityReportOutcome(update.outcome)}.`
@@ -648,14 +652,30 @@ function formatModerationEventBody(event: ActivityModerationEvent) {
 
   switch (event.action) {
     case "hide":
-      return `El equipo retiro temporalmente este reporte${suffix}`;
+      return `El equipo retiró temporalmente este reporte${suffix}`;
     case "mark_false":
-      return `El equipo marco este reporte como falso${suffix}`;
+      return `El equipo marcó este reporte como falso${suffix}`;
     case "restore":
-      return `El equipo restauro este reporte${suffix}`;
+      return `El equipo restauró este reporte${suffix}`;
     case "unmark_false":
-      return `El equipo retiro la marca de reporte falso${suffix}`;
+      return `El equipo retiró la marca de reporte falso${suffix}`;
   }
+}
+
+function getReportActivityAction(
+  report: ActivityReportSummary,
+): ActivityActionViewModel {
+  if (report.availability === "available") {
+    return {
+      href: report.href,
+      label: activityCopy.actions.viewReport,
+    };
+  }
+
+  return {
+    href: "/mis-reportes",
+    label: "Revisar en Mis reportes",
+  };
 }
 
 function formatActivityReportMeta(
@@ -674,7 +694,7 @@ function formatActivityReportMeta(
 function formatActivityReportType(type: ActivityReportType) {
   switch (type) {
     case "adoption":
-      return "Adopcion";
+      return "Adopción";
     case "found_pet":
       return "Mascota encontrada";
     case "lost_pet":
@@ -695,7 +715,7 @@ function formatActivityReportAvailability(
     case "false_report":
       return "Marcado como falso";
     case "hidden":
-      return "Retirado de la busqueda";
+      return "Retirado de la búsqueda";
   }
 }
 
@@ -748,7 +768,7 @@ function toCandidateMatchActivityItem(
       href: match.candidate.href,
       label: activityCopy.actions.reviewMatch,
     },
-    body: `${match.candidate.title} podria coincidir con ${match.ownedReport.title}.`,
+    body: `${match.candidate.title} podría coincidir con ${match.ownedReport.title}.`,
     id: `candidate-match-${match.id}`,
     kind: "candidate-match",
     meta: match.locationLabel,

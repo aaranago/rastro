@@ -99,7 +99,11 @@ describe("Activity view model", () => {
 
     expect(viewModel).toMatchObject({
       emptyState: {
-        body: "Tus alertas cercanas, chats, actualizaciones y coincidencias aparecerán aquí.",
+        action: {
+          href: "/(tabs)/(nearby)",
+          label: "Ver reportes cercanos",
+        },
+        body: "Cuando publiques un reporte, recibas un mensaje o una alerta cercana, lo verás aquí.",
         title: "Sin actividad todavía",
       },
       kind: "member",
@@ -313,13 +317,13 @@ describe("Activity view model", () => {
         items: [
           {
             action: {
-              href: "rastro://reportes/perdidos/lost-report-1",
-              label: "Ver reporte",
+              href: "/mis-reportes",
+              label: "Revisar en Mis reportes",
             },
-            body: "El equipo retiro temporalmente este reporte: Ubicación exacta expuesta.",
+            body: "El equipo retiró temporalmente este reporte: Ubicación exacta expuesta.",
             id: "moderation-event-moderation-event-1",
             kind: "moderation-event",
-            meta: "Mascota perdida - Retirado de la busqueda",
+            meta: "Mascota perdida - Retirado de la búsqueda",
             occurredAt: "2026-06-30T13:06:00.000Z",
             targetId: "lost-report-1",
             title: "Toby",
@@ -357,7 +361,7 @@ describe("Activity view model", () => {
 
     expect(viewModel).toMatchObject({
       kind: "member",
-      offlineLabel: "Sin conexion - actividad guardada",
+      offlineLabel: "Sin conexión - actividad guardada",
       sections: [
         {
           id: "report-updates",
@@ -453,7 +457,7 @@ describe("Activity view model", () => {
               href: "rastro://reportes/encontrados/found-report-1",
               label: "Revisar coincidencia",
             },
-            body: "Perro encontrado en Sopocachi podria coincidir con Toby.",
+            body: "Perro encontrado en Sopocachi podría coincidir con Toby.",
             id: "candidate-match-match-1",
             kind: "candidate-match",
             meta: "Sopocachi",
