@@ -93,8 +93,9 @@ describe("public found and sighting report page data", () => {
     expect(report?.sharePath).toBe(publicFoundReportPathForId("found-luna-db"));
     expect(report).toMatchObject({
       appPrompts: {
-        downloadHref: "https://rastro.bo/descargar",
-        downloadLabel: "Descargar Rastro",
+        downloadHref:
+          "https://rastro.bo/descargar?context=report&returnTo=%2Freportes%2Fencontrados%2Ffound-luna-db&target=rastro%3A%2F%2Freportes%2Fencontrados%2Ffound-luna-db",
+        downloadLabel: "Instalar o abrir Rastro",
         openHref: "rastro://reportes/encontrados/found-luna-db",
         openLabel: "Abrir en la app",
       },

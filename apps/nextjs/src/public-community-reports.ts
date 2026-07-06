@@ -17,7 +17,7 @@ import type {
   PublicReportPagePhoto,
 } from "./public-report-detail-mapping";
 import {
-  appDownloadHref,
+  buildAppDownloadHref,
   buildPublicReportArticleMetadata,
   buildPublicReportContactOptions,
   buildPublicReportLocation,
@@ -221,8 +221,12 @@ function buildPublicCommunityReportViewModel(
       reportId: report.id,
     },
     appPrompts: {
-      downloadHref: appDownloadHref,
-      downloadLabel: "Descargar Rastro",
+      downloadHref: buildAppDownloadHref({
+        context: "report",
+        returnTo: shareTarget.path,
+        target: shareTarget.appDeepLink,
+      }),
+      downloadLabel: "Instalar o abrir Rastro",
       openHref: shareTarget.appDeepLink,
       openLabel: "Abrir en la app",
     },

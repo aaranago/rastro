@@ -31,9 +31,47 @@ export interface PublicReportPageLocation {
   type: "approximate";
 }
 
+export type AppDownloadContext =
+  | "adoption"
+  | "create-adoption"
+  | "general"
+  | "lost-report"
+  | "report"
+  | "resource";
+
+export interface AppDownloadLinkInput {
+  context?: AppDownloadContext;
+  returnTo?: string;
+  target?: string;
+}
+
 export const publicWebBaseUrl = "https://rastro.bo";
 export const appDownloadPath = "/descargar";
 export const appDownloadHref = `${publicWebBaseUrl}${appDownloadPath}`;
+
+export function buildAppDownloadPath(input: AppDownloadLinkInput = {}) {
+  const params = new URLSearchParams();
+
+  if (input.context && input.context !== "general") {
+    params.set("context", input.context);
+  }
+
+  if (input.returnTo) {
+    params.set("returnTo", input.returnTo);
+  }
+
+  if (input.target) {
+    params.set("target", input.target);
+  }
+
+  const query = params.toString();
+
+  return query ? `${appDownloadPath}?${query}` : appDownloadPath;
+}
+
+export function buildAppDownloadHref(input: AppDownloadLinkInput = {}) {
+  return `${publicWebBaseUrl}${buildAppDownloadPath(input)}`;
+}
 
 const speciesLabels = {
   bird: "Ave",

@@ -106,8 +106,9 @@ describe("public Lost Pet Report page data", () => {
         reportId: "report-lost-bruno-db",
       },
       appPrompts: {
-        downloadHref: "https://rastro.bo/descargar",
-        downloadLabel: "Descargar Rastro",
+        downloadHref:
+          "https://rastro.bo/descargar?context=report&returnTo=%2Freportes%2Fperdidos%2Freport-lost-bruno-db&target=rastro%3A%2F%2Freportes%2Fperdidos%2Freport-lost-bruno-db",
+        downloadLabel: "Instalar o abrir Rastro",
         openHref: "rastro://reportes/perdidos/report-lost-bruno-db",
         openLabel: "Abrir en la app",
       },

@@ -127,7 +127,10 @@ describe("public Lost Pet Report page", () => {
     expect(html).toContain("bo lpb achumani - zona aproximada");
     expect(html).toContain("Escribir por WhatsApp");
     expect(html).toContain("Enviar mensaje en Rastro");
-    expect(html).toContain('href="https://rastro.bo/descargar"');
+    expect(html).toContain(
+      'href="https://rastro.bo/descargar?context=report',
+    );
+    expect(html).toContain("Instalar o abrir Rastro");
     expect(html).toContain("Reportar");
     expect(html).toContain("Inicia sesión para reportar");
     expect(html).toContain(

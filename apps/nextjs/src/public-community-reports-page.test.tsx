@@ -129,7 +129,10 @@ describe("public found and sighting report pages", () => {
     expect(html).toContain("Descripcion del encuentro");
     expect(html).toContain("Enviar mensaje en Rastro");
     expect(html).toContain("Escribir por WhatsApp");
-    expect(html).toContain('href="https://rastro.bo/descargar"');
+    expect(html).toContain(
+      'href="https://rastro.bo/descargar?context=report',
+    );
+    expect(html).toContain("Instalar o abrir Rastro");
     expect(html).toContain("Reportar");
     expect(html).toContain(
       "/?auth=signin-required&amp;returnTo=%2Freportes%2Fencontrados%2Ffound-luna-db#auth",

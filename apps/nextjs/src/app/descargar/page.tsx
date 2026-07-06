@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 
+import type { AppDownloadContext } from "~/public-report-detail-mapping";
 import {
   appDownloadHref,
   appDownloadPath,
   publicWebBaseUrl,
 } from "~/public-report-detail-mapping";
 
-type DownloadContext = "adoption" | "general" | "report" | "resource";
+type DownloadContext = AppDownloadContext;
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 interface DownloadPageProps {
@@ -38,10 +39,20 @@ const contextContent = {
     lead: "Abre Rastro para seguir esta adopcion, revisar sus datos publicos y contactar de forma segura desde el celular.",
     title: "Sigue esta adopcion en Rastro",
   },
+  "create-adoption": {
+    eyebrow: "Adopciones",
+    lead: "Abre Rastro para publicar un caso no monetario y encontrar un hogar responsable en Bolivia.",
+    title: "Publica una adopcion en Rastro",
+  },
   general: {
     eyebrow: "Rastro movil",
     lead: "Abre Rastro para seguir reportes, adopciones y recursos locales de mascotas en Bolivia desde el celular.",
     title: "Descargar Rastro",
+  },
+  "lost-report": {
+    eyebrow: "Reportes",
+    lead: "Abre Rastro para crear una alerta con zona, fotos y contacto seguro para que la comunidad pueda ayudarte.",
+    title: "Reporta una mascota perdida",
   },
   report: {
     eyebrow: "Reportes compartidos",
@@ -73,6 +84,21 @@ const useCases = [
   },
 ];
 
+const downloadContextAliases: Record<string, DownloadContext> = {
+  adopcion: "adoption",
+  adoption: "adoption",
+  "create-adoption": "create-adoption",
+  create_adoption: "create-adoption",
+  "crear-adopcion": "create-adoption",
+  "crear-reporte": "lost-report",
+  "lost-report": "lost-report",
+  lost_report: "lost-report",
+  report: "report",
+  reporte: "report",
+  resource: "resource",
+  recurso: "resource",
+};
+
 export default async function DownloadPage(props: DownloadPageProps) {
   const searchParams = await (props.searchParams ?? Promise.resolve({}));
   const context = resolveDownloadContext(
@@ -81,6 +107,7 @@ export default async function DownloadPage(props: DownloadPageProps) {
   const returnHref = resolveReturnHref(
     getSingleSearchParam(searchParams, "returnTo"),
   );
+  const openHref = resolveOpenHref(getSingleSearchParam(searchParams, "target"));
   const returnLabel =
     returnHref === "/" ? "Volver al inicio" : "Volver al enlace compartido";
   const content = contextContent[context];
@@ -104,9 +131,9 @@ export default async function DownloadPage(props: DownloadPageProps) {
           <div className="flex flex-col gap-3 sm:flex-row">
             <a
               className="bg-primary text-primary-foreground rounded-md px-5 py-3 text-center text-sm font-semibold"
-              href="rastro://"
+              href={openHref}
             >
-              Abrir Rastro
+              Abrir en Rastro
             </a>
             <a
               className="border-border bg-card text-card-foreground hover:bg-muted rounded-md border px-5 py-3 text-center text-sm font-semibold"
@@ -121,12 +148,12 @@ export default async function DownloadPage(props: DownloadPageProps) {
           <section className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs">
             <p className="text-primary text-sm font-semibold">Instalacion</p>
             <h2 className="mt-2 text-2xl font-semibold">
-              Disponible desde este enlace
+              Instalar o abrir Rastro
             </h2>
             <p className="text-muted-foreground mt-3 leading-7">
-              La descarga publica de Rastro se publicara en esta ruta. Si ya
-              tienes una version instalada, usa el boton para abrir la app desde
-              este dispositivo.
+              Si ya tienes Rastro instalado, abre la app desde este dispositivo.
+              Si todavia no, esta pagina conserva el enlace compartido mientras
+              la descarga publica queda disponible.
             </p>
           </section>
 
@@ -161,19 +188,9 @@ function getSingleSearchParam(
 function resolveDownloadContext(value: string | undefined): DownloadContext {
   const normalized = value?.trim().toLowerCase();
 
-  if (normalized === "adopcion" || normalized === "adoption") {
-    return "adoption";
-  }
-
-  if (normalized === "recurso" || normalized === "resource") {
-    return "resource";
-  }
-
-  if (normalized === "reporte" || normalized === "report") {
-    return "report";
-  }
-
-  return "general";
+  return normalized
+    ? (downloadContextAliases[normalized] ?? "general")
+    : "general";
 }
 
 function resolveReturnHref(value: string | undefined) {
@@ -197,5 +214,21 @@ function resolveReturnHref(value: string | undefined) {
     return `${url.pathname}${url.search}${url.hash}`;
   } catch {
     return "/";
+  }
+}
+
+function resolveOpenHref(value: string | undefined) {
+  const trimmed = value?.trim();
+
+  if (!trimmed) {
+    return "rastro://";
+  }
+
+  try {
+    const url = new URL(trimmed);
+
+    return url.protocol === "rastro:" ? trimmed : "rastro://";
+  } catch {
+    return "rastro://";
   }
 }

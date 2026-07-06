@@ -97,8 +97,9 @@ describe("public Adoption Listing page data", () => {
         reportId: "adoption-nala-db",
       },
       appPrompts: {
-        downloadHref: "https://rastro.bo/descargar",
-        downloadLabel: "Descargar Rastro",
+        downloadHref:
+          "https://rastro.bo/descargar?context=adoption&returnTo=%2Fadopciones%2Fadoption-nala-db&target=rastro%3A%2F%2Fadopciones%2Fadoption-nala-db",
+        downloadLabel: "Instalar o abrir Rastro",
         openHref: "rastro://adopciones/adoption-nala-db",
         openLabel: "Abrir en la app",
       },

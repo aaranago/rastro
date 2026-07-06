@@ -1,23 +1,31 @@
+import { buildAppDownloadPath } from "~/public-report-detail-mapping";
+
 import { AuthShowcase } from "./_components/auth-showcase";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 const primaryActions = [
   {
-    body: "Crea una alerta con zona, fotos y contacto para que la comunidad pueda ayudarte.",
-    href: "rastro://report-create/lost",
+    href: buildAppDownloadPath({
+      context: "lost-report",
+      target: "rastro://report-create/lost",
+    }),
     label: "Reportar mascota perdida",
     tone: "primary",
   },
   {
-    body: "Publica un caso no monetario para encontrar un hogar responsable en Bolivia.",
-    href: "rastro://report-create/adoption",
+    href: buildAppDownloadPath({
+      context: "create-adoption",
+      target: "rastro://report-create/adoption",
+    }),
     label: "Publicar adopcion",
     tone: "secondary",
   },
   {
-    body: "Encuentra veterinarias, rescatistas y apoyo local cerca de tu zona.",
-    href: "rastro://recursos",
+    href: buildAppDownloadPath({
+      context: "resource",
+      target: "rastro://recursos",
+    }),
     label: "Buscar recursos locales",
     tone: "secondary",
   },
@@ -71,8 +79,8 @@ export default async function HomePage(props: { searchParams: SearchParams }) {
                   aria-label={action.label}
                   className={
                     action.tone === "primary"
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90 inline-flex min-h-11 items-center justify-center rounded-md px-5 py-3 text-sm font-semibold"
-                      : "border-border bg-background text-foreground hover:bg-muted inline-flex min-h-11 items-center justify-center rounded-md border px-5 py-3 text-sm font-semibold"
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90 inline-flex min-h-11 w-full items-center justify-center rounded-md px-5 py-3 text-sm font-semibold sm:w-auto"
+                      : "border-border bg-background text-foreground hover:bg-muted inline-flex min-h-11 w-full items-center justify-center rounded-md border px-5 py-3 text-sm font-semibold sm:w-auto"
                   }
                   href={action.href}
                   key={action.href}
