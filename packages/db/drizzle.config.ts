@@ -26,6 +26,8 @@ export default {
     "report_media",
     "report_lifecycle_event",
     "report_moderation_action",
+    "report_moderation_review_item",
+    "report_moderation_report",
     "chat_conversation",
     "chat_message",
     "chat_conversation_hidden",

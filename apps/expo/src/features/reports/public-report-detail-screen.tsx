@@ -4,11 +4,13 @@ import * as React from "react";
 import {
   ActivityIndicator,
   Linking,
+  Modal,
   Pressable,
   ScrollView,
   Share,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -18,13 +20,19 @@ import { Galeria } from "@nandorojo/galeria";
 
 import type {
   PublicReportDetailAdapter,
+  PublicReportAbuseReportResult,
+  PublicReportAbuseReportInput,
+  PublicReportDetailAbuseReportAction,
   PublicReportDetailType,
   PublicReportDetailViewModel,
 } from "./public-report-detail";
+import type { TrustSafetyReportReason } from "../trust-safety";
 import { runPublicContactAction } from "../contact-actions/contact-actions";
 import { openInternalRastroHref } from "../navigation/internal-rastro-links";
 import { ShellIcon } from "../shell/shell-overlays";
 import { shellColors } from "../shell/shell-theme";
+import { useRastroShell } from "../shell/shell-provider";
+import { trustSafetyReportReasonOptions } from "../trust-safety/trust-safety-model";
 import {
   buildPublicReportDetailViewModel,
   classifyPublicReportDetailLoadFailure,
@@ -47,6 +55,7 @@ export function PublicReportDetailScreen({
   expectedType?: PublicReportDetailType;
   reportId?: string | string[];
 }) {
+  const { requestAuthPrompt, session } = useRastroShell();
   const resolvedReportId = normalizeReportId(reportId);
   const [loadState, setLoadState] = React.useState<PublicReportDetailLoadState>(
     { kind: "loading" },
@@ -98,7 +107,21 @@ export function PublicReportDetailScreen({
   }, [adapter, expectedType, requestVersion, resolvedReportId]);
 
   if (loadState.kind === "ready") {
-    return <PublicReportDetailContent viewModel={loadState.viewModel} />;
+    return (
+      <PublicReportDetailContent
+        isVisitor={session.kind === "visitor"}
+        onReportAbuse={adapter.reportAbuse}
+        onRequestMemberSignIn={() => {
+          requestAuthPrompt({
+            returnTo: loadState.viewModel.shareUrl,
+            sourceHref: `rastro://auth/sign-in?returnTo=${encodeURIComponent(
+              loadState.viewModel.shareUrl,
+            )}`,
+          });
+        }}
+        viewModel={loadState.viewModel}
+      />
+    );
   }
 
   if (loadState.kind === "error") {
@@ -116,9 +139,13 @@ export function PublicReportDetailContent({
   onOpenContactAction,
   onOpenLocation,
   onOpenPublicPage,
+  onReportAbuse,
+  onRequestMemberSignIn,
   onShare,
+  isVisitor = false,
   viewModel,
 }: {
+  isVisitor?: boolean;
   onOpenContactAction?: (
     action: PublicReportDetailViewModel["contactActions"][number],
   ) => void;
@@ -126,10 +153,27 @@ export function PublicReportDetailContent({
     action: PublicReportDetailViewModel["locationAction"],
   ) => void;
   onOpenPublicPage?: () => void;
+  onReportAbuse?: (
+    input: PublicReportAbuseReportInput,
+  ) => Promise<PublicReportAbuseReportResult>;
+  onRequestMemberSignIn?: () => void;
   onShare?: () => void;
   viewModel: PublicReportDetailViewModel;
 }) {
   const router = useRouter();
+  const [reportSheet, setReportSheet] = React.useState<{
+    detail: string;
+    error?: string;
+    isOpen: boolean;
+    isSubmitting: boolean;
+    reason: TrustSafetyReportReason;
+    success?: string;
+  }>({
+    detail: "",
+    isOpen: false,
+    isSubmitting: false,
+    reason: "other",
+  });
   const openExternalUrl = React.useCallback((href: string) => {
     return Linking.openURL(href);
   }, []);
@@ -194,6 +238,99 @@ export function PublicReportDetailContent({
 
     void Linking.openURL(viewModel.shareUrl).catch(() => undefined);
   }, [onOpenPublicPage, viewModel.shareUrl]);
+  const openReportSheet = React.useCallback(() => {
+    if (!viewModel.abuseReportAction) {
+      return;
+    }
+
+    setReportSheet({
+      detail: "",
+      isOpen: true,
+      isSubmitting: false,
+      reason: "other",
+    });
+  }, [viewModel.abuseReportAction]);
+  const closeReportSheet = React.useCallback(() => {
+    setReportSheet((current) =>
+      current.isSubmitting
+        ? current
+        : {
+            ...current,
+            isOpen: false,
+          },
+    );
+  }, []);
+  const submitReportAbuse = React.useCallback(async () => {
+    if (!viewModel.abuseReportAction) {
+      return;
+    }
+
+    if (isVisitor) {
+      onRequestMemberSignIn?.();
+      return;
+    }
+
+    const detail = reportSheet.detail.trim();
+
+    if (detail.length < 10) {
+      setReportSheet((current) => ({
+        ...current,
+        error: viewModel.abuseReportAction?.detailHelper,
+      }));
+      return;
+    }
+
+    if (!onReportAbuse) {
+      setReportSheet((current) => ({
+        ...current,
+        error: "No pudimos enviar el reporte.",
+      }));
+      return;
+    }
+
+    setReportSheet((current) => ({
+      ...current,
+      error: undefined,
+      isSubmitting: true,
+    }));
+
+    try {
+      const result = await onReportAbuse({
+        detail,
+        reason: reportSheet.reason,
+        reportId: viewModel.abuseReportAction.reportId,
+      });
+
+      setReportSheet((current) => ({
+        ...current,
+        isOpen: false,
+        isSubmitting: false,
+        success:
+          result.status === "already_reported"
+            ? viewModel.abuseReportAction?.successAlreadyReported
+            : viewModel.abuseReportAction?.successCreated,
+      }));
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        onRequestMemberSignIn?.();
+      }
+
+      setReportSheet((current) => ({
+        ...current,
+        error: isUnauthorizedError(error)
+          ? viewModel.abuseReportAction?.visitorCtaLabel
+          : "No pudimos enviar el reporte.",
+        isSubmitting: false,
+      }));
+    }
+  }, [
+    isVisitor,
+    onReportAbuse,
+    onRequestMemberSignIn,
+    reportSheet.detail,
+    reportSheet.reason,
+    viewModel.abuseReportAction,
+  ]);
 
   return (
     <ScrollView
@@ -293,7 +430,65 @@ export function PublicReportDetailContent({
           />
           <Text style={styles.secondaryActionText}>Compartir</Text>
         </Pressable>
+        {viewModel.abuseReportAction ? (
+          <Pressable
+            accessibilityLabel={viewModel.abuseReportAction.label}
+            accessibilityRole="button"
+            onPress={openReportSheet}
+            testID="public-report-abuse-action"
+            style={styles.secondaryAction}
+          >
+            <ShellIcon
+              color={shellColors.primary}
+              name="exclamationmark.triangle.fill"
+              size={18}
+            />
+            <Text style={styles.secondaryActionText}>
+              {viewModel.abuseReportAction.label}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
+
+      {reportSheet.success ? (
+        <View style={styles.reportSuccessNotice}>
+          <ShellIcon
+            color={shellColors.found}
+            name="checkmark.seal.fill"
+            size={18}
+          />
+          <Text selectable style={styles.reportSuccessText}>
+            {reportSheet.success}
+          </Text>
+        </View>
+      ) : null}
+
+      {viewModel.abuseReportAction && reportSheet.isOpen ? (
+        <ReportAbuseSheet
+          action={viewModel.abuseReportAction}
+          detail={reportSheet.detail}
+          error={reportSheet.error}
+          isSubmitting={reportSheet.isSubmitting}
+          isVisitor={isVisitor}
+          onCancel={closeReportSheet}
+          onChangeDetail={(detail) => {
+            setReportSheet((current) => ({
+              ...current,
+              detail,
+              error: undefined,
+            }));
+          }}
+          onChangeReason={(reason) => {
+            setReportSheet((current) => ({
+              ...current,
+              error: undefined,
+              reason,
+            }));
+          }}
+          onSubmit={submitReportAbuse}
+          reason={reportSheet.reason}
+        />
+      ) : null}
 
       <View style={styles.section}>
         <Text selectable style={styles.sectionTitle}>
@@ -679,6 +874,160 @@ function getContactActionIconName(
   return kind === "whatsapp" ? "phone.fill" : "message.fill";
 }
 
+function ReportAbuseSheet({
+  action,
+  detail,
+  error,
+  isSubmitting,
+  isVisitor,
+  onCancel,
+  onChangeDetail,
+  onChangeReason,
+  onSubmit,
+  reason,
+}: {
+  action: PublicReportDetailAbuseReportAction;
+  detail: string;
+  error?: string;
+  isSubmitting: boolean;
+  isVisitor: boolean;
+  onCancel: () => void;
+  onChangeDetail: (detail: string) => void;
+  onChangeReason: (reason: TrustSafetyReportReason) => void;
+  onSubmit: () => void;
+  reason: TrustSafetyReportReason;
+}) {
+  return (
+    <Modal animationType="fade" onRequestClose={onCancel} transparent visible>
+      <View style={styles.reportModalBackdrop}>
+        <View style={styles.reportSheet}>
+          <View style={styles.reportSheetHeader}>
+            <View style={styles.reportSheetTitleGroup}>
+              <Text selectable style={styles.reportSheetTitle}>
+                {action.title}
+              </Text>
+              <Text selectable style={styles.reportSheetBody}>
+                {action.body}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityLabel="Cerrar"
+              accessibilityRole="button"
+              disabled={isSubmitting}
+              onPress={onCancel}
+              style={styles.reportSheetClose}
+            >
+              <ShellIcon color={shellColors.muted} name="xmark" size={18} />
+            </Pressable>
+          </View>
+
+          <View style={styles.reportReasonGrid}>
+            {trustSafetyReportReasonOptions.map((option) => {
+              const isSelected = option.value === reason;
+
+              return (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  key={option.value}
+                  onPress={() => {
+                    onChangeReason(option.value);
+                  }}
+                  style={[
+                    styles.reportReasonButton,
+                    isSelected ? styles.reportReasonButtonSelected : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.reportReasonText,
+                      isSelected ? styles.reportReasonTextSelected : null,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text selectable style={styles.reportInputLabel}>
+            {action.detailLabel}
+          </Text>
+          <TextInput
+            editable={!isSubmitting}
+            multiline
+            onChangeText={onChangeDetail}
+            placeholder={action.detailPlaceholder}
+            placeholderTextColor={shellColors.muted}
+            style={styles.reportDetailInput}
+            value={detail}
+          />
+          <Text selectable style={styles.reportInputHelper}>
+            {action.detailHelper}
+          </Text>
+          {error ? (
+            <Text selectable style={styles.reportErrorText}>
+              {error}
+            </Text>
+          ) : null}
+
+          <View style={styles.reportSheetActions}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={isSubmitting}
+              onPress={onCancel}
+              style={styles.reportCancelButton}
+            >
+              <Text style={styles.reportCancelButtonText}>Cancelar</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ busy: isSubmitting }}
+              disabled={isSubmitting}
+              onPress={onSubmit}
+              style={[
+                styles.reportSubmitButton,
+                isSubmitting ? styles.disabledAction : null,
+              ]}
+            >
+              <Text style={styles.reportSubmitButtonText}>
+                {isVisitor ? action.visitorCtaLabel : action.submitLabel}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function isUnauthorizedError(error: unknown) {
+  if (isRecord(error) && readErrorCode(error) === "UNAUTHORIZED") {
+    return true;
+  }
+
+  return error instanceof Error && error.message.includes("UNAUTHORIZED");
+}
+
+function readErrorCode(value: unknown) {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const code = value.code;
+
+  if (typeof code === "string") {
+    return code;
+  }
+
+  return readErrorCode(value.data);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 const styles = StyleSheet.create({
   content: {
     gap: 14,
@@ -903,6 +1252,157 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
     lineHeight: 20,
+  },
+  disabledAction: {
+    opacity: 0.5,
+  },
+  reportCancelButton: {
+    alignItems: "center",
+    borderColor: shellColors.border,
+    borderCurve: "continuous",
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  reportCancelButtonText: {
+    color: shellColors.text,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  reportDetailInput: {
+    backgroundColor: shellColors.surfaceMuted,
+    borderColor: shellColors.border,
+    borderCurve: "continuous",
+    borderRadius: 14,
+    borderWidth: 1,
+    color: shellColors.text,
+    fontSize: 14,
+    lineHeight: 20,
+    minHeight: 92,
+    padding: 12,
+    textAlignVertical: "top",
+  },
+  reportErrorText: {
+    color: shellColors.lost,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
+  reportInputHelper: {
+    color: shellColors.muted,
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 16,
+  },
+  reportInputLabel: {
+    color: shellColors.text,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  reportModalBackdrop: {
+    backgroundColor: "rgba(16, 24, 40, 0.42)",
+    flex: 1,
+    justifyContent: "flex-end",
+    padding: 14,
+  },
+  reportReasonButton: {
+    borderColor: shellColors.border,
+    borderCurve: "continuous",
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  reportReasonButtonSelected: {
+    backgroundColor: shellColors.primary,
+    borderColor: shellColors.primary,
+  },
+  reportReasonGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  reportReasonText: {
+    color: shellColors.text,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  reportReasonTextSelected: {
+    color: shellColors.white,
+  },
+  reportSheet: {
+    backgroundColor: shellColors.surface,
+    borderColor: shellColors.border,
+    borderCurve: "continuous",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 12,
+    padding: 16,
+  },
+  reportSheetActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  reportSheetBody: {
+    color: shellColors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  reportSheetClose: {
+    alignItems: "center",
+    borderColor: shellColors.border,
+    borderCurve: "continuous",
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 34,
+    justifyContent: "center",
+    width: 34,
+  },
+  reportSheetHeader: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  reportSheetTitle: {
+    color: shellColors.text,
+    fontSize: 20,
+    fontWeight: "900",
+    lineHeight: 25,
+  },
+  reportSheetTitleGroup: {
+    flex: 1,
+    gap: 4,
+  },
+  reportSubmitButton: {
+    alignItems: "center",
+    backgroundColor: shellColors.primary,
+    borderCurve: "continuous",
+    borderRadius: 14,
+    flex: 1,
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  reportSubmitButtonText: {
+    color: shellColors.white,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  reportSuccessNotice: {
+    alignItems: "center",
+    backgroundColor: "#E5F2EC",
+    borderCurve: "continuous",
+    borderRadius: 16,
+    flexDirection: "row",
+    gap: 8,
+    padding: 12,
+  },
+  reportSuccessText: {
+    color: shellColors.found,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 18,
   },
   screen: {
     backgroundColor: shellColors.background,

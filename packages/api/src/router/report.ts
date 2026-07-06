@@ -2,6 +2,7 @@ import type { TRPCRouterRecord } from "@trpc/server";
 import { TRPCError } from "@trpc/server";
 
 import {
+  createReportAbuseReportInputSchema,
   createReportInputSchema,
   createUploadSessionInputSchema,
   deleteReportInputSchema,
@@ -161,6 +162,29 @@ async function assertMemberIsNotSuspendedForPublishing(ctx: {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message: "El miembro esta suspendido y no puede publicar en Rastro.",
+    });
+  }
+}
+
+async function assertMemberCanReportAbuse(ctx: {
+  memberSuspensionRepository?: {
+    findActiveByMemberId: (memberId: string) => Promise<unknown>;
+  };
+  session: {
+    user: {
+      id: string;
+    };
+  };
+}) {
+  const activeSuspension =
+    await ctx.memberSuspensionRepository?.findActiveByMemberId(
+      ctx.session.user.id,
+    );
+
+  if (activeSuspension) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "El miembro esta suspendido y no puede reportar contenido.",
     });
   }
 }
@@ -384,6 +408,40 @@ export const reportRouter = {
       }
 
       return toPublicReport(report, ctx.session?.user.id ?? null);
+    }),
+  reportAbuse: protectedProcedure
+    .input(createReportAbuseReportInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      await assertMemberCanReportAbuse(ctx);
+
+      const report = await ctx.reportRepository.findById(input.reportId);
+
+      if (
+        !report ||
+        report.deletedAt ||
+        !canReadReport(report, ctx.session.user.id)
+      ) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      if (report.caretakerId === ctx.session.user.id) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "No puedes reportar tu propio reporte.",
+        });
+      }
+
+      const result =
+        await ctx.reportModerationRepository.createReportAbuseReport({
+          report: input,
+          reporterId: ctx.session.user.id,
+        });
+
+      if (!result) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      return result;
     }),
   nearby: publicProcedure
     .input(nearbyReportsInputSchema)

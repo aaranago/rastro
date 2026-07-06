@@ -5,6 +5,7 @@ import {
   blockChatMemberInputSchema,
   buildApproximatePublicReportLocation,
   chatConversationIdInputSchema,
+  createReportAbuseReportInputSchema,
   createReportInputSchema,
   nearbyReportsInputSchema,
   openReportChatConversationInputSchema,
@@ -167,6 +168,39 @@ describe("report validation contracts", () => {
       expect(sendChatMessageInputSchema.safeParse(input).success).toBe(false);
       expect(blockChatMemberInputSchema.safeParse(input).success).toBe(false);
       expect(reportChatConversationInputSchema.safeParse(input).success).toBe(
+        false,
+      );
+    }
+  });
+
+  it("validates report abuse input without client-supplied actor or target type fields", () => {
+    expect(
+      createReportAbuseReportInputSchema.parse({
+        detail: "El reporte usa fotos que no corresponden.",
+        reason: "scam",
+        reportId: "11111111-1111-4111-8111-111111111111",
+      }),
+    ).toEqual({
+      detail: "El reporte usa fotos que no corresponden.",
+      reason: "scam",
+      reportId: "11111111-1111-4111-8111-111111111111",
+    });
+
+    for (const input of [
+      {
+        detail: "El reporte usa fotos que no corresponden.",
+        reason: "scam",
+        reportId: "11111111-1111-4111-8111-111111111111",
+        reporterMemberId: "member-attacker",
+      },
+      {
+        detail: "El reporte usa fotos que no corresponden.",
+        reason: "scam",
+        reportId: "11111111-1111-4111-8111-111111111111",
+        targetType: "lost_pet_report",
+      },
+    ]) {
+      expect(createReportAbuseReportInputSchema.safeParse(input).success).toBe(
         false,
       );
     }

@@ -4,20 +4,31 @@ import {
 } from "@acme/validators";
 
 import type { RouterOutputs } from "../../utils/api";
+import type { TrustSafetyReportReason } from "../trust-safety";
 import type { PublicReportContactOption } from "./report-repository-utils";
 
 export type PublicReportDetailApiReport = RouterOutputs["report"]["detail"];
+export type PublicReportAbuseReportResult =
+  RouterOutputs["report"]["reportAbuse"];
 
 export interface PublicReportDetailApiClient {
   report: {
     detail: {
       query: (input: { id: string }) => Promise<PublicReportDetailApiReport>;
     };
+    reportAbuse: {
+      mutate: (
+        input: PublicReportAbuseReportInput,
+      ) => Promise<PublicReportAbuseReportResult>;
+    };
   };
 }
 
 export interface PublicReportDetailAdapter {
   getReportDetail: (reportId: string) => Promise<PublicReportDetailApiReport>;
+  reportAbuse: (
+    input: PublicReportAbuseReportInput,
+  ) => Promise<PublicReportAbuseReportResult>;
 }
 
 export type PublicReportDetailType = PublicReportDetailApiReport["type"];
@@ -27,6 +38,7 @@ export type PublicReportDetailStatusTone = "active" | "closed" | "review";
 export interface PublicReportDetailViewModel {
   accentColor: string;
   accentSoftColor: string;
+  abuseReportAction: PublicReportDetailAbuseReportAction | null;
   contactActions: PublicReportContactOption[];
   contactLabel: string;
   description: string;
@@ -51,6 +63,26 @@ export interface PublicReportDetailViewModel {
   title: string;
   type: PublicReportDetailType;
   typeLabel: string;
+}
+
+export interface PublicReportAbuseReportInput {
+  detail: string;
+  reason: TrustSafetyReportReason;
+  reportId: string;
+}
+
+export interface PublicReportDetailAbuseReportAction {
+  body: string;
+  detailHelper: string;
+  detailLabel: string;
+  detailPlaceholder: string;
+  label: string;
+  reportId: string;
+  submitLabel: string;
+  successAlreadyReported: string;
+  successCreated: string;
+  title: string;
+  visitorCtaLabel: string;
 }
 
 export interface PublicReportDetailFact {
@@ -156,6 +188,9 @@ export function createApiPublicReportDetailAdapter({
     getReportDetail(reportId) {
       return client.report.detail.query({ id: reportId });
     },
+    reportAbuse(input) {
+      return client.report.reportAbuse.mutate(input);
+    },
   };
 }
 
@@ -196,6 +231,9 @@ export function buildPublicReportDetailViewModel(
   return {
     accentColor: config.accentColor,
     accentSoftColor: config.accentSoftColor,
+    abuseReportAction: report.owner.isCurrentMember
+      ? null
+      : buildAbuseReportAction(report.id),
     contactActions,
     contactLabel,
     description: report.description.trim(),
@@ -243,6 +281,24 @@ export function buildPublicReportDetailViewModel(
     title: buildTitle({ petName, report }),
     type: report.type,
     typeLabel: config.typeLabel,
+  };
+}
+
+function buildAbuseReportAction(
+  reportId: string,
+): PublicReportDetailAbuseReportAction {
+  return {
+    body: "Cuéntanos qué problema ves. El equipo de Rastro revisará el reporte antes de tomar acción.",
+    detailHelper: "Describe el problema con al menos 10 caracteres.",
+    detailLabel: "Detalle",
+    detailPlaceholder: "Describe el problema con este reporte",
+    label: "Reportar",
+    reportId,
+    submitLabel: "Enviar reporte",
+    successAlreadyReported: "Ya recibimos tu reporte sobre este motivo.",
+    successCreated: "Gracias. El equipo de Rastro revisará este reporte.",
+    title: "Reportar este reporte",
+    visitorCtaLabel: "Inicia sesión para reportar",
   };
 }
 

@@ -441,6 +441,14 @@ export const reportChatConversationInputSchema = z
   })
   .strict();
 
+export const createReportAbuseReportInputSchema = z
+  .object({
+    detail: z.string().trim().min(10).max(1000),
+    reason: moderationReportReasonSchema,
+    reportId: z.uuid(),
+  })
+  .strict();
+
 export const alertGetInputSchema = z.object({}).strict();
 
 export const alertUpsertSettingsInputSchema = z

@@ -40,6 +40,29 @@ function createUploadLifecycleColumns(t: PgTableBuilder) {
   };
 }
 
+function createModerationReviewLifecycleColumns<TStatus>(
+  t: PgTableBuilder,
+  status: TStatus,
+) {
+  return {
+    status,
+    firstReportedAt: t.timestamp(timestampWithTimezone).defaultNow().notNull(),
+    lastReportedAt: t.timestamp(timestampWithTimezone).defaultNow().notNull(),
+    resolvedAt: t.timestamp(timestampWithTimezone),
+    resolvedByAdminId: t.text().references(() => user.id, {
+      onDelete: "set null",
+    }),
+    resolutionNote: t.text(),
+    resolutionReason: t.varchar({ length: 120 }),
+    createdAt: t.timestamp(timestampWithTimezone).defaultNow().notNull(),
+    updatedAt: t
+      .timestamp(timestampWithTimezone)
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  };
+}
+
 export const Post = pgTable("post", (t) => ({
   id: t.uuid().notNull().primaryKey().defaultRandom(),
   title: t.varchar({ length: 256 }).notNull(),
@@ -129,6 +152,16 @@ export const moderationReportReason = pgEnum("moderation_report_reason", [
 
 export const resourceProviderModerationReviewStatus = pgEnum(
   "resource_provider_moderation_review_status",
+  [
+    "pending",
+    "dismissed_false_report",
+    "resolved_action_taken",
+    "resolved_no_action",
+  ],
+);
+
+export const reportModerationReviewStatus = pgEnum(
+  "report_moderation_review_status",
   [
     "pending",
     "dismissed_false_report",
@@ -640,6 +673,76 @@ export const ReportModerationAction = pgTable(
       table.createdAt,
     ),
     index("report_moderation_action_admin_idx").on(table.adminId),
+  ],
+);
+
+export const ReportModerationReviewItem = pgTable(
+  "report_moderation_review_item",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    reportId: t
+      .uuid()
+      .notNull()
+      .references(() => Report.id, { onDelete: "cascade" }),
+    targetType: reportType().notNull(),
+    reason: moderationReportReason().notNull(),
+    ...createModerationReviewLifecycleColumns(
+      t,
+      reportModerationReviewStatus().default("pending").notNull(),
+    ),
+  }),
+  (table) => [
+    uniqueIndex("report_moderation_review_unique_idx")
+      .on(table.reportId, table.reason)
+      .where(sql`${table.status} = 'pending'`),
+    index("report_moderation_review_report_idx").on(table.reportId),
+    index("report_moderation_review_status_latest_idx").on(
+      table.status,
+      table.lastReportedAt,
+    ),
+    index("report_moderation_review_resolved_admin_idx").on(
+      table.resolvedByAdminId,
+      table.resolvedAt,
+    ),
+  ],
+);
+
+export const ReportModerationReport = pgTable(
+  "report_moderation_report",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    reviewItemId: t
+      .uuid()
+      .notNull()
+      .references(() => ReportModerationReviewItem.id, {
+        onDelete: "cascade",
+      }),
+    reportId: t
+      .uuid()
+      .notNull()
+      .references(() => Report.id, { onDelete: "cascade" }),
+    reporterId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    reason: moderationReportReason().notNull(),
+    detail: t.text().notNull(),
+    createdAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  }),
+  (table) => [
+    uniqueIndex("report_moderation_report_reporter_unique_idx").on(
+      table.reporterId,
+      table.reportId,
+      table.reason,
+    ),
+    index("report_moderation_report_review_created_idx").on(
+      table.reviewItemId,
+      table.createdAt,
+    ),
+    index("report_moderation_report_report_idx").on(table.reportId),
   ],
 );
 
@@ -1182,32 +1285,10 @@ export const ResourceProviderModerationReviewItem = pgTable(
       .notNull()
       .references(() => ResourceProvider.id, { onDelete: "cascade" }),
     reason: moderationReportReason().notNull(),
-    status: resourceProviderModerationReviewStatus()
-      .default("pending")
-      .notNull(),
-    firstReportedAt: t
-      .timestamp({ mode: "date", withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    lastReportedAt: t
-      .timestamp({ mode: "date", withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    resolvedAt: t.timestamp({ mode: "date", withTimezone: true }),
-    resolvedByAdminId: t.text().references(() => user.id, {
-      onDelete: "set null",
-    }),
-    resolutionNote: t.text(),
-    resolutionReason: t.varchar({ length: 120 }),
-    createdAt: t
-      .timestamp({ mode: "date", withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: t
-      .timestamp({ mode: "date", withTimezone: true })
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
+    ...createModerationReviewLifecycleColumns(
+      t,
+      resourceProviderModerationReviewStatus().default("pending").notNull(),
+    ),
   }),
   (table) => [
     uniqueIndex("resource_provider_moderation_review_unique_idx")
@@ -1278,6 +1359,8 @@ export const reportRelations = relations(Report, ({ one, many }) => ({
   media: many(ReportMedia),
   lifecycleEvents: many(ReportLifecycleEvent),
   moderationActions: many(ReportModerationAction),
+  moderationReports: many(ReportModerationReport),
+  moderationReviewItems: many(ReportModerationReviewItem),
   hiddenByAdmin: one(user, {
     fields: [Report.hiddenByAdminId],
     references: [user.id],
@@ -1336,6 +1419,39 @@ export const reportModerationActionRelations = relations(
     report: one(Report, {
       fields: [ReportModerationAction.reportId],
       references: [Report.id],
+    }),
+  }),
+);
+
+export const reportModerationReviewItemRelations = relations(
+  ReportModerationReviewItem,
+  ({ many, one }) => ({
+    report: one(Report, {
+      fields: [ReportModerationReviewItem.reportId],
+      references: [Report.id],
+    }),
+    reports: many(ReportModerationReport),
+    resolvedByAdmin: one(user, {
+      fields: [ReportModerationReviewItem.resolvedByAdminId],
+      references: [user.id],
+    }),
+  }),
+);
+
+export const reportModerationReportRelations = relations(
+  ReportModerationReport,
+  ({ one }) => ({
+    report: one(Report, {
+      fields: [ReportModerationReport.reportId],
+      references: [Report.id],
+    }),
+    reporter: one(user, {
+      fields: [ReportModerationReport.reporterId],
+      references: [user.id],
+    }),
+    reviewItem: one(ReportModerationReviewItem, {
+      fields: [ReportModerationReport.reviewItemId],
+      references: [ReportModerationReviewItem.id],
     }),
   }),
 );

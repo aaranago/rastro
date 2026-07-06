@@ -53,6 +53,10 @@ describe("public report detail view model", () => {
           label: "Enviar mensaje en Rastro",
         },
       ],
+      abuseReportAction: {
+        label: "Reportar",
+        title: "Reportar este reporte",
+      },
       contactLabel: "Chat en Rastro",
       descriptionTitle: "Qué pasó",
       locationAction: {
@@ -88,7 +92,14 @@ describe("public report detail view model", () => {
     expect(viewModel.shareMessage).toContain(
       "https://rastro.bo/reportes/perdidos/report-lost-raw-id",
     );
-    expect(JSON.stringify(viewModel)).not.toContain("reportId");
+    expect(
+      JSON.stringify({
+        contactActions: viewModel.contactActions,
+        facts: viewModel.facts,
+        shareMessage: viewModel.shareMessage,
+        shareTitle: viewModel.shareTitle,
+      }),
+    ).not.toContain("reportId");
   });
 
   it("labels exact locations and closed outcomes in plain Spanish", () => {
@@ -254,6 +265,7 @@ describe("public report detail view model", () => {
     const viewModel = buildPublicReportDetailViewModel(createReport());
 
     expect(viewModel.contactActions).toEqual([]);
+    expect(viewModel.abuseReportAction).toBe(null);
   });
 
   it("does not repeat identical pet detail text from API color and traits fields", () => {
@@ -287,6 +299,17 @@ describe("public report detail view model", () => {
         detail: {
           query: vi.fn().mockResolvedValue(report),
         },
+        reportAbuse: {
+          mutate: vi.fn().mockResolvedValue({
+            reviewItem: {
+              id: "moderation-review-1",
+              reason: "scam",
+              reportId: "report-lost-1",
+              status: "pending",
+            },
+            status: "created",
+          }),
+        },
       },
     };
     const adapter = createApiPublicReportDetailAdapter({ client });
@@ -296,6 +319,20 @@ describe("public report detail view model", () => {
     );
     expect(client.report.detail.query).toHaveBeenCalledWith({
       id: "report-lost-1",
+    });
+    await expect(
+      adapter.reportAbuse({
+        detail: "El reporte parece fraudulento.",
+        reason: "scam",
+        reportId: "11111111-1111-4111-8111-111111111111",
+      }),
+    ).resolves.toMatchObject({
+      status: "created",
+    });
+    expect(client.report.reportAbuse.mutate).toHaveBeenCalledWith({
+      detail: "El reporte parece fraudulento.",
+      reason: "scam",
+      reportId: "11111111-1111-4111-8111-111111111111",
     });
   });
 });

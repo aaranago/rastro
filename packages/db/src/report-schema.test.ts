@@ -18,6 +18,9 @@ import {
   ReportLocation,
   ReportMedia,
   ReportModerationAction,
+  ReportModerationReport,
+  ReportModerationReviewItem,
+  reportModerationReviewStatus,
   reportModerationActionType,
   reportStatus,
 } from "./schema";
@@ -68,6 +71,11 @@ describe("report schema", () => {
     expect(ReportModerationAction.adminId).toBeDefined();
     expect(ReportModerationAction.reason).toBeDefined();
     expect(ReportModerationAction.note).toBeDefined();
+    expect(ReportModerationReviewItem.reportId).toBeDefined();
+    expect(ReportModerationReviewItem.reason).toBeDefined();
+    expect(ReportModerationReviewItem.status).toBeDefined();
+    expect(ReportModerationReport.reporterId).toBeDefined();
+    expect(ReportModerationReport.detail).toBeDefined();
   });
 
   it("supports pending, ready, failed, and removed media states", () => {
@@ -107,6 +115,47 @@ describe("report schema", () => {
       expect.arrayContaining([
         "report_moderation_action_admin_idx",
         "report_moderation_action_report_idx",
+      ]),
+    );
+  });
+
+  it("groups member-submitted report abuse reviews by report and reason", () => {
+    expect(reportModerationReviewStatus.enumValues).toEqual([
+      "pending",
+      "dismissed_false_report",
+      "resolved_action_taken",
+      "resolved_no_action",
+    ]);
+    expect(ReportModerationReport.reason.enumValues).toEqual([
+      "spam",
+      "scam",
+      "incorrect_location",
+      "offensive_content",
+      "animal_cruelty",
+      "stolen_pet_concern",
+      "impersonation",
+      "other",
+    ]);
+
+    const reviewIndexes = getTableConfig(ReportModerationReviewItem).indexes.map(
+      (index) => index.config.name,
+    );
+    const reportIndexes = getTableConfig(ReportModerationReport).indexes.map(
+      (index) => index.config.name,
+    );
+
+    expect(reviewIndexes).toEqual(
+      expect.arrayContaining([
+        "report_moderation_review_report_idx",
+        "report_moderation_review_status_latest_idx",
+        "report_moderation_review_unique_idx",
+      ]),
+    );
+    expect(reportIndexes).toEqual(
+      expect.arrayContaining([
+        "report_moderation_report_report_idx",
+        "report_moderation_report_reporter_unique_idx",
+        "report_moderation_report_review_created_idx",
       ]),
     );
   });

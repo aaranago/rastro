@@ -63,6 +63,7 @@ vi.mock("react-native", () => ({
     },
   },
   Text: "Text",
+  TextInput: "TextInput",
   useWindowDimensions: () => ({ height: 844, scale: 1, width: 390 }),
   View: "View",
 }));
@@ -89,6 +90,15 @@ vi.mock("expo-image", () => ({
 
 vi.mock("../shell/shell-overlays", () => ({
   ShellIcon: "ShellIcon",
+}));
+
+vi.mock("../shell/shell-provider", () => ({
+  useRastroShell: () => ({
+    requestAuthPrompt: vi.fn(),
+    session: {
+      kind: "visitor",
+    },
+  }),
 }));
 
 describe("PublicReportDetailContent", () => {
@@ -141,6 +151,7 @@ describe("PublicReportDetailContent", () => {
               label: "Enviar mensaje en Rastro",
             },
           ],
+          abuseReportAction: createAbuseReportAction(),
           isCurrentMember: false,
         })}
       />,
@@ -151,6 +162,7 @@ describe("PublicReportDetailContent", () => {
       "Enviar mensaje en Rastro",
       "Ver zona en mapa",
       "Compartir",
+      "Reportar",
       "Abrir página pública",
     ]);
     expect(findText(screen, "+591")).toBe(false);
@@ -296,6 +308,7 @@ function createViewModel(
   return {
     accentColor: "#D6453D",
     accentSoftColor: "#FBE8E6",
+    abuseReportAction: null,
     contactActions: [],
     contactLabel: "Chat en Rastro",
     description:
@@ -336,6 +349,24 @@ function createViewModel(
     type: "lost_pet",
     typeLabel: "Mascota perdida",
     ...overrides,
+  };
+}
+
+function createAbuseReportAction(): NonNullable<
+  PublicReportDetailViewModel["abuseReportAction"]
+> {
+  return {
+    body: "Cuéntanos qué problema ves. El equipo de Rastro revisará el reporte antes de tomar acción.",
+    detailHelper: "Describe el problema con al menos 10 caracteres.",
+    detailLabel: "Detalle",
+    detailPlaceholder: "Describe el problema con este reporte",
+    label: "Reportar",
+    reportId: "11111111-1111-4111-8111-111111111111",
+    submitLabel: "Enviar reporte",
+    successAlreadyReported: "Ya recibimos tu reporte sobre este motivo.",
+    successCreated: "Gracias. El equipo de Rastro revisará este reporte.",
+    title: "Reportar este reporte",
+    visitorCtaLabel: "Inicia sesión para reportar",
   };
 }
 

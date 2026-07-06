@@ -331,6 +331,174 @@ describe("report router", () => {
     expect(mediaWasChecked).toBe(false);
   });
 
+  it("lets members report visible public reports for abuse", async () => {
+    const reportId = "11111111-1111-4111-8111-111111111111";
+    let creationInput:
+      | {
+          report: {
+            detail: string;
+            reason: string;
+            reportId: string;
+          };
+          reporterId: string;
+        }
+      | undefined;
+    const caller = createCaller({
+      authApi: {},
+      memberSuspensionRepository: {
+        findActiveByMemberId: () => Promise.resolve(null),
+      },
+      reportModerationRepository: {
+        createReportAbuseReport: (input: NonNullable<typeof creationInput>) => {
+          creationInput = input;
+
+          return Promise.resolve({
+            reviewItem: {
+              id: "22222222-2222-4222-8222-222222222222",
+              reason: "scam",
+              reportId,
+              status: "pending",
+            },
+            status: "created",
+          });
+        },
+      },
+      reportRepository: {
+        findById: () =>
+          Promise.resolve(
+            persistedSightingReport({
+              id: reportId,
+            }),
+          ),
+      },
+      session: {
+        user: {
+          id: "member-diego",
+        },
+      },
+    });
+
+    await expect(
+      caller.report.reportAbuse({
+        detail: "Este reporte parece usar fotos falsas.",
+        reason: "scam",
+        reportId,
+      }),
+    ).resolves.toMatchObject({
+      reviewItem: {
+        reportId,
+      },
+      status: "created",
+    });
+    expect(creationInput).toEqual({
+      report: {
+        detail: "Este reporte parece usar fotos falsas.",
+        reason: "scam",
+        reportId,
+      },
+      reporterId: "member-diego",
+    });
+  });
+
+  it("rejects owner report-abuse submissions before moderation persistence", async () => {
+    const reportId = "11111111-1111-4111-8111-111111111111";
+    let moderationWasCalled = false;
+    const caller = createCaller({
+      authApi: {},
+      memberSuspensionRepository: {
+        findActiveByMemberId: () => Promise.resolve(null),
+      },
+      reportModerationRepository: {
+        createReportAbuseReport: () => {
+          moderationWasCalled = true;
+          return Promise.resolve(null);
+        },
+      },
+      reportRepository: {
+        findById: () =>
+          Promise.resolve(
+            persistedSightingReport({
+              id: reportId,
+            }),
+          ),
+      },
+      session: {
+        user: {
+          id: "member-camila",
+        },
+      },
+    });
+
+    await expect(
+      caller.report.reportAbuse({
+        detail: "Intento reportar mi propio reporte.",
+        reason: "other",
+        reportId,
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(moderationWasCalled).toBe(false);
+  });
+
+  it("rejects suspended members and hidden targets for report-abuse submissions", async () => {
+    const reportId = "11111111-1111-4111-8111-111111111111";
+    const suspendedCaller = createCaller({
+      authApi: {},
+      memberSuspensionRepository: {
+        findActiveByMemberId: () => Promise.resolve({ id: "suspension-1" }),
+      },
+      reportModerationRepository: {
+        createReportAbuseReport: () => Promise.resolve(null),
+      },
+      reportRepository: {
+        findById: () => Promise.resolve(null),
+      },
+      session: {
+        user: {
+          id: "member-diego",
+        },
+      },
+    });
+    const hiddenCaller = createCaller({
+      authApi: {},
+      memberSuspensionRepository: {
+        findActiveByMemberId: () => Promise.resolve(null),
+      },
+      reportModerationRepository: {
+        createReportAbuseReport: () => Promise.resolve(null),
+      },
+      reportRepository: {
+        findById: () =>
+          Promise.resolve(
+            persistedSightingReport({
+              hiddenAt: new Date("2026-06-20T12:00:00.000Z"),
+              id: reportId,
+            }),
+          ),
+      },
+      session: {
+        user: {
+          id: "member-diego",
+        },
+      },
+    });
+    const input = {
+      detail: "Este reporte no debería estar visible.",
+      reason: "other" as const,
+      reportId,
+    };
+
+    await expect(suspendedCaller.report.reportAbuse(input)).rejects.toMatchObject(
+      {
+        code: "PRECONDITION_FAILED",
+      },
+    );
+    await expect(hiddenCaller.report.reportAbuse(input)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
   it("creates adoption reports as pending review while Review Mode is enabled", async () => {
     let createInput:
       | {

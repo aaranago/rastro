@@ -1,11 +1,13 @@
 import type { Database } from "@acme/db/client";
-import type { ReportType } from "@acme/validators";
+import type { ModerationReportReason, ReportType } from "@acme/validators";
 import { and, asc, desc, eq, inArray, isNull, or, sql } from "@acme/db";
 import {
   MemberSuspension,
   Report,
   ReportLocation,
   ReportModerationAction,
+  ReportModerationReport,
+  ReportModerationReviewItem,
   user,
 } from "@acme/db/schema";
 
@@ -136,6 +138,10 @@ export interface ReportModerationQueueItem {
 export type ReportModerationMemberSuspension = ActiveMemberSuspensionSummary;
 
 export interface ReportModerationRepository {
+  createReportAbuseReport(input: {
+    report: CreateReportAbuseReportInput;
+    reporterId: string;
+  }): Promise<ReportAbuseReportCreationResult | null>;
   getReportQueueItem(input: {
     id: string;
   }): Promise<ReportModerationQueueItem | null>;
@@ -161,6 +167,22 @@ export interface ReportModerationTransitionInput {
   note?: string | null;
   reason: string;
   reportId: string;
+}
+
+export interface CreateReportAbuseReportInput {
+  detail: string;
+  reason: ModerationReportReason;
+  reportId: string;
+}
+
+export interface ReportAbuseReportCreationResult {
+  reviewItem: {
+    id: string;
+    reportId: string;
+    reason: ModerationReportReason;
+    status: "pending";
+  };
+  status: "already_reported" | "created";
 }
 
 export type ReportQueueRow = Pick<
@@ -214,7 +236,9 @@ interface ReportQueueSelectRow {
 
 export function createDrizzleReportModerationRepository(
   db: Database,
+  options: { now?: () => Date } = {},
 ): ReportModerationRepository {
+  const now = options.now ?? (() => new Date());
   const transition = async (
     action: ReportModerationActionName,
     input: ReportModerationTransitionInput,
@@ -303,6 +327,111 @@ export function createDrizzleReportModerationRepository(
   };
 
   return {
+    createReportAbuseReport: async ({ report, reporterId }) => {
+      const creationResult = await db.transaction(async (tx) => {
+        const txDb = tx as unknown as Database;
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtext(${report.reportId}), hashtext(${report.reason}))`,
+        );
+
+        const [target] = await tx
+          .select({
+            caretakerId: Report.caretakerId,
+            deletedAt: Report.deletedAt,
+            falseReportedAt: Report.falseReportedAt,
+            hiddenAt: Report.hiddenAt,
+            id: Report.id,
+            status: Report.status,
+            type: Report.type,
+          })
+          .from(Report)
+          .where(
+            and(
+              eq(Report.id, report.reportId),
+              inArray(Report.type, reportModerationTypes),
+            ),
+          )
+          .limit(1);
+
+        if (
+          !target ||
+          target.deletedAt ||
+          target.hiddenAt ||
+          target.falseReportedAt ||
+          target.status === "pending_review" ||
+          target.caretakerId === reporterId
+        ) {
+          return { status: "target_not_found" as const };
+        }
+
+        const timestamp = now();
+        const existingReviewItem =
+          await txDb.query.ReportModerationReviewItem.findFirst({
+            where: and(
+              eq(ReportModerationReviewItem.reportId, report.reportId),
+              eq(ReportModerationReviewItem.reason, report.reason),
+              eq(ReportModerationReviewItem.status, "pending"),
+            ),
+          });
+        const reviewItem =
+          existingReviewItem ??
+          (await insertReportModerationReviewItem(txDb, {
+            reason: report.reason,
+            reportId: report.reportId,
+            targetType: target.type,
+            timestamp,
+          }));
+        const existingReport =
+          await txDb.query.ReportModerationReport.findFirst({
+            where: and(
+              eq(ReportModerationReport.reportId, report.reportId),
+              eq(ReportModerationReport.reporterId, reporterId),
+              eq(ReportModerationReport.reason, report.reason),
+            ),
+          });
+
+        if (existingReport) {
+          return {
+            reviewItem,
+            status: "already_reported" as const,
+          };
+        }
+
+        await tx.insert(ReportModerationReport).values({
+          detail: report.detail,
+          reason: report.reason,
+          reportId: report.reportId,
+          reporterId,
+          reviewItemId: reviewItem.id,
+        });
+        await tx
+          .update(ReportModerationReviewItem)
+          .set({
+            lastReportedAt: timestamp,
+            updatedAt: timestamp,
+          })
+          .where(eq(ReportModerationReviewItem.id, reviewItem.id));
+
+        return {
+          reviewItem,
+          status: "created" as const,
+        };
+      });
+
+      if (creationResult.status === "target_not_found") {
+        return null;
+      }
+
+      return {
+        reviewItem: {
+          id: creationResult.reviewItem.id,
+          reason: creationResult.reviewItem.reason,
+          reportId: creationResult.reviewItem.reportId,
+          status: "pending",
+        },
+        status: creationResult.status,
+      };
+    },
     getReportQueueItem: ({ id }) => listReportQueueItemById(db, id),
     hideReportTarget: (input) => transition("hide", input),
     listReportQueue: (input) => listReportQueuePage(db, input),
@@ -310,6 +439,35 @@ export function createDrizzleReportModerationRepository(
     restoreReportTarget: (input) => transition("restore", input),
     unmarkFalseReportTarget: (input) => transition("unmark_false", input),
   };
+}
+
+async function insertReportModerationReviewItem(
+  db: Database,
+  input: {
+    reason: ModerationReportReason;
+    reportId: string;
+    targetType: ReportType;
+    timestamp: Date;
+  },
+) {
+  const [created] = await db
+    .insert(ReportModerationReviewItem)
+    .values({
+      firstReportedAt: input.timestamp,
+      lastReportedAt: input.timestamp,
+      reason: input.reason,
+      reportId: input.reportId,
+      status: "pending",
+      targetType: input.targetType,
+      updatedAt: input.timestamp,
+    })
+    .returning();
+
+  if (!created) {
+    throw new Error("Report moderation review item could not be created.");
+  }
+
+  return created;
 }
 
 async function listReportQueueItemById(db: Database, id: string) {
