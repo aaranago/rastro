@@ -1,5 +1,6 @@
 import type { Database } from "@acme/db/client";
 import type {
+  AlertMovingAlertsPermissionState,
   AlertPushTokenPlatform,
   AlertSubscriptionCategory,
 } from "@acme/validators";
@@ -31,6 +32,11 @@ export interface PersistedAlertSubscription {
     longitude: number;
     recordedAt: string;
   } | null;
+  movingAlerts: {
+    enabled: boolean;
+    permissionState: AlertMovingAlertsPermissionState;
+    status: "needs-background-permission" | "off" | "ready";
+  };
   pausedUntil: string | null;
   radiusMeters: number;
   status: AlertSubscriptionStatus;
@@ -130,6 +136,11 @@ export interface AlertRepository {
     token: string;
   }): Promise<PersistedAlertPushToken>;
   unsubscribe(input: { memberId: string }): Promise<PersistedAlertSubscription>;
+  updateMovingAlertsPreference(input: {
+    enabled: boolean;
+    memberId: string;
+    permissionState: AlertMovingAlertsPermissionState;
+  }): Promise<PersistedAlertSubscription>;
   upsertSettings(input: {
     categories: AlertSubscriptionCategory[];
     memberId: string;
@@ -494,6 +505,25 @@ export function createDrizzleAlertRepository(
 
       return reloadSubscription(memberId);
     },
+    updateMovingAlertsPreference: async ({
+      enabled,
+      memberId,
+      permissionState,
+    }) => {
+      await loadSubscriptionOrThrow(memberId);
+
+      const updatedAt = now();
+      await db
+        .update(AlertSubscription)
+        .set({
+          movingAlertsEnabled: enabled,
+          movingAlertsPermissionState: permissionState,
+          updatedAt,
+        })
+        .where(eq(AlertSubscription.memberId, memberId));
+
+      return reloadSubscription(memberId);
+    },
     upsertSettings: async ({ categories, memberId, radiusMeters }) => {
       const updatedAt = now();
       await db
@@ -597,6 +627,14 @@ function toPersistedAlertSubscription(
             recordedAt: row.lastLocationRecordedAt.toISOString(),
           }
         : null,
+    movingAlerts: {
+      enabled: row.movingAlertsEnabled,
+      permissionState: row.movingAlertsPermissionState,
+      status: getMovingAlertsStatus({
+        enabled: row.movingAlertsEnabled,
+        permissionState: row.movingAlertsPermissionState,
+      }),
+    },
     pausedUntil: row.pausedUntil?.toISOString() ?? null,
     radiusMeters: row.radiusMeters,
     status: getAlertSubscriptionStatus(row, currentTime),
@@ -697,4 +735,20 @@ function getAlertSubscriptionStatus(
   }
 
   return "active";
+}
+
+function getMovingAlertsStatus({
+  enabled,
+  permissionState,
+}: {
+  enabled: boolean;
+  permissionState: AlertMovingAlertsPermissionState;
+}): PersistedAlertSubscription["movingAlerts"]["status"] {
+  if (!enabled) {
+    return "off";
+  }
+
+  return permissionState === "background-granted"
+    ? "ready"
+    : "needs-background-permission";
 }

@@ -508,6 +508,20 @@ export const alertRecordLocationInputSchema = z
   })
   .strict();
 
+export const alertMovingAlertsPermissionStateSchema = z.enum([
+  "background-granted",
+  "denied",
+  "foreground-only",
+  "not-requested",
+]);
+
+export const alertUpdateMovingAlertsInputSchema = z
+  .object({
+    enabled: z.boolean(),
+    permissionState: alertMovingAlertsPermissionStateSchema,
+  })
+  .strict();
+
 export const alertPauseInputSchema = z
   .object({
     pausedUntil: z.iso.datetime(),
@@ -546,6 +560,11 @@ export const alertSubscriptionOutputSchema = z.object({
       recordedAt: isoDateTimeOutputSchema,
     })
     .nullable(),
+  movingAlerts: z.object({
+    enabled: z.boolean(),
+    permissionState: alertMovingAlertsPermissionStateSchema,
+    status: z.enum(["needs-background-permission", "off", "ready"]),
+  }),
   pausedUntil: isoDateTimeOutputSchema.nullable(),
   unsubscribedAt: isoDateTimeOutputSchema.nullable(),
   status: z.enum(["active", "paused", "unsubscribed", "needs_location"]),
@@ -586,6 +605,7 @@ export const alertGetOutputSchema = z.object({
 
 export const alertUpsertSettingsOutputSchema = alertSubscriptionOutputSchema;
 export const alertRecordLocationOutputSchema = alertSubscriptionOutputSchema;
+export const alertUpdateMovingAlertsOutputSchema = alertSubscriptionOutputSchema;
 export const alertPauseOutputSchema = alertSubscriptionOutputSchema;
 export const alertUnsubscribeOutputSchema = alertSubscriptionOutputSchema;
 export const alertRegisterPushTokenOutputSchema = alertPushTokenOutputSchema;
@@ -1504,6 +1524,12 @@ export type AlertUpsertSettingsInput = z.infer<
 >;
 export type AlertRecordLocationInput = z.infer<
   typeof alertRecordLocationInputSchema
+>;
+export type AlertMovingAlertsPermissionState = z.infer<
+  typeof alertMovingAlertsPermissionStateSchema
+>;
+export type AlertUpdateMovingAlertsInput = z.infer<
+  typeof alertUpdateMovingAlertsInputSchema
 >;
 export type AlertPauseInput = z.infer<typeof alertPauseInputSchema>;
 export type AlertUnsubscribeInput = z.infer<typeof alertUnsubscribeInputSchema>;

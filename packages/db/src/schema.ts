@@ -267,6 +267,11 @@ export const alertPushTokenPlatform = pgEnum("alert_push_token_platform", [
   "unknown",
 ]);
 
+export const alertSubscriptionBackgroundPermissionState = pgEnum(
+  "alert_subscription_background_permission_state",
+  ["background-granted", "denied", "foreground-only", "not-requested"],
+);
+
 export const alertNotificationDeliveryStatus = pgEnum(
   "alert_notification_delivery_status",
   ["pending", "sent", "failed", "skipped"],
@@ -931,6 +936,10 @@ export const AlertSubscription = pgTable(
     locationLabel: t.varchar({ length: 160 }),
     locationCell: t.varchar({ length: 96 }),
     lastLocationRecordedAt: t.timestamp(timestampWithTimezone),
+    movingAlertsEnabled: t.boolean().default(false).notNull(),
+    movingAlertsPermissionState: alertSubscriptionBackgroundPermissionState()
+      .default("not-requested")
+      .notNull(),
     pausedUntil: t.timestamp(timestampWithTimezone),
     unsubscribedAt: t.timestamp(timestampWithTimezone),
     createdAt: t.timestamp(timestampWithTimezone).defaultNow().notNull(),

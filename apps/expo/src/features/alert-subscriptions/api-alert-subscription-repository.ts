@@ -35,6 +35,11 @@ export interface ApiAlertSubscription {
     longitude: number;
     recordedAt: ApiDateValue;
   } | null;
+  movingAlerts?: {
+    enabled: boolean;
+    permissionState: UpdateMovingAlertsPreferenceInput["permissionState"];
+    status: AlertSubscriptionMovingAlertsPreference["status"];
+  };
   pausedUntil: ApiDateValue | null;
   radiusMeters: number;
   status: ApiAlertSubscriptionStatus;
@@ -58,6 +63,7 @@ interface ExpectedAlertRouterInputs {
     platform?: AlertSubscriptionPushPlatformWithUnknown;
     token: string;
   };
+  updateMovingAlerts: UpdateMovingAlertsPreferenceInput;
   unsubscribe: Record<string, never>;
   upsertSettings: {
     categories?: readonly ["lost_pet"];
@@ -73,6 +79,7 @@ interface ExpectedAlertRouterOutputs {
   pause: ApiAlertSubscription;
   recordLocation: ApiAlertSubscription;
   registerPushToken: { status: "registered" } | void;
+  updateMovingAlerts: ApiAlertSubscription;
   unsubscribe: ApiAlertSubscription | null;
   upsertSettings: ApiAlertSubscription;
 }
@@ -110,6 +117,10 @@ type AlertRecordLocationApiOutput = AlertProcedureOutput<"recordLocation">;
 type AlertRegisterPushTokenApiInput = AlertProcedureInput<"registerPushToken">;
 type AlertRegisterPushTokenApiOutput =
   AlertProcedureOutput<"registerPushToken">;
+type AlertUpdateMovingAlertsApiInput =
+  AlertProcedureInput<"updateMovingAlerts">;
+type AlertUpdateMovingAlertsApiOutput =
+  AlertProcedureOutput<"updateMovingAlerts">;
 type AlertUnsubscribeApiOutput = AlertProcedureOutput<"unsubscribe">;
 type AlertUnsubscribeApiInput = AlertProcedureInput<"unsubscribe">;
 type AlertUpsertSettingsApiInput = AlertProcedureInput<"upsertSettings">;
@@ -132,6 +143,11 @@ interface ApiAlertSubscriptionClient {
       mutate: (
         input: AlertRegisterPushTokenApiInput,
       ) => Promise<AlertRegisterPushTokenApiOutput>;
+    };
+    updateMovingAlerts: {
+      mutate: (
+        input: AlertUpdateMovingAlertsApiInput,
+      ) => Promise<AlertUpdateMovingAlertsApiOutput>;
     };
     unsubscribe: {
       mutate: (
@@ -237,24 +253,13 @@ export function createApiAlertSubscriptionRepository({
       const memberSession = assertMemberSession(session);
 
       return getAlertsClient(client)
-        .get.query(buildEmptyGetInput())
-        .then((state) => {
-          const subscription = normalizeNullableAlertSubscription(
-            getSubscriptionFromAlertState(state),
+        .updateMovingAlerts.mutate(buildUpdateMovingAlertsInput(input))
+        .then((subscription) =>
+          normalizeAlertSubscription(
+            subscription as unknown as ApiAlertSubscription,
             memberSession,
-          );
-
-          if (!subscription) {
-            throw new Error(
-              "No encontramos una suscripcion de alertas para actualizar.",
-            );
-          }
-
-          return {
-            ...subscription,
-            movingAlerts: buildLocalMovingAlertsPreference(input),
-          };
-        });
+          ),
+        );
     },
   };
 }
@@ -325,6 +330,15 @@ function buildRegisterPushTokenInput(
   } as unknown as AlertRegisterPushTokenApiInput;
 }
 
+function buildUpdateMovingAlertsInput(
+  input: UpdateMovingAlertsPreferenceInput,
+): AlertUpdateMovingAlertsApiInput {
+  return {
+    enabled: input.enabled,
+    permissionState: input.permissionState,
+  } as unknown as AlertUpdateMovingAlertsApiInput;
+}
+
 function normalizeAlertSubscription(
   subscription: ApiAlertSubscription,
   session: AlertSubscriptionsMemberSession,
@@ -338,7 +352,7 @@ function normalizeAlertSubscription(
     id: subscription.id,
     locationUpdatePolicy: normalizeLocationUpdatePolicy(),
     memberId: session.memberId,
-    movingAlerts: { ...defaultMovingAlertsPreference },
+    movingAlerts: normalizeMovingAlertsPreference(subscription.movingAlerts),
     notifiedLostReportIds: [],
     radiusKm: normalizeRadiusMeters(subscription.radiusMeters),
     updatedAt: normalizeDateValue(subscription.updatedAt),
@@ -401,6 +415,16 @@ function normalizeLocationUpdatePolicy(): AlertSubscriptionLocationUpdatePolicy 
     continuousPolling: false,
     locationWatcher: false,
   };
+}
+
+function normalizeMovingAlertsPreference(
+  input: ApiAlertSubscription["movingAlerts"],
+): AlertSubscriptionMovingAlertsPreference {
+  if (!input) {
+    return { ...defaultMovingAlertsPreference };
+  }
+
+  return buildLocalMovingAlertsPreference(input);
 }
 
 function buildLocalMovingAlertsPreference({

@@ -344,6 +344,8 @@ function createFakeAlertRepository(
       Promise.reject(new Error("Not needed in activity tests.")),
     unsubscribe: () =>
       Promise.reject(new Error("Not needed in activity tests.")),
+    updateMovingAlertsPreference: () =>
+      Promise.reject(new Error("Not needed in activity tests.")),
     upsertSettings: () =>
       Promise.reject(new Error("Not needed in activity tests.")),
   };

@@ -38,7 +38,7 @@ describe("alerts router", () => {
     expect(read).toBe(false);
   });
 
-  it("uses the session member for settings, location, and token registration", async () => {
+  it("uses the session member for settings, location, moving alerts, and token registration", async () => {
     const repository = createFakeAlertRepository();
     const caller = createCaller({
       alertRepository: repository,
@@ -61,6 +61,10 @@ describe("alerts router", () => {
       label: "Sopocachi, La Paz",
       locationCell: "bo-lpb-sopocachi",
     });
+    await caller.alerts.updateMovingAlerts({
+      enabled: true,
+      permissionState: "not-requested",
+    });
     await caller.alerts.registerPushToken({
       platform: "ios",
       token: "ExponentPushToken[abc_123-XYZ]",
@@ -75,6 +79,12 @@ describe("alerts router", () => {
       {
         kind: "recordLocation",
         memberId: "member-camila",
+      },
+      {
+        enabled: true,
+        kind: "updateMovingAlerts",
+        memberId: "member-camila",
+        permissionState: "not-requested",
       },
       {
         kind: "registerPushToken",
@@ -116,6 +126,13 @@ describe("alerts router", () => {
         token: "ExponentPushToken[abc_123-XYZ]",
       } as never),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(
+      caller.alerts.updateMovingAlerts({
+        enabled: true,
+        memberId: "member-attacker",
+        permissionState: "not-requested",
+      } as never),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
 
     expect(repository.inputs).toEqual([]);
   });
@@ -145,6 +162,12 @@ type FakeAlertRepository = AlertRepository & {
   inputs: (
     | { kind: "recordLocation"; memberId: string }
     | { kind: "registerPushToken"; memberId: string; token: string }
+    | {
+        enabled: boolean;
+        kind: "updateMovingAlerts";
+        memberId: string;
+        permissionState: PersistedAlertSubscription["movingAlerts"]["permissionState"];
+      }
     | { kind: "upsertSettings"; memberId: string; radiusMeters: number }
   )[];
 };
@@ -204,6 +227,23 @@ function createFakeAlertRepository(
         status: "unsubscribed",
         unsubscribedAt: now,
       }),
+    updateMovingAlertsPreference: ({ enabled, memberId, permissionState }) => {
+      inputs.push({
+        enabled,
+        kind: "updateMovingAlerts",
+        memberId,
+        permissionState,
+      });
+
+      return Promise.resolve({
+        ...subscription,
+        movingAlerts: {
+          enabled,
+          permissionState,
+          status: "needs-background-permission",
+        },
+      });
+    },
     upsertSettings: ({ memberId, radiusMeters }) => {
       inputs.push({
         kind: "upsertSettings",
@@ -227,6 +267,11 @@ function createSubscription(): PersistedAlertSubscription {
       label: "Sopocachi, La Paz",
       locationCell: "bo-lpb-sopocachi",
       recordedAt: now,
+    },
+    movingAlerts: {
+      enabled: false,
+      permissionState: "not-requested",
+      status: "off",
     },
     pausedUntil: null,
     radiusMeters: 3500,

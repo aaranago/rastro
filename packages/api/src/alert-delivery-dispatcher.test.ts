@@ -293,6 +293,8 @@ function createFakeAlertRepository(
       Promise.reject(new Error("Not needed in dispatcher tests.")),
     unsubscribe: () =>
       Promise.reject(new Error("Not needed in dispatcher tests.")),
+    updateMovingAlertsPreference: () =>
+      Promise.reject(new Error("Not needed in dispatcher tests.")),
     upsertSettings: () =>
       Promise.reject(new Error("Not needed in dispatcher tests.")),
   };

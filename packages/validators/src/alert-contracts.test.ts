@@ -8,6 +8,7 @@ import {
   alertRecordLocationInputSchema,
   alertRegisterPushTokenInputSchema,
   alertUnsubscribeInputSchema,
+  alertUpdateMovingAlertsInputSchema,
   alertUpsertSettingsInputSchema,
 } from "./index";
 
@@ -48,6 +49,15 @@ describe("alert validation contracts", () => {
       platform: "unknown",
       token: "ExponentPushToken[abc_123-XYZ]",
     });
+    expect(
+      alertUpdateMovingAlertsInputSchema.parse({
+        enabled: true,
+        permissionState: "not-requested",
+      }),
+    ).toEqual({
+      enabled: true,
+      permissionState: "not-requested",
+    });
 
     expect(
       alertGetOutputSchema.safeParse({
@@ -61,6 +71,11 @@ describe("alert validation contracts", () => {
             label: "Sopocachi, La Paz",
             locationCell: "bo-lpb-sopocachi",
             recordedAt: "2026-07-01T12:00:00.000Z",
+          },
+          movingAlerts: {
+            enabled: true,
+            permissionState: "not-requested",
+            status: "needs-background-permission",
           },
           pausedUntil: null,
           unsubscribedAt: null,
@@ -130,6 +145,14 @@ describe("alert validation contracts", () => {
         alertPauseInputSchema,
       ],
       [{ memberId: "member-attacker" }, alertUnsubscribeInputSchema],
+      [
+        {
+          enabled: true,
+          memberId: "member-attacker",
+          permissionState: "not-requested",
+        },
+        alertUpdateMovingAlertsInputSchema,
+      ],
       [
         {
           memberId: "member-attacker",

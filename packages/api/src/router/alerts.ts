@@ -12,6 +12,8 @@ import {
   alertRegisterPushTokenOutputSchema,
   alertUnsubscribeInputSchema,
   alertUnsubscribeOutputSchema,
+  alertUpdateMovingAlertsInputSchema,
+  alertUpdateMovingAlertsOutputSchema,
   alertUpsertSettingsInputSchema,
   alertUpsertSettingsOutputSchema,
 } from "@acme/validators";
@@ -58,6 +60,18 @@ export const alertsRouter = {
           locationCell: input.locationCell,
           longitude: input.longitude,
           memberId: ctx.session.user.id,
+        }),
+      ),
+	    ),
+  updateMovingAlerts: protectedProcedure
+    .input(alertUpdateMovingAlertsInputSchema)
+    .output(alertUpdateMovingAlertsOutputSchema)
+    .mutation(({ ctx, input }) =>
+      withAlertRepositoryErrors(() =>
+        ctx.alertRepository.updateMovingAlertsPreference({
+          enabled: input.enabled,
+          memberId: ctx.session.user.id,
+          permissionState: input.permissionState,
         }),
       ),
     ),

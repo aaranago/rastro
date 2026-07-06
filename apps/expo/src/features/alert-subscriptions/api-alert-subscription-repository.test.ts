@@ -54,8 +54,10 @@ describe("API alert subscription repository", () => {
       memberId: "member-camila",
       movingAlerts: {
         backgroundTracking: "not-started",
-        enabled: false,
+        enabled: true,
         label: "Alertas mientras me muevo",
+        permissionState: "not-requested",
+        status: "needs-background-permission",
       },
       radiusKm: 10,
       updatedAt: "2026-06-30T13:03:00.000Z",
@@ -88,6 +90,10 @@ describe("API alert subscription repository", () => {
       projectId: "eas-project-id",
       token: "ExponentPushToken[abc123]",
     });
+    await repository.updateMovingAlertsPreference(spoofableSession, {
+      enabled: true,
+      permissionState: "not-requested",
+    });
 
     expect(client.alerts.upsertSettings.mutate).toHaveBeenCalledWith({
       categories: ["lost_pet"],
@@ -108,6 +114,10 @@ describe("API alert subscription repository", () => {
       platform: "android",
       token: "ExponentPushToken[abc123]",
     });
+    expect(client.alerts.updateMovingAlerts.mutate).toHaveBeenCalledWith({
+      enabled: true,
+      permissionState: "not-requested",
+    });
 
     expect(
       JSON.stringify(client.alerts.upsertSettings.mutate.mock.calls),
@@ -117,6 +127,9 @@ describe("API alert subscription repository", () => {
     ).not.toContain("member-spoofed");
     expect(
       JSON.stringify(client.alerts.registerPushToken.mutate.mock.calls),
+    ).not.toContain("member-spoofed");
+    expect(
+      JSON.stringify(client.alerts.updateMovingAlerts.mutate.mock.calls),
     ).not.toContain("member-spoofed");
   });
 
@@ -138,6 +151,7 @@ function createApiAlertSubscriptionClient(
     pause: ApiAlertSubscription;
     recordLocation: ApiAlertSubscription;
     unsubscribe: ApiAlertSubscription | null;
+    updateMovingAlerts: ApiAlertSubscription;
     upsertSettings: ApiAlertSubscription;
   }> = {},
 ) {
@@ -167,6 +181,11 @@ function createApiAlertSubscriptionClient(
       registerPushToken: {
         mutate: vi.fn(() => Promise.resolve({ status: "registered" as const })),
       },
+      updateMovingAlerts: {
+        mutate: vi.fn(() =>
+          Promise.resolve(overrides.updateMovingAlerts ?? fallbackSubscription),
+        ),
+      },
       unsubscribe: {
         mutate: vi.fn(() =>
           Promise.resolve(
@@ -194,6 +213,11 @@ function createApiSubscription(): ApiAlertSubscription {
       locationCell: "Sopocachi",
       longitude: -68.1299,
       recordedAt: new Date("2026-06-30T13:02:00.000Z"),
+    },
+    movingAlerts: {
+      enabled: true,
+      permissionState: "not-requested",
+      status: "needs-background-permission",
     },
     pausedUntil: null,
     radiusMeters: 10000,

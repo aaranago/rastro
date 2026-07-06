@@ -256,6 +256,13 @@ describe("report schema", () => {
     );
     expect(AlertSubscription.latitude).toBeDefined();
     expect(AlertSubscription.longitude).toBeDefined();
+    expect(AlertSubscription.movingAlertsEnabled).toBeDefined();
+    expect(AlertSubscription.movingAlertsPermissionState.enumValues).toEqual([
+      "background-granted",
+      "denied",
+      "foreground-only",
+      "not-requested",
+    ]);
     expect(AlertSubscription.pausedUntil).toBeDefined();
     expect(AlertSubscription.unsubscribedAt).toBeDefined();
 
