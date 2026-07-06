@@ -1,3 +1,4 @@
+import type { LegendListRenderItemProps } from "@legendapp/list";
 import type { Href } from "expo-router";
 import type { ReportOutcome } from "@acme/validators";
 import * as React from "react";
@@ -5,13 +6,13 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
+import { LegendList } from "@legendapp/list";
 
 import type {
   MyReportCardViewModel,
@@ -297,6 +298,26 @@ export function MyReportsScreen({
     });
   }, [initialManageReportId, loadState, memberKey]);
 
+  const renderReport = React.useCallback(
+    ({ item: report }: LegendListRenderItemProps<MyReportCardViewModel>) => (
+      <MyReportCard
+        onManage={() => {
+          setManagement({
+            confirmation: null,
+            kind: "open",
+            pendingAction: null,
+            report,
+          });
+        }}
+        onOpen={() => {
+          openReport(report.href);
+        }}
+        report={report}
+      />
+    ),
+    [openReport],
+  );
+
   if (session.kind === "loading") {
     return (
       <AppStateScreen
@@ -373,16 +394,8 @@ export function MyReportsScreen({
     filter,
     reports: loadState.reports,
   });
-
-  return (
-    <ScrollView
-      contentContainerStyle={styles.content}
-      contentInset={{ bottom: 120 }}
-      contentInsetAdjustmentBehavior="automatic"
-      scrollIndicatorInsets={{ bottom: 120 }}
-      style={styles.screen}
-      testID="my-reports-screen"
-    >
+  const header = (
+    <View style={styles.listHeader}>
       <View style={styles.header}>
         <Text selectable style={styles.eyebrow}>
           Perfil
@@ -437,38 +450,35 @@ export function MyReportsScreen({
           </Text>
         </View>
       ) : null}
+    </View>
+  );
+  const emptyState = (
+    <View style={styles.emptyPanel}>
+      <ShellIcon color={shellColors.primary} name="tray.fill" size={24} />
+      <Text selectable style={styles.emptyTitle}>
+        {viewModel.emptyState.title}
+      </Text>
+      <Text selectable style={styles.emptyBody}>
+        {viewModel.emptyState.body}
+      </Text>
+    </View>
+  );
 
-      {viewModel.reports.length === 0 ? (
-        <View style={styles.emptyPanel}>
-          <ShellIcon color={shellColors.primary} name="tray.fill" size={24} />
-          <Text selectable style={styles.emptyTitle}>
-            {viewModel.emptyState.title}
-          </Text>
-          <Text selectable style={styles.emptyBody}>
-            {viewModel.emptyState.body}
-          </Text>
-        </View>
-      ) : (
-        <View style={styles.reportList}>
-          {viewModel.reports.map((report) => (
-            <MyReportCard
-              key={report.id}
-              onManage={() => {
-                setManagement({
-                  confirmation: null,
-                  kind: "open",
-                  pendingAction: null,
-                  report,
-                });
-              }}
-              onOpen={() => {
-                openReport(report.href);
-              }}
-              report={report}
-            />
-          ))}
-        </View>
-      )}
+  return (
+    <View style={styles.screen} testID="my-reports-screen">
+      <LegendList
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+        data={viewModel.reports}
+        estimatedItemSize={190}
+        ItemSeparatorComponent={MyReportCardSeparator}
+        keyExtractor={myReportKeyExtractor}
+        ListEmptyComponent={emptyState}
+        ListHeaderComponent={header}
+        renderItem={renderReport}
+        scrollIndicatorInsets={{ bottom: 120 }}
+        testID="my-reports-list"
+      />
 
       {management.kind === "open" ? (
         <MyReportManagementSheet
@@ -487,8 +497,16 @@ export function MyReportsScreen({
           report={management.report}
         />
       ) : null}
-    </ScrollView>
+    </View>
   );
+}
+
+function myReportKeyExtractor(report: MyReportCardViewModel) {
+  return report.id;
+}
+
+function MyReportCardSeparator() {
+  return <View style={styles.reportSeparator} />;
 }
 
 function MyReportCard({
@@ -1024,6 +1042,10 @@ const styles = StyleSheet.create({
   header: {
     gap: 6,
   },
+  listHeader: {
+    gap: 14,
+    marginBottom: 14,
+  },
   lockedNotice: {
     alignItems: "flex-start",
     backgroundColor: shellColors.primarySoft,
@@ -1092,8 +1114,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "900",
   },
-  reportList: {
-    gap: 12,
+  reportSeparator: {
+    height: 12,
   },
   reviewPill: {
     backgroundColor: "#FFF4CC",

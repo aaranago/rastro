@@ -57,13 +57,32 @@ vi.mock("react-native", () => ({
   ActivityIndicator: "ActivityIndicator",
   Modal: "Modal",
   Pressable: "Pressable",
-  ScrollView: "ScrollView",
   StyleSheet: {
     create: <TStyles extends Record<string, unknown>>(styles: TStyles) =>
       styles,
   },
   Text: "Text",
   View: "View",
+}));
+
+vi.mock("@legendapp/list", () => ({
+  LegendList: (
+    props: ElementProps & {
+      data?: readonly unknown[];
+      ListEmptyComponent?: React.ReactNode;
+      ListHeaderComponent?: React.ReactNode;
+      renderItem?: (props: { index: number; item: unknown }) => React.ReactNode;
+    },
+  ) => {
+    const data = props.data ?? [];
+    const children = [
+      props.ListHeaderComponent,
+      ...data.map((item, index) => props.renderItem?.({ index, item }) ?? null),
+      data.length === 0 ? props.ListEmptyComponent : null,
+    ];
+
+    return React.createElement("LegendList", props, children);
+  },
 }));
 
 vi.mock("expo-image", () => ({
@@ -123,6 +142,13 @@ describe("MyReportsScreen", () => {
     expect(findText(screen, "Mis reportes")).toBe(true);
     expect(findText(screen, "Luna perdida en Sopocachi")).toBe(true);
     expect(findText(screen, "Activo")).toBe(true);
+    expect(
+      findElement(screen, (element) => element.type === "LegendList")?.props
+        .data,
+    ).toHaveLength(1);
+    expect(findElement(screen, (element) => element.type === "ScrollView")).toBe(
+      undefined,
+    );
 
     pressByText(screen, "Ver");
 

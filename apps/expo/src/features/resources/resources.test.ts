@@ -512,7 +512,7 @@ describe("Resources directory", () => {
 
     expect(empty.notice).toEqual({
       title: "No hay servicios cerca",
-      body: "Intenta buscar en otra ubicación o ampliar el radio dentro de Bolivia.",
+      body: "Intenta buscar en otra ubicación dentro de Bolivia o quitar filtros.",
       actions: [
         { kind: "manual_search", label: "Buscar en otra zona" },
         { kind: "show_all", label: "Ver todos los recursos" },
