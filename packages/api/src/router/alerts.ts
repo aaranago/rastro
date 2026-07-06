@@ -62,7 +62,7 @@ export const alertsRouter = {
           memberId: ctx.session.user.id,
         }),
       ),
-	    ),
+    ),
   updateMovingAlerts: protectedProcedure
     .input(alertUpdateMovingAlertsInputSchema)
     .output(alertUpdateMovingAlertsOutputSchema)

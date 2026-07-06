@@ -605,7 +605,8 @@ export const alertGetOutputSchema = z.object({
 
 export const alertUpsertSettingsOutputSchema = alertSubscriptionOutputSchema;
 export const alertRecordLocationOutputSchema = alertSubscriptionOutputSchema;
-export const alertUpdateMovingAlertsOutputSchema = alertSubscriptionOutputSchema;
+export const alertUpdateMovingAlertsOutputSchema =
+  alertSubscriptionOutputSchema;
 export const alertPauseOutputSchema = alertSubscriptionOutputSchema;
 export const alertUnsubscribeOutputSchema = alertSubscriptionOutputSchema;
 export const alertRegisterPushTokenOutputSchema = alertPushTokenOutputSchema;
