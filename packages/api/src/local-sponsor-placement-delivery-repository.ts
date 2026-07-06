@@ -22,7 +22,7 @@ export interface PersistedLocalSponsorPlacementDeliveryEvent {
 
 export interface RecordLocalSponsorPlacementDeliveryEventInput {
   eventType: LocalSponsorPlacementDeliveryEventType;
-  idempotencyKey?: string;
+  idempotencyKey: string;
   memberId?: string;
   placementId?: string;
   providerId: string;
@@ -53,18 +53,16 @@ export function createDrizzleLocalSponsorPlacementDeliveryRepository(
 
   return {
     record: async (input) => {
-      if (input.idempotencyKey) {
-        const existing = await findEventByIdempotencyKey(
-          db,
-          input.idempotencyKey,
-        );
+      const existing = await findEventByIdempotencyKey(
+        db,
+        input.idempotencyKey,
+      );
 
-        if (existing) {
-          return {
-            event: existing,
-            status: "duplicate",
-          };
-        }
+      if (existing) {
+        return {
+          event: existing,
+          status: "duplicate",
+        };
       }
 
       const occurredAt = now();
@@ -85,7 +83,7 @@ export function createDrizzleLocalSponsorPlacementDeliveryRepository(
         .insert(LocalSponsorPlacementDeliveryEvent)
         .values({
           eventType: input.eventType,
-          idempotencyKey: input.idempotencyKey ?? null,
+          idempotencyKey: input.idempotencyKey,
           memberId: input.memberId ?? null,
           occurredAt,
           placementId: placement.placementId,
@@ -105,18 +103,16 @@ export function createDrizzleLocalSponsorPlacementDeliveryRepository(
         };
       }
 
-      if (input.idempotencyKey) {
-        const existing = await findEventByIdempotencyKey(
-          db,
-          input.idempotencyKey,
-        );
+      const conflicted = await findEventByIdempotencyKey(
+        db,
+        input.idempotencyKey,
+      );
 
-        if (existing) {
-          return {
-            event: existing,
-            status: "duplicate",
-          };
-        }
+      if (conflicted) {
+        return {
+          event: conflicted,
+          status: "duplicate",
+        };
       }
 
       return {

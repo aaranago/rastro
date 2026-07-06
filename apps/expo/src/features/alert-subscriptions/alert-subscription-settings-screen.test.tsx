@@ -204,6 +204,83 @@ describe("AlertSubscriptionSettingsScreen backend behavior", () => {
     expect(repository.unsubscribeAlertSubscription).toHaveBeenCalledWith(
       member,
     );
+
+    screen = renderSettingsScreen({ nativeAdapter, repository });
+
+    expect(
+      findPressableByText(screen, "5 km")?.props.accessibilityState,
+    ).toMatchObject({ selected: true });
+    expect(
+      findPressableByText(screen, "10 km")?.props.accessibilityState,
+    ).toMatchObject({ selected: false });
+  });
+
+  it("resets stale radius when a different member has no subscription", async () => {
+    const memberA: AlertSubscriptionsMemberSession = {
+      displayName: "Ana",
+      kind: "member",
+      memberId: "member-ana",
+    };
+    const memberB: AlertSubscriptionsMemberSession = {
+      displayName: "Beto",
+      kind: "member",
+      memberId: "member-beto",
+    };
+    const repository = createScreenRepository({
+      getSequence: [
+        createSubscription({ memberId: memberA.memberId, radiusKm: 20 }),
+        null,
+      ],
+    });
+    const nativeAdapter = createNativeAdapter();
+
+    let screen = renderSettingsScreen({
+      nativeAdapter,
+      repository,
+      session: memberA,
+    });
+    runEffects();
+    await flushPromises();
+    screen = renderSettingsScreen({
+      nativeAdapter,
+      repository,
+      session: memberA,
+    });
+
+    expect(
+      findPressableByText(screen, "20 km")?.props.accessibilityState,
+    ).toMatchObject({ selected: true });
+
+    discardPendingEffects();
+    screen = renderSettingsScreen({
+      nativeAdapter,
+      repository,
+      session: memberB,
+    });
+
+    expect(findText(screen, "Cargando alertas")).toBe(true);
+    expect(
+      findPressableByText(screen, "5 km")?.props.accessibilityState,
+    ).toMatchObject({ selected: true });
+    expect(
+      findPressableByText(screen, "20 km")?.props.accessibilityState,
+    ).toMatchObject({ selected: false });
+
+    runEffects();
+    await flushPromises();
+    screen = renderSettingsScreen({
+      nativeAdapter,
+      repository,
+      session: memberB,
+    });
+
+    expect(repository.getAlertSubscription).toHaveBeenCalledWith(memberB);
+    expect(
+      findPressableByText(screen, "5 km")?.props.accessibilityState,
+    ).toMatchObject({ selected: true });
+    expect(
+      findPressableByText(screen, "20 km")?.props.accessibilityState,
+    ).toMatchObject({ selected: false });
   });
 
   it("keeps subscription mutations disabled while backend state is loading", async () => {

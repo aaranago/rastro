@@ -61,7 +61,7 @@ describe("admin audit page", () => {
             department: "La Paz",
             id: "audit-event-settings",
             occurredAt: "2026-06-26T15:00:00.000Z",
-            summary: "Review Mode activado para adopciones",
+            summary: "modo de revisión activado para adopciones",
             target: {
               id: "admin-settings",
               label: "Ajustes de publicación",
@@ -120,7 +120,7 @@ describe("admin audit page", () => {
       title: "Auditoría admin | Rastro",
     });
     expect(html).toContain("Auditoría administrativa");
-    expect(html).toContain("Review Mode activado para adopciones");
+    expect(html).toContain("modo de revisión activado para adopciones");
     expect(html).toContain('value="100"');
     expect(auditApi.listAdminAuditEvents).toHaveBeenCalledWith({
       action: "settings_updated",

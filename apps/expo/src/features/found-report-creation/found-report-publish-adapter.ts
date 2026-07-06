@@ -96,7 +96,7 @@ export function toCreateFoundPetReportInput(
     contact: toCreateReportContact(input.contactOption),
     description: [
       input.foundDescription.trim(),
-      `Condicion: ${input.condition.trim()}`,
+      `Condición: ${input.condition.trim()}`,
     ].join("\n\n"),
     eventOccurredAt: input.foundAt,
     idempotencyKey: input.idempotencyKey,

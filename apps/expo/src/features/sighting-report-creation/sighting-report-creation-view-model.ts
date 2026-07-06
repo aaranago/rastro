@@ -238,7 +238,7 @@ export function buildSightingReportCreationViewModel({
         ? getPhotoStepError(draft.photos)
         : undefined,
       helpLabel:
-        "La foto es opcional. Si agregas una, prioriza senas visibles sin acercarte ni retener a la mascota.",
+        "La foto es opcional. Si agregas una, prioriza señas visibles sin acercarte ni retener a la mascota.",
       items: draft.photos.slice(0, sightingReportPhotoLimit),
       permissionBody:
         "Te pediremos acceso solo si eliges agregar fotos de este avistamiento.",
@@ -266,7 +266,7 @@ export function buildSightingReportCreationViewModel({
       draft,
     }),
     success: {
-      body: "Tu reporte de avistamiento queda listo para que otros cuidadores entiendan cuando, donde y hacia donde se movia la mascota.",
+      body: "Tu reporte de avistamiento queda listo para que otros cuidadores entiendan cuándo, dónde y hacia dónde se movía la mascota.",
       primaryActionLabel: "Ver avistamiento",
       shareActionLabel: "Compartir",
       title: "Avistamiento publicado",
@@ -276,7 +276,7 @@ export function buildSightingReportCreationViewModel({
       session?.kind === "visitor"
         ? {
             intent: "sighting-report",
-            label: "Iniciar sesion para reportar avistamiento",
+            label: "Iniciar sesión para reportar avistamiento",
           }
         : undefined,
   };
@@ -391,7 +391,7 @@ function validateSightingReportDraft(draft: SightingReportDraft) {
   appendReportCreationLocationErrors({
     errors,
     location: draft.exactSightingLocation,
-    missingMessage: "Selecciona donde fue visto el animal.",
+    missingMessage: "Selecciona dónde fue visto el animal.",
   });
 
   const observedAtError = getObservedAtError(
@@ -402,11 +402,11 @@ function validateSightingReportDraft(draft: SightingReportDraft) {
   }
 
   if (draft.sightingDetails.observedCondition.trim().length === 0) {
-    errors.push("Describe la condicion observada.");
+    errors.push("Describe la condición observada.");
   }
 
   if (draft.sightingDetails.direction.trim().length === 0) {
-    errors.push("Indica hacia donde iba.");
+    errors.push("Indica hacia dónde iba.");
   }
 
   const sightingDescriptionError = getSightingDescriptionError(
@@ -417,7 +417,7 @@ function validateSightingReportDraft(draft: SightingReportDraft) {
   }
 
   if (draft.pet.description.trim().length === 0) {
-    errors.push("Agrega senas visibles de la mascota vista.");
+    errors.push("Agrega señas visibles de la mascota vista.");
   }
 
   if (!draft.contact.inAppChatEnabled && !draft.contact.whatsappEnabled) {
@@ -444,17 +444,17 @@ function buildSightingDetailsViewModel(
         error: showValidation
           ? getSightingDescriptionError(draft.sightingDetails.description)
           : undefined,
-        label: "Descripcion del avistamiento",
+        label: "Descripción del avistamiento",
         placeholder:
-          "Que viste, desde donde, si se dejaba acercar o si habia riesgos",
+          "Qué viste, desde dónde, si se dejaba acercar o si había riesgos",
         value: draft.sightingDetails.description,
       },
       direction: {
         error:
           showValidation && draft.sightingDetails.direction.trim().length === 0
-            ? "Indica hacia donde iba."
+            ? "Indica hacia dónde iba."
             : undefined,
-        label: "Direccion",
+        label: "Dirección",
         placeholder: "Ej. hacia la avenida, subiendo la calle, rumbo al parque",
         value: draft.sightingDetails.direction,
       },
@@ -463,16 +463,16 @@ function buildSightingDetailsViewModel(
           ? getObservedAtError(draft.sightingDetails.observedAtLabel)
           : undefined,
         label: "Cuando la viste",
-        placeholder: "Selecciona cuando la viste",
+        placeholder: "Selecciona cuándo la viste",
         value: draft.sightingDetails.observedAtLabel,
       },
       observedCondition: {
         error:
           showValidation &&
           draft.sightingDetails.observedCondition.trim().length === 0
-            ? "Describe la condicion observada."
+            ? "Describe la condición observada."
             : undefined,
-        label: "Condicion observada",
+        label: "Condición observada",
         placeholder: "Ej. asustada, cojeando, con collar, cruzando calles",
         value: draft.sightingDetails.observedCondition,
       },
@@ -485,17 +485,17 @@ function buildPetViewModel(draft: SightingReportDraft, showValidation = true) {
   return {
     fields: {
       breed: {
-        label: "Raza o descripcion corta",
+        label: "Raza o descripción corta",
         placeholder: "Mestizo, gato naranja, cachorro negro...",
         value: draft.pet.breed,
       },
       description: {
         error:
           showValidation && draft.pet.description.trim().length === 0
-            ? "Agrega senas visibles de la mascota vista."
+            ? "Agrega señas visibles de la mascota vista."
             : undefined,
-        label: "Senas visibles",
-        placeholder: "Color, tamano, collar, marcas o comportamiento",
+        label: "Señas visibles",
+        placeholder: "Color, tamaño, collar, marcas o comportamiento",
         value: draft.pet.description,
       },
     },
@@ -515,7 +515,7 @@ function buildLocationViewModel(draft: SightingReportDraft) {
     : "Selecciona el punto donde fue vista.";
   const approximatePublicLabel = location
     ? `${location.locationCellLabel} · zona de 300 m`
-    : "Elige una ubicacion para calcular la zona.";
+    : "Elige una ubicación para calcular la zona.";
 
   return {
     approximatePublicLabel,
@@ -524,9 +524,9 @@ function buildLocationViewModel(draft: SightingReportDraft) {
     hasExactLocation: Boolean(location),
     mapPreviewLabel: location
       ? `${location.locationCellLabel}, Bolivia`
-      : "Bolivia - elige una ubicacion",
+      : "Bolivia - elige una ubicación",
     publicPrecisionLabel: draft.showExactPinPublicly
-      ? "Pin exacto publico"
+      ? "Pin exacto público"
       : "Zona aproximada de 300 m",
     showExactPinPublicly: draft.showExactPinPublicly,
     toggleBody:
@@ -561,7 +561,7 @@ function buildReviewRows({
       value: draft.sightingDetails.observedAtLabel || "Pendiente",
     },
     {
-      label: "Direccion",
+      label: "Dirección",
       value: draft.sightingDetails.direction || "Pendiente",
     },
     {
@@ -571,8 +571,8 @@ function buildReviewRows({
     {
       label: "Ubicación pública",
       value: draft.showExactPinPublicly
-        ? "Punto exacto publico"
-        : "Zona aproximada publica",
+        ? "Punto exacto público"
+        : "Zona aproximada pública",
     },
     {
       label: "Contacto",
@@ -736,7 +736,7 @@ function getObservedAtError(value: string) {
   const trimmed = value.trim();
 
   if (trimmed.length === 0) {
-    return "Indica cuando fue visto.";
+    return "Indica cuándo fue visto.";
   }
 
   if (!isIsoDateTime(trimmed)) {
@@ -782,8 +782,8 @@ function buildContactOptions(currentOption: SightingReportContactOption) {
 
 function getSightingDescriptionError(value: string) {
   return getReportCreationMinimumDescriptionError({
-    emptyMessage: "Agrega una descripcion del avistamiento.",
-    shortMessage: "Escribe una descripcion de al menos 10 caracteres.",
+    emptyMessage: "Agrega una descripción del avistamiento.",
+    shortMessage: "Escribe una descripción de al menos 10 caracteres.",
     value,
   });
 }

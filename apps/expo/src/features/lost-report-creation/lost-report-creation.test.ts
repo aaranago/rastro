@@ -35,12 +35,13 @@ const reportSuccessSponsorPlacement: LostReportSuccessLocalSponsorPlacement = {
   actionLabel: "Ver recurso",
   body: "Atención veterinaria y orientación local para los primeros cuidados.",
   categoryLabel: "Veterinaria",
+  deliveryToken: "report-success-delivery-token",
   eligibleSurfaces: ["report_success", "contextual_care_resources"],
   id: "11111111-1111-4111-8111-111111111111",
   imageUrl: "https://example.com/sponsor-san-roque-banner.png",
   logoUrl: "https://example.com/sponsor-san-roque-logo.png",
-  name: "Clinica Veterinaria San Roque",
-  paidDisclosure: "Colocacion pagada",
+  name: "Clínica Veterinaria San Roque",
+  paidDisclosure: "Colocación pagada",
   recoveryPriorityDisclosure:
     "No cambia la prioridad de tu reporte ni donde aparece.",
   reportActionLabel: "Reportar",
@@ -70,7 +71,7 @@ describe("Lost Pet Report creation view model", () => {
     expect(viewModel).toMatchObject({
       canPublish: false,
       kind: "member",
-      title: "Reportar perdida",
+      title: "Reportar pérdida",
     });
     expect(viewModel.petProfile.selectedLabel).toBe("Toby · Perro");
     expect(viewModel.photos.error).toContain("Agrega al menos una foto");
@@ -214,10 +215,10 @@ describe("Lost Pet Report creation view model", () => {
     ).toBe("Ingresa el nombre de la mascota.");
     expect(
       attemptedDetailsViewModel.lostDetails.fields.lastSeenAtLabel.error,
-    ).toBe("Indica cuando la viste por ultima vez.");
+    ).toBe("Indica cuándo la viste por última vez.");
     expect(
       attemptedDetailsViewModel.lostDetails.fields.circumstances.error,
-    ).toBe("Cuenta que paso.");
+    ).toBe("Cuenta qué pasó.");
 
     const attemptedContactViewModel = buildLostReportCreationViewModel({
       draft,
@@ -259,7 +260,7 @@ describe("Lost Pet Report creation view model", () => {
     });
 
     expect(viewModel.lostDetails.fields.circumstances.error).toBe(
-      "Cuenta que paso con al menos 10 caracteres.",
+      "Cuenta qué pasó con al menos 10 caracteres.",
     );
     expect(viewModel.canPublish).toBe(false);
   });
@@ -284,13 +285,13 @@ describe("Lost Pet Report creation view model", () => {
         municipality: "La Paz",
       },
       inlinePet: {
-        breed: "Siames",
+        breed: "Siamés",
         description: "Mancha blanca en el pecho.",
         name: "Luna",
         type: "Gato" as const,
       },
       lostDetails: {
-        circumstances: "Salio por la puerta principal.",
+        circumstances: "Salió por la puerta principal.",
         lastSeenAtLabel: "2026-06-18T10:50:00.000Z",
         markings: "Mancha blanca en el pecho.",
       },
@@ -366,13 +367,13 @@ describe("Lost Pet Report creation view model", () => {
         municipality: "La Paz",
       },
       inlinePet: {
-        breed: "Siames",
+        breed: "Siamés",
         description: "Mancha blanca en el pecho.",
         name: "Luna",
         type: "Gato" as const,
       },
       lostDetails: {
-        circumstances: "Salio por la puerta principal.",
+        circumstances: "Salió por la puerta principal.",
         lastSeenAtLabel: "Hoy, hace 30 min",
         markings: "Mancha blanca en el pecho.",
       },
@@ -422,13 +423,13 @@ describe("Lost Pet Report creation view model", () => {
         municipality: "La Paz",
       },
       inlinePet: {
-        breed: "Siames",
+        breed: "Siamés",
         description: "Mancha blanca en el pecho.",
         name: "Luna",
         type: "Gato" as const,
       },
       lostDetails: {
-        circumstances: "Salio por la puerta principal.",
+        circumstances: "Salió por la puerta principal.",
         lastSeenAtLabel: "Hoy en la manana",
         markings: "Mancha blanca en el pecho.",
       },
@@ -478,13 +479,13 @@ describe("Lost Pet Report creation view model", () => {
         municipality: "La Paz",
       },
       inlinePet: {
-        breed: "Siames",
+        breed: "Siamés",
         description: "Mancha blanca en el pecho.",
         name: "Luna",
         type: "Gato" as const,
       },
       lostDetails: {
-        circumstances: "Salio por la puerta principal.",
+        circumstances: "Salió por la puerta principal.",
         lastSeenAtLabel: "Hoy, hace 999999999999999999999999 min",
         markings: "Mancha blanca en el pecho.",
       },
@@ -538,13 +539,13 @@ describe("Lost Pet Report creation view model", () => {
         municipality: "La Paz",
       },
       inlinePet: {
-        breed: "Siames",
+        breed: "Siamés",
         description: "Mancha blanca en el pecho.",
         name: "Luna",
         type: "Gato" as const,
       },
       lostDetails: {
-        circumstances: "Salio por la puerta principal.",
+        circumstances: "Salió por la puerta principal.",
         lastSeenAtLabel: "2026-06-18T10:50:00.000Z",
         markings: "Mancha blanca en el pecho.",
       },
@@ -583,13 +584,13 @@ describe("Lost Pet Report creation view model", () => {
         whatsappPhone: "",
       },
       inlinePet: {
-        breed: "Siames",
+        breed: "Siamés",
         description: "Mancha blanca en el pecho.",
         name: "Luna",
         type: "Gato" as const,
       },
       lostDetails: {
-        circumstances: "Salio por la puerta principal.",
+        circumstances: "Salió por la puerta principal.",
         lastSeenAtLabel: "2026-06-18T10:50:00.000Z",
         markings: "Mancha blanca en el pecho.",
       },
@@ -597,7 +598,7 @@ describe("Lost Pet Report creation view model", () => {
     };
 
     expect(() => toPublishLostPetReportInput({ draft })).toThrow(
-      "Selecciona la Exact Location interna.",
+      "Selecciona la ubicación exacta interna.",
     );
   });
 
@@ -620,13 +621,13 @@ describe("Lost Pet Report creation view model", () => {
         municipality: "La Paz",
       },
       inlinePet: {
-        breed: "Siames",
+        breed: "Siamés",
         description: "Mancha blanca en el pecho.",
         name: "Luna",
         type: "Gato" as const,
       },
       lostDetails: {
-        circumstances: "Salio por la puerta principal.",
+        circumstances: "Salió por la puerta principal.",
         lastSeenAtLabel: "2026-06-18T10:50:00.000Z",
         markings: "Mancha blanca en el pecho.",
       },
@@ -634,7 +635,7 @@ describe("Lost Pet Report creation view model", () => {
     };
 
     expect(() => toPublishLostPetReportInput({ draft })).toThrow(
-      "Selecciona una ubicacion dentro de Bolivia.",
+      "Selecciona una ubicación dentro de Bolivia.",
     );
   });
 
@@ -659,7 +660,7 @@ describe("Lost Pet Report creation view model", () => {
       id: "11111111-1111-4111-8111-111111111111",
       imageUrl: "https://example.com/sponsor-san-roque-banner.png",
       logoUrl: "https://example.com/sponsor-san-roque-logo.png",
-      paidDisclosure: "Colocacion pagada",
+      paidDisclosure: "Colocación pagada",
       reportActionLabel: "Reportar",
       sponsorLabel: "Patrocinado",
       surface: "report_success",
@@ -707,8 +708,8 @@ describe("Lost Pet Report creation view model", () => {
       eligibleSurfaces: ["resources_directory"],
       id: "22222222-2222-4222-8222-222222222222",
       imageObjectKey: "private/banner.jpg",
-      name: "Clinica de prueba",
-      paidDisclosure: "Colocacion pagada",
+      name: "Clínica de prueba",
+      paidDisclosure: "Colocación pagada",
       recoveryPriorityDisclosure:
         "No cambia la prioridad de tu reporte ni donde aparece.",
       reportActionLabel: "Reportar",

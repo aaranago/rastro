@@ -54,7 +54,7 @@ describe("Lost Pet Report publish view model", () => {
       kind: "member",
       locationPrivacyLabel: "Sopocachi · zona aproximada",
       publishActionLabel: "Publicar reporte",
-      title: "Reportar perdida",
+      title: "Reportar pérdida",
     });
     expect(viewModel.blockers).toEqual([
       "Agrega al menos una foto.",

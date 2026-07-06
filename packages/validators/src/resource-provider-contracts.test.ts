@@ -27,7 +27,7 @@ import {
 } from "./index";
 
 const createProviderInput = {
-  name: "Clinica Veterinaria San Roque",
+  name: "Clínica Veterinaria San Roque",
   category: "veterinary",
   description: "Veterinaria local con atencion general y urgencias.",
   shortDescription:
@@ -304,7 +304,7 @@ describe("resource provider validation contracts", () => {
   it("accepts admin provider updates while requiring at least one changed field", () => {
     const result = updateResourceProviderInputSchema.safeParse({
       providerId: "11111111-1111-4111-8111-111111111111",
-      name: "Clinica Veterinaria San Roque Norte",
+      name: "Clínica Veterinaria San Roque Norte",
       logoAssetId: "22222222-2222-4222-8222-222222222222",
       logoUrl: null,
       location: {
@@ -389,12 +389,12 @@ describe("resource provider validation contracts", () => {
     const result = createResourceProviderReportInputSchema.safeParse({
       providerId: "11111111-1111-4111-8111-111111111111",
       reason: "incorrect_location",
-      detail: "La direccion visible no coincide con el proveedor.",
+      detail: "La dirección visible no coincide con el proveedor.",
     });
 
     expect(result.success).toBe(true);
     expect(result.data).toMatchObject({
-      detail: "La direccion visible no coincide con el proveedor.",
+      detail: "La dirección visible no coincide con el proveedor.",
       providerId: "11111111-1111-4111-8111-111111111111",
       reason: "incorrect_location",
     });
@@ -443,7 +443,7 @@ describe("resource provider validation contracts", () => {
     expect(
       publicResourceProviderProfileSchema.safeParse({
         id: "clinic-san-roque",
-        name: "Clinica Veterinaria San Roque",
+        name: "Clínica Veterinaria San Roque",
         categoryId: "veterinary",
         description: "Veterinaria local con atención general y urgencias.",
         approximateLocationLabel: "Sopocachi, La Paz",
@@ -474,6 +474,7 @@ describe("resource provider validation contracts", () => {
     expect(
       localSponsorPlacementPolicySchema.parse({
         kind: "Local Sponsor Placement",
+        deliveryToken: "signed-delivery-token-for-tests",
         label: "Patrocinado",
         disclosure:
           "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
@@ -541,7 +542,7 @@ describe("resource provider validation contracts", () => {
   it("accepts active sponsor placement lists so consumers can select by eligible surface", () => {
     const profile = publicResourceProviderProfileSchema.parse({
       id: "11111111-1111-4111-8111-111111111111",
-      name: "Clinica Veterinaria San Roque",
+      name: "Clínica Veterinaria San Roque",
       categoryId: "veterinary",
       description: "Veterinaria local con atención general y urgencias.",
       approximateLocationLabel: "Sopocachi, La Paz",
@@ -559,6 +560,7 @@ describe("resource provider validation contracts", () => {
       activeSponsorPlacements: [
         {
           kind: "Local Sponsor Placement",
+          deliveryToken: "directory-delivery-token-for-tests",
           label: "Patrocinado",
           disclosure:
             "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
@@ -575,6 +577,7 @@ describe("resource provider validation contracts", () => {
         },
         {
           kind: "Local Sponsor Placement",
+          deliveryToken: "profile-delivery-token-for-tests",
           label: "Aliado local",
           disclosure:
             "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
@@ -792,7 +795,7 @@ describe("resource provider validation contracts", () => {
   it("parses public provider profiles without accepting private exact location fields", () => {
     const profile = publicResourceProviderProfileSchema.parse({
       id: "11111111-1111-4111-8111-111111111111",
-      name: "Clinica Veterinaria San Roque",
+      name: "Clínica Veterinaria San Roque",
       categoryId: "veterinary",
       description: "Veterinaria local con atencion general y urgencias.",
       approximateLocationLabel: "Sopocachi, La Paz",
@@ -824,6 +827,7 @@ describe("resource provider validation contracts", () => {
 it("validates public sponsor delivery events without exposing placement IDs", () => {
   expect(
     recordLocalSponsorPlacementDeliveryInputSchema.parse({
+      deliveryToken: "signed-delivery-token-for-tests",
       eventType: "impression",
       idempotencyKey:
         "resources_directory:11111111-1111-4111-8111-111111111111:2026-07-01",
@@ -841,6 +845,14 @@ it("validates public sponsor delivery events without exposing placement IDs", ()
     recordLocalSponsorPlacementDeliveryInputSchema.safeParse({
       eventType: "purchase",
       placementId: "22222222-2222-4222-8222-222222222222",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      surface: "resources_directory",
+    }).success,
+  ).toBe(false);
+
+  expect(
+    recordLocalSponsorPlacementDeliveryInputSchema.safeParse({
+      eventType: "open",
       providerId: "11111111-1111-4111-8111-111111111111",
       surface: "resources_directory",
     }).success,

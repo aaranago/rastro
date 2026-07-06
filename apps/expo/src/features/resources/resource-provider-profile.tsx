@@ -33,6 +33,7 @@ export interface ResourceProviderProfileProps {
     label: string;
     url: string;
   }) => void;
+  onProfileVisible?: () => void;
   onReportProvider?: (providerId: string) => void;
 }
 
@@ -42,6 +43,7 @@ export function ResourceProviderProfile({
   reportFeedback,
   onContactAction,
   onOpenLink,
+  onProfileVisible,
   onReportProvider,
 }: ResourceProviderProfileProps) {
   const viewModel = buildResourceProviderProfileViewModel(profile);
@@ -59,6 +61,7 @@ export function ResourceProviderProfile({
       contentInsetAdjustmentBehavior="automatic"
       contentInset={{ bottom: scrollBottomInset }}
       scrollIndicatorInsets={{ bottom: scrollBottomInset }}
+      onLayout={onProfileVisible}
       style={styles.root}
       testID="resource-provider-profile-screen"
     >

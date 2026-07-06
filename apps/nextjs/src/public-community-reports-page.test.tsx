@@ -126,7 +126,7 @@ describe("public found and sighting report pages", () => {
     expect(html).toContain("Perro - Mestiza joven - blanca - mediana");
     expect(html).toContain("Encontrado");
     expect(html).toContain("bo lpb sopocachi - zona aproximada");
-    expect(html).toContain("Descripcion del encuentro");
+    expect(html).toContain("Descripción del encuentro");
     expect(html).toContain("Enviar mensaje en Rastro");
     expect(html).toContain("Escribir por WhatsApp");
     expect(html).toContain('href="https://rastro.bo/descargar?context=report');
@@ -181,7 +181,7 @@ describe("public found and sighting report pages", () => {
     expect(html).toContain("Avistamiento activo");
     expect(html).toContain("Toby fue visto en Miraflores DB");
     expect(html).toContain("Avistado");
-    expect(html).toContain("Descripcion del avistamiento");
+    expect(html).toContain("Descripción del avistamiento");
     expect(html).toContain(
       "Gracias. El equipo de Rastro revisará este reporte.",
     );

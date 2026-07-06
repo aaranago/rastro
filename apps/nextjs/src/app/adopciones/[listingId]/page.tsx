@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { getSession } from "~/auth/server";
 import {
   buildPublicAdoptionListingMetadata,
   getPublicAdoptionListingViewModel,
@@ -10,7 +11,6 @@ import {
   parsePublicReportAbuseStatus,
   PublicReportAbuseCard,
 } from "~/public-report-abuse";
-import { getSession } from "~/auth/server";
 
 type PublicAdoptionListingSearchParams = Record<
   string,
@@ -32,7 +32,7 @@ export async function generateMetadata(
 
   if (!metadata) {
     return {
-      title: "Adopcion no encontrada | Rastro",
+      title: "Adopción no encontrada | Rastro",
     };
   }
 
@@ -76,7 +76,7 @@ export default async function PublicAdoptionListingPage(
 
         <section className="flex flex-col gap-5">
           <div className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs">
-            <h2 className="text-xl font-semibold">Datos de adopcion</h2>
+            <h2 className="text-xl font-semibold">Datos de adopción</h2>
             <dl className="mt-4 grid gap-4">
               <div>
                 <dt className="text-muted-foreground text-sm">
@@ -87,7 +87,7 @@ export default async function PublicAdoptionListingPage(
                 </dd>
               </div>
               <div>
-                <dt className="text-muted-foreground text-sm">Ubicacion</dt>
+                <dt className="text-muted-foreground text-sm">Ubicación</dt>
                 <dd className="mt-1 font-medium">
                   {listing.publicLocation.label}
                 </dd>
@@ -96,7 +96,7 @@ export default async function PublicAdoptionListingPage(
                 </dd>
               </div>
               <div>
-                <dt className="text-muted-foreground text-sm">Descripcion</dt>
+                <dt className="text-muted-foreground text-sm">Descripción</dt>
                 <dd className="mt-1 leading-7">{listing.description}</dd>
               </div>
             </dl>

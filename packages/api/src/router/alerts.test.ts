@@ -153,7 +153,7 @@ describe("alerts router", () => {
       caller.alerts.pause({ pausedUntil: "2026-07-02T12:00:00.000Z" }),
     ).rejects.toMatchObject({
       code: "NOT_FOUND",
-      message: "No encontramos una suscripcion de alertas para este miembro.",
+      message: "No encontramos una suscripción de alertas para este miembro.",
     });
   });
 });
@@ -197,7 +197,7 @@ function createFakeAlertRepository(
       if (options.missingSubscription) {
         throw new AlertRepositoryError(
           "alert_subscription_not_found",
-          "No encontramos una suscripcion de alertas para este miembro.",
+          "No encontramos una suscripción de alertas para este miembro.",
         );
       }
 

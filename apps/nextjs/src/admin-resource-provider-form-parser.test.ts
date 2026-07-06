@@ -12,7 +12,7 @@ describe("admin resource provider form parser", () => {
   it("parses create forms with structured location, three contacts, and links", () => {
     const result = parseCreateProviderInput(
       formData({
-        name: "Clinica Veterinaria San Roque",
+        name: "Clínica Veterinaria San Roque",
         category: "veterinary",
         description: "Veterinaria local con atencion general y urgencias.",
         shortDescription:
@@ -95,7 +95,7 @@ describe("admin resource provider form parser", () => {
     const result = parseUpdateProviderInput(
       formData({
         providerId: "11111111-1111-4111-8111-111111111111",
-        name: "Clinica Veterinaria San Roque",
+        name: "Clínica Veterinaria San Roque",
         category: "veterinary",
         description:
           "Veterinaria local con atencion general, urgencias y orientacion.",
@@ -156,7 +156,7 @@ describe("admin resource provider form parser", () => {
     const result = parseUpdateProviderInput(
       formData({
         providerId: "11111111-1111-4111-8111-111111111111",
-        name: "Clinica Veterinaria San Roque",
+        name: "Clínica Veterinaria San Roque",
         category: "veterinary",
         description:
           "Veterinaria local con atencion general, urgencias y orientacion.",
@@ -187,7 +187,7 @@ describe("admin resource provider form parser", () => {
     const result = parseUpdateProviderInput(
       formData({
         providerId: "11111111-1111-4111-8111-111111111111",
-        name: "Clinica Veterinaria San Roque",
+        name: "Clínica Veterinaria San Roque",
         category: "veterinary",
         description:
           "Veterinaria local con atencion general, urgencias y orientacion.",
@@ -220,7 +220,7 @@ describe("admin resource provider form parser", () => {
     const result = parseUpdateProviderInput(
       formData({
         providerId: "11111111-1111-4111-8111-111111111111",
-        name: "Clinica Veterinaria San Roque",
+        name: "Clínica Veterinaria San Roque",
         category: "veterinary",
         description:
           "Veterinaria local con atencion general, urgencias y orientacion.",
@@ -269,7 +269,7 @@ describe("admin resource provider form parser", () => {
   it("reports field-level errors for incomplete contact and link rows", () => {
     const result = parseCreateProviderInput(
       formData({
-        name: "Clinica Veterinaria San Roque",
+        name: "Clínica Veterinaria San Roque",
         category: "veterinary",
         description: "Veterinaria local con atencion general y urgencias.",
         shortDescription:
@@ -297,7 +297,7 @@ describe("admin resource provider form parser", () => {
         },
         {
           field: "contactOptions",
-          message: "Registra al menos una opcion de contacto.",
+          message: "Registra al menos una opción de contacto.",
         },
         {
           field: "socialLinks.0.label",

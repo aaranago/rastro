@@ -47,7 +47,7 @@ const lastDetectedLocation: AlertSubscriptionLocationSnapshot = {
   },
   countryCode: "BO",
   detectedAt: "2026-06-18T08:00:00.000Z",
-  label: "Ultima ubicacion detectada en Cochabamba",
+  label: "Última ubicación detectada en Cochabamba",
   locationCellLabel: "Queru Queru",
   source: "last",
 };
@@ -103,7 +103,7 @@ describe("Alert Subscription preferences", () => {
 
     expect(enabled.dynamicAlertArea).toMatchObject({
       location: {
-        label: "Ultima ubicacion detectada en Cochabamba",
+        label: "Última ubicación detectada en Cochabamba",
         source: "last",
       },
       reason: "app-open",
@@ -136,7 +136,7 @@ describe("Alert Subscription preferences", () => {
 
     expect(manualRefresh.dynamicAlertArea).toMatchObject({
       location: {
-        label: "Ultima ubicacion detectada en Cochabamba",
+        label: "Última ubicación detectada en Cochabamba",
         source: "last",
       },
       reason: "manual-refresh",

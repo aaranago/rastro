@@ -432,7 +432,7 @@ function createReport(
       isCurrentMember: true,
     },
     pet: {
-      breed: "Siames",
+      breed: "Siamés",
       color: "gris",
       distinguishingTraits: null,
       name: "Luna",

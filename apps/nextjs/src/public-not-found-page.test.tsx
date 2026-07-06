@@ -7,7 +7,7 @@ describe("public not-found page", () => {
   it("renders Spanish recovery actions for unavailable public links", () => {
     const html = renderToStaticMarkup(<PublicNotFound />);
 
-    expect(html).toContain("Reporte o adopcion no disponible");
+    expect(html).toContain("Reporte o adopción no disponible");
     expect(html).toContain("Volver al inicio");
     expect(html).toContain('href="/"');
     expect(html).toContain("Abrir o instalar Rastro");

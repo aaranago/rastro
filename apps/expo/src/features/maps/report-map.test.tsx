@@ -68,7 +68,7 @@ describe("ReportMap", () => {
         locationLabel: "Achumani · zona aproximada",
         metaLabel: "a 300 m",
         photoUrl: "https://cdn.rastro.bo/bruno.jpg",
-        summary: "Collar azul con plaquita.",
+        summary: "Collar azul con plaquíta.",
         title: "Bruno",
       },
       {
@@ -196,7 +196,7 @@ describe("ReportMap", () => {
           {
             id: "lost-bruno",
             locationLabel: "Achumani · zona aproximada",
-            summary: "Collar azul con plaquita.",
+            summary: "Collar azul con plaquíta.",
             title: "Bruno",
           },
         ]}

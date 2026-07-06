@@ -175,7 +175,7 @@ function buildLifecycleBanner({
   }
 
   return {
-    body: `${normalizeReportTitle(reportTitle)} sigue visible para busqueda, contacto y alertas cercanas.`,
+    body: `${normalizeReportTitle(reportTitle)} sigue visible para búsqueda, contacto y alertas cercanas.`,
     title: "Reporte activo",
     tone: "active" as const,
   };
@@ -189,7 +189,7 @@ function buildStalePrompt({
   staleAgeDays: number;
 }) {
   return {
-    body: `${normalizeReportTitle(reportTitle)} no se actualiza desde hace ${staleAgeDays} dias. Confirma que sigue vigente o cierra el reporte con un resultado.`,
+    body: `${normalizeReportTitle(reportTitle)} no se actualiza desde hace ${staleAgeDays} días. Confirma que sigue vigente o cierra el reporte con un resultado.`,
     primaryAction: {
       id: "confirm-still-active",
       label: "Sigue activa",

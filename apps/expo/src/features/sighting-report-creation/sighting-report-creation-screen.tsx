@@ -422,14 +422,14 @@ export function SightingReportCreationScreen({
         publishState === "confirming" || publishState === "publishing" ? (
           <ReportCreationPublishConfirmationModal
             activityIndicatorColor={shellColors.white}
-            body="Al confirmar, Rastro creara un reporte publico de avistamiento con la zona, hora y contacto que revisaste."
+            body="Al confirmar, Rastro creará un reporte público de avistamiento con la zona, hora y contacto que revisaste."
             canConfirm={viewModel.canPublish}
             Icon={SightingReportCreationIcon}
             onCancel={cancelPublishConfirmation}
             onConfirm={confirmPublish}
             publishState={toReportCreationPublishState(publishState)}
             rows={buildSightingReportPublishConfirmationRows(viewModel)}
-            title="Confirmar publicacion"
+            title="Confirmar publicación"
           />
         ) : null
       }
@@ -464,7 +464,7 @@ function buildSightingReportPublishConfirmationRows(
     },
     {
       label: "Estado",
-      value: "Publico activo despues de confirmar",
+      value: "Público activo después de confirmar",
     },
     ...viewModel.review.rows,
   ];
@@ -507,7 +507,7 @@ function SightingReportVisitorHandoff({
           {viewModel.visitorAction?.label}
         </Text>
         <Text maxFontSizeMultiplier={1.2} style={styles.bodyText}>
-          Rastro guardara esta accion para que puedas continuar como miembro.
+          Rastro guardará esta acción para que puedas continuar como miembro.
         </Text>
         <Pressable
           accessibilityRole="button"
@@ -1120,8 +1120,8 @@ function LocationPrivacySection({
           icon="map.fill"
           label={
             viewModel.location.hasExactLocation
-              ? "Cambiar ubicacion"
-              : "Elegir ubicacion"
+              ? "Cambiar ubicación"
+              : "Elegir ubicación"
           }
           onPress={onChooseSightingLocation}
           primaryTextColor={shellColors.white}
@@ -1355,7 +1355,7 @@ function validateCurrentSightingReportStep({
 function getSightingReportLocationValidationError(draft: SightingReportDraft) {
   return draft.exactSightingLocation
     ? undefined
-    : "Selecciona donde fue visto el animal.";
+    : "Selecciona dónde fue visto el animal.";
 }
 
 function toSightingReportValidationResult(

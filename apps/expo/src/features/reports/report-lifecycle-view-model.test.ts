@@ -24,7 +24,7 @@ describe("public report lifecycle presentation", () => {
       { id: "close-report", label: "Cerrar reporte", role: "primary" },
     ]);
     expect(viewModel.stalePrompt).toMatchObject({
-      body: "Bruno no se actualiza desde hace 17 dias. Confirma que sigue vigente o cierra el reporte con un resultado.",
+      body: "Bruno no se actualiza desde hace 17 días. Confirma que sigue vigente o cierra el reporte con un resultado.",
       primaryAction: {
         id: "confirm-still-active",
         label: "Sigue activa",

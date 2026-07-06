@@ -138,7 +138,7 @@ describe("admin moderation page", () => {
             lastReportedAt: new Date("2026-06-26T16:00:00.000Z"),
             newestReport: {
               createdAt: new Date("2026-06-26T16:00:00.000Z"),
-              detail: "La direccion visible no coincide con el local.",
+              detail: "La dirección visible no coincide con el local.",
               reporter: {
                 displayName: "Ana S.",
                 email: "ana@example.com",
@@ -150,7 +150,7 @@ describe("admin moderation page", () => {
               department: "La Paz",
               id: "11111111-1111-4111-8111-111111111111",
               locationLabel: "Sopocachi, La Paz",
-              name: "Clinica Veterinaria San Roque DB",
+              name: "Clínica Veterinaria San Roque DB",
               verificationStatus: "verified",
             },
             reason: "incorrect_location",
@@ -188,7 +188,7 @@ describe("admin moderation page", () => {
     expect(html).toContain("/admin/miembros?memberId=member-huellitas");
     expect(html).not.toContain("Bruno reportado como posible riesgo");
     expect(html).toContain("Perfil de proveedor de recursos");
-    expect(html).toContain("Clinica Veterinaria San Roque DB");
+    expect(html).toContain("Clínica Veterinaria San Roque DB");
     expect(html).toContain("Ubicación incorrecta");
     expect(html).toContain("Reportado por Ana S.");
     expect(html).toContain("Sopocachi, La Paz");
@@ -204,7 +204,7 @@ describe("admin moderation page", () => {
     expect(html).toContain(
       "/admin/moderacion?pageSize=10&amp;sortBy=lastReportedAt&amp;sortDirection=desc",
     );
-    expect(html).not.toContain("Clinica San Roque");
+    expect(html).not.toContain("Clínica San Roque");
     expect(html).toContain("Modo de revisión para adopciones");
     expect(html).toContain("Métricas de abuso por ciudad");
     expect(html).toContain("Admin Rastro");
@@ -397,7 +397,7 @@ describe("admin moderation page", () => {
         lastReportedAt: new Date("2026-06-26T16:00:00.000Z"),
         newestReport: {
           createdAt: new Date("2026-06-26T16:00:00.000Z"),
-          detail: "La direccion visible no coincide con el local.",
+          detail: "La dirección visible no coincide con el local.",
           reporter: {
             displayName: "Ana S.",
             email: "ana@example.com",
@@ -409,7 +409,7 @@ describe("admin moderation page", () => {
           department: "La Paz",
           id: "11111111-1111-4111-8111-111111111111",
           locationLabel: "Sopocachi, La Paz",
-          name: "Clinica Veterinaria San Roque DB",
+          name: "Clínica Veterinaria San Roque DB",
           verificationStatus: "verified",
         },
         reason: "incorrect_location",
@@ -430,7 +430,7 @@ describe("admin moderation page", () => {
       }),
     );
 
-    expect(html).toContain("Clinica Veterinaria San Roque DB");
+    expect(html).toContain("Clínica Veterinaria San Roque DB");
     expect(html).toContain("Resolver con acción");
     expect(html).toContain('name="providerResolutionStatus"');
     expect(

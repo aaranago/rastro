@@ -6,13 +6,13 @@ import type {
   PublicReportDetail,
   PublicReportDetailLoader,
 } from "./public-report-detail-api-adapter";
-import { getPublicReportDetail } from "./public-report-detail-api-adapter";
 import type {
   PublicReportPageContactOption,
   PublicReportPageLocation,
   PublicReportPagePet,
   PublicReportPagePhoto,
 } from "./public-report-detail-mapping";
+import { getPublicReportDetail } from "./public-report-detail-api-adapter";
 import {
   buildAppDownloadHref,
   buildPublicReportArticleMetadata,
@@ -85,8 +85,8 @@ export async function buildPublicLostReportMetadata(
     return null;
   }
 
-  const title = `${report.pet.name} esta perdido en ${report.publicLocation.label} | Rastro`;
-  const description = `Ayuda a encontrar a ${report.pet.name}, ${report.pet.type} ${report.pet.breed}. Ultima vez visto en zona aproximada: ${report.publicLocation.label}.`;
+  const title = `${report.pet.name} está perdido en ${report.publicLocation.label} | Rastro`;
+  const description = `Ayuda a encontrar a ${report.pet.name}, ${report.pet.type} ${report.pet.breed}. Última vez visto en zona aproximada: ${report.publicLocation.label}.`;
   const shareTarget = buildPublicLostReportShareTarget({
     publicWebBaseUrl: webBaseUrl,
     reportId,
@@ -132,7 +132,7 @@ function buildPublicLostReportViewModel(
     ),
     description: report.description.trim(),
     lastSeen: {
-      label: "Visto por ultima vez",
+      label: "Visto por última vez",
       value: formatReportDate(report.eventOccurredAt),
     },
     pet,

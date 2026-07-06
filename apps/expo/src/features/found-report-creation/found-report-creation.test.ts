@@ -89,13 +89,13 @@ describe("Found Pet Report creation view model", () => {
     });
 
     expect(attemptedDetailsViewModel.foundDetails.fields.condition.error).toBe(
-      "Describe la condicion de la mascota encontrada.",
+      "Describe la condición de la mascota encontrada.",
     );
     expect(
       attemptedDetailsViewModel.foundDetails.fields.description.error,
-    ).toBe("Agrega una descripcion de la mascota encontrada.");
+    ).toBe("Agrega una descripción de la mascota encontrada.");
     expect(attemptedDetailsViewModel.pet.fields.description.error).toBe(
-      "Agrega senas visibles de la mascota encontrada.",
+      "Agrega señas visibles de la mascota encontrada.",
     );
 
     const attemptedContactViewModel = buildFoundReportCreationViewModel({
@@ -138,7 +138,7 @@ describe("Found Pet Report creation view model", () => {
     });
 
     expect(viewModel.foundDetails.fields.description.error).toBe(
-      "Escribe una descripcion de al menos 10 caracteres.",
+      "Escribe una descripción de al menos 10 caracteres.",
     );
     expect(viewModel.canPublish).toBe(false);
   });
@@ -389,7 +389,7 @@ describe("Found Pet Report creation view model", () => {
     });
 
     expect(() => toPublishFoundPetReportInput({ draft })).toThrow(
-      "Selecciona donde fue encontrada.",
+      "Selecciona dónde fue encontrada.",
     );
   });
 
@@ -424,7 +424,7 @@ describe("Found Pet Report creation view model", () => {
     });
 
     expect(() => toPublishFoundPetReportInput({ draft })).toThrow(
-      "Selecciona una ubicacion dentro de Bolivia.",
+      "Selecciona una ubicación dentro de Bolivia.",
     );
   });
 
@@ -440,7 +440,7 @@ describe("Found Pet Report creation view model", () => {
     const viewModel = buildFoundReportCreationViewModel({ draft });
 
     expect(viewModel.pet.fields.breed).toMatchObject({
-      label: "Raza o descripcion corta",
+      label: "Raza o descripción corta",
       value: "Mestizo",
     });
     expect(viewModel.pet.fields.description.value).toBe(
@@ -473,7 +473,7 @@ describe("Found Pet Report creation view model", () => {
     ).toEqual(["Chat en Rastro", "WhatsApp", "Ambos"]);
     expect(initialViewModel.contact.currentOption).toBe("chat");
     expect(initialViewModel.contact.whatsappField).toMatchObject({
-      label: "Numero de WhatsApp",
+      label: "Número de WhatsApp",
       placeholder: "+591 70000000",
       visible: false,
     });
@@ -517,7 +517,7 @@ describe("Found Pet Report creation view model", () => {
       kind: "visitor",
       visitorAction: {
         intent: "found-report",
-        label: "Iniciar sesion para reportar encontrada",
+        label: "Iniciar sesión para reportar encontrada",
       },
     });
   });

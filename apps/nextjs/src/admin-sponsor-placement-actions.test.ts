@@ -38,7 +38,7 @@ describe("admin sponsor placement actions", () => {
       action: "create_sponsor_placement",
       ok: true,
       providerId: "11111111-1111-4111-8111-111111111111",
-      providerName: "Clinica Veterinaria San Roque",
+      providerName: "Clínica Veterinaria San Roque",
     });
     expect(api.createAdminSponsorPlacement).toHaveBeenCalledWith({
       disclosure:
@@ -88,7 +88,7 @@ describe("admin sponsor placement actions", () => {
       formData({
         placementId: "22222222-2222-4222-8222-222222222222",
         providerId: "11111111-1111-4111-8111-111111111111",
-        providerName: "Clinica Veterinaria San Roque",
+        providerName: "Clínica Veterinaria San Roque",
         sponsorAction: "detach_sponsor_placement",
       }),
     );
@@ -194,7 +194,7 @@ describe("admin sponsor placement actions", () => {
       ok: true,
       placementId: "22222222-2222-4222-8222-222222222222",
       providerId: "11111111-1111-4111-8111-111111111111",
-      providerName: "Clinica Veterinaria San Roque",
+      providerName: "Clínica Veterinaria San Roque",
     };
     const url = buildAdminSponsorPlacementRedirectUrl(result);
     const feedback = buildAdminSponsorPlacementFeedback(
@@ -207,7 +207,7 @@ describe("admin sponsor placement actions", () => {
       placementId: "22222222-2222-4222-8222-222222222222",
     });
     expect(buildAdminSponsorPlacementNotice(feedback)).toEqual({
-      body: "Clinica Veterinaria San Roque: la superficie, fechas y disclosure quedaron actualizados.",
+      body: "Clínica Veterinaria San Roque: la superficie, fechas y disclosure quedaron actualizados.",
       title: "Patrocinio actualizado",
       tone: "success",
     });
@@ -269,7 +269,7 @@ function sponsorFormData(overrides: Record<string, string>) {
     label: "Patrocinado",
     logoUrl: "https://example.com/sponsor-logo.png",
     providerId: "11111111-1111-4111-8111-111111111111",
-    providerName: "Clinica Veterinaria San Roque",
+    providerName: "Clínica Veterinaria San Roque",
     startsOn: "2026-07-01",
     surface: "resources_directory",
     ...overrides,

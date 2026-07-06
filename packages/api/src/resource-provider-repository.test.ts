@@ -5,7 +5,10 @@ import {
   ResourceProviderContactOption,
 } from "@acme/db/schema";
 
-import type { PersistedResourceProvider } from "./resource-provider-repository";
+import type {
+  PersistedLocalSponsorPlacement,
+  PersistedResourceProvider,
+} from "./resource-provider-repository";
 import {
   buildAdminResourceProviderListResult,
   buildAdminSponsorPlacementListResult,
@@ -33,12 +36,41 @@ const postgresQueryConfig = {
   escapeString: (value: string) => `'${value.replaceAll("'", "''")}'`,
 };
 
+type PersistedSponsorPlacementFixture = Omit<
+  PersistedLocalSponsorPlacement,
+  "providerId"
+> &
+  Partial<Pick<PersistedLocalSponsorPlacement, "providerId">>;
+
+type PersistedResourceProviderFixtureOverrides = Omit<
+  Partial<PersistedResourceProvider>,
+  "sponsorPlacements"
+> & {
+  sponsorPlacements?: PersistedSponsorPlacementFixture[];
+};
+
 function persistedProvider(
-  overrides: Partial<PersistedResourceProvider> = {},
+  overrides: PersistedResourceProviderFixtureOverrides = {},
 ): PersistedResourceProvider {
-  return {
-    id: "11111111-1111-4111-8111-111111111111",
-    name: "Clinica Veterinaria San Roque",
+  const { sponsorPlacements, ...providerOverrides } = overrides;
+  const providerId =
+    providerOverrides.id ?? "11111111-1111-4111-8111-111111111111";
+  const baseSponsorPlacements: PersistedSponsorPlacementFixture[] = [
+    {
+      id: "22222222-2222-4222-8222-222222222222",
+      surface: "resources_directory",
+      label: "Patrocinado",
+      disclosure:
+        "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+      logoUrl: "https://example.com/sponsor-logo.png",
+      imageUrl: "https://example.com/sponsor-banner.png",
+      startsAt: new Date("2026-07-01T00:00:00.000Z"),
+      endsAt: new Date("2026-07-31T23:59:59.999Z"),
+    },
+  ];
+  const provider: Omit<PersistedResourceProvider, "sponsorPlacements"> = {
+    id: providerId,
+    name: "Clínica Veterinaria San Roque",
     category: "veterinary",
     description: "Veterinaria local con atencion general y urgencias.",
     shortDescription:
@@ -80,20 +112,17 @@ function persistedProvider(
         value: "+591 2 222 1111",
       },
     ],
-    sponsorPlacements: [
-      {
-        id: "22222222-2222-4222-8222-222222222222",
-        surface: "resources_directory",
-        label: "Patrocinado",
-        disclosure:
-          "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
-        logoUrl: "https://example.com/sponsor-logo.png",
-        imageUrl: "https://example.com/sponsor-banner.png",
-        startsAt: new Date("2026-07-01T00:00:00.000Z"),
-        endsAt: new Date("2026-07-31T23:59:59.999Z"),
-      },
-    ],
-    ...overrides,
+    ...providerOverrides,
+  };
+
+  return {
+    ...provider,
+    sponsorPlacements: (sponsorPlacements ?? baseSponsorPlacements).map(
+      (placement) => ({
+        ...placement,
+        providerId: placement.providerId ?? provider.id,
+      }),
+    ),
   };
 }
 
@@ -680,9 +709,8 @@ describe("resource provider repository", () => {
       now: new Date("2026-07-15T12:00:00.000Z"),
     });
 
-    expect(summary.sponsorPlacement).toEqual({
+    expect(summary.sponsorPlacement).toMatchObject({
       kind: "Local Sponsor Placement",
-      placementId: "22222222-2222-4222-8222-222222222222",
       label: "Patrocinado",
       disclosure:
         "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
@@ -699,6 +727,10 @@ describe("resource provider repository", () => {
         },
       },
     });
+    expect(typeof summary.sponsorPlacement?.deliveryToken).toBe("string");
+    expect(JSON.stringify(summary.sponsorPlacement)).not.toContain(
+      "placementId",
+    );
     expect(summary.activeSponsorPlacements).toEqual([summary.sponsorPlacement]);
   });
 
@@ -719,6 +751,7 @@ describe("resource provider repository", () => {
           },
           {
             id: "22222222-2222-4222-8222-222222222222",
+            providerId: "11111111-1111-4111-8111-111111111111",
             surface: "resources_directory",
             label: "Patrocinado",
             disclosure:
@@ -779,7 +812,7 @@ describe("resource provider repository", () => {
     expect(summary.activeSponsorPlacements).toEqual([
       {
         kind: "Local Sponsor Placement",
-        placementId: "22222222-2222-4222-8222-222222222222",
+        deliveryToken: summary.activeSponsorPlacements?.[0]?.deliveryToken,
         label: "Patrocinado",
         disclosure:
           "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
@@ -795,6 +828,9 @@ describe("resource provider repository", () => {
         },
       },
     ]);
+    expect(typeof summary.activeSponsorPlacements?.[0]?.deliveryToken).toBe(
+      "string",
+    );
     expect(summary.sponsorPlacement).toEqual(
       summary.activeSponsorPlacements?.[0],
     );
@@ -813,7 +849,7 @@ describe("resource provider repository", () => {
     const providers = [
       persistedProvider({
         id: testUuid(1),
-        name: "Clinica San Roque",
+        name: "Clínica San Roque",
         sponsorPlacements: [
           {
             id: testUuid(101),
@@ -870,7 +906,7 @@ describe("resource provider repository", () => {
     expect(calls.limits).toEqual([2]);
     expect(calls.findProviderRows).toBe(2);
     expect(result.map((provider) => provider.name)).toEqual([
-      "Clinica San Roque",
+      "Clínica San Roque",
       "Farmacia Veterinaria Calacoto",
     ]);
     expect(result[0]).toMatchObject({
@@ -919,9 +955,8 @@ describe("resource provider repository", () => {
     });
     expect(JSON.stringify(profile)).not.toContain("exact");
     expect(JSON.stringify(profile)).not.toContain("Plaza Abaroa");
-    expect(profile.sponsorPlacement?.placementId).toBe(
-      "22222222-2222-4222-8222-222222222222",
-    );
+    expect(profile.sponsorPlacement?.deliveryToken).toEqual(expect.any(String));
+    expect(JSON.stringify(profile)).not.toContain("placementId");
     expect(JSON.stringify(profile)).not.toContain(
       "Identidad revisada por Rastro.",
     );
@@ -1012,7 +1047,7 @@ describe("resource provider repository", () => {
         logoUrl: "https://example.com/sponsor-logo.png",
         imageUrl: "https://example.com/sponsor-banner.png",
         placementId: "22222222-2222-4222-8222-222222222222",
-        providerName: "Clinica Veterinaria San Roque",
+        providerName: "Clínica Veterinaria San Roque",
         surface: "resources_directory",
       }),
     ]);
@@ -1308,7 +1343,7 @@ describe("resource provider repository", () => {
     const providers = [
       persistedProvider({
         id: "11111111-1111-4111-8111-111111111111",
-        name: "Clinica Veterinaria San Roque",
+        name: "Clínica Veterinaria San Roque",
         sponsorPlacements: [
           {
             id: "22222222-2222-4222-8222-222222222222",
@@ -1353,7 +1388,7 @@ describe("resource provider repository", () => {
         openCount: 96,
       },
       placementId: "22222222-2222-4222-8222-222222222222",
-      providerName: "Clinica Veterinaria San Roque",
+      providerName: "Clínica Veterinaria San Roque",
       surface: "resources_directory",
     });
   });
@@ -1369,13 +1404,17 @@ describe("resource provider repository", () => {
   });
 
   it("builds standalone sponsor policy for any supported surface", () => {
-    expect(
-      buildLocalSponsorPlacementPolicy({
-        surface: "contextual_care_resources",
-        label: "Patrocinado",
-        disclosure: "Patrocinio local identificado por Rastro.",
-      }),
-    ).toMatchObject({
+    const policy = buildLocalSponsorPlacementPolicy({
+      id: "22222222-2222-4222-8222-222222222222",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      surface: "contextual_care_resources",
+      label: "Patrocinado",
+      disclosure: "Patrocinio local identificado por Rastro.",
+      endsAt: new Date("2026-07-31T23:59:59.999Z"),
+    });
+
+    expect(typeof policy.deliveryToken).toBe("string");
+    expect(policy).toMatchObject({
       eligibleSurfaces: ["contextual_care_resources"],
       safetyPolicy: {
         recoveryPriority: {

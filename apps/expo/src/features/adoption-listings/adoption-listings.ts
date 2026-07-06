@@ -426,7 +426,7 @@ function assertPublishInput(input: PublishAdoptionListingInput) {
   ) {
     throw new AdoptionListingRepositoryError(
       "exact_location_required",
-      "An Exact Location in Bolivia is required for an Adoption Listing.",
+      "Se necesita una ubicación exacta interna en Bolivia para publicar la adopción.",
     );
   }
 
@@ -462,7 +462,7 @@ function assertSearchQuery(query: SearchActiveAdoptionListingsQuery) {
   ) {
     throw new AdoptionListingRepositoryError(
       "search_location_required",
-      "La busqueda necesita una ubicacion resuelta en Bolivia para el radio PostGIS.",
+      "La búsqueda necesita una ubicación resuelta en Bolivia para el radio PostGIS.",
     );
   }
 }

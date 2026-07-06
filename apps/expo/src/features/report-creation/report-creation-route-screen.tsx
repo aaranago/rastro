@@ -1,6 +1,6 @@
 import type { Href, Router } from "expo-router";
 import * as React from "react";
-import { Share } from "react-native";
+import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import type { ReportType } from "@acme/validators";
@@ -241,7 +241,7 @@ export function ReportCreationRouteScreen({
   const handleReportSponsorPlacement = React.useCallback(
     (sponsorProviderId: string) => {
       return sponsorResourcesAdapter.reportProvider({
-        detail: "Reporte enviado desde una colocacion patrocinada.",
+        detail: "Reporte enviado desde una colocación patrocinada.",
         providerId: sponsorProviderId,
         reason: "other",
       });
@@ -355,45 +355,21 @@ export function ReportCreationRouteScreen({
     );
   }
 
-  if (petProfileLoadState.status === "loading") {
-    return (
-      <AppStateScreen
-        descriptor={{
-          body: "Estamos preparando tus perfiles guardados antes de iniciar el reporte.",
-          kind: "loading",
-          progressLabel: "Cargando mascotas",
-          title: "Cargando tus mascotas",
-        }}
-      />
-    );
-  }
-
-  if (petProfileLoadState.status === "error") {
-    return (
-      <AppStateScreen
-        descriptor={{
-          actions: [
-            {
-              iconName: "arrow.clockwise",
-              id: "retry-pet-profiles",
-              label: "Reintentar",
-            },
-          ],
-          body: "No pudimos cargar tus mascotas guardadas. Reintenta antes de crear el reporte para poder reutilizar sus datos.",
-          kind: "error",
-          preservesWork: true,
-          title: "No pudimos cargar tus mascotas",
-        }}
-        onActionPress={petProfileLoadState.retry}
-      />
-    );
-  }
-
-  const petProfiles = petProfileLoadState.profiles;
-  const existingSelectedPetProfileId = getExistingPetProfileId({
-    petProfiles,
-    profileId: selectedPetProfileId,
-  });
+  const petProfileLoadNotice =
+    petProfileLoadState.status === "loading" ? (
+      <PetProfileLoadLoadingNotice />
+    ) : petProfileLoadState.status === "error" ? (
+      <PetProfileLoadFallbackNotice onRetry={petProfileLoadState.retry} />
+    ) : undefined;
+  const petProfiles =
+    petProfileLoadState.status === "ready" ? petProfileLoadState.profiles : [];
+  const existingSelectedPetProfileId =
+    petProfileLoadState.status === "ready"
+      ? getExistingPetProfileId({
+          petProfiles,
+          profileId: selectedPetProfileId,
+        })
+      : undefined;
   const lostInitialDraft = createSelectedLostReportInitialDraft({
     petProfiles,
     profileId: existingSelectedPetProfileId,
@@ -419,6 +395,7 @@ export function ReportCreationRouteScreen({
         onReportSponsorPlacement={handleReportSponsorPlacement}
         onSharePublishedReport={sharePublishedLostReport}
         initialDraft={lostInitialDraft}
+        petProfileLoadNotice={petProfileLoadNotice}
         petProfiles={petProfiles}
         renderReportMediaManager={renderReportMediaManager}
         successSponsorPlacements={successSponsorPlacements}
@@ -479,6 +456,7 @@ export function ReportCreationRouteScreen({
         onReportSponsorPlacement={handleReportSponsorPlacement}
         onSharePublishedListing={sharePublishedAdoptionListing}
         initialDraft={adoptionInitialDraft}
+        petProfileLoadNotice={petProfileLoadNotice}
         petProfiles={petProfiles}
         renderReportMediaManager={renderReportMediaManager}
         session={creationSession}
@@ -593,6 +571,51 @@ function createMemberRequiredReportState(intent: ReportIntent) {
   };
 }
 
+function PetProfileLoadFallbackNotice({ onRetry }: { onRetry: () => void }) {
+  return (
+    <View
+      accessibilityLiveRegion="polite"
+      accessibilityRole="alert"
+      style={styles.petProfileNotice}
+    >
+      <View style={styles.petProfileNoticeCopy}>
+        <Text selectable style={styles.petProfileNoticeTitle}>
+          No pudimos cargar tus mascotas guardadas
+        </Text>
+        <Text selectable style={styles.petProfileNoticeBody}>
+          Puedes continuar creando una mascota nueva y reintentar si quieres
+          reutilizar sus datos.
+        </Text>
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onRetry}
+        style={styles.petProfileNoticeAction}
+      >
+        <Text style={styles.petProfileNoticeActionText}>
+          Reintentar mascotas
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function PetProfileLoadLoadingNotice() {
+  return (
+    <View accessibilityLiveRegion="polite" style={styles.petProfileNotice}>
+      <View style={styles.petProfileNoticeCopy}>
+        <Text selectable style={styles.petProfileNoticeTitle}>
+          Estamos cargando tus mascotas guardadas
+        </Text>
+        <Text selectable style={styles.petProfileNoticeBody}>
+          Puedes continuar creando una mascota nueva. Si elegiste una mascota
+          guardada, espera a que termine la carga antes de reutilizar sus datos.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 type ReportCreationPetProfilesState =
   | {
       key: string;
@@ -694,6 +717,43 @@ type ReportMediaDraftCache = Map<
   string,
   ReturnType<typeof createReportMediaDraft>
 >;
+
+const styles = StyleSheet.create({
+  petProfileNotice: {
+    alignItems: "flex-start",
+    backgroundColor: "#F8FBF7",
+    borderColor: "#BFD7C2",
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  petProfileNoticeAction: {
+    backgroundColor: "#1F6B44",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  petProfileNoticeActionText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  petProfileNoticeBody: {
+    color: "#365146",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  petProfileNoticeCopy: {
+    gap: 4,
+  },
+  petProfileNoticeTitle: {
+    color: "#173526",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+});
 
 function ReportCreationRouteMediaManager({
   draftCache,

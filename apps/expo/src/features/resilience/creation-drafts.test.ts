@@ -280,7 +280,7 @@ const lostReportDraft: LostReportDraft = {
     type: "",
   },
   lostDetails: {
-    circumstances: "Salio por la puerta.",
+    circumstances: "Salió por la puerta.",
     lastSeenAtLabel: "2026-06-18T10:00:00.000Z",
     markings: "Pecho blanco.",
   },
@@ -318,7 +318,7 @@ const sightingReportDraft: SightingReportDraft = {
     whatsappPhone: "",
   },
   pet: {
-    breed: "Siames",
+    breed: "Siamés",
     description: "Gato con mancha blanca.",
     type: "Gato",
   },

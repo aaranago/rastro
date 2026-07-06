@@ -44,6 +44,7 @@ describe("admin resource provider model", () => {
         logoUrl: "https://example.com/provider-logo.png",
         sponsorPlacement: {
           kind: "Local Sponsor Placement",
+          deliveryToken: "admin-provider-delivery-token",
           label: "Patrocinado",
           disclosure:
             "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
@@ -98,7 +99,7 @@ function providerProfile(
 ): AdminResourceProviderProfile {
   return {
     id: "11111111-1111-4111-8111-111111111111",
-    name: "Clinica Veterinaria San Roque",
+    name: "Clínica Veterinaria San Roque",
     categoryId: "veterinary",
     city: "La Paz",
     department: "La Paz",

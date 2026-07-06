@@ -30,7 +30,7 @@ describe("Lost Report publish adapter", () => {
         { mediaId: "11111111-1111-4111-8111-111111111111" },
       ],
       pet: {
-        breed: "Siames",
+        breed: "Siamés",
         color: "Mancha blanca en el pecho.",
         distinguishingTraits: "Mancha blanca en el pecho.",
         name: "Luna",
@@ -159,11 +159,11 @@ function createPublishInput() {
     },
     idempotencyKey: "lost-draft-stable-key-1",
     lastSeenAt: "2026-06-18T10:50:00.000Z",
-    lastSeenDescription: "Salio por la puerta principal.",
+    lastSeenDescription: "Salió por la puerta principal.",
     petProfile: {
       kind: "inline",
       profile: {
-        breed: "Siames",
+        breed: "Siamés",
         description: "Mancha blanca en el pecho.",
         name: "Luna",
         photos: [],

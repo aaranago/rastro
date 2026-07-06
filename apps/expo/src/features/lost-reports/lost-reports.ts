@@ -466,7 +466,7 @@ function assertPublishInput(input: PublishLostPetReportInput) {
   ) {
     throw new LostPetReportRepositoryError(
       "exact_location_required",
-      "An Exact Location in Bolivia is required for a Lost Pet Report.",
+      "Se necesita una ubicación exacta interna en Bolivia para publicar el reporte de pérdida.",
     );
   }
 
@@ -495,7 +495,7 @@ function assertSearchQuery(query: SearchActiveLostPetReportsQuery) {
   ) {
     throw new LostPetReportRepositoryError(
       "search_location_required",
-      "La busqueda necesita una ubicacion resuelta en Bolivia para el radio PostGIS.",
+      "La búsqueda necesita una ubicación resuelta en Bolivia para el radio PostGIS.",
     );
   }
 }
@@ -576,7 +576,7 @@ function toPublicLostPetReportDetail(
     description: report.lastSeenDescription,
     kind: "lost-pet-report",
     lastSeenAt: {
-      label: "Perdida",
+      label: "Pérdida",
       value: report.lastSeenAt,
     },
     lifecycle,

@@ -36,6 +36,7 @@ function quoteIdentifier(identifier: string) {
 }
 
 const describeIntegration = runIntegration ? describe : describe.skip;
+const reportId = "019f3723-652e-7053-a4d4-3f3c19b53917";
 
 describeIntegration("chat repository integration", () => {
   let db: DbClientModule.Database;
@@ -97,9 +98,9 @@ describeIntegration("chat repository integration", () => {
       color: "marron",
       contactPreference: "in_app_chat",
       createdAt: new Date("2026-07-01T11:00:00.000Z"),
-      description: "Toby se perdio cerca de la plaza.",
+      description: "Toby se perdió cerca de la plaza.",
       eventOccurredAt: new Date("2026-07-01T10:30:00.000Z"),
-      id: "11111111-1111-4111-8111-000000000201",
+      id: reportId,
       idempotencyKey: "chat-notification-delivery-report",
       petName: "Toby",
       species: "dog",
@@ -148,7 +149,7 @@ describeIntegration("chat repository integration", () => {
 
     const conversation = await repository.openReportConversation({
       contactMemberId: "member-chat-contact",
-      reportId: "11111111-1111-4111-8111-000000000201",
+      reportId,
     });
 
     currentTime = new Date("2026-07-01T12:05:00.000Z");

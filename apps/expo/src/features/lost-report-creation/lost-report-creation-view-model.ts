@@ -169,7 +169,7 @@ export interface LostReportSuccessLocalSponsorPlacement {
   logoUrl?: string;
   name: string;
   paidDisclosure: string;
-  placementId?: string;
+  deliveryToken?: string;
   recoveryPriorityDisclosure: string;
   reportActionLabel: string;
   sponsorLabel: string;
@@ -342,7 +342,7 @@ export function buildLostReportCreationViewModel({
           draft.contact.whatsappPhone.trim().length === 0
             ? "Ingresa el número de WhatsApp que quieres mostrar."
             : undefined,
-        label: "Numero de WhatsApp",
+        label: "Número de WhatsApp",
         placeholder: "+591 70000000",
         value: draft.contact.whatsappPhone,
         visible: draft.contact.whatsappEnabled,
@@ -355,23 +355,23 @@ export function buildLostReportCreationViewModel({
           error: showDetailsValidation
             ? getLostCircumstancesError(draft.lostDetails.circumstances)
             : undefined,
-          label: "Que paso",
-          placeholder: "Ej. salio por la puerta, se asusto por ruido...",
+          label: "Qué pasó",
+          placeholder: "Ej. salió por la puerta, se asustó por ruido...",
           value: draft.lostDetails.circumstances,
         },
         lastSeenAtLabel: {
           error: showDetailsValidation ? lastSeenAtError : undefined,
-          label: "Ultima vez vista",
+          label: "Última vez vista",
           placeholder: "Selecciona fecha y hora aproximada",
           value: draft.lostDetails.lastSeenAtLabel,
         },
         markings: {
-          label: "Senas y comportamiento",
+          label: "Señas y comportamiento",
           placeholder: "Collar, manchas, miedos o como llamarla",
           value: draft.lostDetails.markings,
         },
       },
-      title: "Detalles de la perdida",
+      title: "Detalles de la pérdida",
     },
     petSelection: {
       inlineForm: buildInlinePetForm({
@@ -397,10 +397,10 @@ export function buildLostReportCreationViewModel({
         ? getPhotoStepError(effectivePhotos)
         : undefined,
       helpLabel:
-        "Maximo 5 fotos. Rastro prepara miniaturas y retira datos de ubicacion antes de subirlas.",
+        "Máximo 5 fotos. Rastro prepara miniaturas y retira datos de ubicación antes de subirlas.",
       items: effectivePhotos,
       permissionBody:
-        "Te pediremos acceso solo para elegir fotos de este reporte. Tambien puedes usar la camara cuando el flujo este conectado.",
+        "Te pediremos acceso solo para elegir fotos de este reporte. También puedes usar la cámara cuando el flujo esté conectado.",
       permissionTitle: "Antes de abrir tus fotos",
     },
     review: {
@@ -428,9 +428,9 @@ export function buildLostReportCreationViewModel({
     petProfile: {
       selectedLabel: selectedPet
         ? `${selectedPet.name} · ${selectedPet.typeLabel}`
-        : "Crear perfil en linea",
+        : "Crear perfil en línea",
     },
-    title: "Reportar perdida",
+    title: "Reportar pérdida",
   };
 }
 
@@ -449,6 +449,9 @@ function toLostReportSuccessLocalSponsorPlacements({
         actionLabel: placement.actionLabel,
         body: placement.body,
         categoryLabel: placement.categoryLabel,
+        ...(placement.deliveryToken
+          ? { deliveryToken: placement.deliveryToken }
+          : {}),
         eligibleSurfaces: [...placement.eligibleSurfaces],
         id: placement.id,
         ...(placement.imageUrl ? { imageUrl: placement.imageUrl } : {}),
@@ -491,7 +494,7 @@ export function toLostReportSuccessLocalSponsorPlacementFromProvider({
     logoUrl: placement.logoUrl ?? provider.logoUrl,
     name: provider.name,
     paidDisclosure: placement.disclosure,
-    placementId: placement.placementId,
+    deliveryToken: placement.deliveryToken,
     recoveryPriorityDisclosure:
       "No cambia la prioridad de tu reporte ni donde aparece.",
     reportActionLabel: "Reportar",
@@ -587,7 +590,7 @@ function createLostPetReportPublishPayload({
   }
 
   if (!draft.exactLocation) {
-    throw new Error("Exact Location is required.");
+    throw new Error("Se necesita una ubicación exacta interna.");
   }
 
   return {
@@ -730,7 +733,7 @@ function validateLostReportDraft({
 
 function getLastSeenAtError(value: string) {
   if (value.trim().length === 0) {
-    return "Indica cuando la viste por ultima vez.";
+    return "Indica cuándo la viste por última vez.";
   }
 
   if (!normalizeReportCreationEventTime(value)) {
@@ -777,12 +780,12 @@ function buildInlinePetForm({
     fields: {
       breed: {
         label: "Raza",
-        placeholder: "Mestizo, Siames, Labrador...",
+        placeholder: "Mestizo, Siamés, Labrador...",
         value: draft.breed,
       },
       description: {
-        label: "Descripcion y marcas",
-        placeholder: "Color, collar, manchas o senas visibles",
+        label: "Descripción y marcas",
+        placeholder: "Color, collar, manchas o señas visibles",
         value: draft.description,
       },
       name: {
@@ -795,7 +798,7 @@ function buildInlinePetForm({
         value: draft.name,
       },
     },
-    modeLabel: "Crear Pet Profile en linea",
+    modeLabel: "Crear perfil de mascota en línea",
     typeOptions: lostReportPetTypeOptions.map((option) => ({
       isSelected: draft.type === option,
       label: option,
@@ -811,7 +814,7 @@ function buildLocationViewModel(draft: LostReportDraft) {
     : "Selecciona un punto exacto para uso interno.";
   const approximatePublicLabel = location
     ? `${location.locationCellLabel} · zona de 300 m`
-    : "Elige una ubicacion para calcular la zona.";
+    : "Elige una ubicación para calcular la zona.";
 
   return {
     approximatePublicLabel,
@@ -819,9 +822,9 @@ function buildLocationViewModel(draft: LostReportDraft) {
     hasExactLocation: Boolean(location),
     mapPreviewLabel: location
       ? `${location.locationCellLabel}, Bolivia`
-      : "Bolivia - elige una ubicacion",
+      : "Bolivia - elige una ubicación",
     publicPrecisionLabel: draft.showExactPinPublicly
-      ? "Pin exacto publico"
+      ? "Pin exacto público"
       : "Zona aproximada de 300 m",
     showExactPinPublicly: draft.showExactPinPublicly,
     exactPinOptInLabel: "Mostrar pin exacto públicamente",
@@ -854,7 +857,7 @@ function buildReviewRows({
       value: formatPhotoCount(photos.length),
     },
     {
-      label: "Ultima vez vista",
+      label: "Última vez vista",
       value: draft.lostDetails.lastSeenAtLabel || "Pendiente",
     },
     {
@@ -864,8 +867,8 @@ function buildReviewRows({
     {
       label: "Ubicación pública",
       value: draft.showExactPinPublicly
-        ? "Punto exacto publico"
-        : "Zona aproximada publica",
+        ? "Punto exacto público"
+        : "Zona aproximada pública",
     },
     {
       label: "Contacto",
@@ -985,8 +988,8 @@ function shouldShowValidationError(
 
 function getLostCircumstancesError(value: string) {
   return getReportCreationMinimumDescriptionError({
-    emptyMessage: "Cuenta que paso.",
-    shortMessage: "Cuenta que paso con al menos 10 caracteres.",
+    emptyMessage: "Cuenta qué pasó.",
+    shortMessage: "Cuenta qué pasó con al menos 10 caracteres.",
     value,
   });
 }

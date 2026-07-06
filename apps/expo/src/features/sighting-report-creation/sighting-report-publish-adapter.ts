@@ -98,8 +98,8 @@ export function toCreateSightingReportInput(
     description: [
       input.sightingDescription.trim(),
       [
-        `Condicion observada: ${input.observedCondition.trim()}`,
-        `Direccion: ${input.direction.trim()}`,
+        `Condición observada: ${input.observedCondition.trim()}`,
+        `Dirección: ${input.direction.trim()}`,
       ].join("\n"),
     ].join("\n\n"),
     eventOccurredAt: input.observedAt,

@@ -107,7 +107,7 @@ describe("admin resources page", () => {
     expect(html).toContain("Gestión de proveedores de recursos");
     expect(html).toContain("Cola de proveedores");
     expect(html).toContain("20 proveedores");
-    expect(html).toContain("Clinica Veterinaria San Roque");
+    expect(html).toContain("Clínica Veterinaria San Roque");
     expect(html).toContain("Patitas La Paz");
     expect(html).toContain("Actualizado");
     expect(html).toContain("Registrar proveedor");
@@ -134,7 +134,7 @@ describe("admin resources page", () => {
       pageSize: 10,
     });
     expect(html).not.toContain("modelo administrativo temporal");
-    expect(html).not.toContain("no confirma publicacion");
+    expect(html).not.toContain("no confirma publicación");
     expect(html).not.toContain("Falta contrato API para actualizar detalles");
     expect(html).not.toContain("Falta contrato API para archivar o eliminar");
     expect(html).not.toMatch(forbiddenTerms);
@@ -239,7 +239,7 @@ describe("admin resources page", () => {
     const html = renderToStaticMarkup(await AdminResourcesPage());
 
     expect(html).toContain("Acceso restringido");
-    expect(html).toContain("Visitante sin sesion");
+    expect(html).toContain("Visitante sin sesión");
     expect(
       adminResourceProviderApi.listAdminResourceProviderProfiles,
     ).not.toHaveBeenCalled();
@@ -278,7 +278,7 @@ describe("admin resources page", () => {
       formData({
         endsOn: "2026-07-31",
         providerId: "11111111-1111-4111-8111-111111111111",
-        providerName: "Clinica Veterinaria San Roque",
+        providerName: "Clínica Veterinaria San Roque",
         resourceAction: "attach_sponsor",
         sponsorDisclosure:
           "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
@@ -319,7 +319,7 @@ function providerProfile(
 ): AdminResourceProviderProfile {
   return {
     id: "11111111-1111-4111-8111-111111111111",
-    name: "Clinica Veterinaria San Roque",
+    name: "Clínica Veterinaria San Roque",
     categoryId: "veterinary",
     city: "La Paz",
     description: "Veterinaria local con atencion general y urgencias.",
@@ -339,6 +339,7 @@ function providerProfile(
     isVerified: true,
     sponsorPlacement: {
       kind: "Local Sponsor Placement",
+      deliveryToken: "admin-page-delivery-token",
       label: "Patrocinado",
       disclosure:
         "Patrocinado: apoyo local. No cambia la prioridad de reportes.",

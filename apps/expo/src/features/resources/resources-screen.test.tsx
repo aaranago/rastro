@@ -116,7 +116,7 @@ vi.mock("@legendapp/list", async () => {
     }) =>
       actualReact.createElement(
         "LegendList",
-        props,
+        { ...props, data },
         ListHeaderComponent,
         data && data.length > 0 && renderItem
           ? data.map((item, index) => renderItem({ index, item }))
@@ -246,6 +246,88 @@ describe("ResourceMapSelectedProvider", () => {
 });
 
 describe("ResourcesScreen", () => {
+  it("records directory sponsor impressions only after a sponsored card is viewable", async () => {
+    const recordSponsorDelivery = vi
+      .fn<NonNullable<ResourcesAdapter["recordSponsorDelivery"]>>()
+      .mockResolvedValue({
+        status: "recorded",
+      });
+    const adapter = {
+      ...createResourcesAdapter([buildSponsoredProviderSummary()]),
+      recordSponsorDelivery,
+    } satisfies ResourcesAdapter;
+    const props = {
+      adapter,
+      initialLocation: testManualLocationOptions[0]?.location,
+      manualLocationOptions: testManualLocationOptions,
+    };
+
+    void renderResourcesScreen(props);
+    await runPendingEffects();
+    const readyScreen = renderResourcesScreen(props);
+    const listProps = getElementByTestId(readyScreen, "resources-list")
+      .props as {
+      data: ResourceProviderSummaryViewModel[];
+      onViewableItemsChanged?: (info: {
+        viewableItems: {
+          isViewable: boolean;
+          item: ResourceProviderSummaryViewModel;
+        }[];
+      }) => void;
+      viewabilityConfig?: {
+        itemVisiblePercentThreshold?: number;
+      };
+    };
+
+    expect(recordSponsorDelivery).not.toHaveBeenCalled();
+    expect(listProps.viewabilityConfig).toMatchObject({
+      itemVisiblePercentThreshold: 50,
+    });
+
+    const sponsoredProvider = listProps.data[0];
+
+    if (!sponsoredProvider || !listProps.onViewableItemsChanged) {
+      throw new Error(
+        "Expected a sponsored provider and viewability callback.",
+      );
+    }
+
+    listProps.onViewableItemsChanged({
+      viewableItems: [
+        {
+          isViewable: true,
+          item: sponsoredProvider,
+        },
+      ],
+    });
+
+    expect(recordSponsorDelivery).toHaveBeenCalledTimes(1);
+    const deliveryInput = recordSponsorDelivery.mock.calls[0]?.[0];
+
+    expect(deliveryInput).toEqual({
+      eventType: "impression",
+      idempotencyKey: deliveryInput?.idempotencyKey,
+      deliveryToken: "resources-directory-delivery-token",
+      providerId: "clinic-san-roque-sponsored",
+      source: "resources-list",
+      surface: "resources_directory",
+    });
+    expect(deliveryInput?.idempotencyKey).toMatch(
+      /^resources:[a-z0-9-]+:list:clinic-san-roque-sponsored$/,
+    );
+
+    listProps.onViewableItemsChanged({
+      viewableItems: [
+        {
+          isViewable: true,
+          item: sponsoredProvider,
+        },
+      ],
+    });
+
+    expect(recordSponsorDelivery).toHaveBeenCalledTimes(1);
+  });
+
   it("reveals manual search suggestions from notice actions without a route callback", async () => {
     const adapter = createResourcesAdapter();
     const props = {
@@ -372,7 +454,7 @@ describe("ResourcesScreen", () => {
     expect(
       getElementByTestId(readyScreen, "resources-map-provider-clinic-san-roque")
         .props.accessibilityLabel,
-    ).toBe("Seleccionar Clinica Veterinaria San Roque, Sopocachi, La Paz");
+    ).toBe("Seleccionar Clínica Veterinaria San Roque, Sopocachi, La Paz");
     expect(
       getElementByTestId(readyScreen, "resources-map-provider-clinic-san-roque")
         .props.accessibilityState,
@@ -380,7 +462,7 @@ describe("ResourcesScreen", () => {
     expect(
       getElementByTestId(readyScreen, "resources-map-selected-provider").props
         .accessibilityLabel,
-    ).toBe("Abrir Clinica Veterinaria San Roque");
+    ).toBe("Abrir Clínica Veterinaria San Roque");
 
     const selectedProvider = getElementByTestId(
       readyScreen,
@@ -390,7 +472,7 @@ describe("ResourcesScreen", () => {
     expect(
       findElement(
         selectedProvider,
-        (element) => element.props.children === "Clinica Veterinaria San Roque",
+        (element) => element.props.children === "Clínica Veterinaria San Roque",
       )?.props.numberOfLines,
     ).toBe(2);
     expect(
@@ -536,7 +618,7 @@ function createResourcesAdapter(
 function buildProviderSummary(): ResourceProviderSummary {
   return {
     id: "clinic-san-roque",
-    name: "Clinica Veterinaria San Roque",
+    name: "Clínica Veterinaria San Roque",
     categoryId: "veterinary",
     description: "Veterinaria local.",
     approximateLocationLabel: "Sopocachi, La Paz",
@@ -549,6 +631,29 @@ function buildProviderSummary(): ResourceProviderSummary {
     },
     isVerified: true,
     contactOptions: [],
+  };
+}
+
+function buildSponsoredProviderSummary(): ResourceProviderSummary {
+  return {
+    ...buildProviderSummary(),
+    id: "clinic-san-roque-sponsored",
+    sponsorPlacement: {
+      kind: "Local Sponsor Placement",
+      deliveryToken: "resources-directory-delivery-token",
+      label: "Directorio local",
+      disclosure: "Patrocinado: apoyo local sin afectar prioridades.",
+      eligibleSurfaces: ["resources_directory"],
+      safetyPolicy: {
+        recoveryPriority: {
+          label: "Recovery Priority",
+          canAffect: false,
+        },
+        pushNotifications: {
+          eligible: false,
+        },
+      },
+    },
   };
 }
 
@@ -601,7 +706,7 @@ function buildProviderViewModel(): ResourceProviderSummaryViewModel & {
 } {
   return {
     id: "clinic-san-roque",
-    name: "Clinica Veterinaria San Roque",
+    name: "Clínica Veterinaria San Roque",
     categoryLabel: "Veterinarias",
     description: "Veterinaria local.",
     locationLabel: "Sopocachi, La Paz",

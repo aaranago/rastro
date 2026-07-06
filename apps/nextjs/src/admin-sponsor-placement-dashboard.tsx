@@ -566,7 +566,7 @@ function SponsorPlacementFilterBar(props: {
           options={[
             { id: "veterinary", label: "Clínica veterinaria" },
             { id: "shelter", label: "Refugio o rescate" },
-            { id: "groomer", label: "Peluqueria para mascotas" },
+            { id: "groomer", label: "Peluquería para mascotas" },
             { id: "pet_food", label: "Alimento para mascotas" },
             { id: "trainer", label: "Entrenamiento" },
             { id: "pet_store", label: "Tienda de mascotas" },

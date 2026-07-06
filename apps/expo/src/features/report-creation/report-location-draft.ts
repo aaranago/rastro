@@ -262,13 +262,13 @@ export function validateReportLocationDraft(
   location: ReportLocationDraft | undefined,
 ): string[] {
   if (!location) {
-    return ["Selecciona una ubicacion."];
+    return ["Selecciona una ubicación."];
   }
 
   const errors: string[] = [];
 
   if (location.addressLabel.trim().length === 0) {
-    errors.push("Selecciona una direccion.");
+    errors.push("Selecciona una dirección.");
   }
 
   if (location.locationCellLabel.trim().length === 0) {
@@ -276,7 +276,7 @@ export function validateReportLocationDraft(
   }
 
   if (!isBoliviaCoordinate(location.coordinates)) {
-    errors.push("Selecciona una ubicacion dentro de Bolivia.");
+    errors.push("Selecciona una ubicación dentro de Bolivia.");
   }
 
   return errors;
@@ -312,11 +312,11 @@ export function toReportCreateLocationInput({
   const label = addressLabel.length > 0 ? addressLabel : locationCell;
 
   if (!isBoliviaCoordinate(location)) {
-    throw new Error("Selecciona una ubicacion dentro de Bolivia.");
+    throw new Error("Selecciona una ubicación dentro de Bolivia.");
   }
 
   if (label.length === 0 || locationCell.length === 0) {
-    throw new Error("Selecciona una ubicacion valida.");
+    throw new Error("Selecciona una ubicación valida.");
   }
 
   return {

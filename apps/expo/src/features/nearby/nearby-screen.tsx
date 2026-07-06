@@ -80,9 +80,9 @@ export interface NearbyScreenProps {
 }
 
 export interface NearbySponsorDeliveryInput {
+  deliveryToken: string;
   eventType: "impression" | "open";
-  idempotencyKey?: string;
-  placementId?: string;
+  idempotencyKey: string;
   providerId: string;
   source: string;
   surface: "launch_home_banner";
@@ -1003,7 +1003,7 @@ function formatCategoryFilterLabel(category: NearbyPublicReportKind) {
     case "found-pet-report":
       return "Encontradas";
     case "lost-pet-report":
-      return "Perdidas";
+      return "Pérdidas";
     case "sighting-report":
       return "Vistas";
   }
@@ -1056,7 +1056,11 @@ function LaunchSponsorBanner({
         return;
       }
 
-      const impressionKey = `${sponsor.provider.id}:${sponsor.placement.placementId ?? sponsor.placement.label}`;
+      if (!sponsor.placement.deliveryToken) {
+        return;
+      }
+
+      const impressionKey = `${sponsor.provider.id}:${sponsor.placement.deliveryToken}`;
 
       if (recordedImpressionsRef.current.has(impressionKey)) {
         return;
@@ -1064,11 +1068,9 @@ function LaunchSponsorBanner({
 
       recordedImpressionsRef.current.add(impressionKey);
       onRecordSponsorDelivery({
+        deliveryToken: sponsor.placement.deliveryToken,
         eventType: "impression",
         idempotencyKey: `launch-home:${sponsorDeliverySessionIdRef.current}:${sponsor.provider.id}:impression`,
-        ...(sponsor.placement.placementId
-          ? { placementId: sponsor.placement.placementId }
-          : {}),
         providerId: sponsor.provider.id,
         source: "nearby-launch-banner",
         surface: "launch_home_banner",
@@ -1101,11 +1103,12 @@ function LaunchSponsorBanner({
         horizontal
         contentContainerStyle={styles.launchSponsorContent}
         keyExtractor={({ placement, provider }) =>
-          `${provider.id}:${placement.placementId ?? placement.label}`
+          `${provider.id}:${placement.deliveryToken ?? placement.label}`
         }
         onViewableItemsChanged={handleViewableSponsorItemsChanged}
         renderItem={({ item: { placement, provider } }) => (
           <LaunchSponsorCard
+            deliverySessionId={sponsorDeliverySessionIdRef.current}
             onOpenSponsorProvider={onOpenSponsorProvider}
             onRecordSponsorDelivery={onRecordSponsorDelivery}
             placement={placement}
@@ -1126,11 +1129,13 @@ interface LaunchSponsorItem {
 }
 
 function LaunchSponsorCard({
+  deliverySessionId,
   onOpenSponsorProvider,
   onRecordSponsorDelivery,
   placement,
   provider,
 }: {
+  deliverySessionId: string;
   onOpenSponsorProvider?: (providerId: string) => void;
   onRecordSponsorDelivery?: (input: NearbySponsorDeliveryInput) => void;
   placement: LaunchSponsorItem["placement"];
@@ -1141,15 +1146,16 @@ function LaunchSponsorCard({
       accessibilityLabel={`Abrir patrocinador ${provider.name}`}
       accessibilityRole="button"
       onPress={() => {
-        onRecordSponsorDelivery?.({
-          eventType: "open",
-          ...(placement.placementId
-            ? { placementId: placement.placementId }
-            : {}),
-          providerId: provider.id,
-          source: "nearby-launch-banner",
-          surface: "launch_home_banner",
-        });
+        if (placement.deliveryToken) {
+          onRecordSponsorDelivery?.({
+            deliveryToken: placement.deliveryToken,
+            eventType: "open",
+            idempotencyKey: `launch-home:${deliverySessionId}:${provider.id}:open`,
+            providerId: provider.id,
+            source: "nearby-launch-banner",
+            surface: "launch_home_banner",
+          });
+        }
         onOpenSponsorProvider?.(provider.id);
       }}
       style={({ pressed }) => [

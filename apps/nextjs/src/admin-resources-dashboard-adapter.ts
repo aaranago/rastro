@@ -21,7 +21,7 @@ export function toAdminResourcesDashboardProps(
 ): AdminResourcesDashboardProps {
   return {
     accessDenied: {
-      body: "Esta superficie esta disponible solo para administradores de Rastro.",
+      body: "Esta superficie está disponible solo para administradores de Rastro.",
       title: "Acceso restringido",
     },
     createActionLabel: viewModel.createActionLabel,

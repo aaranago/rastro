@@ -40,7 +40,7 @@ export function parseAdminMemberActionFormData(
     return {
       feedback: {
         fieldErrors,
-        formError: "No pudimos identificar la accion solicitada.",
+        formError: "No pudimos identificar la acción solicitada.",
         memberId: memberId || null,
         status: "error",
         workflow,
@@ -50,7 +50,7 @@ export function parseAdminMemberActionFormData(
   }
 
   if (!reason) {
-    fieldErrors.reason = "Ingresa un motivo para registrar la decision.";
+    fieldErrors.reason = "Ingresa un motivo para registrar la decisión.";
   }
 
   if (
@@ -58,7 +58,7 @@ export function parseAdminMemberActionFormData(
     formData.get("confirmMemberSuspension") !== "on"
   ) {
     fieldErrors.confirmation =
-      "Confirma que entiendes que el miembro no podra publicar.";
+      "Confirma que entiendes que el miembro no podrá publicar.";
   }
 
   if (Object.keys(fieldErrors).length > 0) {
@@ -123,7 +123,7 @@ export async function applyAdminMemberAction(
     return {
       feedback: {
         fieldErrors: {},
-        formError: "No pudimos guardar la decision. Intentalo nuevamente.",
+        formError: "No pudimos guardar la decisión. Inténtalo nuevamente.",
         memberId: parsed.memberId,
         status: "error",
         workflow: parsed.workflow,

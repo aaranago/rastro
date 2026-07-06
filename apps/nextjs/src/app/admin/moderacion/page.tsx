@@ -37,7 +37,7 @@ import { getSession } from "~/auth/server";
 import { env } from "~/env";
 
 export const metadata: Metadata = {
-  title: "Moderacion | Rastro",
+  title: "Moderación | Rastro",
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;

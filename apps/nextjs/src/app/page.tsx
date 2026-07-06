@@ -43,11 +43,11 @@ const publicSections = [
     text: "Perdidos, encontrados y avistamientos se organizan por ubicación aproximada para cuidar datos sensibles.",
   },
   {
-    cta: "Abrir adopciones",
+    cta: "Abrir Rastro",
     heading: "Adopciones responsables",
     href: buildAppDownloadPath({
       context: "adoption",
-      target: "rastro://adopciones",
+      target: "rastro://",
     }),
     text: "Las publicaciones de adopción se mantienen fuera de compras, ventas o subastas.",
   },
@@ -58,7 +58,7 @@ const publicSections = [
       context: "resource",
       target: "rastro://recursos",
     }),
-    text: "El directorio prioriza ayuda practica: veterinarias, hogares temporales, rescate y transporte.",
+    text: "El directorio prioriza ayuda práctica: veterinarias, hogares temporales, rescate y transporte.",
   },
 ] as const;
 
@@ -150,6 +150,7 @@ export default async function HomePage(props: { searchParams: SearchParams }) {
             alt="Pantalla de actividad de Rastro con coincidencias, mensajes y actualizaciones"
             className="border-border bg-card h-96 w-full rounded-lg border object-cover object-top shadow-xs"
             height={2400}
+            priority
             src="/rastro-app-activity.png"
             width={1080}
           />

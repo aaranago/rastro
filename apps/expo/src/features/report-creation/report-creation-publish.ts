@@ -1,21 +1,21 @@
 const reportCreationPublishUnavailableMessage =
-  "No pudimos publicar porque el servicio no esta disponible. Tu borrador sigue aqui para intentar de nuevo.";
+  "No pudimos publicar porque el servicio no está disponible. Tu borrador sigue aquí para intentar de nuevo.";
 const reportCreationPublishFailedMessage =
-  "No pudimos publicar. Tu borrador sigue aqui para intentar de nuevo.";
+  "No pudimos publicar. Tu borrador sigue aquí para intentar de nuevo.";
 const reportCreationPublishAuthRequiredMessage =
-  "Inicia sesion de nuevo para publicar. Tu borrador sigue aqui.";
+  "Inicia sesión de nuevo para publicar. Tu borrador sigue aquí.";
 const reportCreationPublishVerifiedEmailRequiredMessage =
-  "Verifica tu email antes de publicar en Rastro. Tu borrador sigue aqui para intentarlo despues.";
+  "Verifica tu email antes de publicar en Rastro. Tu borrador sigue aquí para intentarlo después.";
 const reportCreationPublishSuspendedMemberMessage =
-  "Tu cuenta esta suspendida y no puede publicar en Rastro. Conservamos tu borrador mientras revisas tu estado.";
+  "Tu cuenta está suspendida y no puede publicar en Rastro. Conservamos tu borrador mientras revisas tu estado.";
 const reportCreationPublishMediaReadinessMessage =
-  "Termina de subir y confirmar las fotos antes de publicar. Tu borrador sigue aqui.";
+  "Termina de subir y confirmar las fotos antes de publicar. Tu borrador sigue aquí.";
 const reportCreationPublishValidationMessage =
   "El backend rechazó datos del borrador. Revisa la información marcada y vuelve a intentarlo.";
 const reportCreationPublishNotFoundMessage =
-  "No encontramos un recurso necesario para publicar. Tu borrador sigue aqui para intentarlo de nuevo.";
+  "No encontramos un recurso necesario para publicar. Tu borrador sigue aquí para intentarlo de nuevo.";
 const reportCreationPublishForbiddenMessage =
-  "No tienes permiso para publicar este reporte. Tu borrador sigue aqui.";
+  "No tienes permiso para publicar este reporte. Tu borrador sigue aquí.";
 
 export type ReportCreationPublishHandler<TInput, TConfirmation = void> = (
   input: TInput,

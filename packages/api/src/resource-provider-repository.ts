@@ -58,6 +58,10 @@ import {
   compareAdminListItems,
   normalizeAdminListInput,
 } from "./admin-list-contract";
+import {
+  createSponsorDeliveryToken,
+  sponsorDeliveryTokenTtlMs,
+} from "./local-sponsor-placement-delivery-token";
 
 export interface PersistedResourceProviderContactOption {
   kind: ResourceProviderContactKind;
@@ -78,6 +82,7 @@ export interface PersistedResourceProviderLocation {
 
 export interface PersistedLocalSponsorPlacement {
   id: string;
+  providerId: string;
   surface: LocalSponsorPlacementSurface;
   label: string;
   disclosure: string;
@@ -285,32 +290,51 @@ export function buildNearbyResourceProvidersDistance(
 export function buildLocalSponsorPlacementPolicy(
   placement: Pick<
     PersistedLocalSponsorPlacement,
-    "disclosure" | "label" | "surface"
+    "disclosure" | "endsAt" | "id" | "label" | "providerId" | "surface"
   > &
-    Partial<Pick<PersistedLocalSponsorPlacement, "id">> &
     Partial<Pick<PersistedLocalSponsorPlacement, "imageUrl" | "logoUrl">>,
+  options: { now?: Date } = {},
 ) {
+  const now = options.now ?? new Date();
   const logoUrl = sanitizePublicSponsorMediaUrl(placement.logoUrl);
   const imageUrl = sanitizePublicSponsorMediaUrl(placement.imageUrl);
+  const expiresAt = new Date(
+    Math.min(
+      placement.endsAt.getTime(),
+      now.getTime() + sponsorDeliveryTokenTtlMs,
+    ),
+  );
 
   return {
     kind: "Local Sponsor Placement",
-    ...(placement.id ? { placementId: placement.id } : {}),
+    deliveryToken: createSponsorDeliveryToken({
+      expiresAt,
+      now,
+      placementId: placement.id,
+      providerId: placement.providerId,
+      surface: placement.surface,
+    }),
     label: placement.label,
     disclosure: placement.disclosure,
     ...(logoUrl ? { logoUrl } : {}),
     ...(imageUrl ? { imageUrl } : {}),
     eligibleSurfaces: [placement.surface],
-    safetyPolicy: {
-      recoveryPriority: {
-        label: "Recovery Priority",
-        canAffect: false,
-      },
-      pushNotifications: {
-        eligible: false,
-      },
-    },
+    safetyPolicy: buildLocalSponsorPlacementSafetyPolicy(),
   } satisfies PublicResourceProviderSummary["sponsorPlacement"];
+}
+
+function buildLocalSponsorPlacementSafetyPolicy() {
+  return {
+    recoveryPriority: {
+      label: "Recovery Priority",
+      canAffect: false,
+    },
+    pushNotifications: {
+      eligible: false,
+    },
+  } satisfies NonNullable<
+    PublicResourceProviderSummary["sponsorPlacement"]
+  >["safetyPolicy"];
 }
 
 function buildActiveLocalSponsorPlacementPolicies(
@@ -320,7 +344,7 @@ function buildActiveLocalSponsorPlacementPolicies(
   return sponsorPlacements
     .filter((placement) => isSponsorPlacementActive(placement, now))
     .sort(comparePublicSponsorPlacements)
-    .map(buildLocalSponsorPlacementPolicy);
+    .map((placement) => buildLocalSponsorPlacementPolicy(placement, { now }));
 }
 
 export function toPublicResourceProviderSummary(
@@ -1354,6 +1378,7 @@ function toPersistedResourceProvider(
     })),
     sponsorPlacements: sponsorPlacements.map((placement) => ({
       id: placement.id,
+      providerId: row.id,
       surface: placement.surface,
       label: placement.label,
       disclosure: placement.disclosure,
@@ -1387,9 +1412,8 @@ export function toAdminLocalSponsorPlacements(
         providerVerificationStatus:
           getAdminProviderVerificationStatus(provider),
         safetyPolicy: {
-          eligibleSurfaces:
-            buildLocalSponsorPlacementPolicy(placement).eligibleSurfaces,
-          ...buildLocalSponsorPlacementPolicy(placement).safetyPolicy,
+          eligibleSurfaces: [placement.surface],
+          ...buildLocalSponsorPlacementSafetyPolicy(),
         },
         startsOn: placement.startsOn,
         surface: placement.surface,
@@ -1454,10 +1478,13 @@ function toAdminLocalSponsorPlacementFromQueryRow(
     imageUrl: row.imageUrl,
     label: row.label,
     logoUrl: row.logoUrl,
+    providerId: row.providerId,
     startsAt: row.startsAt,
     surface: row.surface,
   } satisfies PersistedLocalSponsorPlacement;
-  const policy = buildLocalSponsorPlacementPolicy(persistedPlacement);
+  const policy = buildLocalSponsorPlacementPolicy(persistedPlacement, {
+    now: options.now,
+  });
 
   return {
     category: row.category,

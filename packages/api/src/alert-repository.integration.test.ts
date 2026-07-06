@@ -553,7 +553,7 @@ describeIntegration("alert repository integration", () => {
       color: "marron",
       contactPreference: "in_app_chat",
       createdAt: input.createdAt,
-      description: "Bruno se perdio cerca de la plaza y responde a su nombre.",
+      description: "Bruno se perdió cerca de la plaza y responde a su nombre.",
       eventOccurredAt: input.createdAt,
       id: input.id,
       idempotencyKey: input.id,

@@ -157,7 +157,7 @@ function AdminMemberNotice(props: {
             : "Miembro suspendido"}
         </h2>
         <p className="mt-1 text-sm">
-          El historial del miembro quedo actualizado.
+          El historial del miembro quedó actualizado.
         </p>
       </section>
     );

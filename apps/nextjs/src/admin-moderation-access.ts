@@ -26,7 +26,7 @@ export function buildAdminModerationViewer(
   const role = getViewerRole(session, adminEmailList);
   const displayName =
     firstNonEmpty(session?.user.name, session?.user.email) ??
-    "Visitante sin sesion";
+    "Visitante sin sesión";
 
   return {
     dashboardViewer: {

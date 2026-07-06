@@ -199,7 +199,7 @@ function toReportFlaggedItem(
   item: AdminReportModerationQueueItem,
 ): AdminModerationFlaggedItem {
   const actionDetail = item.newestAction
-    ? `Ultima acción: ${item.newestAction.action === "hide" ? "oculto" : "restaurado"} por ${item.newestAction.adminId ?? "admin"} (${item.newestAction.reason}).`
+    ? `Última acción: ${item.newestAction.action === "hide" ? "oculto" : "restaurado"} por ${item.newestAction.adminId ?? "admin"} (${item.newestAction.reason}).`
     : "Sin acciones administrativas previas.";
 
   return {

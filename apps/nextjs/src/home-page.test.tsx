@@ -44,7 +44,7 @@ describe("public home page", () => {
     expect(html).toContain("Adopciones responsables");
     expect(html).toContain("Recursos en Bolivia");
     expect(html).toContain("Abrir reportes en la app");
-    expect(html).toContain("Abrir adopciones");
+    expect(html).toContain("Abrir Rastro");
     expect(html).toContain("Ver recursos locales");
     expect(html).toContain("rastro-app-activity.png");
     expect(html).toContain("rastro-app-resources.png");
@@ -53,7 +53,7 @@ describe("public home page", () => {
       'data-return-to="/reportes/perdidos/11111111-1111-4111-8111-111111110001"',
     );
     expect(html).not.toContain("Titulo del reporte");
-    expect(html).not.toContain("Sin reportes aun");
+    expect(html).not.toContain("Sin reportes aún");
     expect(html).not.toContain("Eliminar");
   });
 });

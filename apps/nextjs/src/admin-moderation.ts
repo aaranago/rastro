@@ -395,7 +395,7 @@ function createInitialState(): AdminModerationState {
 
 function buildForbiddenViewModel(): AdminModerationForbiddenViewModel {
   return {
-    body: "Esta superficie esta disponible solo para administradores de Rastro.",
+    body: "Esta superficie está disponible solo para administradores de Rastro.",
     locale: "es-BO",
     title: "Acceso restringido",
   };
@@ -420,7 +420,7 @@ function buildDashboardViewModel(
       ),
     },
     settings: buildSettingsViewModel(state),
-    title: "Panel de moderacion",
+    title: "Panel de moderación",
   };
 }
 
@@ -561,7 +561,7 @@ function applyTargetVisibilityAction(
   if (!item) {
     return {
       announcement: {
-        body: "No encontramos el elemento solicitado en la cola de moderacion.",
+        body: "No encontramos el elemento solicitado en la cola de moderación.",
         title: "Elemento no encontrado",
       },
       status: "not_found",
@@ -570,7 +570,7 @@ function applyTargetVisibilityAction(
 
   item.visibility = action.type === "hide_target" ? "hidden" : "visible";
   item.statusLabel =
-      item.visibility === "hidden"
+    item.visibility === "hidden"
       ? "Oculto de superficies públicas"
       : "Visible en superficies públicas";
 
@@ -602,7 +602,7 @@ function applyMemberAction(
   if (!member) {
     return {
       announcement: {
-        body: "No encontramos el miembro solicitado en la cola de moderacion.",
+        body: "No encontramos el miembro solicitado en la cola de moderación.",
         title: "Miembro no encontrado",
       },
       status: "not_found",

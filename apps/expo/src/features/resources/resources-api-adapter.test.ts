@@ -5,7 +5,7 @@ import { createApiResourcesAdapter } from "./resources-api-adapter";
 
 const apiProvider = {
   id: "11111111-1111-4111-8111-111111111111",
-  name: "Clinica Veterinaria San Roque",
+  name: "Clínica Veterinaria San Roque",
   categoryId: "veterinary",
   description: "Veterinaria local con atencion general y urgencias.",
   approximateLocationLabel: "Sopocachi, La Paz",
@@ -32,6 +32,7 @@ const apiProvider = {
   ],
   sponsorPlacement: {
     kind: "Local Sponsor Placement" as const,
+    deliveryToken: "api-sponsor-delivery-token",
     label: "Patrocinado",
     disclosure: "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
     logoUrl: "https://example.com/sponsor-logo.png",
@@ -267,7 +268,7 @@ describe("createApiResourcesAdapter", () => {
         lastReportedAt: new Date("2026-06-26T16:00:00.000Z"),
         newestReport: {
           createdAt: new Date("2026-06-26T16:00:00.000Z"),
-          detail: "La direccion visible no coincide con el local.",
+          detail: "La dirección visible no coincide con el local.",
           reporter: {
             displayName: "Ana S.",
             email: "ana@example.com",
@@ -279,7 +280,7 @@ describe("createApiResourcesAdapter", () => {
           department: "La Paz",
           id: "11111111-1111-4111-8111-111111111111",
           locationLabel: "Sopocachi, La Paz",
-          name: "Clinica Veterinaria San Roque",
+          name: "Clínica Veterinaria San Roque",
           verificationStatus: "verified",
         },
         reason: "incorrect_location",
@@ -292,13 +293,13 @@ describe("createApiResourcesAdapter", () => {
     });
 
     const receipt = await adapter.reportProvider({
-      detail: "La direccion visible no coincide con el local.",
+      detail: "La dirección visible no coincide con el local.",
       providerId: "11111111-1111-4111-8111-111111111111",
       reason: "incorrect_location",
     });
 
     expect(reportProvider).toHaveBeenCalledWith({
-      detail: "La direccion visible no coincide con el local.",
+      detail: "La dirección visible no coincide con el local.",
       providerId: "11111111-1111-4111-8111-111111111111",
       reason: "incorrect_location",
     });
@@ -306,7 +307,7 @@ describe("createApiResourcesAdapter", () => {
       status: "created",
       moderationItem: {
         providerId: "11111111-1111-4111-8111-111111111111",
-        providerName: "Clinica Veterinaria San Roque",
+        providerName: "Clínica Veterinaria San Roque",
         reason: "incorrect_location",
         reviewItem: {
           createdAt: "2026-06-26T16:00:00.000Z",
@@ -335,6 +336,7 @@ describe("createApiResourcesAdapter", () => {
 
     await expect(
       adapter.recordSponsorDelivery?.({
+        deliveryToken: "api-sponsor-delivery-token",
         eventType: "impression",
         idempotencyKey:
           "resources:session:11111111-1111-4111-8111-111111111111",
@@ -350,6 +352,7 @@ describe("createApiResourcesAdapter", () => {
       status: "recorded",
     });
     expect(recordSponsorDelivery).toHaveBeenCalledWith({
+      deliveryToken: "api-sponsor-delivery-token",
       eventType: "impression",
       idempotencyKey: "resources:session:11111111-1111-4111-8111-111111111111",
       providerId: "11111111-1111-4111-8111-111111111111",
@@ -369,7 +372,7 @@ describe("createApiResourcesAdapter", () => {
 
     await expect(
       adapter.reportProvider({
-        detail: "La direccion visible no coincide con el local.",
+        detail: "La dirección visible no coincide con el local.",
         providerId: "11111111-1111-4111-8111-111111111111",
         reason: "other",
       }),

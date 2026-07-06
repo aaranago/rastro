@@ -318,7 +318,7 @@ describe("AdoptionListingCreationScreen", () => {
     expect(findText(attemptedScreen, "Agrega al menos una foto.")).toBe(true);
     expect(findText(attemptedScreen, "Detalles de adopción")).toBe(false);
     expect(
-      findText(attemptedScreen, "Cuenta que tipo de hogar necesita."),
+      findText(attemptedScreen, "Cuenta qué tipo de hogar necesita."),
     ).toBe(false);
     expect(findText(attemptedScreen, "Elige chat, WhatsApp o ambos.")).toBe(
       false,
@@ -518,12 +518,12 @@ describe("AdoptionListingCreationScreen", () => {
         findText(element, "Confirmar y publicar"),
     );
 
-    expect(findText(confirmationScreen, "Confirmar publicacion")).toBe(true);
+    expect(findText(confirmationScreen, "Confirmar publicación")).toBe(true);
     expect(findText(confirmationScreen, "Adopción")).toBe(true);
     expect(
       findText(
         confirmationScreen,
-        "Pública o pendiente de revisión por Review Mode",
+        "Pública o pendiente de revisión por modo de revisión",
       ),
     ).toBe(true);
 
@@ -567,7 +567,7 @@ describe("AdoptionListingCreationScreen", () => {
     expect(findText(successScreen, "active")).toBe(false);
   });
 
-  it("shows Review Mode copy and disables sharing when adoption publish returns pending review", async () => {
+  it("shows modo de revisión copy and disables sharing when adoption publish returns pending review", async () => {
     durableDraft.draft = createReadyDraft();
     const publishAdoptionListing = vi.fn().mockResolvedValue({
       id: "report-adoption-backend-2",
@@ -638,7 +638,7 @@ describe("AdoptionListingCreationScreen", () => {
     expect(durableDraft.clearDraft).toHaveBeenCalledTimes(1);
     expect(draftPublished).toHaveBeenCalledTimes(1);
     expect(findText(successScreen, "Adopción enviada a revisión")).toBe(true);
-    expect(findText(successScreen, "Review Mode")).toBe(true);
+    expect(findText(successScreen, "modo de revisión")).toBe(true);
     expect(shareButton?.props.disabled).toBe(true);
     expect(sharePublishedListing).not.toHaveBeenCalled();
     expect(openPublishedListing).toHaveBeenCalledWith({
@@ -689,7 +689,7 @@ describe("AdoptionListingCreationScreen", () => {
     const chooseLocationButton = findElement(
       screen,
       (element) =>
-        element.type === "Pressable" && findText(element, "Elegir ubicacion"),
+        element.type === "Pressable" && findText(element, "Elegir ubicación"),
     );
 
     expect(
@@ -734,7 +734,7 @@ describe("AdoptionListingCreationScreen", () => {
       />,
     );
 
-    expect(findText(updatedScreen, "Cambiar ubicacion")).toBe(true);
+    expect(findText(updatedScreen, "Cambiar ubicación")).toBe(true);
     expect(findText(updatedScreen, "Parque Urbano Central")).toBe(true);
     expect(durableDraft.draft.exactLocation).toEqual(confirmedLocation);
   });

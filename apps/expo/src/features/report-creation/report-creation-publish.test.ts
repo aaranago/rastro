@@ -17,7 +17,7 @@ describe("publishReportCreation", () => {
 
     expect(result).toEqual({
       message:
-        "No pudimos publicar porque el servicio no esta disponible. Tu borrador sigue aqui para intentar de nuevo.",
+        "No pudimos publicar porque el servicio no está disponible. Tu borrador sigue aquí para intentar de nuevo.",
       ok: false,
       reason: "missing-handler",
     });
@@ -38,7 +38,7 @@ describe("publishReportCreation", () => {
 
     expect(result).toEqual({
       message:
-        "No pudimos publicar. Tu borrador sigue aqui para intentar de nuevo.",
+        "No pudimos publicar. Tu borrador sigue aquí para intentar de nuevo.",
       ok: false,
       reason: "failed",
     });
@@ -113,28 +113,28 @@ describe("publishReportCreation", () => {
   it.each([
     [
       { data: { code: "UNAUTHORIZED" }, message: "session expired" },
-      "Inicia sesion de nuevo para publicar. Tu borrador sigue aqui.",
+      "Inicia sesión de nuevo para publicar. Tu borrador sigue aquí.",
     ],
     [
       {
         data: { code: "PRECONDITION_FAILED" },
         message: "Verified email is required.",
       },
-      "Verifica tu email antes de publicar en Rastro. Tu borrador sigue aqui para intentarlo despues.",
+      "Verifica tu email antes de publicar en Rastro. Tu borrador sigue aquí para intentarlo después.",
     ],
     [
       {
         data: { code: "PRECONDITION_FAILED" },
         message: "member is suspended",
       },
-      "Tu cuenta esta suspendida y no puede publicar en Rastro. Conservamos tu borrador mientras revisas tu estado.",
+      "Tu cuenta está suspendida y no puede publicar en Rastro. Conservamos tu borrador mientras revisas tu estado.",
     ],
     [
       {
         data: { code: "BAD_REQUEST" },
         message: "media must be ready and owned by member",
       },
-      "Termina de subir y confirmar las fotos antes de publicar. Tu borrador sigue aqui.",
+      "Termina de subir y confirmar las fotos antes de publicar. Tu borrador sigue aquí.",
     ],
     [
       { data: { code: "BAD_REQUEST" }, message: "validation failed" },
@@ -142,11 +142,11 @@ describe("publishReportCreation", () => {
     ],
     [
       { data: { code: "NOT_FOUND" }, message: "resource not found" },
-      "No encontramos un recurso necesario para publicar. Tu borrador sigue aqui para intentarlo de nuevo.",
+      "No encontramos un recurso necesario para publicar. Tu borrador sigue aquí para intentarlo de nuevo.",
     ],
     [
       { data: { code: "FORBIDDEN" }, message: "forbidden" },
-      "No tienes permiso para publicar este reporte. Tu borrador sigue aqui.",
+      "No tienes permiso para publicar este reporte. Tu borrador sigue aquí.",
     ],
   ])(
     "maps backend publish failure %j to Spanish draft-safe copy",

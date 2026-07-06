@@ -358,14 +358,14 @@ export function FoundReportCreationScreen({
         publishState === "confirming" || publishState === "publishing" ? (
           <ReportCreationPublishConfirmationModal
             activityIndicatorColor={shellColors.white}
-            body="Al confirmar, Rastro creara un reporte publico de mascota encontrada con la zona y contacto que revisaste."
+            body="Al confirmar, Rastro creará un reporte público de mascota encontrada con la zona y contacto que revisaste."
             canConfirm={quietViewModel.canPublish}
             Icon={FoundReportCreationIcon}
             onCancel={cancelPublishConfirmation}
             onConfirm={confirmPublish}
             publishState={toReportCreationPublishState(publishState)}
             rows={buildFoundReportPublishConfirmationRows(quietViewModel)}
-            title="Confirmar publicacion"
+            title="Confirmar publicación"
           />
         ) : null
       }
@@ -401,7 +401,7 @@ function buildFoundReportPublishConfirmationRows(
     },
     {
       label: "Estado",
-      value: "Publico activo despues de confirmar",
+      value: "Público activo después de confirmar",
     },
     ...viewModel.review.rows,
   ];
@@ -444,7 +444,7 @@ function FoundReportVisitorHandoff({
           {viewModel.visitorAction?.label}
         </Text>
         <Text maxFontSizeMultiplier={1.2} style={styles.bodyText}>
-          Rastro guardara esta accion para que puedas continuar como miembro.
+          Rastro guardará esta acción para que puedas continuar como miembro.
         </Text>
         <Pressable
           accessibilityRole="button"
@@ -650,7 +650,7 @@ function FoundReportCreationEditor({
   const locationError =
     validationDisplay.attemptedStepId === "location" &&
     !draft.exactFoundLocation
-      ? "Selecciona donde fue encontrada."
+      ? "Selecciona dónde fue encontrada."
       : undefined;
 
   const continueToNextStep = React.useCallback(async () => {
@@ -1061,8 +1061,8 @@ function LocationPrivacySection({
           icon="map.fill"
           label={
             viewModel.location.hasExactLocation
-              ? "Cambiar ubicacion"
-              : "Elegir ubicacion"
+              ? "Cambiar ubicación"
+              : "Elegir ubicación"
           }
           onPress={onChooseFoundLocation}
           primaryTextColor={shellColors.white}
@@ -1273,29 +1273,29 @@ function validateFoundReportDetailsStep(draft: FoundReportDraft) {
   const errors: string[] = [];
 
   if (draft.pet.description.trim().length === 0) {
-    errors.push("Agrega senas visibles de la mascota encontrada.");
+    errors.push("Agrega señas visibles de la mascota encontrada.");
   }
 
   if (draft.foundDetails.foundAtLabel.trim().length === 0) {
-    errors.push("Indica cuando fue encontrada.");
+    errors.push("Indica cuándo fue encontrada.");
   }
 
   if (draft.foundDetails.condition.trim().length === 0) {
-    errors.push("Describe la condicion de la mascota encontrada.");
+    errors.push("Describe la condición de la mascota encontrada.");
   }
 
   const foundDescriptionLength = draft.foundDetails.description.trim().length;
   if (foundDescriptionLength === 0) {
-    errors.push("Agrega una descripcion de la mascota encontrada.");
+    errors.push("Agrega una descripción de la mascota encontrada.");
   } else if (foundDescriptionLength < 10) {
-    errors.push("Escribe una descripcion de al menos 10 caracteres.");
+    errors.push("Escribe una descripción de al menos 10 caracteres.");
   }
 
   return errors;
 }
 
 function validateFoundReportLocationStep(draft: FoundReportDraft) {
-  return draft.exactFoundLocation ? [] : ["Selecciona donde fue encontrada."];
+  return draft.exactFoundLocation ? [] : ["Selecciona dónde fue encontrada."];
 }
 
 function validateFoundReportContactStep(draft: FoundReportDraft) {

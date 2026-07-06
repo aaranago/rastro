@@ -113,7 +113,7 @@ describe("ManualLocationPickerMap", () => {
   it("uses distinct back-to-list copy for nested map cancellation", () => {
     const screen = renderFunctionElement(
       <ManualLocationPickerMap
-        cancelAccessibilityLabel="Volver a la lista de ubicaciones"
+        cancelAccessibilityLabel="Volver a la lista de ubicaciónes"
         cancelLabel="Volver a la lista"
         onCancel={() => undefined}
         onConfirm={() => undefined}
@@ -129,7 +129,7 @@ describe("ManualLocationPickerMap", () => {
       screen,
       (element) =>
         element.type === "Pressable" &&
-        element.props.accessibilityLabel === "Volver a la lista de ubicaciones",
+        element.props.accessibilityLabel === "Volver a la lista de ubicaciónes",
     );
 
     expect(

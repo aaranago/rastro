@@ -1,15 +1,14 @@
-import { PublicPhotoGrid } from "~/public-photo-grid";
-import {
-  parsePublicReportAbuseStatus,
-  PublicReportAbuseCard,
-} from "~/public-report-abuse";
-
 import type {
   PublicReportPageContactOption,
   PublicReportPageLocation,
   PublicReportPagePet,
   PublicReportPagePhoto,
 } from "./public-report-detail-mapping";
+import { PublicPhotoGrid } from "~/public-photo-grid";
+import {
+  parsePublicReportAbuseStatus,
+  PublicReportAbuseCard,
+} from "~/public-report-abuse";
 
 export type PublicCommunityReportSearchParams = Record<
   string,
@@ -81,7 +80,7 @@ export function PublicCommunityReportPageContent({
                 <dd className="mt-1 font-medium">{report.event.value}</dd>
               </div>
               <div>
-                <dt className="text-muted-foreground text-sm">Ubicacion</dt>
+                <dt className="text-muted-foreground text-sm">Ubicación</dt>
                 <dd className="mt-1 font-medium">
                   {report.publicLocation.label}
                 </dd>

@@ -41,7 +41,7 @@ describe("Report location draft contract", () => {
         locationCellLabel: "Sopocachi",
         municipality: "La Paz",
       }),
-    ).toThrow("Selecciona una ubicacion dentro de Bolivia.");
+    ).toThrow("Selecciona una ubicación dentro de Bolivia.");
   });
 
   it("rejects map pins inside the bounding box but outside Bolivia before mobile publish", () => {
@@ -56,7 +56,7 @@ describe("Report location draft contract", () => {
         locationCellLabel: "Arica",
         municipality: "Arica",
       }),
-    ).toThrow("Selecciona una ubicacion dentro de Bolivia.");
+    ).toThrow("Selecciona una ubicación dentro de Bolivia.");
   });
 
   it("rejects map pins inside the bounding box but outside Bolivia before backend create", () => {
@@ -71,7 +71,7 @@ describe("Report location draft contract", () => {
         locationCellLabel: "Tacna",
         municipality: "Tacna",
       }),
-    ).toContain("Selecciona una ubicacion dentro de Bolivia.");
+    ).toContain("Selecciona una ubicación dentro de Bolivia.");
 
     expect(() =>
       toReportCreateLocationInput({
@@ -83,7 +83,7 @@ describe("Report location draft contract", () => {
           longitude: -70.2463,
         },
       }),
-    ).toThrow("Selecciona una ubicacion dentro de Bolivia.");
+    ).toThrow("Selecciona una ubicación dentro de Bolivia.");
   });
 
   it("accepts Bolivian border cities inside the country geofence", () => {
@@ -110,7 +110,7 @@ describe("Report location draft contract", () => {
           municipality: label,
         }),
       ),
-    ).not.toContain("Selecciona una ubicacion dentro de Bolivia.");
+    ).not.toContain("Selecciona una ubicación dentro de Bolivia.");
   });
 
   it("maps mobile publish location to backend report.create location with exact-public visibility", () => {

@@ -9,13 +9,13 @@ import type {
   PublicReportDetail,
   PublicReportDetailLoader,
 } from "./public-report-detail-api-adapter";
-import { getPublicReportDetail } from "./public-report-detail-api-adapter";
 import type {
   PublicReportPageContactOption,
   PublicReportPageLocation,
   PublicReportPagePet,
   PublicReportPagePhoto,
 } from "./public-report-detail-mapping";
+import { getPublicReportDetail } from "./public-report-detail-api-adapter";
 import {
   buildAppDownloadHref,
   buildPublicReportArticleMetadata,
@@ -63,9 +63,7 @@ interface PublicCommunityReportConfig {
   activeStatusLabel: string;
   descriptionLabel: string;
   eventLabel: string;
-  metadataDescription: (
-    report: PublicCommunityReportViewModel,
-  ) => string;
+  metadataDescription: (report: PublicCommunityReportViewModel) => string;
   metadataTitle: (report: PublicCommunityReportViewModel) => string;
   shareTarget: (input: {
     publicWebBaseUrl: string;
@@ -90,7 +88,7 @@ const outcomeLabels = {
 
 const foundReportConfig = {
   activeStatusLabel: "Mascota encontrada",
-  descriptionLabel: "Descripcion del encuentro",
+  descriptionLabel: "Descripción del encuentro",
   eventLabel: "Encontrado",
   metadataDescription: (report) =>
     `Ayuda a reunir a ${report.pet.name}, ${report.pet.type} ${report.pet.breed}. Encontrado en zona aproximada: ${report.publicLocation.label}.`,
@@ -102,7 +100,7 @@ const foundReportConfig = {
 
 const sightingReportConfig = {
   activeStatusLabel: "Avistamiento activo",
-  descriptionLabel: "Descripcion del avistamiento",
+  descriptionLabel: "Descripción del avistamiento",
   eventLabel: "Avistado",
   metadataDescription: (report) =>
     `Ayuda a ubicar este avistamiento de ${report.pet.name}, ${report.pet.type} ${report.pet.breed}. Visto en zona aproximada: ${report.publicLocation.label}.`,

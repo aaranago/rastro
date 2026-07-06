@@ -237,14 +237,16 @@ describe("Nearby production route", () => {
     }
 
     const recordSponsorDelivery = onRecordSponsorDelivery as (input: {
+      deliveryToken: string;
       eventType: "impression" | "open";
-      idempotencyKey?: string;
+      idempotencyKey: string;
       providerId: string;
       source: string;
       surface: "launch_home_banner";
     }) => void;
 
     recordSponsorDelivery({
+      deliveryToken: "launch-home-delivery-token",
       eventType: "impression",
       idempotencyKey:
         "launch-home:session-1:11111111-1111-4111-8111-111111111111:impression",
@@ -253,6 +255,7 @@ describe("Nearby production route", () => {
       surface: "launch_home_banner",
     });
     expect(resources.adapter.recordSponsorDelivery).toHaveBeenCalledWith({
+      deliveryToken: "launch-home-delivery-token",
       eventType: "impression",
       idempotencyKey:
         "launch-home:session-1:11111111-1111-4111-8111-111111111111:impression",

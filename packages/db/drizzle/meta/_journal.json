@@ -162,6 +162,13 @@
       "when": 1782896400000,
       "tag": "0022_alert_moving_alert_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1783392000000,
+      "tag": "0023_require_sponsor_delivery_idempotency",
+      "breakpoints": true
     }
   ]
 }

@@ -167,7 +167,7 @@ describe("Adoption Listing creation view model", () => {
 
     expect(
       attemptedDetailsViewModel.adoptionDetails.fields.adoptionSummary.error,
-    ).toBe("Cuenta que tipo de hogar necesita.");
+    ).toBe("Cuenta qué tipo de hogar necesita.");
 
     const attemptedContactViewModel = buildAdoptionListingCreationViewModel({
       draft,
@@ -382,7 +382,7 @@ describe("Adoption Listing creation view model", () => {
     };
 
     expect(() => toPublishAdoptionListingInput({ draft })).toThrow(
-      "Selecciona la Exact Location interna.",
+      "Selecciona la ubicación exacta interna.",
     );
   });
 
@@ -420,7 +420,7 @@ describe("Adoption Listing creation view model", () => {
     };
 
     expect(() => toPublishAdoptionListingInput({ draft })).toThrow(
-      "Selecciona una ubicacion dentro de Bolivia.",
+      "Selecciona una ubicación dentro de Bolivia.",
     );
   });
 });

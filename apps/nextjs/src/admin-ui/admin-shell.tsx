@@ -97,7 +97,7 @@ function getViewerRoleLabel(role: AdminShellViewerRole) {
 }
 
 function getViewerDisplayName(displayName: string) {
-  return displayName === "Visitante sin sesion"
+  return displayName === "Visitante sin sesión"
     ? "Visitante sin sesión"
     : displayName;
 }

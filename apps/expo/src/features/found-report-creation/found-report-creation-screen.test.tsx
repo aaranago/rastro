@@ -311,13 +311,13 @@ describe("FoundReportCreationScreen", () => {
 
     expect(findText(attemptedScreen, "Paso 1 de 5")).toBe(true);
     expect(findText(attemptedScreen, "Agrega al menos una foto.")).toBe(true);
-    expect(findText(attemptedScreen, "Indica cuando fue encontrada.")).toBe(
+    expect(findText(attemptedScreen, "Indica cuándo fue encontrada.")).toBe(
       false,
     );
     expect(
       findText(
         attemptedScreen,
-        "Describe la condicion de la mascota encontrada.",
+        "Describe la condición de la mascota encontrada.",
       ),
     ).toBe(false);
     expect(findText(attemptedScreen, "Elige chat, WhatsApp o ambos.")).toBe(
@@ -459,7 +459,7 @@ describe("FoundReportCreationScreen", () => {
       ({ onSnapshotChange }: ReportMediaManagerRenderTestProps) => (
         <View>
           <Text>Biblioteca</Text>
-          <Text>Camara</Text>
+          <Text>Cámara</Text>
           <Text>Progreso total 60%</Text>
           <Text>Reintentar</Text>
           <Text>Principal</Text>
@@ -479,7 +479,7 @@ describe("FoundReportCreationScreen", () => {
     );
 
     expect(findText(screen, "Biblioteca")).toBe(true);
-    expect(findText(screen, "Camara")).toBe(true);
+    expect(findText(screen, "Cámara")).toBe(true);
     expect(findText(screen, "Progreso total 60%")).toBe(true);
     expect(findText(screen, "Reintentar")).toBe(true);
     expect(findText(screen, "Principal")).toBe(true);
@@ -532,10 +532,10 @@ describe("FoundReportCreationScreen", () => {
       screen,
       (element) =>
         element.type === "Pressable" &&
-        findText(element, "Iniciar sesion para reportar encontrada"),
+        findText(element, "Iniciar sesión para reportar encontrada"),
     );
 
-    expect(findText(screen, "Iniciar sesion para reportar encontrada")).toBe(
+    expect(findText(screen, "Iniciar sesión para reportar encontrada")).toBe(
       true,
     );
 
@@ -543,7 +543,7 @@ describe("FoundReportCreationScreen", () => {
 
     expect(requestMemberSignIn).toHaveBeenCalledWith({
       intent: "found-report",
-      label: "Iniciar sesion para reportar encontrada",
+      label: "Iniciar sesión para reportar encontrada",
     });
   });
 
@@ -591,7 +591,7 @@ describe("FoundReportCreationScreen", () => {
         findText(element, "Confirmar y publicar"),
     );
 
-    expect(findText(confirmationScreen, "Confirmar publicacion")).toBe(true);
+    expect(findText(confirmationScreen, "Confirmar publicación")).toBe(true);
     expect(findText(confirmationScreen, "Reporte de mascota encontrada")).toBe(
       true,
     );
@@ -667,7 +667,7 @@ describe("FoundReportCreationScreen", () => {
     const chooseLocationButton = findElement(
       screen,
       (element) =>
-        element.type === "Pressable" && findText(element, "Elegir ubicacion"),
+        element.type === "Pressable" && findText(element, "Elegir ubicación"),
     );
 
     expect(findText(screen, "Selecciona el punto donde fue encontrada.")).toBe(
@@ -706,7 +706,7 @@ describe("FoundReportCreationScreen", () => {
       <FoundReportCreationScreen locationAdapter={adapter} />,
     );
 
-    expect(findText(updatedScreen, "Cambiar ubicacion")).toBe(true);
+    expect(findText(updatedScreen, "Cambiar ubicación")).toBe(true);
     expect(findText(updatedScreen, "Mercado Camacho")).toBe(true);
     expect(durableDraft.draft.exactFoundLocation).toEqual(confirmedLocation);
   });

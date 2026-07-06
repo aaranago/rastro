@@ -60,7 +60,7 @@ describe("admin resource provider actions", () => {
       validUpdateFormData({
         description:
           "Veterinaria local con atencion general, urgencias y orientacion.",
-        providerName: "Clinica Veterinaria San Roque",
+        providerName: "Clínica Veterinaria San Roque",
         resourceAction: "update_provider_details",
       }),
     );
@@ -70,7 +70,7 @@ describe("admin resource provider actions", () => {
       fieldErrors: [],
       ok: false,
       providerId: "11111111-1111-4111-8111-111111111111",
-      providerName: "Clinica Veterinaria San Roque",
+      providerName: "Clínica Veterinaria San Roque",
       submittedValues: result.submittedValues,
       workflow: "edit",
     });
@@ -85,7 +85,7 @@ describe("admin resource provider actions", () => {
     const result = await applyAdminResourceProviderAction(
       formData({
         providerId: "11111111-1111-4111-8111-111111111111",
-        providerName: "Clinica Veterinaria San Roque",
+        providerName: "Clínica Veterinaria San Roque",
         resourceAction: "update_verification",
         verificationStatus: "maybe",
       }),
@@ -95,7 +95,7 @@ describe("admin resource provider actions", () => {
       action: "update_verification",
       ok: false,
       providerId: "11111111-1111-4111-8111-111111111111",
-      providerName: "Clinica Veterinaria San Roque",
+      providerName: "Clínica Veterinaria San Roque",
       workflow: "verification",
     });
     expect(result.fieldErrors).toEqual([
@@ -113,7 +113,7 @@ describe("admin resource provider actions", () => {
     const result = await applyAdminResourceProviderAction(
       formData({
         providerId: "11111111-1111-4111-8111-111111111111",
-        providerName: "Clinica Veterinaria San Roque",
+        providerName: "Clínica Veterinaria San Roque",
         resourceAction: "attach_sponsor",
         sponsorSurface: "resources_directory",
         sponsorLabel: "Patrocinado",
@@ -152,7 +152,7 @@ describe("admin resource provider actions", () => {
     const result = await applyAdminResourceProviderAction(
       formData({
         providerId: "11111111-1111-4111-8111-111111111111",
-        providerName: "Clinica Veterinaria San Roque",
+        providerName: "Clínica Veterinaria San Roque",
         resourceAction: "attach_sponsor",
         sponsorSurface: "resources_directory",
         startsOn: "2026-08-01",
@@ -164,7 +164,7 @@ describe("admin resource provider actions", () => {
       action: "attach_sponsor",
       ok: false,
       providerId: "11111111-1111-4111-8111-111111111111",
-      providerName: "Clinica Veterinaria San Roque",
+      providerName: "Clínica Veterinaria San Roque",
       workflow: "sponsor",
     });
     expect(result.fieldErrors).toEqual([
@@ -194,7 +194,7 @@ describe("admin resource provider actions", () => {
     const result = await applyAdminResourceProviderAction(
       formData({
         providerId: "11111111-1111-4111-8111-111111111111",
-        providerName: "Clinica Veterinaria San Roque",
+        providerName: "Clínica Veterinaria San Roque",
         resourceAction: "attach_sponsor",
         sponsorSurface: "resources_directory",
         sponsorLabel: "Patrocinado",
@@ -233,7 +233,7 @@ describe("admin resource provider actions", () => {
     const result = await applyAdminResourceProviderAction(
       formData({
         providerId: "11111111-1111-4111-8111-111111111111",
-        providerName: "Clinica Veterinaria San Roque",
+        providerName: "Clínica Veterinaria San Roque",
         resourceAction: "detach_sponsor",
       }),
     );
@@ -242,7 +242,7 @@ describe("admin resource provider actions", () => {
       action: "detach_sponsor",
       ok: false,
       providerId: "11111111-1111-4111-8111-111111111111",
-      providerName: "Clinica Veterinaria San Roque",
+      providerName: "Clínica Veterinaria San Roque",
       workflow: "sponsor",
     });
     expect(result.fieldErrors).toEqual([
@@ -258,7 +258,7 @@ describe("admin resource provider actions", () => {
     const result = await applyAdminResourceProviderAction(
       formData({
         providerId: "11111111-1111-4111-8111-111111111111",
-        providerName: "Clinica Veterinaria San Roque",
+        providerName: "Clínica Veterinaria San Roque",
         resourceAction: "archive_provider",
       }),
     );
@@ -267,7 +267,7 @@ describe("admin resource provider actions", () => {
       action: "archive_provider",
       ok: false,
       providerId: "11111111-1111-4111-8111-111111111111",
-      providerName: "Clinica Veterinaria San Roque",
+      providerName: "Clínica Veterinaria San Roque",
       workflow: "archive",
     });
     expect(result.fieldErrors).toEqual([
@@ -285,7 +285,7 @@ describe("admin resource provider actions", () => {
     const result = await applyAdminResourceProviderAction(
       formData({
         providerId: "11111111-1111-4111-8111-111111111111",
-        providerName: "Clinica Veterinaria San Roque",
+        providerName: "Clínica Veterinaria San Roque",
         resourceAction: "update_verification",
         verificationStatus: "verified",
         verificationNote: "Identidad revisada por Rastro.",
@@ -300,11 +300,11 @@ describe("admin resource provider actions", () => {
     expect(feedback).toMatchObject({
       action: "update_verification",
       ok: true,
-      providerName: "Clinica Veterinaria San Roque",
+      providerName: "Clínica Veterinaria San Roque",
       workflow: "verification",
     });
     expect(buildAdminResourceProviderMutationNotice(feedback)).toEqual({
-      body: "Clinica Veterinaria San Roque: la verificación de identidad fue actualizada con su nota.",
+      body: "Clínica Veterinaria San Roque: la verificación de identidad fue actualizada con su nota.",
       title: "Verificación actualizada",
       tone: "success",
     });
@@ -314,7 +314,7 @@ describe("admin resource provider actions", () => {
     const result = await applyAdminResourceProviderAction(
       formData({
         resourceAction: "create_provider",
-        name: "Clinica incompleta",
+        name: "Clínica incompleta",
         category: "veterinary",
         logoAssetId: "11111111-1111-4111-8111-111111111111",
         photoAssetId: "22222222-2222-4222-8222-222222222222",
@@ -338,7 +338,7 @@ describe("admin resource provider actions", () => {
         "contactOptions.0.label": "WhatsApp",
         logoAssetId: "11111111-1111-4111-8111-111111111111",
         "socialLinks.0.url": "https://instagram.example.com/incompleta",
-        name: "Clinica incompleta",
+        name: "Clínica incompleta",
         photoAssetId: "22222222-2222-4222-8222-222222222222",
       },
       workflow: "create",
@@ -362,8 +362,8 @@ describe("admin resource provider actions", () => {
 function validUpdateFormData(overrides: Record<string, string>) {
   return formData({
     providerId: "11111111-1111-4111-8111-111111111111",
-    providerName: "Clinica Veterinaria San Roque",
-    name: "Clinica Veterinaria San Roque",
+    providerName: "Clínica Veterinaria San Roque",
+    name: "Clínica Veterinaria San Roque",
     category: "veterinary",
     description: "Veterinaria local con atencion general y urgencias.",
     shortDescription:

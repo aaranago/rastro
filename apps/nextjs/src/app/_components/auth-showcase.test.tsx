@@ -40,15 +40,15 @@ describe("AuthShowcase account settings", () => {
 
     const html = renderToStaticMarkup(await AuthShowcase({}));
 
-    expect(html).toContain("Configuracion de cuenta");
-    expect(html).toContain("Cerrar sesion");
-    expect(html).toContain("Restablecer contrasena");
+    expect(html).toContain("Configuración de cuenta");
+    expect(html).toContain("Cerrar sesión");
+    expect(html).toContain("Restablecer contraseña");
     expect(html).toContain("Solicitar enlace");
-    expect(html).toContain("Solicitar eliminacion");
+    expect(html).toContain("Solicitar eliminación");
     expect(html).toContain("perfiles de mascota");
-    expect(html).toContain("reportes y publicaciones de adopcion");
+    expect(html).toContain("reportes y publicaciones de adopción");
     expect(html).toContain("conversaciones");
-    expect(html).toContain("contenido publico");
+    expect(html).toContain("contenido público");
     expect(html).toContain("registros de seguridad");
   });
 
@@ -64,7 +64,7 @@ describe("AuthShowcase account settings", () => {
       }),
     );
 
-    expect(html).toContain("Ingresa para continuar con esta accion en Rastro.");
+    expect(html).toContain("Ingresa para continuar con esta acción en Rastro.");
     expect(html).toContain(
       'name="returnTo" value="/reportes/perdidos/11111111-1111-4111-8111-111111110001"',
     );

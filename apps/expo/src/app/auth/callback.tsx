@@ -51,7 +51,7 @@ export default function MobileAuthCallbackRoute() {
                   label: "Volver",
                 },
               ],
-              body: "Vuelve al inicio e intenta iniciar sesion otra vez.",
+              body: "Vuelve al inicio e intenta iniciar sesión otra vez.",
               kind: "error",
               title: errorMessage,
             }

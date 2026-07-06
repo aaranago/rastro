@@ -108,11 +108,11 @@ describe("Lost Pet Report publishing", () => {
         longitude: -68.0772,
       },
       lastSeenAt: "2026-06-18T10:50:00.000Z",
-      lastSeenDescription: "Salio por la puerta principal.",
+      lastSeenDescription: "Salió por la puerta principal.",
       petProfile: {
         kind: "inline",
         profile: {
-          breed: "Siames",
+          breed: "Siamés",
           description: "Mancha blanca en el pecho.",
           name: "Luna",
           photos: [{ id: "inline-photo-1", uri: "file:///luna.heic" }],
@@ -204,7 +204,7 @@ describe("Lost Pet Report publishing", () => {
         memberId: "member-diego",
       },
       {
-        detail: "La ubicacion parece incorrecta.",
+        detail: "La ubicación parece incorrecta.",
         reason: "incorrect_location",
         reportId: published.id,
       },
@@ -213,7 +213,7 @@ describe("Lost Pet Report publishing", () => {
     expect(receipt).toMatchObject({
       reviewItem: {
         createdAt: "2026-06-18T13:00:00.000Z",
-        detail: "La ubicacion parece incorrecta.",
+        detail: "La ubicación parece incorrecta.",
         reason: "incorrect_location",
         reporterMemberId: "member-diego",
         status: "pending",
@@ -478,7 +478,7 @@ describe("Lost Pet Report browsing", () => {
         longitude: -66.1568,
       },
       lastSeenAt: "2026-06-18T10:30:00.000Z",
-      lastSeenDescription: "Salio por el jardin y no regreso.",
+      lastSeenDescription: "Salió por el jardin y no regreso.",
       petProfile: {
         kind: "inline",
         profile: {
@@ -498,7 +498,7 @@ describe("Lost Pet Report browsing", () => {
             longitude: -66.1568,
           },
           countryCode: "BO",
-          label: "Ultima ubicacion detectada en Cochabamba",
+          label: "Última ubicación detectada en Cochabamba",
           locationCellLabel: "Queru Queru",
           source: "last",
         },

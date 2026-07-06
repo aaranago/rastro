@@ -177,7 +177,7 @@ describe("NearbyScreen launch sponsor banner", () => {
 
     expect(findText(screen, "Patrocinadores locales")).toBe(true);
     expect(findText(screen, "Patrocinado")).toBe(true);
-    expect(findText(screen, "Clinica Veterinaria San Roque")).toBe(true);
+    expect(findText(screen, "Clínica Veterinaria San Roque")).toBe(true);
     expect(findText(screen, "Patitas La Paz")).toBe(true);
     expect(
       findText(
@@ -213,8 +213,11 @@ describe("NearbyScreen launch sponsor banner", () => {
       onRecordSponsorDelivery,
       0,
     );
+    const expectedDeliveryToken =
+      "launch-home-11111111-1111-4111-8111-111111111111-delivery-token";
 
     expect(impressionDelivery).toEqual({
+      deliveryToken: expectedDeliveryToken,
       eventType: "impression",
       idempotencyKey: impressionDelivery.idempotencyKey,
       providerId: "11111111-1111-4111-8111-111111111111",
@@ -238,6 +241,8 @@ describe("NearbyScreen launch sponsor banner", () => {
     );
 
     expect(secondImpressionDelivery).toEqual({
+      deliveryToken:
+        "launch-home-22222222-2222-4222-8222-222222222222-delivery-token",
       eventType: "impression",
       idempotencyKey: secondImpressionDelivery.idempotencyKey,
       providerId: "22222222-2222-4222-8222-222222222222",
@@ -264,7 +269,7 @@ describe("NearbyScreen launch sponsor banner", () => {
       (element) =>
         element.type === "Pressable" &&
         element.props.accessibilityLabel ===
-          "Abrir patrocinador Clinica Veterinaria San Roque",
+          "Abrir patrocinador Clínica Veterinaria San Roque",
     );
     const onPress = sponsorCard?.props.onPress;
 
@@ -275,12 +280,18 @@ describe("NearbyScreen launch sponsor banner", () => {
     (onPress as () => void)();
 
     expect(onRecordSponsorDelivery).toHaveBeenCalledTimes(3);
-    expect(getSponsorDeliveryCall(onRecordSponsorDelivery, 2)).toEqual({
+    const openDelivery = getSponsorDeliveryCall(onRecordSponsorDelivery, 2);
+    expect(openDelivery).toEqual({
+      deliveryToken: expectedDeliveryToken,
       eventType: "open",
+      idempotencyKey: openDelivery.idempotencyKey,
       providerId: "11111111-1111-4111-8111-111111111111",
       source: "nearby-launch-banner",
       surface: "launch_home_banner",
     });
+    expect(expectString(openDelivery.idempotencyKey)).toMatch(
+      /^launch-home:[^:]+:11111111-1111-4111-8111-111111111111:open$/,
+    );
     expect(onOpenSponsorProvider).toHaveBeenCalledWith(
       "11111111-1111-4111-8111-111111111111",
     );
@@ -572,13 +583,15 @@ function createLaunchSponsorProvider(
   const id = overrides.id ?? "11111111-1111-4111-8111-111111111111";
   const imageUrl =
     overrides.imageUrl ?? "https://example.com/sponsor-san-roque-launch.png";
-  const name = overrides.name ?? "Clinica Veterinaria San Roque";
+  const name = overrides.name ?? "Clínica Veterinaria San Roque";
+  const deliveryToken = `launch-home-${id}-delivery-token`;
 
   return {
     activeSponsorPlacements: [
       {
         disclosure:
           "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+        deliveryToken,
         eligibleSurfaces: ["launch_home_banner"],
         imageUrl,
         kind: "Local Sponsor Placement",

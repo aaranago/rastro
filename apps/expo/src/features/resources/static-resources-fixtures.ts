@@ -27,6 +27,7 @@ const clinicSanRoque: ResourceProviderFixture = {
   emergencyAvailable: true,
   sponsorPlacement: {
     kind: "Local Sponsor Placement",
+    deliveryToken: "static-san-roque-delivery-token",
     label: "Patrocinado",
     disclosure: "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
     logoUrl: "https://example.com/sponsor-san-roque-logo.png",
@@ -88,7 +89,7 @@ const clinicaRastroQa: ResourceProviderFixture = {
   emergencyAvailable: true,
   logoUrl: "https://dummyimage.com/256x256/0f7665/ffffff.png&text=RQ",
   photoUrl:
-    "https://dummyimage.com/900x560/e7f3eb/0f7665.png&text=Clinica+Rastro+QA",
+    "https://dummyimage.com/900x560/e7f3eb/0f7665.png&text=Clínica+Rastro+QA",
   contactOptions: [
     {
       kind: "whatsapp",

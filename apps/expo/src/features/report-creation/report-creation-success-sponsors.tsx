@@ -5,6 +5,7 @@ import { Image } from "expo-image";
 
 import type { ResourceProviderReportReceipt } from "../resources";
 import type { LocalSponsorPlacementSurface } from "../resources/resource-types";
+import { createSponsorDeliverySessionId } from "../resources/sponsor-delivery-session";
 import { ShellIcon } from "../shell/shell-overlays";
 import { shellColors } from "../shell/shell-theme";
 
@@ -17,13 +18,13 @@ export interface ReportCreationSuccessSponsorPlacement {
   actionLabel: string;
   body: string;
   categoryLabel: string;
+  deliveryToken?: string;
   eligibleSurfaces: readonly LocalSponsorPlacementSurface[];
   id: string;
   imageUrl?: string;
   logoUrl?: string;
   name: string;
   paidDisclosure: string;
-  placementId?: string;
   recoveryPriorityDisclosure: string;
   reportActionLabel: string;
   sponsorLabel: string;
@@ -32,9 +33,9 @@ export interface ReportCreationSuccessSponsorPlacement {
 }
 
 export interface ReportCreationSponsorDeliveryInput {
+  deliveryToken: string;
   eventType: "impression" | "open";
-  idempotencyKey?: string;
-  placementId?: string;
+  idempotencyKey: string;
   providerId: string;
   source: string;
   surface: LocalSponsorPlacementSurface;
@@ -59,6 +60,10 @@ export function ReportCreationSuccessSponsorStack({
   placements: readonly ReportCreationSuccessSponsorPlacement[];
 }) {
   const recordedImpressionsRef = React.useRef<Set<string> | null>(new Set());
+  const deliverySessionIdRef = React.useRef(createSponsorDeliverySessionId());
+  const deliveryKeyPrefix = deliveryContextId
+    ? `report-success:${deliveryContextId}`
+    : `report-success:draft:${deliverySessionIdRef.current}`;
 
   const recordSponsorImpression = React.useCallback(
     (placement: ReportCreationSuccessSponsorPlacement) => {
@@ -67,27 +72,27 @@ export function ReportCreationSuccessSponsorStack({
       }
 
       recordedImpressionsRef.current ??= new Set();
-      const key = `${deliveryContextId ?? "unpublished"}:${placement.id}:${placement.surface}`;
+      const key = `${deliveryKeyPrefix}:${placement.id}:${placement.surface}:impression`;
 
       if (recordedImpressionsRef.current.has(key)) {
         return;
       }
 
+      if (!placement.deliveryToken) {
+        return;
+      }
+
       recordedImpressionsRef.current.add(key);
       onRecordDelivery({
+        deliveryToken: placement.deliveryToken,
         eventType: "impression",
-        idempotencyKey: deliveryContextId
-          ? `report-success:${deliveryContextId}:${placement.id}:${placement.surface}:impression`
-          : undefined,
-        ...(placement.placementId
-          ? { placementId: placement.placementId }
-          : {}),
+        idempotencyKey: `${deliveryKeyPrefix}:${placement.id}:${placement.surface}:impression`,
         providerId: placement.id,
         source: "report-success-sponsor-card",
         surface: placement.surface,
       });
     },
-    [deliveryContextId, onRecordDelivery],
+    [deliveryKeyPrefix, onRecordDelivery],
   );
   const handleViewableSponsorItemsChanged = React.useCallback(
     ({
@@ -115,11 +120,12 @@ export function ReportCreationSuccessSponsorStack({
         data={placements}
         horizontal
         keyExtractor={(placement) =>
-          `${placement.surface}:${placement.id}:${placement.placementId ?? placement.title}`
+          `${placement.surface}:${placement.id}:${placement.deliveryToken ?? placement.title}`
         }
         onViewableItemsChanged={handleViewableSponsorItemsChanged}
         renderItem={({ item: placement }) => (
           <ReportCreationSuccessSponsorCard
+            deliveryKeyPrefix={deliveryKeyPrefix}
             onOpen={onOpen}
             onRecordDelivery={onRecordDelivery}
             onReport={onReport}
@@ -135,11 +141,13 @@ export function ReportCreationSuccessSponsorStack({
 }
 
 function ReportCreationSuccessSponsorCard({
+  deliveryKeyPrefix,
   onOpen,
   onRecordDelivery,
   onReport,
   placement,
 }: {
+  deliveryKeyPrefix: string;
   onOpen?: (sponsorProviderId: string) => void;
   onRecordDelivery?: (input: ReportCreationSponsorDeliveryInput) => void;
   onReport?: (
@@ -153,19 +161,23 @@ function ReportCreationSuccessSponsorCard({
   const [reportState, setReportState] =
     React.useState<SponsorPlacementReportState>({ kind: "idle" });
   const openPlacement = React.useCallback(() => {
-    onRecordDelivery?.({
-      eventType: "open",
-      ...(placement.placementId ? { placementId: placement.placementId } : {}),
-      providerId: placement.id,
-      source: "report-success-sponsor-card",
-      surface: placement.surface,
-    });
+    if (placement.deliveryToken) {
+      onRecordDelivery?.({
+        deliveryToken: placement.deliveryToken,
+        eventType: "open",
+        idempotencyKey: `${deliveryKeyPrefix}:${placement.id}:${placement.surface}:open`,
+        providerId: placement.id,
+        source: "report-success-sponsor-card",
+        surface: placement.surface,
+      });
+    }
     onOpen?.(placement.id);
   }, [
     onOpen,
     onRecordDelivery,
+    deliveryKeyPrefix,
+    placement.deliveryToken,
     placement.id,
-    placement.placementId,
     placement.surface,
   ]);
   const reportPlacement = React.useCallback(async () => {
@@ -184,7 +196,7 @@ function ReportCreationSuccessSponsorCard({
 
     setReportState({
       kind: "reporting",
-      message: "Enviando reporte a moderacion.",
+      message: "Enviando reporte a moderación.",
     });
 
     try {
@@ -351,18 +363,18 @@ export function getSponsorPlacementReportFailureMessage(error: unknown) {
   const message = getSponsorPlacementReportErrorMessage(error).toLowerCase();
 
   if (code === "UNAUTHORIZED") {
-    return "Inicia sesion para reportar este proveedor.";
+    return "Inicia sesión para reportar este proveedor.";
   }
 
   if (
     code === "PRECONDITION_FAILED" &&
     (message.includes("suspend") || message.includes("suspendido"))
   ) {
-    return "Tu cuenta esta suspendida y no puede reportar proveedores.";
+    return "Tu cuenta está suspendida y no puede reportar proveedores.";
   }
 
   if (code === "BAD_REQUEST") {
-    return "No pudimos enviar el reporte porque el proveedor o el detalle no paso validacion.";
+    return "No pudimos enviar el reporte porque el proveedor o el detalle no pasó validación.";
   }
 
   if (code === "NOT_FOUND") {

@@ -23,7 +23,7 @@ const profiles: PetProfileSummary[] = [
     caretakerMemberId: "member-camila",
     name: "Luna",
     type: "Gato",
-    breed: "Siames",
+    breed: "Siamés",
     description: "Mancha blanca en el pecho y collar rojo.",
     photos: [
       {
@@ -100,7 +100,7 @@ describe("Mis mascotas Pet Profile view models", () => {
       id: "pet-luna",
       name: "Luna",
       typeLabel: "Gato",
-      breedLabel: "Siames",
+      breedLabel: "Siamés",
       photoCountLabel: "1/5",
       thumbnailUri: "https://example.com/luna-thumb.jpg",
       relatedSummaryLabel: "1 reporte activo · 1 cerrado",

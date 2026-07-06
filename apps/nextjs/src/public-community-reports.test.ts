@@ -118,7 +118,7 @@ describe("public found and sighting report page data", () => {
       ],
       description:
         "Luna estaba tranquila y llevaba una pañoleta roja cerca de la plaza.",
-      descriptionLabel: "Descripcion del encuentro",
+      descriptionLabel: "Descripción del encuentro",
       event: {
         label: "Encontrado",
         value: "19 de junio de 2026, 18:40",
@@ -171,7 +171,7 @@ describe("public found and sighting report page data", () => {
       },
       description:
         "Caminaba hacia la plaza y parecía desorientado pero sin heridas visibles.",
-      descriptionLabel: "Descripcion del avistamiento",
+      descriptionLabel: "Descripción del avistamiento",
       event: {
         label: "Avistado",
         value: "19 de junio de 2026, 18:40",

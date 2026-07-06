@@ -60,7 +60,7 @@ describe("admin sponsor placement page", () => {
       title: "Patrocinios locales | Rastro",
     });
     expect(html).toContain("Gestión de patrocinios locales");
-    expect(html).toContain("Clinica Veterinaria San Roque");
+    expect(html).toContain("Clínica Veterinaria San Roque");
     expect(html).toContain("Impresiones");
     expect(html).toContain("Aperturas");
     expect(html).toContain("Tasa de apertura: 7,5%");
@@ -195,7 +195,7 @@ function sponsorPlacement(): AdminSponsorPlacementRecord {
     label: "Patrocinado",
     placementId: "22222222-2222-4222-8222-222222222222",
     providerId: "11111111-1111-4111-8111-111111111111",
-    providerName: "Clinica Veterinaria San Roque",
+    providerName: "Clínica Veterinaria San Roque",
     providerVerificationStatus: "verified",
     safetyPolicy: {
       eligibleSurfaces: ["resources_directory"],
@@ -215,7 +215,7 @@ function sponsorPlacement(): AdminSponsorPlacementRecord {
 function providerProfile(): AdminResourceProviderProfile {
   return {
     id: "11111111-1111-4111-8111-111111111111",
-    name: "Clinica Veterinaria San Roque",
+    name: "Clínica Veterinaria San Roque",
     categoryId: "veterinary",
     city: "La Paz",
     description: "Veterinaria local con atencion general y urgencias.",

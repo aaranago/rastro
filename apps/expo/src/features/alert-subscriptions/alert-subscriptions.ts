@@ -402,7 +402,7 @@ function assertMemberCanManageAlertSubscription(
   if (session.kind === "visitor") {
     throw new AlertSubscriptionRepositoryError(
       "visitor_cannot_manage_alert_subscription",
-      "Los visitantes no pueden administrar una suscripcion de alertas.",
+      "Los visitantes no pueden administrar una suscripción de alertas.",
     );
   }
 }
@@ -432,7 +432,7 @@ function resolveDynamicAlertArea({
   if (!location) {
     throw new AlertSubscriptionRepositoryError(
       "alert_area_location_required",
-      "La suscripcion necesita una ubicacion actual o la ultima ubicacion detectada.",
+      "La suscripción necesita una ubicación actual o la última ubicación detectada.",
     );
   }
 

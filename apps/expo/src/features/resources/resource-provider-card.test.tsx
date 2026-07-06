@@ -71,7 +71,7 @@ describe("ResourceProviderCard", () => {
       isSponsored: true,
       isVerified: true,
       locationLabel: "Sopocachi, La Paz",
-      name: "Clinica Veterinaria San Roque",
+      name: "Clínica Veterinaria San Roque",
       serviceAreaLabel: "Atiende La Paz y El Alto",
       sponsorDisclosure:
         "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
@@ -81,7 +81,7 @@ describe("ResourceProviderCard", () => {
       onReportProvider: vi.fn(),
     });
 
-    expect(findText(card, "Clinica Veterinaria San Roque")).toBe(true);
+    expect(findText(card, "Clínica Veterinaria San Roque")).toBe(true);
     expect(findText(card, "Veterinaria local con atencion general.")).toBe(
       true,
     );
@@ -151,7 +151,7 @@ describe("ResourceProviderCard", () => {
       isSponsored: true,
       isVerified: false,
       locationLabel: "Sopocachi, La Paz",
-      name: "Clinica con sponsor",
+      name: "Clínica con sponsor",
       sponsorImageUrl: "https://example.com/new-banner.png",
       sponsorLogoUrl: "https://example.com/new-logo.png",
     });

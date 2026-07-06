@@ -136,7 +136,7 @@ const esBO: ShellCopy = {
   shell: {
     reportFabLabel: "Abrir acciones de reporte",
     reportSheetTitle: "Crear un reporte",
-    reportSheetSubtitle: "Elige qué paso quieres iniciar",
+    reportSheetSubtitle: "Elige qué reporte quieres iniciar",
     close: "Cerrar",
     signedOut: "Visitante",
     signedIn: "Miembro",
@@ -387,7 +387,7 @@ const esBO: ShellCopy = {
       subtitle: "Explora reportes y recursos cerca de tu zona.",
       alertTitle: "Alerta activa",
       alertMeta: "Perro perdido a 500 m",
-      filterLost: "Perdidas",
+      filterLost: "Pérdidas",
       filterFound: "Encontradas",
       filterSightings: "Vistas",
       filterAdoption: "Adopción",

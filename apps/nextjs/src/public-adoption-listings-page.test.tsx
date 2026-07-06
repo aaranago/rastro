@@ -36,7 +36,7 @@ function persistedAdoptionReport(
     outcome: null,
     title: "Nala busca nuevo hogar DB",
     description:
-      "Nala es carinosa, convive bien con personas y necesita un hogar tranquilo.",
+      "Nala es cariñosa, convive bien con personas y necesita un hogar tranquilo.",
     pet: {
       name: "Nala",
       species: "cat",
@@ -77,7 +77,7 @@ function persistedAdoptionReport(
         width: 1200,
         height: 900,
         sizeBytes: 200000,
-        altText: "Nala, gata mestiza en adopcion",
+        altText: "Nala, gata mestiza en adopción",
         position: 0,
       },
     ],
@@ -124,7 +124,7 @@ describe("public Adoption Listing page", () => {
       }),
     );
 
-    expect(html).toContain("En adopcion");
+    expect(html).toContain("En adopción");
     expect(html).toContain("Nala busca nuevo hogar DB");
     expect(html).toContain("Gato - Mestiza joven - gris - pequena");
     expect(html).toContain("Publicado");
@@ -233,10 +233,10 @@ describe("public Adoption Listing page", () => {
       openGraph: {
         locale: "es_BO",
         siteName: "Rastro",
-        title: "Nala esta en adopcion en Sopocachi, La Paz | Rastro",
+        title: "Nala está en adopción en Sopocachi, La Paz | Rastro",
         type: "article",
       },
-      title: "Nala esta en adopcion en Sopocachi, La Paz | Rastro",
+      title: "Nala está en adopción en Sopocachi, La Paz | Rastro",
     });
     expect(JSON.stringify(metadata)).not.toMatch(commerceTerms);
     expect(JSON.stringify(metadata)).not.toContain("-16.506789");
@@ -272,7 +272,7 @@ describe("public Adoption Listing page", () => {
         }),
       }),
     ).resolves.toEqual({
-      title: "Adopcion no encontrada | Rastro",
+      title: "Adopción no encontrada | Rastro",
     });
   });
 });

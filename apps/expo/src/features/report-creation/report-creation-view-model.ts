@@ -36,7 +36,7 @@ export function buildReportCreationContactViewModel<TOption extends string>({
         contact.whatsappEnabled && contact.whatsappPhone.trim().length === 0
           ? "Ingresa el número de WhatsApp que quieres mostrar."
           : undefined,
-      label: "Numero de WhatsApp",
+      label: "Número de WhatsApp",
       placeholder: "+591 70000000",
       value: contact.whatsappPhone,
       visible: contact.whatsappEnabled,

@@ -608,7 +608,7 @@ function buildProviderInput({
     contactOptions: buildProviderContacts(index),
     description:
       category === "veterinary"
-        ? `${providerNamePrefix} Clinica veterinaria con logo y foto completa.`
+        ? `${providerNamePrefix} Clínica veterinaria con logo y foto completa.`
         : `${providerNamePrefix} ${label} con cobertura local verificada.`,
     emergencyAvailable: index % 3 === 0,
     externalLinks: [
@@ -631,7 +631,7 @@ function buildProviderInput({
     logoUrl: `${mediaBaseUrl}/provider-logo.png?provider=${category}&v=${encodeURIComponent(mediaVersion)}`,
     name:
       category === "veterinary"
-        ? `${providerNamePrefix} Veterinaria Clinica Dos Imagenes`
+        ? `${providerNamePrefix} Veterinaria Clínica Dos Imagenes`
         : `${providerNamePrefix} ${label}`,
     photoUrl: `${mediaBaseUrl}/provider-photo.png?provider=${category}&v=${encodeURIComponent(mediaVersion)}`,
     serviceAreaLabel: "Sopocachi, Miraflores, El Alto y Viacha",
@@ -760,7 +760,7 @@ async function createReports({
       mediaCount: 2,
       petName: "Kira",
       species: "dog",
-      title: `${reportTitlePrefix} Mascota Perdida Kira`,
+      title: `${reportTitlePrefix} Mascota perdida Kira`,
       type: "lost_pet",
     },
     {

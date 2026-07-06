@@ -70,8 +70,10 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
   scopeId,
   store,
 }: UseDurableCreationDraftInput<K>): DurableCreationDraftState<K> {
-  const [draft, setDraft] =
+  const initialDraftSignature = serializeDraft(initialDraft);
+  const [draft, setDraftState] =
     React.useState<CreationDraftsByKind[K]>(initialDraft);
+  const draftRef = React.useRef<CreationDraftsByKind[K]>(draft);
   const [hasLoaded, setHasLoaded] = React.useState(store === undefined);
   const [restoredDraft, setRestoredDraft] =
     React.useState<DurableCreationDraft<K> | null>(null);
@@ -86,17 +88,69 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
     status: store === undefined ? "disabled" : "checking",
   }));
   const [draftResetVersion, setDraftResetVersion] = React.useState(0);
-  const lastSavedDraftSignatureRef = React.useRef(serializeDraft(initialDraft));
+  const lastSavedDraftSignatureRef = React.useRef(initialDraftSignature);
+  const lastInitialDraftSignatureRef = React.useRef(initialDraftSignature);
+  const lastLoadScopeRef = React.useRef({
+    kind,
+    recoveryMode,
+    scopeId,
+    store,
+  });
   const skipNextSaveRef = React.useRef(true);
 
+  const setDraft = React.useCallback<
+    React.Dispatch<React.SetStateAction<CreationDraftsByKind[K]>>
+  >((nextDraft) => {
+    setDraftState((currentDraft) => {
+      const resolvedDraft =
+        typeof nextDraft === "function"
+          ? (
+              nextDraft as (
+                current: CreationDraftsByKind[K],
+              ) => CreationDraftsByKind[K]
+            )(currentDraft)
+          : nextDraft;
+
+      draftRef.current = resolvedDraft;
+      return resolvedDraft;
+    });
+  }, []);
+
   React.useEffect(() => {
+    const previousLoadScope = lastLoadScopeRef.current;
+    const scopeChanged =
+      previousLoadScope.kind !== kind ||
+      previousLoadScope.recoveryMode !== recoveryMode ||
+      previousLoadScope.scopeId !== scopeId ||
+      previousLoadScope.store !== store;
+    const previousInitialDraftSignature = lastInitialDraftSignatureRef.current;
+    const currentDraft = draftRef.current;
+    const currentDraftSignature = serializeDraft(currentDraft);
+    const canReplaceDraft =
+      scopeChanged || currentDraftSignature === previousInitialDraftSignature;
+    const applyDraft = (nextDraft: CreationDraftsByKind[K]) => {
+      draftRef.current = nextDraft;
+      setDraftState(nextDraft);
+    };
+
+    lastInitialDraftSignatureRef.current = initialDraftSignature;
+    lastLoadScopeRef.current = {
+      kind,
+      recoveryMode,
+      scopeId,
+      store,
+    };
+
     if (store === undefined) {
-      setDraft(initialDraft);
+      if (canReplaceDraft) {
+        applyDraft(initialDraft);
+        lastSavedDraftSignatureRef.current = initialDraftSignature;
+      }
+
       setHasLoaded(true);
       setRestoredDraft(null);
       setDraftRecovery({ status: "disabled" });
       setDraftPersistence({ error: null, status: "disabled" });
-      lastSavedDraftSignatureRef.current = serializeDraft(initialDraft);
       skipNextSaveRef.current = true;
       return;
     }
@@ -119,21 +173,32 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
 
         if (recoveryMode === "explicit") {
           const result = savedDraftOrResult as CreationDraftLoadResult<K>;
+          const nextDraft = canReplaceDraft ? initialDraft : draftRef.current;
 
-          setDraft(initialDraft);
-          lastSavedDraftSignatureRef.current = serializeDraft(initialDraft);
+          applyDraft(nextDraft);
+          if (canReplaceDraft) {
+            lastSavedDraftSignatureRef.current = initialDraftSignature;
+          }
           setRestoredDraft(null);
           setDraftRecovery(toDraftRecovery(result));
         } else {
           const savedDraft = savedDraftOrResult as
             | DurableCreationDraft<K>
             | undefined;
+          const shouldRestoreSavedDraft =
+            savedDraft !== undefined && canReplaceDraft;
+          const nextDraft = shouldRestoreSavedDraft
+            ? savedDraft.draft
+            : canReplaceDraft
+              ? initialDraft
+              : draftRef.current;
+          const preservedUserDraft = !canReplaceDraft;
 
-          setDraft(savedDraft?.draft ?? initialDraft);
-          lastSavedDraftSignatureRef.current = serializeDraft(
-            savedDraft?.draft ?? initialDraft,
-          );
-          setRestoredDraft(savedDraft ?? null);
+          applyDraft(nextDraft);
+          if (!preservedUserDraft) {
+            lastSavedDraftSignatureRef.current = serializeDraft(nextDraft);
+          }
+          setRestoredDraft(shouldRestoreSavedDraft ? savedDraft : null);
           setDraftRecovery(
             savedDraft === undefined
               ? { status: "none" }
@@ -141,7 +206,7 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
           );
         }
 
-        skipNextSaveRef.current = true;
+        skipNextSaveRef.current = canReplaceDraft;
         setHasLoaded(true);
         setDraftPersistence({ error: null, status: "ready" });
       })
@@ -152,8 +217,10 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
 
         setRestoredDraft(null);
         setDraftRecovery({ status: "none" });
-        lastSavedDraftSignatureRef.current = serializeDraft(initialDraft);
-        skipNextSaveRef.current = true;
+        if (canReplaceDraft) {
+          lastSavedDraftSignatureRef.current = initialDraftSignature;
+        }
+        skipNextSaveRef.current = canReplaceDraft;
         setHasLoaded(true);
         setDraftPersistence({
           error: {
@@ -168,7 +235,7 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
     return () => {
       isCurrent = false;
     };
-  }, [initialDraft, kind, recoveryMode, scopeId, store]);
+  }, [initialDraft, initialDraftSignature, kind, recoveryMode, scopeId, store]);
 
   React.useEffect(() => {
     if (store === undefined || !hasLoaded) {
@@ -249,11 +316,12 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
 
   const discardDraft = React.useCallback(async () => {
     await store?.clearDraft(kind, { scopeId });
-    setDraft(initialDraft);
+    draftRef.current = initialDraft;
+    setDraftState(initialDraft);
     setRestoredDraft(null);
     setDraftRecovery({ status: store === undefined ? "disabled" : "none" });
     setDraftResetVersion((version) => version + 1);
-    lastSavedDraftSignatureRef.current = serializeDraft(initialDraft);
+    lastSavedDraftSignatureRef.current = initialDraftSignature;
     skipNextSaveRef.current = true;
     setDraftPersistence((current) =>
       current.status === "disabled"
@@ -263,14 +331,15 @@ export function useDurableCreationDraft<K extends CreationDraftKind>({
             status: "ready",
           },
     );
-  }, [initialDraft, kind, scopeId, store]);
+  }, [initialDraft, initialDraftSignature, kind, scopeId, store]);
 
   const resumeDraft = React.useCallback(() => {
     if (draftRecovery.status !== "available") {
       return;
     }
 
-    setDraft(draftRecovery.draft.draft);
+    draftRef.current = draftRecovery.draft.draft;
+    setDraftState(draftRecovery.draft.draft);
     setRestoredDraft(draftRecovery.draft);
     setDraftRecovery({ status: "none" });
     setDraftResetVersion((version) => version + 1);

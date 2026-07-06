@@ -103,9 +103,9 @@ export interface ResourceProviderReportReceipt {
 }
 
 export interface ResourceSponsorDeliveryInput {
+  deliveryToken: string;
   eventType: "impression" | "open";
-  idempotencyKey?: string;
-  placementId?: string;
+  idempotencyKey: string;
   providerId: string;
   source?: string;
   surface: LocalSponsorPlacementSurface;
@@ -116,7 +116,6 @@ export interface ResourceSponsorDeliveryReceipt {
     eventType: "impression" | "open";
     id: string;
     occurredAt: Date | string;
-    placementId?: string;
     providerId: string;
     source?: string;
     surface: LocalSponsorPlacementSurface;
@@ -489,7 +488,7 @@ function toFreshResourceProfileResult(
 
 function assertResourceProviderSearchQuery(query: ResourceProviderSearchQuery) {
   if (!Number.isFinite(query.radiusMeters) || query.radiusMeters <= 0) {
-    throw new Error("La busqueda necesita un radio valido en metros.");
+    throw new Error("La búsqueda necesita un radio válido en metros.");
   }
 
   const location = query.location as Partial<ResourceProviderSearchLocation>;
@@ -506,7 +505,7 @@ function assertResourceProviderSearchQuery(query: ResourceProviderSearchQuery) {
     location.locationCellLabel.trim().length === 0
   ) {
     throw new Error(
-      "La busqueda de recursos necesita una ubicacion resuelta en Bolivia para el radio PostGIS.",
+      "La búsqueda de recursos necesita una ubicación resuelta en Bolivia para el radio PostGIS.",
     );
   }
 }

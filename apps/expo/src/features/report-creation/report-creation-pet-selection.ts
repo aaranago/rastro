@@ -35,7 +35,7 @@ export function appendRequiredPetSelectionErrors({
   photoCount: number;
 }) {
   if (!hasSelectedPet) {
-    errors.push("Elige un Pet Profile o crea uno en linea.");
+    errors.push("Elige un perfil de mascota o crea uno en línea.");
   }
 
   if (photoCount === 0) {
@@ -43,7 +43,7 @@ export function appendRequiredPetSelectionErrors({
   }
 
   if (!hasExactLocation) {
-    errors.push("Selecciona la Exact Location interna.");
+    errors.push("Selecciona la ubicación exacta interna.");
   }
 }
 

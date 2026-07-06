@@ -126,6 +126,9 @@ describe("resource provider schema", () => {
     expect(LocalSponsorPlacementDeliveryEvent.surface).toBeDefined();
     expect(LocalSponsorPlacementDeliveryEvent.eventType).toBeDefined();
     expect(LocalSponsorPlacementDeliveryEvent.idempotencyKey).toBeDefined();
+    expect(LocalSponsorPlacementDeliveryEvent.idempotencyKey.notNull).toBe(
+      true,
+    );
     expect(LocalSponsorPlacementDeliveryEvent.memberId).toBeDefined();
     expect(LocalSponsorPlacementDeliveryEvent.source).toBeDefined();
     expect(LocalSponsorPlacementDeliveryEvent.occurredAt.notNull).toBe(true);

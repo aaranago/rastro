@@ -470,7 +470,7 @@ describe("ReportCreationRouteScreen", () => {
       status: "created",
     });
     expect(resourcesAdapter.reportProvider).toHaveBeenCalledWith({
-      detail: "Reporte enviado desde una colocacion patrocinada.",
+      detail: "Reporte enviado desde una colocación patrocinada.",
       providerId: "11111111-1111-4111-8111-111111111111",
       reason: "other",
     });
@@ -483,14 +483,16 @@ describe("ReportCreationRouteScreen", () => {
     }
 
     const recordSponsorDeliveryCallback = recordSponsorDelivery as (input: {
+      deliveryToken: string;
       eventType: "impression" | "open";
-      idempotencyKey?: string;
+      idempotencyKey: string;
       providerId: string;
       source: string;
       surface: "report_success";
     }) => void;
 
     recordSponsorDeliveryCallback({
+      deliveryToken: "report-success-delivery-token",
       eventType: "impression",
       idempotencyKey:
         "report-success:report-lost-backend-1:11111111-1111-4111-8111-111111111111:report_success:impression",
@@ -499,6 +501,7 @@ describe("ReportCreationRouteScreen", () => {
       surface: "report_success",
     });
     expect(resourcesAdapter.recordSponsorDelivery).toHaveBeenCalledWith({
+      deliveryToken: "report-success-delivery-token",
       eventType: "impression",
       idempotencyKey:
         "report-success:report-lost-backend-1:11111111-1111-4111-8111-111111111111:report_success:impression",
@@ -566,27 +569,136 @@ describe("ReportCreationRouteScreen", () => {
     expect(lostScreen?.props.initialDraft).toBeUndefined();
   });
 
-  it("gates member lost creation while saved pet profiles are loading", () => {
-    const screen = renderScreen(<ReportCreationRouteScreen intent="lost" />, {
-      preloadPetProfiles: false,
-    });
-    const loadingState = findElement(
-      screen,
-      (element) => element.type === "AppStateScreen",
-    );
-
-    expect(api.trpcClient.petProfiles.list.query).toHaveBeenCalledWith({});
-    expect(loadingState?.props.descriptor).toMatchObject({
-      kind: "loading",
-      title: "Cargando tus mascotas",
-    });
-    expect(
-      findElement(
+  it.each([
+    ["lost", "LostReportCreationScreen"],
+    ["adoption", "AdoptionListingCreationScreen"],
+  ] as const)(
+    "keeps member %s creation usable while saved pet profiles are loading",
+    (intent, screenType) => {
+      const screen = renderScreen(
+        <ReportCreationRouteScreen intent={intent} />,
+        {
+          preloadPetProfiles: false,
+        },
+      );
+      const creationScreen = findElement(
         screen,
-        (element) => element.type === "LostReportCreationScreen",
-      ),
-    ).toBeUndefined();
-  });
+        (element) => element.type === screenType,
+      );
+      const notice = creationScreen?.props
+        .petProfileLoadNotice as React.ReactNode;
+
+      expect(api.trpcClient.petProfiles.list.query).toHaveBeenCalledWith({});
+      expect(creationScreen?.props.petProfiles).toEqual([]);
+      expect(findText(notice, "Estamos cargando tus mascotas guardadas")).toBe(
+        true,
+      );
+      expect(
+        findElement(screen, (element) => element.type === "AppStateScreen"),
+      ).toBeUndefined();
+    },
+  );
+
+  it.each([
+    ["lost", "LostReportCreationScreen"],
+    ["adoption", "AdoptionListingCreationScreen"],
+  ] as const)(
+    "preserves selected pet profile prefill for %s after profiles finish loading",
+    (intent, screenType) => {
+      routeParams.value = {
+        petProfileId: "pet-profile-bruno",
+      };
+
+      const loadingScreen = renderScreen(
+        <ReportCreationRouteScreen intent={intent} />,
+        {
+          preloadPetProfiles: false,
+        },
+      );
+      const loadingCreationScreen = findElement(
+        loadingScreen,
+        (element) => element.type === screenType,
+      );
+
+      expect(loadingCreationScreen?.props.petProfiles).toEqual([]);
+      expect(loadingCreationScreen?.props.initialDraft).toBeUndefined();
+
+      reactState.values[0] = 0;
+      reactState.values[1] = {
+        key: `${intent}:member-camila`,
+        profiles: savedPetProfiles,
+        status: "ready",
+      };
+
+      const readyScreen = renderScreen(
+        <ReportCreationRouteScreen intent={intent} />,
+        {
+          preloadPetProfiles: false,
+        },
+      );
+      const readyCreationScreen = findElement(
+        readyScreen,
+        (element) => element.type === screenType,
+      );
+
+      expect(readyCreationScreen?.props.initialDraft).toMatchObject({
+        petProfileId: "pet-profile-bruno",
+        petSelectionMode: "existing",
+      });
+    },
+  );
+
+  it.each([
+    ["lost", "LostReportCreationScreen"],
+    ["adoption", "AdoptionListingCreationScreen"],
+  ] as const)(
+    "lets member %s creation continue when saved pet profiles fail to load",
+    (intent, screenType) => {
+      const retry = vi.fn();
+      reactState.values[0] = 0;
+      reactState.values[1] = {
+        key: `${intent}:member-camila`,
+        retry,
+        status: "error",
+      };
+
+      const screen = renderScreen(
+        <ReportCreationRouteScreen intent={intent} />,
+        { preloadPetProfiles: false },
+      );
+      const creationScreen = findElement(
+        screen,
+        (element) => element.type === screenType,
+      );
+      const notice = creationScreen?.props
+        .petProfileLoadNotice as React.ReactNode;
+
+      expect(creationScreen?.props.petProfiles).toEqual([]);
+      expect(findText(notice, "No pudimos cargar tus mascotas guardadas")).toBe(
+        true,
+      );
+      expect(findText(notice, "Reintentar mascotas")).toBe(true);
+      expect(
+        findElement(screen, (element) => element.type === "AppStateScreen"),
+      ).toBeUndefined();
+
+      const retryButton = findElement(
+        notice,
+        (element) =>
+          element.type === "Pressable" &&
+          findText(element, "Reintentar mascotas"),
+      );
+      const retryPress = retryButton?.props.onPress;
+
+      if (typeof retryPress !== "function") {
+        throw new Error("Expected pet profile retry button.");
+      }
+
+      (retryPress as () => void)();
+
+      expect(retry).toHaveBeenCalledOnce();
+    },
+  );
 
   it.each([
     ["lost", "LostReportCreationScreen"],
@@ -1114,7 +1226,9 @@ describe("ReportCreationRouteScreen", () => {
     (intent, blockedScreenType, returnTo) => {
       shell.value = createShellValue({ session: { kind: "visitor" } });
 
-      const screen = renderScreen(<ReportCreationRouteScreen intent={intent} />);
+      const screen = renderScreen(
+        <ReportCreationRouteScreen intent={intent} />,
+      );
       const authState = findElement(
         screen,
         (element) =>

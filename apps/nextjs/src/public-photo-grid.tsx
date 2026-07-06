@@ -37,6 +37,7 @@ export function PublicPhotoGrid({ photos }: PublicPhotoGridProps) {
             alt={photo.alt}
             className="object-cover"
             fill
+            priority={index === 0}
             sizes={index === 0 ? "(min-width: 640px) 60vw, 100vw" : "50vw"}
             src={photo.src}
             unoptimized

@@ -11,6 +11,7 @@ import {
   ChatNotificationDelivery,
   Report,
 } from "@acme/db/schema";
+import { isPublicReportId } from "@acme/validators";
 
 import { findLatestActiveAlertPushToken } from "./alert-push-token-repository";
 
@@ -214,7 +215,7 @@ export function createDrizzleChatRepository(
     if (!row) {
       throw new ChatRepositoryError(
         "chat_conversation_not_found",
-        "La conversacion no fue encontrada.",
+        "La conversación no fue encontrada.",
       );
     }
 
@@ -250,7 +251,7 @@ export function createDrizzleChatRepository(
       if (blockedMemberId === blockerMemberId) {
         throw new ChatRepositoryError(
           "chat_member_block_target_required",
-          "No puedes bloquearte a ti mismo en una conversacion.",
+          "No puedes bloquearte a ti mismo en una conversación.",
         );
       }
 
@@ -324,10 +325,10 @@ export function createDrizzleChatRepository(
         .map(toPersistedChatConversation);
     },
     openReportConversation: async ({ contactMemberId, reportId }) => {
-      if (!isUuid(reportId)) {
+      if (!isPublicReportId(reportId)) {
         throw new ChatRepositoryError(
           "chat_report_not_public",
-          "El reporte no esta disponible para iniciar chat.",
+          "El reporte no está disponible para iniciar chat.",
         );
       }
 
@@ -496,7 +497,7 @@ function assertReportCanOpenChatConversation(
   if (!report || !isPublicVisibleReport(report)) {
     throw new ChatRepositoryError(
       "chat_report_not_public",
-      "El reporte no esta disponible para iniciar chat.",
+      "El reporte no está disponible para iniciar chat.",
     );
   }
 
@@ -684,7 +685,7 @@ function assertConversationParticipant(
   ) {
     throw new ChatRepositoryError(
       "chat_conversation_member_required",
-      "Solo los miembros de la conversacion pueden usar este chat.",
+      "Solo los miembros de la conversación pueden usar este chat.",
     );
   }
 }
@@ -696,7 +697,7 @@ function assertMemberCanSend(
   if (conversation.blocks.some((block) => block.blockedMemberId === memberId)) {
     throw new ChatRepositoryError(
       "chat_member_blocked",
-      "Este miembro esta bloqueado para esta conversacion.",
+      "Este miembro está bloqueado para esta conversación.",
     );
   }
 }
@@ -709,10 +710,4 @@ function optionalTrimmed(value: string | undefined) {
   }
 
   return trimmed;
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
-  );
 }

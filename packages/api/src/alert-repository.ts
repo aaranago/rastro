@@ -175,7 +175,7 @@ export function createDrizzleAlertRepository(
     if (!subscription) {
       throw new AlertRepositoryError(
         "alert_subscription_not_found",
-        "No encontramos una suscripcion de alertas para este miembro.",
+        "No encontramos una suscripción de alertas para este miembro.",
       );
     }
 

@@ -113,7 +113,7 @@ const filterEmptyCopy = {
 const typeLabels = {
   adoption: "Adopción",
   found_pet: "Encontrada",
-  lost_pet: "Perdida",
+  lost_pet: "Pérdida",
   sighting: "Avistamiento",
 } satisfies Record<MyReportSummary["type"], string>;
 
@@ -215,7 +215,9 @@ export function buildMyReportsViewModel({
       label: filterLabels[value],
       value,
     })),
-    reports: cards.filter((report) => classifyMyReportFilter(report) === filter),
+    reports: cards.filter(
+      (report) => classifyMyReportFilter(report) === filter,
+    ),
     totalCount: reports.length,
   };
 }

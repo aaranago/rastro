@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 
 import type {
   AdminMediaAssetPurpose,
   AttachLocalSponsorPlacementInput,
   CreateResourceProviderInput,
+  LocalSponsorPlacementDeliveryEventType,
   UpdateLocalSponsorPlacementInput,
   UpdateResourceProviderInput,
 } from "@acme/validators";
@@ -31,6 +33,10 @@ import type { PersistedAdminMediaAsset } from "../admin-media-repository";
 import type { RecordLocalSponsorPlacementDeliveryEventResult } from "../local-sponsor-placement-delivery-repository";
 import type { StoredObjectHead } from "../media-storage";
 import { AdminMediaAssetReferenceError } from "../admin-media-repository";
+import {
+  SponsorDeliveryTokenError,
+  verifySponsorDeliveryToken,
+} from "../local-sponsor-placement-delivery-token";
 import { SponsorPlacementOverlapError } from "../resource-provider-repository";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import {
@@ -432,7 +438,7 @@ async function assertMemberCanReportResourceProvider(ctx: {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message:
-        "El miembro esta suspendido y no puede reportar Resource Providers.",
+        "El miembro está suspendido y no puede reportar Resource Providers.",
     });
   }
 }
@@ -441,13 +447,15 @@ function getOptionalSessionUserId(
   session:
     | {
         user?: {
-          id?: string;
+          id?: string | null;
         } | null;
       }
     | null
     | undefined,
 ) {
-  return session?.user?.id;
+  const memberId = session?.user?.id;
+
+  return typeof memberId === "string" ? memberId : undefined;
 }
 
 function rethrowSponsorPlacementWriteError(error: unknown): never {
@@ -488,6 +496,136 @@ function toPublicSponsorDeliveryResponse(
     },
     status: result.status,
   };
+}
+
+const sponsorDeliveryThrottleWindowMs = 60_000;
+const sponsorDeliveryThrottleLimit = 30;
+const sponsorDeliveryThrottleBuckets = new Map<
+  string,
+  { count: number; resetAt: number }
+>();
+
+function assertSponsorDeliveryTokenMatches(input: {
+  deliveryToken: string;
+  providerId: string;
+  surface: string;
+}) {
+  try {
+    const payload = verifySponsorDeliveryToken(input.deliveryToken);
+
+    if (
+      payload.providerId !== input.providerId ||
+      payload.surface !== input.surface
+    ) {
+      throw new SponsorDeliveryTokenError(
+        "invalid",
+        "Sponsor delivery token does not match the delivery target.",
+      );
+    }
+
+    return payload;
+  } catch (error) {
+    if (error instanceof SponsorDeliveryTokenError) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "El token del patrocinio no es válido.",
+        cause: error,
+      });
+    }
+
+    throw error;
+  }
+}
+
+function assertSponsorDeliveryThrottle(input: {
+  clientKey: string | null;
+  eventType: LocalSponsorPlacementDeliveryEventType;
+  placementId: string;
+  providerId: string;
+  source?: string;
+  surface: string;
+}) {
+  if (!input.clientKey) {
+    return;
+  }
+
+  const now = Date.now();
+  const key = [
+    input.clientKey,
+    input.placementId,
+    input.providerId,
+    input.surface,
+    input.source ?? "unknown-source",
+    input.eventType,
+  ].join(":");
+  const bucket = sponsorDeliveryThrottleBuckets.get(key);
+
+  if (!bucket || bucket.resetAt <= now) {
+    sponsorDeliveryThrottleBuckets.set(key, {
+      count: 1,
+      resetAt: now + sponsorDeliveryThrottleWindowMs,
+    });
+    return;
+  }
+
+  bucket.count += 1;
+
+  if (bucket.count > sponsorDeliveryThrottleLimit) {
+    throw new TRPCError({
+      code: "TOO_MANY_REQUESTS",
+      message: "Demasiados eventos de patrocinio en poco tiempo.",
+    });
+  }
+}
+
+function getSponsorDeliveryThrottleClientKey(input: {
+  requestHeaders?: Headers;
+  session: { user?: { id?: string | null } | null } | null;
+}) {
+  const memberId = getOptionalSessionUserId(input.session);
+
+  if (memberId) {
+    return `member:${hashThrottleKeyPart(memberId)}`;
+  }
+
+  const networkKey = getFirstHeaderValue(
+    input.requestHeaders,
+    "cf-connecting-ip",
+    "true-client-ip",
+    "x-real-ip",
+    "x-forwarded-for",
+  );
+  const userAgent = normalizeThrottleHeaderValue(
+    input.requestHeaders?.get("user-agent"),
+  );
+
+  if (!networkKey && !userAgent) {
+    return null;
+  }
+
+  return `anonymous:${hashThrottleKeyPart(
+    [networkKey || "unknown-network", userAgent || "unknown-agent"].join("|"),
+  )}`;
+}
+
+function getFirstHeaderValue(headers: Headers | undefined, ...names: string[]) {
+  for (const name of names) {
+    const value = normalizeThrottleHeaderValue(headers?.get(name));
+
+    if (value) {
+      return value.split(",")[0]?.trim().toLowerCase() ?? "";
+    }
+  }
+
+  return "";
+}
+
+function normalizeThrottleHeaderValue(value: string | null | undefined) {
+  return value?.trim().slice(0, 200) ?? "";
+}
+
+function hashThrottleKeyPart(value: string) {
+  return createHash("sha256").update(value).digest("base64url").slice(0, 32);
 }
 
 export const resourcesRouter = createTRPCRouter({
@@ -561,9 +699,24 @@ export const resourcesRouter = createTRPCRouter({
   recordSponsorDelivery: publicProcedure
     .input(recordLocalSponsorPlacementDeliveryInputSchema)
     .mutation(async ({ ctx, input }) => {
+      const sponsorDelivery = assertSponsorDeliveryTokenMatches(input);
+      assertSponsorDeliveryThrottle({
+        clientKey: getSponsorDeliveryThrottleClientKey(ctx),
+        eventType: input.eventType,
+        placementId: sponsorDelivery.placementId,
+        providerId: sponsorDelivery.providerId,
+        source: input.source,
+        surface: sponsorDelivery.surface,
+      });
+
       const result = await ctx.localSponsorPlacementDeliveryRepository.record({
-        ...input,
+        eventType: input.eventType,
+        idempotencyKey: input.idempotencyKey,
         memberId: getOptionalSessionUserId(ctx.session),
+        placementId: sponsorDelivery.placementId,
+        providerId: sponsorDelivery.providerId,
+        source: input.source,
+        surface: sponsorDelivery.surface,
       });
 
       return toPublicSponsorDeliveryResponse(result);

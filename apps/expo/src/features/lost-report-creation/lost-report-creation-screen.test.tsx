@@ -62,12 +62,13 @@ const successSponsorPlacement: LostReportSuccessLocalSponsorPlacement = {
   actionLabel: "Ver recurso",
   body: "Atención veterinaria local para reportes recientes.",
   categoryLabel: "Veterinaria",
+  deliveryToken: "report-success-delivery-token",
   eligibleSurfaces: ["report_success", "contextual_care_resources"],
   id: "11111111-1111-4111-8111-111111111111",
   imageUrl: "https://example.com/sponsor-san-roque-banner.png",
   logoUrl: "https://example.com/sponsor-san-roque-logo.png",
-  name: "Clinica Veterinaria San Roque",
-  paidDisclosure: "Colocacion pagada",
+  name: "Clínica Veterinaria San Roque",
+  paidDisclosure: "Colocación pagada",
   recoveryPriorityDisclosure:
     "No cambia la prioridad de tu reporte ni donde aparece.",
   reportActionLabel: "Reportar",
@@ -246,15 +247,15 @@ describe("lost report success sponsor reporting copy", () => {
   it.each([
     [
       { data: { code: "UNAUTHORIZED" } },
-      "Inicia sesion para reportar este proveedor.",
+      "Inicia sesión para reportar este proveedor.",
     ],
     [
       { data: { code: "PRECONDITION_FAILED" }, message: "member suspended" },
-      "Tu cuenta esta suspendida y no puede reportar proveedores.",
+      "Tu cuenta está suspendida y no puede reportar proveedores.",
     ],
     [
       { data: { code: "BAD_REQUEST" } },
-      "No pudimos enviar el reporte porque el proveedor o el detalle no paso validacion.",
+      "No pudimos enviar el reporte porque el proveedor o el detalle no pasó validación.",
     ],
     [
       { data: { code: "NOT_FOUND" } },
@@ -388,7 +389,7 @@ describe("LostReportCreationScreen", () => {
     const editedFreshScreen = renderScreen(<LostReportCreationScreen />);
 
     expect(findText(editedFreshScreen, "Paso 2 de 5")).toBe(true);
-    expect(findText(editedFreshScreen, "Detalles de la perdida")).toBe(true);
+    expect(findText(editedFreshScreen, "Detalles de la pérdida")).toBe(true);
 
     const discardButton = findElement(
       editedFreshScreen,
@@ -407,7 +408,7 @@ describe("LostReportCreationScreen", () => {
     );
     expect(findText(freshScreen, "Paso 1 de 5")).toBe(true);
     expect(findText(freshScreen, "Antes de abrir tus fotos")).toBe(true);
-    expect(findText(freshScreen, "Detalles de la perdida")).toBe(false);
+    expect(findText(freshScreen, "Detalles de la pérdida")).toBe(false);
     expect(findText(freshScreen, "1/5")).toBe(false);
   });
 
@@ -416,7 +417,7 @@ describe("LostReportCreationScreen", () => {
 
     expect(findText(screen, "Paso 1 de 5")).toBe(true);
     expect(findText(screen, "Fotos")).toBe(true);
-    expect(findText(screen, "Detalles de la perdida")).toBe(false);
+    expect(findText(screen, "Detalles de la pérdida")).toBe(false);
     expect(
       findText(screen, "Conversaciones dentro de Rastro con notificaciones."),
     ).toBe(false);
@@ -476,7 +477,7 @@ describe("LostReportCreationScreen", () => {
 
     expect(findText(attemptedScreen, "Paso 1 de 5")).toBe(true);
     expect(findText(attemptedScreen, "Agrega al menos una foto.")).toBe(true);
-    expect(findText(attemptedScreen, "Detalles de la perdida")).toBe(false);
+    expect(findText(attemptedScreen, "Detalles de la pérdida")).toBe(false);
     expect(findText(attemptedScreen, "Ingresa el nombre de la mascota.")).toBe(
       false,
     );
@@ -506,7 +507,7 @@ describe("LostReportCreationScreen", () => {
     const detailsScreen = renderScreen(<LostReportCreationScreen />);
 
     expect(findText(detailsScreen, "Paso 2 de 5")).toBe(true);
-    expect(findText(detailsScreen, "Detalles de la perdida")).toBe(true);
+    expect(findText(detailsScreen, "Detalles de la pérdida")).toBe(true);
     expect(findText(detailsScreen, "Antes de abrir tus fotos")).toBe(false);
     expect(
       findText(
@@ -529,7 +530,7 @@ describe("LostReportCreationScreen", () => {
     expect(findText(photosScreen, "Paso 1 de 5")).toBe(true);
     expect(findText(photosScreen, "Antes de abrir tus fotos")).toBe(true);
     expect(findText(photosScreen, "1/5")).toBe(true);
-    expect(findText(photosScreen, "Detalles de la perdida")).toBe(false);
+    expect(findText(photosScreen, "Detalles de la pérdida")).toBe(false);
   });
 
   it("adds photos from an injected media source instead of fixture samples", async () => {
@@ -572,7 +573,7 @@ describe("LostReportCreationScreen", () => {
       ({ onSnapshotChange }: ReportMediaManagerRenderTestProps) => (
         <View>
           <Text>Biblioteca</Text>
-          <Text>Camara</Text>
+          <Text>Cámara</Text>
           <Text>Progreso total 60%</Text>
           <Text>Reintentar</Text>
           <Text>Portada</Text>
@@ -591,7 +592,7 @@ describe("LostReportCreationScreen", () => {
     );
 
     expect(findText(screen, "Biblioteca")).toBe(true);
-    expect(findText(screen, "Camara")).toBe(true);
+    expect(findText(screen, "Cámara")).toBe(true);
     expect(findText(screen, "Progreso total 60%")).toBe(true);
     expect(findText(screen, "Reintentar")).toBe(true);
     expect(findText(screen, "Portada")).toBe(true);
@@ -707,7 +708,7 @@ describe("LostReportCreationScreen", () => {
       },
     ]);
     expect(findText(detailsScreen, "Paso 2 de 5")).toBe(true);
-    expect(findText(detailsScreen, "Detalles de la perdida")).toBe(true);
+    expect(findText(detailsScreen, "Detalles de la pérdida")).toBe(true);
   });
 
   it("reports the draft as published after a successful publish clears the draft", async () => {
@@ -769,11 +770,11 @@ describe("LostReportCreationScreen", () => {
         findText(element, "Confirmar y publicar"),
     );
 
-    expect(findText(confirmationScreen, "Confirmar publicacion")).toBe(true);
+    expect(findText(confirmationScreen, "Confirmar publicación")).toBe(true);
     expect(findText(confirmationScreen, "Reporte de mascota perdida")).toBe(
       true,
     );
-    expect(findText(confirmationScreen, "Ultima vez vista")).toBe(true);
+    expect(findText(confirmationScreen, "Última vez vista")).toBe(true);
 
     await getPressableOnPress(confirmPublishButton)();
 
@@ -840,6 +841,7 @@ describe("LostReportCreationScreen", () => {
       "11111111-1111-4111-8111-111111111111",
     );
     expect(recordSponsorDelivery).toHaveBeenCalledWith({
+      deliveryToken: "report-success-delivery-token",
       eventType: "impression",
       idempotencyKey:
         "report-success:report-lost-backend-1:11111111-1111-4111-8111-111111111111:report_success:impression",
@@ -848,7 +850,10 @@ describe("LostReportCreationScreen", () => {
       surface: "report_success",
     });
     expect(recordSponsorDelivery).toHaveBeenCalledWith({
+      deliveryToken: "report-success-delivery-token",
       eventType: "open",
+      idempotencyKey:
+        "report-success:report-lost-backend-1:11111111-1111-4111-8111-111111111111:report_success:open",
       providerId: "11111111-1111-4111-8111-111111111111",
       source: "report-success-sponsor-card",
       surface: "report_success",
@@ -902,7 +907,7 @@ describe("LostReportCreationScreen", () => {
     const chooseLocationButton = findElement(
       screen,
       (element) =>
-        element.type === "Pressable" && findText(element, "Elegir ubicacion"),
+        element.type === "Pressable" && findText(element, "Elegir ubicación"),
     );
 
     expect(
@@ -947,7 +952,7 @@ describe("LostReportCreationScreen", () => {
       />,
     );
 
-    expect(findText(updatedScreen, "Cambiar ubicacion")).toBe(true);
+    expect(findText(updatedScreen, "Cambiar ubicación")).toBe(true);
     expect(findText(updatedScreen, "Parque Urbano Central")).toBe(true);
     expect(durableDraft.draft.exactLocation).toEqual(confirmedLocation);
   });
@@ -990,7 +995,7 @@ function createReadyDraft() {
   return createLostReportDraft({
     exactLocation: lostReportCreationFixtures.defaultLocation,
     lostDetails: {
-      circumstances: "Se perdio cerca de la zona.",
+      circumstances: "Se perdió cerca de la zona.",
       lastSeenAtLabel: "2026-06-18T10:50:00.000Z",
       markings: "Collar rojo.",
     },
@@ -1011,7 +1016,7 @@ function createLocationReadyDraftWithoutLocation() {
       petProfiles: lostReportCreationFixtures.petProfiles,
     }),
     lostDetails: {
-      circumstances: "Se perdio cerca de la zona.",
+      circumstances: "Se perdió cerca de la zona.",
       lastSeenAtLabel: "2026-06-18T10:50:00.000Z",
       markings: "Collar rojo.",
     },

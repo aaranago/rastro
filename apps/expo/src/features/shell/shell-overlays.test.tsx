@@ -149,10 +149,10 @@ beforeEach(() => {
 describe("SignInPrompt", () => {
   it("renders configured Google and Facebook actions while keeping email access available", () => {
     const prompt = {
-      body: "Guardamos tu seleccion: Reportar perdida.",
+      body: "Guardamos tu seleccion: Reportar pérdida.",
       intent: "lost",
-      selectedIntentLabel: "Reportar perdida",
-      title: "Inicia sesion para continuar",
+      selectedIntentLabel: "Reportar pérdida",
+      title: "Inicia sesión para continuar",
     } as const;
 
     const screen = renderFunctionElement(
@@ -343,8 +343,8 @@ describe("SignInPrompt", () => {
         bottomInset={0}
         copy={createPromptCopy()}
         prompt={{
-          body: "Inicia sesion para continuar.",
-          title: "Inicia sesion para continuar",
+          body: "Inicia sesión para continuar.",
+          title: "Inicia sesión para continuar",
         }}
         socialProviderActions={[]}
       />,
@@ -359,18 +359,18 @@ describe("SignInPrompt", () => {
 
   it("renders a preserved provider cancellation error on the auth prompt", () => {
     const cancellationMessage =
-      "Cancelaste el ingreso con proveedor. Puedes intentar otra vez o usar correo y contrasena.";
+      "Cancelaste el ingreso con proveedor. Puedes intentar otra vez o usar correo y contraseña.";
     const screen = renderFunctionElement(
       <SignInPrompt
         actions={createPromptActions()}
         bottomInset={0}
         copy={createPromptCopy()}
         prompt={{
-          body: "Guardamos tu seleccion: Reportar perdida.",
+          body: "Guardamos tu seleccion: Reportar pérdida.",
           error: cancellationMessage,
           intent: "lost",
-          selectedIntentLabel: "Reportar perdida",
-          title: "Inicia sesion para continuar",
+          selectedIntentLabel: "Reportar pérdida",
+          title: "Inicia sesión para continuar",
         }}
         socialProviderActions={[
           {
@@ -391,12 +391,12 @@ describe("SignInPrompt", () => {
         bottomInset={0}
         copy={createPromptCopy()}
         prompt={{
-          body: "Guardamos tu seleccion: Reportar perdida.",
+          body: "Guardamos tu seleccion: Reportar pérdida.",
           error:
-            "Cancelaste el ingreso con proveedor. Puedes intentar otra vez o usar correo y contrasena.",
+            "Cancelaste el ingreso con proveedor. Puedes intentar otra vez o usar correo y contraseña.",
           intent: "lost",
-          selectedIntentLabel: "Reportar perdida",
-          title: "Inicia sesion para continuar",
+          selectedIntentLabel: "Reportar pérdida",
+          title: "Inicia sesión para continuar",
         }}
         socialProviderActions={[
           {

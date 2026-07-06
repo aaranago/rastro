@@ -7,7 +7,7 @@ export const petProfileFixtures = {
       caretakerMemberId: "member-camila",
       name: "Luna",
       type: "Gato",
-      breed: "Siames",
+      breed: "Siamés",
       description: "Mancha blanca en el pecho, collar rojo y muy tranquila.",
       photos: [
         {

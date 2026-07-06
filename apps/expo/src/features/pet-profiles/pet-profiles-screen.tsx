@@ -706,7 +706,7 @@ function MemberPetProfilesEmptyState({
     <EmptyPetProfilesState
       body={
         viewModel.emptyState?.body ??
-        "Guarda los datos de una mascota para reutilizarlos despues."
+        "Guarda los datos de una mascota para reutilizarlos después."
       }
       onCreate={onCreate}
       title={viewModel.emptyState?.title ?? "Aún no tienes mascotas"}
@@ -928,7 +928,7 @@ function PetProfileCard({
           {subtitle}
         </Text>
         <Text selectable numberOfLines={2} style={styles.petCardDescription}>
-          {profile.description.trim() || "Sin descripcion agregada."}
+          {profile.description.trim() || "Sin descripción agregada."}
         </Text>
         <Text selectable numberOfLines={1} style={styles.petCardMeta}>
           {profile.relatedSummaryLabel}
@@ -986,7 +986,7 @@ function PetProfileDetailSurface({
           Descripción y marcas
         </Text>
         <Text selectable style={styles.infoBody}>
-          {profile.description.trim() || "Sin descripcion agregada."}
+          {profile.description.trim() || "Sin descripción agregada."}
         </Text>
       </View>
 
@@ -997,7 +997,7 @@ function PetProfileDetailSurface({
         <View style={styles.reuseActions}>
           <SmallActionButton
             iconName="megaphone.fill"
-            label="Perdida"
+            label="Pérdida"
             onPress={() => onStartReportFromProfile?.(profile.id, "lost")}
           />
           <SmallActionButton

@@ -23,7 +23,7 @@ function publicReportDetail(
     outcome: null,
     title: "Nala busca nuevo hogar DB",
     description:
-      "Nala es carinosa, convive bien con personas y necesita un hogar tranquilo.",
+      "Nala es cariñosa, convive bien con personas y necesita un hogar tranquilo.",
     pet: {
       name: "Nala",
       species: "cat",
@@ -64,7 +64,7 @@ function publicReportDetail(
         width: 1200,
         height: 900,
         sizeBytes: 200000,
-        altText: "Nala, gata mestiza en adopcion",
+        altText: "Nala, gata mestiza en adopción",
         position: 0,
       },
     ],
@@ -118,7 +118,7 @@ describe("public Adoption Listing page data", () => {
         },
       ],
       description:
-        "Nala es carinosa, convive bien con personas y necesita un hogar tranquilo.",
+        "Nala es cariñosa, convive bien con personas y necesita un hogar tranquilo.",
       pet: {
         breed: "Mestiza joven - gris - pequena",
         name: "Nala",
@@ -126,7 +126,7 @@ describe("public Adoption Listing page data", () => {
       },
       photos: [
         {
-          alt: "Nala, gata mestiza en adopcion",
+          alt: "Nala, gata mestiza en adopción",
           src: "https://cdn.rastro.bo/reports/nala-1.jpg",
         },
       ],
@@ -139,7 +139,7 @@ describe("public Adoption Listing page data", () => {
         label: "Publicado",
         value: "19 de junio de 2026, 19:15",
       },
-      statusLabel: "En adopcion",
+      statusLabel: "En adopción",
       title: "Nala busca nuevo hogar DB",
     });
     expect(JSON.stringify(listing)).not.toMatch(commerceTerms);
@@ -210,29 +210,29 @@ describe("public Adoption Listing page data", () => {
           "https://rastro.bo/adopciones/22222222-2222-4222-8222-222222220001",
       },
       description:
-        "Conoce a Nala, Gato Mestiza joven - gris - pequena, en adopcion. Ubicacion: Sopocachi, La Paz.",
+        "Conoce a Nala, Gato Mestiza joven - gris - pequena, en adopción. Ubicación: Sopocachi, La Paz.",
       openGraph: {
         description:
-          "Conoce a Nala, Gato Mestiza joven - gris - pequena, en adopcion. Ubicacion: Sopocachi, La Paz.",
+          "Conoce a Nala, Gato Mestiza joven - gris - pequena, en adopción. Ubicación: Sopocachi, La Paz.",
         images: [
           {
-            alt: "Nala, gata mestiza en adopcion",
+            alt: "Nala, gata mestiza en adopción",
             url: "https://cdn.rastro.bo/reports/nala-1.jpg",
           },
         ],
         locale: "es_BO",
         siteName: "Rastro",
-        title: "Nala esta en adopcion en Sopocachi, La Paz | Rastro",
+        title: "Nala está en adopción en Sopocachi, La Paz | Rastro",
         type: "article",
         url: "https://rastro.bo/adopciones/22222222-2222-4222-8222-222222220001",
       },
-      title: "Nala esta en adopcion en Sopocachi, La Paz | Rastro",
+      title: "Nala está en adopción en Sopocachi, La Paz | Rastro",
       twitter: {
         card: "summary_large_image",
         description:
-          "Conoce a Nala, Gato Mestiza joven - gris - pequena, en adopcion. Ubicacion: Sopocachi, La Paz.",
+          "Conoce a Nala, Gato Mestiza joven - gris - pequena, en adopción. Ubicación: Sopocachi, La Paz.",
         images: ["https://cdn.rastro.bo/reports/nala-1.jpg"],
-        title: "Nala esta en adopcion en Sopocachi, La Paz | Rastro",
+        title: "Nala está en adopción en Sopocachi, La Paz | Rastro",
       },
     });
     expect(JSON.stringify(metadata)).not.toMatch(commerceTerms);

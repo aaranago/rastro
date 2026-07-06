@@ -34,7 +34,7 @@ const validAdoptionCreateInput = {
   ...validReportCreateInput,
   idempotencyKey: "adoption-2026-06-19-device-1",
   type: "adoption",
-  title: "Nala en adopcion en Sopocachi",
+  title: "Nala en adopción en Sopocachi",
   description: "Nala busca un hogar tranquilo y responsable.",
   pet: {
     species: "cat",
@@ -53,7 +53,7 @@ const validLostPetCreateInput = {
   idempotencyKey: "lost-2026-06-19-device-1",
   type: "lost_pet",
   title: "Luna perdida cerca de Sopocachi",
-  description: "Luna salio con arnes rojo y no volvio a casa.",
+  description: "Luna salió con arnés rojo y no volvió a casa.",
   pet: {
     species: "dog",
     color: "marron",

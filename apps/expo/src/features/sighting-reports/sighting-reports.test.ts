@@ -84,7 +84,7 @@ describe("Sighting Report public detail and nearby search", () => {
       description:
         "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.",
       direction: {
-        label: "Direccion",
+        label: "Dirección",
         value: "Iba hacia la avenida 20 de Octubre.",
       },
       kind: "sighting-report",
@@ -93,7 +93,7 @@ describe("Sighting Report public detail and nearby search", () => {
         value: "2026-06-18T10:15:00.000Z",
       },
       observedCondition: {
-        label: "Condicion observada",
+        label: "Condición observada",
         value: "Asustado, caminando rapido, sin heridas visibles.",
       },
       publicLocation: {

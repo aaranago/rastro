@@ -20,7 +20,7 @@ describe("admin audit repository", () => {
         ignored: undefined,
       },
       source: "admin.settings.update",
-      summary: "Actualizo ajustes globales de publicacion.",
+      summary: "Actualizo ajustes globales de publicación.",
       target: {
         id: "global",
         label: "Ajustes globales",

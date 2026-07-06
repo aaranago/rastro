@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 
+import { isPublicReportId } from "@acme/validators";
+
 import type { AppDownloadContext } from "~/public-report-detail-mapping";
 import {
   appDownloadHref,
@@ -104,10 +106,12 @@ const installOptions = [
 
 const downloadContextAliases: Record<string, DownloadContext> = {
   adopcion: "adoption",
+  adopción: "adoption",
   adoption: "adoption",
   "create-adoption": "create-adoption",
   create_adoption: "create-adoption",
   "crear-adopcion": "create-adoption",
+  "crear-adopción": "create-adoption",
   "crear-reporte": "lost-report",
   "lost-report": "lost-report",
   lost_report: "lost-report",
@@ -135,7 +139,7 @@ export default async function DownloadPage(props: DownloadPageProps) {
   return (
     <main className="bg-background min-h-screen">
       <section className="container grid gap-8 py-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)] lg:py-14">
-        <div className="flex flex-col justify-center gap-6">
+        <div className="flex flex-col gap-6 lg:pt-24">
           <div className="flex flex-col gap-3">
             <p className="text-primary text-sm font-semibold">
               {content.eyebrow}
@@ -166,7 +170,7 @@ export default async function DownloadPage(props: DownloadPageProps) {
 
         <div className="flex flex-col gap-5">
           <section className="border-border bg-card text-card-foreground rounded-lg border p-5 shadow-xs">
-            <p className="text-primary text-sm font-semibold">Instalacion</p>
+            <p className="text-primary text-sm font-semibold">Instalación</p>
             <h2 className="mt-2 text-2xl font-semibold">
               Instalar, abrir o solicitar acceso
             </h2>
@@ -211,6 +215,7 @@ export default async function DownloadPage(props: DownloadPageProps) {
               alt="Pantalla de Rastro con actividad comunitaria, mensajes y actualizaciones"
               className="h-96 w-full object-cover object-top"
               height={2400}
+              priority
               src="/rastro-app-activity.png"
               width={1080}
             />
@@ -331,15 +336,14 @@ function isAllowedPublicAppOpenHref(url: URL) {
     return isAllowedReportDetailPath(path);
   }
 
+  if (url.hostname === "chats") {
+    return isAllowedPublicReportChatPath(path);
+  }
+
   return false;
 }
 
-const publicAppOpenRootHosts = new Set([
-  "",
-  "actividad",
-  "adopciones",
-  "recursos",
-]);
+const publicAppOpenRootHosts = new Set(["", "actividad", "recursos"]);
 
 const publicReportCreationPaths = new Set([
   "/adoption",
@@ -351,15 +355,18 @@ const publicReportCreationPaths = new Set([
 const reportDetailPathPattern =
   /^\/(avistamientos|encontrados|perdidos)\/([^/]+)$/;
 
-const uuidPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 function isUuidPath(path: string) {
-  return uuidPattern.test(path.slice(1));
+  return isPublicReportId(path.slice(1));
 }
 
 function isAllowedReportDetailPath(path: string) {
   const match = reportDetailPathPattern.exec(path);
 
-  return Boolean(match?.[2] && uuidPattern.test(match[2]));
+  return Boolean(match?.[2] && isPublicReportId(match[2]));
+}
+
+function isAllowedPublicReportChatPath(path: string) {
+  const match = /^\/report\/([^/]+)$/.exec(path);
+
+  return Boolean(match?.[1] && isPublicReportId(match[1]));
 }

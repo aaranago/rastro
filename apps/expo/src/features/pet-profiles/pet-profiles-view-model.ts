@@ -206,7 +206,7 @@ export function buildPetProfileFormViewModel({
     fields: {
       breed: {
         label: "Raza",
-        placeholder: "Mestizo, Siames, Labrador...",
+        placeholder: "Mestizo, Siamés, Labrador...",
         value: draft.breed,
       },
       description: {

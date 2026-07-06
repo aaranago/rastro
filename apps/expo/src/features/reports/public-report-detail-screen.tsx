@@ -333,6 +333,11 @@ export function PublicReportDetailContent({
     }
 
     if (isVisitor) {
+      setReportSheet((current) => ({
+        ...current,
+        error: undefined,
+        isOpen: false,
+      }));
       onRequestMemberSignIn?.();
       return;
     }
@@ -379,14 +384,19 @@ export function PublicReportDetailContent({
       }));
     } catch (error) {
       if (isUnauthorizedError(error)) {
+        setReportSheet((current) => ({
+          ...current,
+          error: undefined,
+          isOpen: false,
+          isSubmitting: false,
+        }));
         onRequestMemberSignIn?.();
+        return;
       }
 
       setReportSheet((current) => ({
         ...current,
-        error: isUnauthorizedError(error)
-          ? viewModel.abuseReportAction?.visitorCtaLabel
-          : "No pudimos enviar el reporte.",
+        error: "No pudimos enviar el reporte.",
         isSubmitting: false,
       }));
     }
@@ -886,7 +896,7 @@ function PublicReportDetailLoadingState() {
           Cargando reporte
         </Text>
         <Text selectable style={styles.loadingBody}>
-          Estamos trayendo el detalle publico y las fotos del reporte.
+          Estamos trayendo el detalle público y las fotos del reporte.
         </Text>
       </View>
     </View>

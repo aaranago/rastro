@@ -137,7 +137,7 @@ describe("RastroShellProvider social auth handoff", () => {
 
   it("keeps the selected auth prompt recoverable with a visible error after provider cancellation", async () => {
     const cancellationMessage =
-      "Cancelaste el ingreso con proveedor. Puedes intentar otra vez o usar correo y contrasena.";
+      "Cancelaste el ingreso con proveedor. Puedes intentar otra vez o usar correo y contraseña.";
     const authAdapter: ShellAuthAdapter = {
       availableSocialAuthProviders: ["google", "facebook"],
       createAccountWithEmail: () => Promise.resolve({ ok: true }),

@@ -85,6 +85,7 @@ export const createTRPCContext = async (opts: {
   memberProfileRepository: MemberProfileRepository;
   memberSuspensionRepository: MemberSuspensionRepository;
   petProfileRepository: PetProfileRepository;
+  requestHeaders: Headers;
   reportModerationRepository: ReportModerationRepository;
   reportRepository: ReportRepository;
   resourceProviderModerationRepository: ResourceProviderModerationRepository;
@@ -130,6 +131,7 @@ export const createTRPCContext = async (opts: {
     memberProfileRepository: createDrizzleMemberProfileRepository(db),
     memberSuspensionRepository: createDrizzleMemberSuspensionRepository(db),
     petProfileRepository: createDrizzlePetProfileRepository(db),
+    requestHeaders: opts.headers,
     reportModerationRepository: createDrizzleReportModerationRepository(db),
     reportRepository: createDrizzleReportRepository(db, {
       deliveryBaseUrl: mediaDeliveryBaseUrl,

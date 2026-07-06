@@ -1,4 +1,5 @@
 import type { RouterOutputs } from "@acme/api";
+import { isPublicReportId } from "@acme/validators";
 
 import { readTrpcErrorCode } from "~/trpc-error-code";
 
@@ -17,7 +18,7 @@ export interface PublicReportDetailCaller {
 export async function getPublicReportDetail(
   reportId: string,
 ): Promise<PublicReportDetail | null> {
-  if (!isUuid(reportId)) {
+  if (!isPublicReportId(reportId)) {
     return null;
   }
 
@@ -30,7 +31,7 @@ export async function getPublicReportDetailWithCaller(
   caller: PublicReportDetailCaller,
   reportId: string,
 ): Promise<PublicReportDetail | null> {
-  if (!isUuid(reportId)) {
+  if (!isPublicReportId(reportId)) {
     return null;
   }
 
@@ -66,10 +67,4 @@ async function createPublicReportDetailCaller(): Promise<PublicReportDetailCalle
 
 function isTrpcNotFoundError(error: unknown) {
   return readTrpcErrorCode(error) === "NOT_FOUND";
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
-  );
 }

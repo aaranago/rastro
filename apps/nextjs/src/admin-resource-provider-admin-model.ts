@@ -172,7 +172,7 @@ export const resourceProviderCategoryOptions = [
   },
   {
     id: "groomer",
-    label: "Peluqueria para mascotas",
+    label: "Peluquería para mascotas",
   },
   {
     id: "pet_food",
@@ -315,7 +315,7 @@ function normalizeAdminResourceProviderList(
 
 export function buildAdminResourcesForbiddenViewModel(): AdminResourceForbiddenViewModel {
   return {
-    body: "Esta superficie esta disponible solo para administradores de Rastro.",
+    body: "Esta superficie está disponible solo para administradores de Rastro.",
     locale: "es-BO",
     title: "Acceso restringido",
   };

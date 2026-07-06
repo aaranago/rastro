@@ -17,7 +17,7 @@ const adminDashboardFlaggedItems = [
     detail: "La zona no coincide con el reporte y hay mensajes repetidos.",
     id: "review-lost-1",
     newestReportLabel: "Hace 18 min",
-    reasonLabel: "Ubicacion incorrecta",
+    reasonLabel: "Ubicación incorrecta",
     reportCount: 4,
     reporterLabel: "3 miembros",
     reviewKind: "report",
@@ -38,7 +38,7 @@ const adminDashboardFlaggedItems = [
       status: "banned",
     },
     department: "Cochabamba",
-    detail: "Publicacion duplicada con datos de contacto inseguros.",
+    detail: "Publicación duplicada con datos de contacto inseguros.",
     id: "review-adoption-1",
     newestReportLabel: "Hace 1 h",
     reasonLabel: "Spam",
@@ -151,10 +151,7 @@ const adminDashboardQueues = [
 ] as const;
 
 const adminDashboardViewModel = {
-  listHrefForPage: (
-    queue: { id: string; pageSize: number },
-    page: number,
-  ) =>
+  listHrefForPage: (queue: { id: string; pageSize: number }, page: number) =>
     `/admin/moderacion?queue=${queue.id}&page=${page}&pageSize=${queue.pageSize}`,
   listHrefForSort: (
     queue: { id: string; pageSize: number },

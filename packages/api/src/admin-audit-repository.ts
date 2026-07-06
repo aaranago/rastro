@@ -213,7 +213,9 @@ export function createInMemoryAdminAuditRepository({
       const normalizedSearch = normalized.search?.toLowerCase() ?? null;
       const filteredRows = rows
         .filter((event) =>
-          actor ? event.actor.id === actor || event.actor.email === actor : true,
+          actor
+            ? event.actor.id === actor || event.actor.email === actor
+            : true,
         )
         .filter((event) =>
           normalized.filters.action
@@ -226,7 +228,9 @@ export function createInMemoryAdminAuditRepository({
             : true,
         )
         .filter((event) =>
-          normalizedSearch ? auditEventMatchesSearch(event, normalizedSearch) : true,
+          normalizedSearch
+            ? auditEventMatchesSearch(event, normalizedSearch)
+            : true,
         )
         .sort((left, right) =>
           compareAdminListItems(
@@ -288,7 +292,7 @@ const adminAuditAvailableSorts = [
   },
   {
     defaultDirection: "asc",
-    label: "Accion",
+    label: "Acción",
     value: "action",
   },
   {
@@ -481,7 +485,10 @@ function buildFilterOptions(
   };
 }
 
-function toAuditActor(id: string | null, email: string | null): AdminAuditActor {
+function toAuditActor(
+  id: string | null,
+  email: string | null,
+): AdminAuditActor {
   return {
     email,
     id,

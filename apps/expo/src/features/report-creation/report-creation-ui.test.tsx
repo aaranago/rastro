@@ -141,7 +141,7 @@ describe("ReportCreationPublishConfirmationModal", () => {
     const screen = renderFunctionElement(
       <ReportCreationPublishConfirmationModal
         activityIndicatorColor="#FFFFFF"
-        body="Rastro publicara este reporte despues de confirmar."
+        body="Rastro publicará este reporte después de confirmar."
         canConfirm
         Icon={TestIcon}
         onCancel={onCancel}
@@ -152,7 +152,7 @@ describe("ReportCreationPublishConfirmationModal", () => {
           { label: "Ubicación", value: "Sopocachi, La Paz" },
           { label: "Contacto", value: "Chat en Rastro" },
         ]}
-        title="Confirmar publicacion"
+        title="Confirmar publicación"
       />,
     );
     const cancelButton = findElement(
@@ -188,14 +188,14 @@ describe("ReportCreationPublishConfirmationModal", () => {
     const screen = renderFunctionElement(
       <ReportCreationPublishConfirmationModal
         activityIndicatorColor="#FFFFFF"
-        body="Rastro publicara este reporte despues de confirmar."
+        body="Rastro publicará este reporte después de confirmar."
         canConfirm
         Icon={TestIcon}
         onCancel={vi.fn()}
         onConfirm={vi.fn()}
         publishState="publishing"
         rows={[{ label: "Tipo", value: "Reporte de mascota perdida" }]}
-        title="Confirmar publicacion"
+        title="Confirmar publicación"
       />,
     );
     const confirmButton = findElement(
@@ -357,7 +357,7 @@ describe("ReportCreationDraftRecoveryPrompt", () => {
 describe("ReportCreationReviewPublishSection", () => {
   it("renders publish errors visibly and disables submit while publishing", () => {
     const submitError =
-      "No pudimos publicar porque el servicio no esta disponible. Tu borrador sigue aqui para intentar de nuevo.";
+      "No pudimos publicar porque el servicio no está disponible. Tu borrador sigue aquí para intentar de nuevo.";
     const screen = renderFunctionElement(
       <ReportCreationReviewPublishSection
         activityIndicatorColor="#FFFFFF"
@@ -417,7 +417,7 @@ describe("ReportCreationReviewPublishSection", () => {
           >["styles"]
         }
         submitError={null}
-        validationErrors={["Agrega una foto.", "Elige una ubicacion."]}
+        validationErrors={["Agrega una foto.", "Elige una ubicación."]}
       />,
     );
     const submitButton = findElement(
@@ -437,7 +437,7 @@ describe("ReportCreationReviewPublishSection", () => {
       disabled: true,
     });
     expect(findText(validationSummary, "Agrega una foto.")).toBe(true);
-    expect(findText(validationSummary, "Elige una ubicacion.")).toBe(true);
+    expect(findText(validationSummary, "Elige una ubicación.")).toBe(true);
   });
 });
 
@@ -448,9 +448,9 @@ describe("shared report creation form controls", () => {
         fields={[
           {
             field: {
-              error: "Agrega una descripcion.",
-              label: "Descripcion",
-              placeholder: "Color, collar o senas visibles",
+              error: "Agrega una descripción.",
+              label: "Descripción",
+              placeholder: "Color, collar o señas visibles",
               value: "",
             },
             key: "description",
@@ -467,8 +467,8 @@ describe("shared report creation form controls", () => {
       (element) => element.type === "TextInput",
     );
 
-    expect(input?.props.accessibilityLabel).toBe("Descripcion");
-    expect(input?.props.accessibilityHint).toBe("Agrega una descripcion.");
+    expect(input?.props.accessibilityLabel).toBe("Descripción");
+    expect(input?.props.accessibilityHint).toBe("Agrega una descripción.");
   });
 
   it("marks selected pet, type, and contact options for screen readers", () => {

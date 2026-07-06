@@ -57,14 +57,14 @@ export function buildLostPetReportPublishViewModel({
 }): LostPetReportPublishViewModel {
   if (session.kind === "visitor") {
     return {
-      blockers: ["Inicia sesion para publicar."],
+      blockers: ["Inicia sesión para publicar."],
       canPublish: false,
       contactOptions: buildContactOptions(draft.contactOption),
       kind: "visitor",
       locationPrivacyLabel: formatLocationPrivacy(draft),
       publishActionLabel: "Publicar reporte",
-      signInActionLabel: "Iniciar sesion",
-      title: "Reportar perdida",
+      signInActionLabel: "Iniciar sesión",
+      title: "Reportar pérdida",
     };
   }
 
@@ -77,7 +77,7 @@ export function buildLostPetReportPublishViewModel({
     kind: "member",
     locationPrivacyLabel: formatLocationPrivacy(draft),
     publishActionLabel: "Publicar reporte",
-    title: "Reportar perdida",
+    title: "Reportar pérdida",
   };
 }
 
@@ -93,15 +93,15 @@ function buildPublishBlockers(draft: LostPetReportDraft) {
   }
 
   if (!draft.exactLocation) {
-    blockers.push("Selecciona una ubicacion en Bolivia.");
+    blockers.push("Selecciona una ubicación en Bolivia.");
   }
 
   if (!draft.lastSeenAt.trim()) {
-    blockers.push("Indica cuando se perdio.");
+    blockers.push("Indica cuándo se perdió.");
   }
 
   if (!draft.lastSeenDescription.trim()) {
-    blockers.push("Describe donde o como se perdio.");
+    blockers.push("Describe dónde o cómo se perdió.");
   }
 
   if (
@@ -136,11 +136,11 @@ function buildContactOptions(selected: LostPetReportContactOption) {
 
 function formatLocationPrivacy(draft: LostPetReportDraft) {
   if (!draft.exactLocation) {
-    return "Selecciona una ubicacion en Bolivia";
+    return "Selecciona una ubicación en Bolivia";
   }
 
   if (draft.showExactPublicLocation) {
-    return draft.exactLocation.addressLabel ?? "Pin exacto publico";
+    return draft.exactLocation.addressLabel ?? "Pin exacto público";
   }
 
   return `${draft.exactLocation.locationCellLabel} · zona aproximada`;

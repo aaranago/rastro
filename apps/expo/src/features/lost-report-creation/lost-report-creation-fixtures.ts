@@ -18,7 +18,7 @@ export const lostReportCreationFixtures = {
   } satisfies LostReportExactLocation,
   petProfiles: [
     {
-      breed: "Siames",
+      breed: "Siamés",
       description: "Mancha blanca en el pecho, collar rojo y muy tranquila.",
       id: "pet-luna",
       name: "Luna",
@@ -54,7 +54,7 @@ export const lostReportCreationFixtures = {
   ] satisfies LostReportPetProfileOption[],
   photoSamples: [
     {
-      alt: "Foto adicional para reporte de perdida",
+      alt: "Foto adicional para reporte de pérdida",
       id: "lost-report-photo-sample-1",
       mediaId: "lost-report-media-sample-1",
       status: "ready",
@@ -63,7 +63,7 @@ export const lostReportCreationFixtures = {
       uri: "https://images.unsplash.com/photo-1517423440428-a5a00ad493e8?w=1200&auto=format&fit=crop",
     },
     {
-      alt: "Foto de mascota para reporte de perdida",
+      alt: "Foto de mascota para reporte de pérdida",
       id: "lost-report-photo-sample-2",
       mediaId: "lost-report-media-sample-2",
       status: "ready",

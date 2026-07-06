@@ -70,7 +70,7 @@ const reports: LostPetReportSummary[] = [
     publicLocation: { kind: "approximate" },
     shareTarget: buildTestShareTarget(nearbyPublicIds.lostBruno, "Bruno"),
     lastSeenAtLabel: "Hace 40 min",
-    lastSeenSummary: "Collar azul con plaquita, visto cerca del parque.",
+    lastSeenSummary: "Collar azul con plaquíta, visto cerca del parque.",
     alertPriority: "urgent",
   },
   {

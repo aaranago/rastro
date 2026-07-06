@@ -17,7 +17,7 @@ describe("AdminMediaUploadField", () => {
           description="Logo cuadrado o compacto del proveedor."
           id="provider-logo-upload"
           label="Logo administrado"
-          previewAlt="Logo de Clinica Veterinaria San Roque"
+          previewAlt="Logo de Clínica Veterinaria San Roque"
           purpose="provider_logo"
         />
       </form>,
@@ -61,7 +61,7 @@ describe("AdminMediaUploadField", () => {
           id="provider-logo-upload"
           initialAssetId="11111111-1111-4111-8111-111111111111"
           label="Logo administrado"
-          previewAlt="Logo de Clinica Veterinaria San Roque"
+          previewAlt="Logo de Clínica Veterinaria San Roque"
           purpose="provider_logo"
         />
       </form>,
@@ -100,7 +100,7 @@ describe("AdminMediaUploadField", () => {
           description="Logo cuadrado o compacto del proveedor."
           id="provider-logo-upload"
           label="Logo administrado"
-          previewAlt="Logo de Clinica Veterinaria San Roque"
+          previewAlt="Logo de Clínica Veterinaria San Roque"
           purpose="provider_logo"
         />
       </form>,

@@ -7,11 +7,11 @@ import {
   createReportInputSchema,
   createUploadSessionInputSchema,
   deleteReportInputSchema,
+  isCloseReportOutcomeForType,
   nearbyReportsInputSchema,
   ownedReportsInputSchema,
   reportDetailInputSchema,
   resolveReportInputSchema,
-  isCloseReportOutcomeForType,
   updateReportInputSchema,
   uploadSessionIdInputSchema,
 } from "@acme/validators";
@@ -231,7 +231,7 @@ async function assertMemberIsNotSuspendedForPublishing(ctx: {
   if (activeSuspension) {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
-      message: "El miembro esta suspendido y no puede publicar en Rastro.",
+      message: "El miembro está suspendido y no puede publicar en Rastro.",
     });
   }
 }
@@ -254,7 +254,7 @@ async function assertMemberCanReportAbuse(ctx: {
   if (activeSuspension) {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
-      message: "El miembro esta suspendido y no puede reportar contenido.",
+      message: "El miembro está suspendido y no puede reportar contenido.",
     });
   }
 }

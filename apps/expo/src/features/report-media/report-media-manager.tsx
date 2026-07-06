@@ -165,7 +165,7 @@ export function ReportMediaManager({
           accessibilityLabel={
             canAddMoreMedia
               ? "Agregar desde biblioteca"
-              : "Limite de fotos alcanzado"
+              : "Límite de fotos alcanzado"
           }
           accessibilityRole="button"
           accessibilityState={{ disabled: !canAddMoreMedia }}
@@ -204,7 +204,7 @@ export function ReportMediaManager({
         </Pressable>
         <Pressable
           accessibilityLabel={
-            canAddMoreMedia ? "Agregar con camara" : "Limite de fotos alcanzado"
+            canAddMoreMedia ? "Agregar con cámara" : "Límite de fotos alcanzado"
           }
           accessibilityRole="button"
           accessibilityState={{ disabled: !canAddMoreMedia }}
@@ -288,8 +288,8 @@ function renderReportMediaSourceFeedback(feedback: ReportMediaSourceFeedback) {
   const message =
     feedback.message ??
     ("canAskAgain" in feedback && feedback.canAskAgain === false
-      ? "Activa el permiso de fotos o camara desde Ajustes para adjuntar imagenes."
-      : "Necesitamos permiso para abrir tus fotos o camara.");
+      ? "Activa el permiso de fotos o cámara desde Ajustes para adjuntar imágenes."
+      : "Necesitamos permiso para abrir tus fotos o cámara.");
 
   return (
     <View

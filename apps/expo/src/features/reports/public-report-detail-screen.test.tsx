@@ -346,6 +346,31 @@ describe("PublicReportDetailContent", () => {
     expect(findText(screen, "Inicia sesión para reportar")).toBe(true);
   });
 
+  it("closes the abuse sheet before prompting visitor auth", () => {
+    const onRequestMemberSignIn = vi.fn();
+    const screen = renderFunctionElement(
+      <PublicReportDetailContent
+        isVisitor
+        onRequestMemberSignIn={onRequestMemberSignIn}
+        openReportAbuseOnLoad
+        viewModel={createViewModel({
+          abuseReportAction: createAbuseReportAction(),
+          isCurrentMember: false,
+          ownerNotice: null,
+        })}
+      />,
+    );
+
+    pressByText(screen, "Inicia sesión para reportar");
+
+    expect(onRequestMemberSignIn).toHaveBeenCalledOnce();
+    expect(reportSheetStateUpdates()).toContainEqual(
+      expect.objectContaining({
+        isOpen: false,
+      }),
+    );
+  });
+
   it("renders multiple report images as a paged Galeria-backed carousel", () => {
     const photoUrls = Array.from(
       { length: 5 },
@@ -483,9 +508,9 @@ function createViewModel(
     contactActions: [],
     contactLabel: "Chat en Rastro",
     description:
-      "Se perdio cerca de la zona y puede estar asustada. Responde a su nombre.",
+      "Se perdió cerca de la zona y puede estar asustada. Responde a su nombre.",
     descriptionTitle: "Qué pasó",
-    eventLabel: "Perdida",
+    eventLabel: "Pérdida",
     eventValue: "24 jun 2026, 08:30",
     facts: [
       {
@@ -515,7 +540,7 @@ function createViewModel(
     shareUrl: "https://rastro.bo/reportes/perdidos/report-lost-1",
     statusLabel: "Activo",
     statusTone: "active",
-    subtitle: "Gato · Siames",
+    subtitle: "Gato · Siamés",
     title: "Se busca a Luna",
     type: "lost_pet",
     typeLabel: "Mascota perdida",
@@ -616,6 +641,43 @@ function findStateSetterPayload(label: string): boolean {
       return payload.label === label;
     }),
   );
+}
+
+interface ReportSheetTestState {
+  detail: string;
+  error?: string;
+  isOpen: boolean;
+  isSubmitting: boolean;
+  reason: "other";
+}
+
+function reportSheetStateUpdates(): ReportSheetTestState[] {
+  const setReportSheet = reactState.setters[0];
+
+  if (!setReportSheet) {
+    return [];
+  }
+
+  return (setReportSheet.mock.calls as [unknown][]).flatMap(([payload]) => {
+    if (typeof payload !== "function") {
+      return isRecord(payload)
+        ? [payload as unknown as ReportSheetTestState]
+        : [];
+    }
+
+    const updateReportSheet = payload as (
+      current: ReportSheetTestState,
+    ) => ReportSheetTestState;
+
+    return [
+      updateReportSheet({
+        detail: "",
+        isOpen: true,
+        isSubmitting: false,
+        reason: "other",
+      }),
+    ];
+  });
 }
 
 function getPressableTextLabels(node: React.ReactNode): string[] {

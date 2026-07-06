@@ -145,8 +145,8 @@ describe("AdminMemberDashboard", () => {
         workflowFeedback={{
           fieldErrors: {
             confirmation:
-              "Confirma que entiendes que el miembro no podra publicar.",
-            reason: "Ingresa un motivo para registrar la decision.",
+              "Confirma que entiendes que el miembro no podrá publicar.",
+            reason: "Ingresa un motivo para registrar la decisión.",
           },
           memberId: "member-camila",
           status: "error",

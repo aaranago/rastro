@@ -21,12 +21,12 @@ import type {
   AdminListSortSpec,
   NormalizedAdminListInput,
 } from "./admin-list-contract";
+import type { ActiveMemberSuspensionSummary } from "./member-suspension-repository";
 import {
   buildAdminListResult,
   compareAdminListItems,
   normalizeAdminListInput,
 } from "./admin-list-contract";
-import type { ActiveMemberSuspensionSummary } from "./member-suspension-repository";
 import { listActiveMemberSuspensionSummaries } from "./member-suspension-repository";
 
 export type ResourceProviderModerationReviewStatus =
@@ -715,7 +715,7 @@ const resourceProviderModerationAvailableFilters = [
     options: [
       { label: "Spam", value: "spam" },
       { label: "Estafa", value: "scam" },
-      { label: "Ubicacion incorrecta", value: "incorrect_location" },
+      { label: "Ubicación incorrecta", value: "incorrect_location" },
       { label: "Contenido ofensivo", value: "offensive_content" },
       { label: "Crueldad animal", value: "animal_cruelty" },
       { label: "Mascota robada", value: "stolen_pet_concern" },
@@ -749,8 +749,8 @@ const resourceProviderModerationAvailableFilters = [
     options: [
       { label: "Pendiente", value: "pending" },
       { label: "Reporte falso", value: "dismissed_false_report" },
-      { label: "Accion tomada", value: "resolved_action_taken" },
-      { label: "Sin accion", value: "resolved_no_action" },
+      { label: "Acción tomada", value: "resolved_action_taken" },
+      { label: "Sin acción", value: "resolved_no_action" },
     ],
     type: "enum",
   },
@@ -816,7 +816,9 @@ export function createInMemoryResourceProviderModerationRepository({
     const newestReport = reviewItem.reports[0];
 
     if (!newestReport) {
-      throw new Error("Resource Provider moderation queue item has no reports.");
+      throw new Error(
+        "Resource Provider moderation queue item has no reports.",
+      );
     }
 
     const reporter = reporters[newestReport.reporterId];

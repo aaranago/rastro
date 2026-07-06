@@ -397,7 +397,7 @@ export const ownedReportsInputSchema = z.object({}).strict();
 
 export const openReportChatConversationInputSchema = z
   .object({
-    reportId: z.string().min(1).max(128),
+    reportId: z.uuid(),
   })
   .strict();
 
@@ -1141,9 +1141,9 @@ export const detachLocalSponsorPlacementInputSchema = z.object({
 
 export const recordLocalSponsorPlacementDeliveryInputSchema = z
   .object({
+    deliveryToken: z.string().trim().min(16).max(4096),
     eventType: localSponsorPlacementDeliveryEventTypeSchema,
-    idempotencyKey: z.string().trim().min(1).max(191).optional(),
-    placementId: z.uuid().optional(),
+    idempotencyKey: z.string().trim().min(1).max(191),
     providerId: z.uuid(),
     source: z.string().trim().min(1).max(80).optional(),
     surface: localSponsorPlacementSurfaceSchema,
@@ -1260,7 +1260,7 @@ export const adminSponsorPlacementListInputSchema = adminListBaseInputSchema
 
 export const localSponsorPlacementPolicySchema = z.object({
   kind: z.literal("Local Sponsor Placement"),
-  placementId: z.uuid().optional(),
+  deliveryToken: z.string().min(16).max(4096),
   label: z.string().min(1).max(80),
   disclosure: z.string().min(1).max(240),
   logoUrl: z.url().optional(),
@@ -1629,7 +1629,11 @@ const publicAdoptionListingPathPrefix = "/adopciones";
 const publicFoundReportPathPrefix = "/reportes/encontrados";
 const publicLostReportPathPrefix = "/reportes/perdidos";
 const publicSightingReportPathPrefix = "/reportes/avistamientos";
-const publicReportIdSchema = z.uuid();
+export const publicReportIdSchema = z.uuid();
+
+export function isPublicReportId(id: string) {
+  return publicReportIdSchema.safeParse(id).success;
+}
 
 function encodePublicReportId(id: string) {
   const result = publicReportIdSchema.safeParse(id);

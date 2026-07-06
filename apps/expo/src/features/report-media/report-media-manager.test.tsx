@@ -2,8 +2,8 @@ import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
-  ReportMediaDraftSnapshot,
   ReportMediaDraftItem,
+  ReportMediaDraftSnapshot,
   ReportMediaUploadSessionClient,
   ReportMediaUploadTransport,
 } from "./report-media-draft";
@@ -356,7 +356,7 @@ describe("ReportMediaManager", () => {
       />,
     );
 
-    await pressByLabel(screen, "Agregar con camara");
+    await pressByLabel(screen, "Agregar con cámara");
 
     expect(sourceAdapter.captureWithCamera).toHaveBeenCalledOnce();
     expect(onSnapshotChange).toHaveBeenCalledTimes(1);
@@ -395,7 +395,7 @@ describe("ReportMediaManager", () => {
       />,
     );
 
-    await pressByLabel(screen, "Agregar con camara");
+    await pressByLabel(screen, "Agregar con cámara");
 
     expect(reactState.values[0]).toEqual({
       canAskAgain: false,

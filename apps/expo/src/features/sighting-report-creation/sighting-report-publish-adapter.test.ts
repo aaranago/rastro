@@ -67,7 +67,7 @@ describe("Sighting Report publish adapter", () => {
           latitude: -8.5,
         },
       }),
-    ).toThrow("Selecciona una ubicacion dentro de Bolivia.");
+    ).toThrow("Selecciona una ubicación dentro de Bolivia.");
   });
 
   it("uses the location cell as the backend label when no address label is present", () => {

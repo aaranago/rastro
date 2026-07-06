@@ -83,7 +83,7 @@ export function createApiNearbyLostReportsAdapter({
 
       if (!coordinates) {
         throw new Error(
-          "La busqueda necesita una ciudad, zona o pin resuelto en Bolivia.",
+          "La búsqueda necesita una ciudad, zona o pin resuelto en Bolivia.",
         );
       }
 

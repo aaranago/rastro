@@ -61,7 +61,7 @@ describe("Found Pet Report public detail", () => {
 
     expect(detail).toMatchObject({
       condition: {
-        label: "Condicion",
+        label: "Condición",
         value: "Seguro, con sed y sin heridas visibles.",
       },
       contactOptions: [

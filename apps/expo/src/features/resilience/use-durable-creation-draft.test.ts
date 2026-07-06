@@ -164,6 +164,61 @@ describe("useDurableCreationDraft", () => {
     });
   });
 
+  it("keeps user edits when an async initial draft hydrates later", async () => {
+    vi.useFakeTimers();
+    const initialDraft = createPetProfileDraft({ name: "" });
+    const hydratedInitialDraft = createPetProfileDraft({ name: "Bruno" });
+    const saveDraft = vi.fn((input: SaveCreationDraftInput<"pet-profile">) =>
+      Promise.resolve({
+        draft: input.draft,
+        kind: input.kind,
+        savedAt: "2026-06-19T12:00:00.000Z",
+        schemaVersion: 2,
+      } satisfies DurableCreationDraft<"pet-profile">),
+    );
+    const store = createDraftStore({ saveDraft });
+
+    let state = renderDurablePetProfileDraft({ initialDraft, store });
+    await flushEffects();
+
+    state = renderDurablePetProfileDraft({ initialDraft, store });
+    state.setDraft((current) => ({
+      ...current,
+      description: "Lo que la persona ya escribió",
+      name: "Kira",
+    }));
+
+    state = renderDurablePetProfileDraft({
+      initialDraft: hydratedInitialDraft,
+      store,
+    });
+    await flushEffects();
+
+    state = renderDurablePetProfileDraft({
+      initialDraft: hydratedInitialDraft,
+      store,
+    });
+
+    expect(state.draft).toMatchObject({
+      description: "Lo que la persona ya escribió",
+      name: "Kira",
+    });
+
+    await vi.advanceTimersByTimeAsync(500);
+
+    expect(saveDraft).toHaveBeenCalledOnce();
+    const [savedInput] = saveDraft.mock.calls[0] ?? [];
+
+    expect(savedInput).toMatchObject({
+      draft: {
+        description: "Lo que la persona ya escribió",
+        name: "Kira",
+      },
+      kind: "pet-profile",
+      scopeId: "member-camila",
+    });
+  });
+
   it("offers a saved draft for explicit recovery without replacing the initial draft", async () => {
     const initialDraft = createPetProfileDraft({ name: "Fresh start" });
     const savedDraft = createPetProfileDraft({ name: "Saved Toby" });

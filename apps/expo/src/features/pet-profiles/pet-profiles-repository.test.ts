@@ -75,7 +75,7 @@ describe("Pet Profile repository", () => {
     });
 
     const created = await repository.createPetProfile(member, {
-      breed: "Siames",
+      breed: "Siamés",
       description: "Ojos claros y cola oscura.",
       name: "Luna",
       photos: buildPhotoSources(6),

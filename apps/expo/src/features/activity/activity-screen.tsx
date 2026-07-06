@@ -713,7 +713,10 @@ const ActivityEmptyState = React.memo(function ActivityEmptyState({
           ]}
           testID="activity-empty-action"
         >
-          <Text maxFontSizeMultiplier={1.12} style={styles.secondaryButtonLabel}>
+          <Text
+            maxFontSizeMultiplier={1.12}
+            style={styles.secondaryButtonLabel}
+          >
             {action.label}
           </Text>
         </Pressable>
@@ -1067,7 +1070,14 @@ function getActivityAccessibilityLabel({
   meta?: string;
   title: string;
 }) {
-  return [title, body, meta].filter(Boolean).join(". ");
+  return [title, body, meta]
+    .map(normalizeActivityAccessibilityPart)
+    .filter((part) => part.length > 0)
+    .join(". ");
+}
+
+function normalizeActivityAccessibilityPart(value: string | undefined) {
+  return (value ?? "").trim().replace(/[.!?。؟]+$/u, "");
 }
 
 function getActivityTone(type: ActivityItemType) {

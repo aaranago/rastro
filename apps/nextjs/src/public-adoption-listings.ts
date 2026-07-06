@@ -6,13 +6,13 @@ import type {
   PublicReportDetail,
   PublicReportDetailLoader,
 } from "./public-report-detail-api-adapter";
-import { getPublicReportDetail } from "./public-report-detail-api-adapter";
 import type {
   PublicReportPageContactOption,
   PublicReportPageLocation,
   PublicReportPagePet,
   PublicReportPagePhoto,
 } from "./public-report-detail-mapping";
+import { getPublicReportDetail } from "./public-report-detail-api-adapter";
 import {
   buildAppDownloadHref,
   buildPublicReportArticleMetadata,
@@ -88,8 +88,8 @@ export async function buildPublicAdoptionListingMetadata(
     return null;
   }
 
-  const title = `${listing.pet.name} esta en adopcion en ${listing.publicLocation.label} | Rastro`;
-  const description = `Conoce a ${listing.pet.name}, ${listing.pet.type} ${listing.pet.breed}, en adopcion. Ubicacion: ${listing.publicLocation.label}.`;
+  const title = `${listing.pet.name} está en adopción en ${listing.publicLocation.label} | Rastro`;
+  const description = `Conoce a ${listing.pet.name}, ${listing.pet.type} ${listing.pet.breed}, en adopción. Ubicación: ${listing.publicLocation.label}.`;
   const shareTarget = buildPublicAdoptionListingShareTarget({
     listingId,
     publicWebBaseUrl: webBaseUrl,
@@ -149,8 +149,8 @@ function buildPublicAdoptionListingViewModel(
 
 function buildStatusLabel(report: PublicReportDetail) {
   if (report.status === "closed") {
-    return report.outcome ? outcomeLabels[report.outcome] : "Adopcion cerrada";
+    return report.outcome ? outcomeLabels[report.outcome] : "Adopción cerrada";
   }
 
-  return "En adopcion";
+  return "En adopción";
 }

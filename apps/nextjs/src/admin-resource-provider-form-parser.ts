@@ -15,6 +15,7 @@ import {
 } from "./admin-resource-provider-admin-model";
 import {
   getSponsorPlacementMediaFormValues,
+  isValidDateOnly,
   validateDateOnlyRange,
 } from "./admin-url-form-parser";
 
@@ -417,7 +418,7 @@ function getContactOptionsFormValue(
     if (!kind) {
       fieldErrors.push({
         field: fields.kind,
-        message: "Selecciona un tipo de contacto valido.",
+        message: "Selecciona un tipo de contacto válido.",
       });
       continue;
     }
@@ -444,7 +445,7 @@ function getContactOptionsFormValue(
   if (contactOptions.length === 0) {
     fieldErrors.push({
       field: "contactOptions",
-      message: "Registra al menos una opcion de contacto.",
+      message: "Registra al menos una opción de contacto.",
     });
   }
 
@@ -622,24 +623,12 @@ function getRequiredDateOnlyFormValue(
   if (!isValidDateOnly(value)) {
     fieldErrors.push({
       field: key,
-      message: "Ingresa una fecha valida en formato AAAA-MM-DD.",
+      message: "Ingresa una fecha válida en formato AAAA-MM-DD.",
     });
     return "";
   }
 
   return value;
-}
-
-function isValidDateOnly(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false;
-  }
-
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-
-  return (
-    !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(value)
-  );
 }
 
 function getResourceCategoryFormValue(
@@ -673,7 +662,7 @@ function getSponsorSurfaceFormValue(
 
   fieldErrors.push({
     field: "sponsorSurface",
-    message: "Selecciona una superficie valida.",
+    message: "Selecciona una superficie válida.",
   });
   return null;
 }

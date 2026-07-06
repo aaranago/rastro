@@ -201,7 +201,7 @@ function normalizeSponsorPlacementList(
 
 export function buildAdminSponsorPlacementsForbiddenViewModel(): AdminSponsorPlacementsForbiddenViewModel {
   return {
-    body: "Esta superficie esta disponible solo para administradores de Rastro.",
+    body: "Esta superficie está disponible solo para administradores de Rastro.",
     locale: "es-BO",
     title: "Acceso restringido",
   };

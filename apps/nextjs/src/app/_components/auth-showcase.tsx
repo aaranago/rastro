@@ -19,23 +19,23 @@ import {
 const authMessages = {
   "account-deletion-error": {
     tone: "error",
-    text: "No pudimos iniciar la eliminacion de cuenta. Intentalo nuevamente.",
+    text: "No pudimos iniciar la eliminación de cuenta. Inténtalo nuevamente.",
   },
   "account-deletion-integration-needed": {
     tone: "error",
-    text: "La eliminacion de cuenta aun necesita la integracion del backend para limpiar datos publicos de forma segura.",
+    text: "La eliminación de cuenta aún necesita la integración del backend para limpiar datos públicos de forma segura.",
   },
   "account-deletion-signed-out": {
     tone: "error",
-    text: "Ingresa para solicitar la eliminacion de tu cuenta.",
+    text: "Ingresa para solicitar la eliminación de tu cuenta.",
   },
   "account-deletion-started": {
     tone: "success",
-    text: "Solicitud de eliminacion iniciada.",
+    text: "Solicitud de eliminación iniciada.",
   },
   "account-deletion-verification-sent": {
     tone: "success",
-    text: "Te enviamos un correo para confirmar la eliminacion de tu cuenta.",
+    text: "Te enviamos un correo para confirmar la eliminación de tu cuenta.",
   },
   "email-not-verified": {
     tone: "error",
@@ -43,39 +43,39 @@ const authMessages = {
   },
   "password-reset-error": {
     tone: "error",
-    text: "No pudimos solicitar el restablecimiento de contrasena. Intentalo nuevamente.",
+    text: "No pudimos solicitar el restablecimiento de contraseña. Inténtalo nuevamente.",
   },
   "password-reset-integration-needed": {
     tone: "error",
-    text: "El restablecimiento de contrasena aun necesita la integracion de correo para enviar enlaces seguros.",
+    text: "El restablecimiento de contraseña aún necesita la integración de correo para enviar enlaces seguros.",
   },
   "password-reset-invalid": {
     tone: "error",
-    text: "Ingresa un correo valido para restablecer tu contrasena.",
+    text: "Ingresa un correo válido para restablecer tu contraseña.",
   },
   "password-reset-sent": {
     tone: "success",
-    text: "Si ese correo existe en Rastro, enviaremos un enlace para restablecer la contrasena.",
+    text: "Si ese correo existe en Rastro, enviaremos un enlace para restablecer la contraseña.",
   },
   "signin-error": {
     tone: "error",
-    text: "No pudimos iniciar sesion con esos datos.",
+    text: "No pudimos iniciar sesión con esos datos.",
   },
   "signin-invalid": {
     tone: "error",
-    text: "Ingresa un correo valido y una contrasena de al menos 8 caracteres.",
+    text: "Ingresa un correo válido y una contraseña de al menos 8 caracteres.",
   },
   "signin-required": {
     tone: "error",
-    text: "Ingresa para continuar con esta accion en Rastro.",
+    text: "Ingresa para continuar con esta acción en Rastro.",
   },
   "signin-success": {
     tone: "success",
-    text: "Sesion iniciada.",
+    text: "Sesión iniciada.",
   },
   "signed-out": {
     tone: "success",
-    text: "Sesion cerrada.",
+    text: "Sesión cerrada.",
   },
   "signup-email-exists": {
     tone: "error",
@@ -83,11 +83,11 @@ const authMessages = {
   },
   "signup-error": {
     tone: "error",
-    text: "No pudimos crear la cuenta. Intentalo nuevamente.",
+    text: "No pudimos crear la cuenta. Inténtalo nuevamente.",
   },
   "signup-invalid": {
     tone: "error",
-    text: "Completa nombre, correo y una contrasena de al menos 8 caracteres.",
+    text: "Completa nombre, correo y una contraseña de al menos 8 caracteres.",
   },
   "signup-success": {
     tone: "success",
@@ -99,11 +99,11 @@ const authMessages = {
   },
   "social-error": {
     tone: "error",
-    text: "No pudimos iniciar sesion con ese proveedor.",
+    text: "No pudimos iniciar sesión con ese proveedor.",
   },
   "social-unavailable": {
     tone: "error",
-    text: "Ese proveedor de acceso no esta disponible.",
+    text: "Ese proveedor de acceso no está disponible.",
   },
 } satisfies Record<string, { text: string; tone: "error" | "success" }>;
 
@@ -157,16 +157,16 @@ export async function AuthShowcase(props: {
         <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-muted-foreground text-sm font-medium">
-              Sesion activa
+              Sesión activa
             </p>
             <h2 id="auth-heading" className="truncate text-xl font-semibold">
-              Configuracion de cuenta
+              Configuración de cuenta
             </h2>
             <p className="text-muted-foreground mt-1 text-sm">{displayName}</p>
           </div>
           <form>
             <Button type="submit" formAction={signOut} variant="outline">
-              Cerrar sesion
+              Cerrar sesión
             </Button>
           </form>
         </div>
@@ -177,10 +177,10 @@ export async function AuthShowcase(props: {
           <form action={requestPasswordReset} className="flex flex-col gap-3">
             <div>
               <h3 className="text-base font-semibold">
-                Restablecer contrasena
+                Restablecer contraseña
               </h3>
               <p className="text-muted-foreground mt-1 text-sm">
-                Solicita un enlace para cambiar la contrasena de tu acceso por
+                Solicita un enlace para cambiar la contraseña de tu acceso por
                 correo.
               </p>
             </div>
@@ -200,34 +200,34 @@ export async function AuthShowcase(props: {
             <div>
               <h3 className="text-base font-semibold">Eliminar cuenta</h3>
               <p className="text-muted-foreground mt-1 text-sm">
-                Solicitar eliminacion inicia el cierre de tu acceso como miembro
+                Solicitar eliminación inicia el cierre de tu acceso como miembro
                 y requiere limpieza segura de tus datos.
               </p>
             </div>
             <ul className="text-muted-foreground list-disc space-y-2 pl-5 text-sm">
               <li>
-                Tus perfiles de mascota dejan de estar bajo tu gestion como
+                Tus perfiles de mascota dejan de estar bajo tu gestión como
                 responsable activo.
               </li>
               <li>
-                Tus reportes y publicaciones de adopcion pueden cerrarse,
-                despublicarse o quedar retenidos para moderacion.
+                Tus reportes y publicaciones de adopción pueden cerrarse,
+                despublicarse o quedar retenidos para moderación.
               </li>
               <li>
                 Tus conversaciones dejan de usarse para contactarte, pero Rastro
                 puede conservar registros necesarios para seguridad.
               </li>
               <li>
-                El contenido publico se revisa para retirar datos de contacto y
-                evitar informacion insegura sin responsable.
+                El contenido público se revisa para retirar datos de contacto y
+                evitar información insegura sin responsable.
               </li>
               <li>
-                Algunos registros de seguridad y moderacion se conservan cuando
+                Algunos registros de seguridad y moderación se conservan cuando
                 son necesarios para prevenir abuso.
               </li>
             </ul>
             <Button type="submit" variant="destructive" className="w-fit">
-              Solicitar eliminacion
+              Solicitar eliminación
             </Button>
           </form>
         </div>
@@ -264,7 +264,7 @@ export async function AuthShowcase(props: {
             </p>
           </div>
           <label className="flex flex-col gap-2 text-sm font-medium">
-            Correo electronico
+            Correo electrónico
             <Input
               autoComplete="email"
               inputMode="email"
@@ -275,7 +275,7 @@ export async function AuthShowcase(props: {
             />
           </label>
           <label className="flex flex-col gap-2 text-sm font-medium">
-            Contrasena
+            Contraseña
             <Input
               autoComplete="current-password"
               minLength={8}
@@ -310,7 +310,7 @@ export async function AuthShowcase(props: {
             />
           </label>
           <label className="flex flex-col gap-2 text-sm font-medium">
-            Correo electronico
+            Correo electrónico
             <Input
               autoComplete="email"
               inputMode="email"
@@ -321,7 +321,7 @@ export async function AuthShowcase(props: {
             />
           </label>
           <label className="flex flex-col gap-2 text-sm font-medium">
-            Contrasena
+            Contraseña
             <Input
               autoComplete="new-password"
               minLength={8}
@@ -339,7 +339,7 @@ export async function AuthShowcase(props: {
       {socialProviders.length > 0 ? (
         <div className="border-border mt-6 border-t pt-5">
           <p className="text-muted-foreground mb-3 text-sm">
-            Tambien puedes acceder con:
+            También puedes acceder con:
           </p>
           <div className="flex flex-wrap gap-3">
             {socialProviders.map((provider) => (

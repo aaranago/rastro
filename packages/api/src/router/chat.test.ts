@@ -7,7 +7,8 @@ import type {
 import { ChatRepositoryError } from "../chat-repository";
 import { appRouter } from "../root";
 
-const reportId = "report-sighting-sopocachi";
+const reportId = "019f3723-63a5-7823-b301-a09c86509378";
+const secondReportId = "019f3723-647a-7e20-9d23-67d8c37c16fe";
 const conversationId = "11111111-1111-4111-8111-111111111111";
 const secondConversationId = "22222222-2222-4222-8222-222222222222";
 
@@ -275,7 +276,7 @@ describe("chat router", () => {
     const first = await caller.chat.openReportConversation({ reportId });
     await repository.openReportConversation({
       contactMemberId: "member-diego",
-      reportId: "report-found-sopocachi",
+      reportId: secondReportId,
     });
 
     await expect(caller.chat.list()).resolves.toHaveLength(2);
@@ -445,7 +446,7 @@ function createFakeChatRepository(): FakeChatRepository {
       ) {
         throw new ChatRepositoryError(
           "chat_member_blocked",
-          "Este miembro esta bloqueado para esta conversacion.",
+          "Este miembro está bloqueado para esta conversación.",
         );
       }
 
@@ -505,7 +506,7 @@ function requireConversation(
   if (!conversation) {
     throw new ChatRepositoryError(
       "chat_conversation_not_found",
-      "La conversacion no fue encontrada.",
+      "La conversación no fue encontrada.",
     );
   }
 
@@ -523,7 +524,7 @@ function assertParticipant(
   ) {
     throw new ChatRepositoryError(
       "chat_conversation_member_required",
-      "Solo los miembros de la conversacion pueden usar este chat.",
+      "Solo los miembros de la conversación pueden usar este chat.",
     );
   }
 }

@@ -68,17 +68,17 @@ const ACCOUNT_DELETION_POLICY = {
     {
       resource: "reports",
       disposition: "close",
-      copy: "Tus reportes activos se cerraran y dejaran de aparecer en alertas comunitarias.",
+      copy: "Tus reportes activos se cerrarán y dejarán de aparecer en alertas comunitarias.",
     },
     {
       resource: "listings",
       disposition: "unpublish",
-      copy: "Tus listados de adopcion o reubicacion se retiraran de la busqueda publica.",
+      copy: "Tus listados de adopción o reubicación se retirarán de la búsqueda pública.",
     },
     {
       resource: "chats",
       disposition: "retainForSafety",
-      copy: "Los chats ya no estaran disponibles para ti; Rastro puede conservar registros necesarios para seguridad y moderacion.",
+      copy: "Los chats ya no estarán disponibles para ti; Rastro puede conservar registros necesarios para seguridad y moderación.",
     },
     {
       resource: "publicContent",

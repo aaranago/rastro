@@ -130,6 +130,7 @@ export interface AdoptionListingCreationScreenProps {
   onSharePublishedListing?: (
     confirmation: AdoptionListingPublishConfirmation,
   ) => Promise<void> | void;
+  petProfileLoadNotice?: React.ReactNode;
   petProfiles?: readonly (
     | AdoptionListingPetProfileOption
     | PetProfileSummary
@@ -174,6 +175,7 @@ export function AdoptionListingCreationScreen({
   onRecordSponsorPlacementDelivery,
   onReportSponsorPlacement,
   onSharePublishedListing,
+  petProfileLoadNotice,
   petProfiles = [],
   pickAdoptionListingPhoto,
   renderReportMediaManager,
@@ -442,14 +444,14 @@ export function AdoptionListingCreationScreen({
         publishState === "confirming" || publishState === "publishing" ? (
           <ReportCreationPublishConfirmationModal
             activityIndicatorColor={shellColors.white}
-            body="Al confirmar, Rastro enviará esta adopción al backend. Si Review Mode está activo quedará pendiente de revisión; si no, se publicará."
+            body="Al confirmar, Rastro enviará esta adopción al backend. Si el modo de revisión está activo, quedará pendiente de revisión; si no, se publicará."
             canConfirm={viewModel.canPublish}
             Icon={AdoptionListingCreationIcon}
             onCancel={cancelPublishConfirmation}
             onConfirm={confirmPublish}
             publishState={toReportCreationPublishState(publishState)}
             rows={buildAdoptionListingPublishConfirmationRows(viewModel)}
-            title="Confirmar publicacion"
+            title="Confirmar publicación"
           />
         ) : null
       }
@@ -465,6 +467,7 @@ export function AdoptionListingCreationScreen({
       }}
       onPrevious={returnToPreviousStep}
       onResumeRecoveredDraft={resumeDraft}
+      petProfileLoadNotice={petProfileLoadNotice}
       publish={requestPublishConfirmation}
       publishState={publishState}
       renderReportMediaManager={renderReportMediaManager}
@@ -583,7 +586,7 @@ function getAdoptionListingSuccessCopy({
 }) {
   if (publishedListing?.status === "pending_review") {
     return {
-      body: "Tu adopción fue recibida y queda en Review Mode. El equipo la revisará antes de mostrarla públicamente.",
+      body: "Tu adopción fue recibida y queda en modo de revisión. El equipo la revisará antes de mostrarla públicamente.",
       canShare: false,
       primaryActionLabel: "Ver estado",
       shareActionLabel: "Compartir",
@@ -610,11 +613,11 @@ function buildAdoptionListingPublishConfirmationRows(
     },
     {
       label: "Estado",
-      value: "Pública o pendiente de revisión por Review Mode",
+      value: "Pública o pendiente de revisión por modo de revisión",
     },
     {
       label: "Hora",
-      value: "Se registrara al confirmar",
+      value: "Se registrará al confirmar",
     },
     ...viewModel.review.rows,
   ];
@@ -641,6 +644,7 @@ function AdoptionListingCreationEditor({
   onMediaControllerChange,
   onPrevious,
   onResumeRecoveredDraft,
+  petProfileLoadNotice,
   publish,
   publishState,
   renderReportMediaManager,
@@ -663,6 +667,7 @@ function AdoptionListingCreationEditor({
   ) => void;
   onPrevious: () => void;
   onResumeRecoveredDraft: () => void;
+  petProfileLoadNotice?: React.ReactNode;
   publish: () => void;
   publishState: PublishState;
   renderReportMediaManager?: AdoptionListingCreationScreenProps["renderReportMediaManager"];
@@ -716,6 +721,7 @@ function AdoptionListingCreationEditor({
       <ReportCreationDraftPersistenceAlert
         draftPersistence={draftPersistence}
       />
+      {petProfileLoadNotice}
       <CurrentStepContent
         addPhoto={addPhoto}
         draft={draft}
@@ -861,7 +867,7 @@ function CurrentStepContent({
   if (viewModel.journey.currentStep.id === "location") {
     const locationError =
       validationDisplay.attemptedStepId === "location" && !draft.exactLocation
-        ? "Selecciona la ubicacion interna."
+        ? "Selecciona la ubicación interna."
         : undefined;
 
     return (
@@ -1021,7 +1027,7 @@ function validateCurrentAdoptionListingStep({
   }
 
   if (stepId === "location" && !attemptedViewModel.location.hasExactLocation) {
-    errors.push("Selecciona la ubicacion interna.");
+    errors.push("Selecciona la ubicación interna.");
   }
 
   if (stepId === "contact") {
@@ -1169,7 +1175,7 @@ function PetProfileSection({
         />
         <SegmentButton
           isSelected={draft.petSelectionMode === "inline-create"}
-          label="Crear aqui"
+          label="Crear aquí"
           onPress={() =>
             setDraft((current) => ({
               ...current,
@@ -1314,8 +1320,8 @@ function LocationPrivacySection({
         icon="map.fill"
         label={
           viewModel.location.hasExactLocation
-            ? "Cambiar ubicacion"
-            : "Elegir ubicacion"
+            ? "Cambiar ubicación"
+            : "Elegir ubicación"
         }
         onPress={onChooseLocation}
         primaryTextColor={shellColors.white}

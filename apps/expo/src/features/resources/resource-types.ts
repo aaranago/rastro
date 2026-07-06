@@ -99,7 +99,7 @@ export type LocalSponsorPlacementSurface =
 
 export interface LocalSponsorPlacement {
   kind: "Local Sponsor Placement";
-  placementId?: string;
+  deliveryToken?: string;
   label: string;
   disclosure: string;
   logoUrl?: string;

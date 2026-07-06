@@ -196,7 +196,7 @@ export function ResourceProviderProfileScreen({
 
   const currentLoadState = getCurrentLoadState(loadState, resolvedProviderId);
 
-  useEffect(() => {
+  const handleProfileVisible = useCallback(() => {
     if (currentLoadState.kind !== "ready") {
       return;
     }
@@ -230,6 +230,7 @@ export function ResourceProviderProfileScreen({
       recordProviderDetailsSponsorDelivery({
         adapter,
         eventType: "open",
+        idempotencyKey: `provider-details:${sponsorDeliverySessionIdRef.current}:${action.providerId}:${action.kind}:open`,
         profile:
           currentLoadState.kind === "ready" ? currentLoadState.profile : null,
         source: `provider-details-contact-${action.kind}`,
@@ -244,11 +245,20 @@ export function ResourceProviderProfileScreen({
   );
 
   const handleOpenLink = useCallback(
-    ({ label, url }: { providerId: string; label: string; url: string }) => {
+    ({
+      label,
+      providerId,
+      url,
+    }: {
+      providerId: string;
+      label: string;
+      url: string;
+    }) => {
       setLinkFeedback(undefined);
       recordProviderDetailsSponsorDelivery({
         adapter,
         eventType: "open",
+        idempotencyKey: `provider-details:${sponsorDeliverySessionIdRef.current}:${providerId}:link:open`,
         profile:
           currentLoadState.kind === "ready" ? currentLoadState.profile : null,
         source: "provider-details-link",
@@ -307,6 +317,7 @@ export function ResourceProviderProfileScreen({
         bottomInset={profileBottomInset}
         onContactAction={handleContactAction}
         onOpenLink={handleOpenLink}
+        onProfileVisible={handleProfileVisible}
         onReportProvider={handleReportProvider}
         profile={currentLoadState.profile}
         reportFeedback={reportFeedback ?? linkFeedback}
@@ -570,7 +581,7 @@ function recordProviderDetailsSponsorDelivery({
 }: {
   adapter: ResourcesAdapter;
   eventType: "impression" | "open";
-  idempotencyKey?: string;
+  idempotencyKey: string;
   profile: ResourceProviderProfileData | null;
   source: string;
 }) {
@@ -583,17 +594,15 @@ function recordProviderDetailsSponsorDelivery({
     "provider_details",
   );
 
-  if (!sponsorPlacement) {
+  if (!sponsorPlacement?.deliveryToken) {
     return;
   }
 
   void adapter
     .recordSponsorDelivery({
+      deliveryToken: sponsorPlacement.deliveryToken,
       eventType,
       idempotencyKey,
-      ...(sponsorPlacement.placementId
-        ? { placementId: sponsorPlacement.placementId }
-        : {}),
       providerId: profile.id,
       source,
       surface: "provider_details",

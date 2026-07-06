@@ -9,6 +9,7 @@ import type {
 import type { RecordAdminAuditEventInput } from "../admin-audit-repository";
 import type { PersistedAdminMediaAsset } from "../admin-media-repository";
 import { AdminMediaAssetReferenceError } from "../admin-media-repository";
+import { createSponsorDeliveryToken } from "../local-sponsor-placement-delivery-token";
 import { SponsorPlacementOverlapError } from "../resource-provider-repository";
 import { appRouter } from "../root";
 
@@ -53,7 +54,7 @@ function providerProfile(
 ): PublicResourceProviderProfile {
   return {
     id: "11111111-1111-4111-8111-111111111111",
-    name: "Clinica Veterinaria San Roque",
+    name: "Clínica Veterinaria San Roque",
     categoryId: "veterinary",
     description: "Veterinaria local con atencion general y urgencias.",
     approximateLocationLabel: "Sopocachi, La Paz",
@@ -82,6 +83,48 @@ function providerProfile(
   };
 }
 
+function publicSponsorPlacement(
+  overrides: Partial<
+    NonNullable<PublicResourceProviderProfile["sponsorPlacement"]>
+  > & {
+    placementId?: string;
+    providerId?: string;
+  } = {},
+): NonNullable<PublicResourceProviderProfile["sponsorPlacement"]> {
+  const providerId =
+    overrides.providerId ?? "11111111-1111-4111-8111-111111111111";
+  const placementId =
+    overrides.placementId ?? "22222222-2222-4222-8222-222222222222";
+  const surface = overrides.eligibleSurfaces?.[0] ?? "resources_directory";
+  const {
+    providerId: _providerId,
+    placementId: _placementId,
+    ...publicOverrides
+  } = overrides;
+
+  return {
+    kind: "Local Sponsor Placement",
+    deliveryToken: createSponsorDeliveryToken({
+      placementId,
+      providerId,
+      surface,
+    }),
+    label: "Patrocinado",
+    disclosure: "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
+    eligibleSurfaces: [surface],
+    safetyPolicy: {
+      recoveryPriority: {
+        label: "Recovery Priority",
+        canAffect: false,
+      },
+      pushNotifications: {
+        eligible: false,
+      },
+    },
+    ...publicOverrides,
+  };
+}
+
 function adminMediaAsset(
   overrides: Partial<PersistedAdminMediaAsset> = {},
 ): PersistedAdminMediaAsset {
@@ -107,7 +150,7 @@ function adminMediaAsset(
 }
 
 const createProviderInput = {
-  name: "Clinica Veterinaria San Roque",
+  name: "Clínica Veterinaria San Roque",
   category: "veterinary",
   description: "Veterinaria local con atencion general y urgencias.",
   shortDescription:
@@ -235,25 +278,14 @@ describe("resources router", () => {
           return Promise.resolve([
             providerProfile({
               activeSponsorPlacements: [
-                {
-                  kind: "Local Sponsor Placement",
-                  placementId: "22222222-2222-4222-8222-222222222222",
+                publicSponsorPlacement({
                   label: "Patrocinado",
                   disclosure:
                     "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
                   logoUrl: "https://example.com/sponsor-logo.png",
                   imageUrl: "https://example.com/sponsor-banner.png",
                   eligibleSurfaces: ["launch_home_banner"],
-                  safetyPolicy: {
-                    recoveryPriority: {
-                      label: "Recovery Priority",
-                      canAffect: false,
-                    },
-                    pushNotifications: {
-                      eligible: false,
-                    },
-                  },
-                },
+                }),
               ],
             }),
           ]);
@@ -279,7 +311,6 @@ describe("resources router", () => {
               eligibleSurfaces: ["launch_home_banner"],
               imageUrl: "https://example.com/sponsor-banner.png",
               label: "Patrocinado",
-              placementId: "22222222-2222-4222-8222-222222222222",
             },
           ],
           id: "11111111-1111-4111-8111-111111111111",
@@ -289,10 +320,19 @@ describe("resources router", () => {
     });
     expect(JSON.stringify(result)).not.toContain("-16.510231");
     expect(JSON.stringify(result)).not.toContain("-68.123881");
+    expect(
+      result.results[0]?.activeSponsorPlacements?.[0]?.deliveryToken,
+    ).toEqual(expect.any(String));
+    expect(JSON.stringify(result)).not.toContain("placementId");
   });
 
   it("records sponsor delivery events through backend-resolved active placements", async () => {
     const calls: unknown[] = [];
+    const deliveryToken = createSponsorDeliveryToken({
+      placementId: "22222222-2222-4222-8222-222222222222",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      surface: "resources_directory",
+    });
     const caller = createCaller({
       localSponsorPlacementDeliveryRepository: {
         record: (input: unknown) => {
@@ -321,10 +361,10 @@ describe("resources router", () => {
     });
 
     const result = await caller.resources.recordSponsorDelivery({
+      deliveryToken,
       eventType: "impression",
       idempotencyKey:
         "resources_directory:11111111-1111-4111-8111-111111111111:2026-07-01",
-      placementId: "22222222-2222-4222-8222-222222222222",
       providerId: "11111111-1111-4111-8111-111111111111",
       source: "resources-map-card",
       surface: "resources_directory",
@@ -353,7 +393,7 @@ describe("resources router", () => {
     ]);
   });
 
-  it("accepts sponsor delivery placement IDs for exact attribution", async () => {
+  it("rejects raw public sponsor delivery placement IDs without a signed token", async () => {
     const calls: unknown[] = [];
     const caller = createCaller({
       localSponsorPlacementDeliveryRepository: {
@@ -368,24 +408,240 @@ describe("resources router", () => {
       session: null,
     });
 
-    await caller.resources.recordSponsorDelivery({
-      eventType: "impression",
+    await expect(
+      caller.resources.recordSponsorDelivery({
+        eventType: "impression",
+        idempotencyKey:
+          "resources_directory:11111111-1111-4111-8111-111111111111:exact-attribution",
+        placementId: "22222222-2222-4222-8222-222222222222",
+        providerId: "11111111-1111-4111-8111-111111111111",
+        surface: "resources_directory",
+      } as never),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(calls).toEqual([]);
+  });
+
+  it("rejects sponsor delivery tokens replayed against a different provider", async () => {
+    const deliveryToken = createSponsorDeliveryToken({
       placementId: "22222222-2222-4222-8222-222222222222",
       providerId: "11111111-1111-4111-8111-111111111111",
       surface: "resources_directory",
     });
-    expect(calls).toEqual([
-      {
-        eventType: "impression",
-        placementId: "22222222-2222-4222-8222-222222222222",
-        memberId: undefined,
-        providerId: "11111111-1111-4111-8111-111111111111",
-        surface: "resources_directory",
+    const caller = createCaller({
+      localSponsorPlacementDeliveryRepository: {
+        record: () => {
+          throw new Error("Should not record a mismatched sponsor token.");
+        },
       },
-    ]);
+      session: null,
+    });
+
+    await expect(
+      caller.resources.recordSponsorDelivery({
+        deliveryToken,
+        eventType: "impression",
+        idempotencyKey:
+          "resources_directory:11111111-1111-4111-8111-111111111111:mismatch",
+        providerId: "44444444-4444-4444-8444-444444444444",
+        surface: "resources_directory",
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("throttles noisy sponsor delivery events by client and verified placement target", async () => {
+    const deliveryToken = createSponsorDeliveryToken({
+      placementId: "55555555-5555-4555-8555-555555555555",
+      providerId: "66666666-6666-4666-8666-666666666666",
+      surface: "resources_directory",
+    });
+    const repository = {
+      record: () =>
+        Promise.resolve({
+          event: {
+            eventType: "impression" as const,
+            id: "33333333-3333-4333-8333-333333333333",
+            occurredAt: new Date("2026-07-01T12:00:00.000Z"),
+            placementId: "55555555-5555-4555-8555-555555555555",
+            providerId: "66666666-6666-4666-8666-666666666666",
+            surface: "resources_directory" as const,
+          },
+          status: "recorded" as const,
+        }),
+    };
+    const createSponsorCaller = (clientAddress: string) =>
+      createCaller({
+        localSponsorPlacementDeliveryRepository: repository,
+        requestHeaders: new Headers({
+          "x-forwarded-for": clientAddress,
+          "user-agent": "Rastro test client",
+        }),
+        session: null,
+      });
+    const firstClientCaller = createSponsorCaller("198.51.100.1");
+    const secondClientCaller = createSponsorCaller("198.51.100.2");
+
+    const allowedResults = await Promise.all(
+      Array.from({ length: 30 }, (_, index) =>
+        firstClientCaller.resources.recordSponsorDelivery({
+          deliveryToken,
+          eventType: "impression",
+          idempotencyKey: `resources-directory-throttle-${index}`,
+          providerId: "66666666-6666-4666-8666-666666666666",
+          source: "resources-list",
+          surface: "resources_directory",
+        }),
+      ),
+    );
+
+    expect(allowedResults).toHaveLength(30);
+    expect(allowedResults).toEqual(
+      expect.arrayContaining([expect.objectContaining({ status: "recorded" })]),
+    );
+
+    await expect(
+      secondClientCaller.resources.recordSponsorDelivery({
+        deliveryToken,
+        eventType: "impression",
+        idempotencyKey: "resources-directory-throttle-other-client",
+        providerId: "66666666-6666-4666-8666-666666666666",
+        source: "resources-list",
+        surface: "resources_directory",
+      }),
+    ).resolves.toMatchObject({ status: "recorded" });
+
+    await expect(
+      firstClientCaller.resources.recordSponsorDelivery({
+        deliveryToken,
+        eventType: "impression",
+        idempotencyKey: "resources-directory-throttle-over-limit",
+        providerId: "66666666-6666-4666-8666-666666666666",
+        source: "resources-list",
+        surface: "resources_directory",
+      }),
+    ).rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
+  });
+
+  it("throttles logged-in sponsor delivery events separately per member", async () => {
+    const deliveryToken = createSponsorDeliveryToken({
+      placementId: "77777777-7777-4777-8777-777777777777",
+      providerId: "88888888-8888-4888-8888-888888888888",
+      surface: "resources_directory",
+    });
+    const repository = {
+      record: () =>
+        Promise.resolve({
+          event: {
+            eventType: "open" as const,
+            id: "33333333-3333-4333-8333-333333333333",
+            occurredAt: new Date("2026-07-01T12:00:00.000Z"),
+            placementId: "77777777-7777-4777-8777-777777777777",
+            providerId: "88888888-8888-4888-8888-888888888888",
+            surface: "resources_directory" as const,
+          },
+          status: "recorded" as const,
+        }),
+    };
+    const createMemberCaller = (memberId: string) =>
+      createCaller({
+        localSponsorPlacementDeliveryRepository: repository,
+        requestHeaders: new Headers({
+          "x-forwarded-for": "198.51.100.9",
+          "user-agent": "Rastro test client",
+        }),
+        session: {
+          user: {
+            id: memberId,
+          },
+        },
+      });
+    const firstMemberCaller = createMemberCaller("member-throttle-a");
+    const secondMemberCaller = createMemberCaller("member-throttle-b");
+
+    await Promise.all(
+      Array.from({ length: 30 }, (_, index) =>
+        firstMemberCaller.resources.recordSponsorDelivery({
+          deliveryToken,
+          eventType: "open",
+          idempotencyKey: `resources-directory-member-throttle-${index}`,
+          providerId: "88888888-8888-4888-8888-888888888888",
+          source: "resources-profile",
+          surface: "resources_directory",
+        }),
+      ),
+    );
+
+    await expect(
+      secondMemberCaller.resources.recordSponsorDelivery({
+        deliveryToken,
+        eventType: "open",
+        idempotencyKey: "resources-directory-member-throttle-other",
+        providerId: "88888888-8888-4888-8888-888888888888",
+        source: "resources-profile",
+        surface: "resources_directory",
+      }),
+    ).resolves.toMatchObject({ status: "recorded" });
+
+    await expect(
+      firstMemberCaller.resources.recordSponsorDelivery({
+        deliveryToken,
+        eventType: "open",
+        idempotencyKey: "resources-directory-member-throttle-over-limit",
+        providerId: "88888888-8888-4888-8888-888888888888",
+        source: "resources-profile",
+        surface: "resources_directory",
+      }),
+    ).rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
+  });
+
+  it("does not throttle sponsor delivery when no request fingerprint is available", async () => {
+    const deliveryToken = createSponsorDeliveryToken({
+      placementId: "99999999-9999-4999-8999-999999999999",
+      providerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      surface: "resources_directory",
+    });
+    const caller = createCaller({
+      localSponsorPlacementDeliveryRepository: {
+        record: () =>
+          Promise.resolve({
+            event: {
+              eventType: "impression",
+              id: "33333333-3333-4333-8333-333333333333",
+              occurredAt: new Date("2026-07-01T12:00:00.000Z"),
+              placementId: "99999999-9999-4999-8999-999999999999",
+              providerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              surface: "resources_directory",
+            },
+            status: "recorded",
+          }),
+      },
+      session: null,
+    });
+
+    const allowedResults = await Promise.all(
+      Array.from({ length: 31 }, (_, index) =>
+        caller.resources.recordSponsorDelivery({
+          deliveryToken,
+          eventType: "impression",
+          idempotencyKey: `resources-directory-no-fingerprint-${index}`,
+          providerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          source: "resources-list",
+          surface: "resources_directory",
+        }),
+      ),
+    );
+
+    expect(allowedResults).toHaveLength(31);
+    expect(allowedResults).toEqual(
+      expect.arrayContaining([expect.objectContaining({ status: "recorded" })]),
+    );
   });
 
   it("no-ops sponsor delivery events when no active placement is available", async () => {
+    const deliveryToken = createSponsorDeliveryToken({
+      placementId: "22222222-2222-4222-8222-222222222222",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      surface: "launch_home_banner",
+    });
     const caller = createCaller({
       localSponsorPlacementDeliveryRepository: {
         record: () =>
@@ -398,12 +654,42 @@ describe("resources router", () => {
 
     await expect(
       caller.resources.recordSponsorDelivery({
+        deliveryToken,
         eventType: "open",
+        idempotencyKey:
+          "launch_home_banner:11111111-1111-4111-8111-111111111111:no-active-open",
         providerId: "11111111-1111-4111-8111-111111111111",
         surface: "launch_home_banner",
       }),
     ).resolves.toEqual({
       status: "no_active_placement",
+    });
+  });
+
+  it("rejects public sponsor delivery events without a dedupe key", async () => {
+    const deliveryToken = createSponsorDeliveryToken({
+      placementId: "22222222-2222-4222-8222-222222222222",
+      providerId: "11111111-1111-4111-8111-111111111111",
+      surface: "resources_directory",
+    });
+    const caller = createCaller({
+      localSponsorPlacementDeliveryRepository: {
+        record: () => {
+          throw new Error("Should not record undedupeable sponsor delivery.");
+        },
+      },
+      session: null,
+    });
+
+    await expect(
+      caller.resources.recordSponsorDelivery({
+        deliveryToken,
+        eventType: "open",
+        providerId: "11111111-1111-4111-8111-111111111111",
+        surface: "resources_directory",
+      } as never),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
     });
   });
 
@@ -419,7 +705,7 @@ describe("resources router", () => {
 
     await expect(
       caller.resources.reportProvider({
-        detail: "La direccion visible no coincide con el local.",
+        detail: "La dirección visible no coincide con el local.",
         providerId: "11111111-1111-4111-8111-111111111111",
         reason: "incorrect_location",
       }),
@@ -443,7 +729,7 @@ describe("resources router", () => {
               lastReportedAt: new Date("2026-06-26T16:00:00.000Z"),
               newestReport: {
                 createdAt: new Date("2026-06-26T16:00:00.000Z"),
-                detail: "La direccion visible no coincide con el local.",
+                detail: "La dirección visible no coincide con el local.",
                 reporter: {
                   displayName: "Ana S.",
                   email: "ana@example.com",
@@ -455,7 +741,7 @@ describe("resources router", () => {
                 department: "La Paz",
                 id: "11111111-1111-4111-8111-111111111111",
                 locationLabel: "Sopocachi, La Paz",
-                name: "Clinica Veterinaria San Roque",
+                name: "Clínica Veterinaria San Roque",
                 verificationStatus: "verified",
               },
               reason: "incorrect_location",
@@ -474,7 +760,7 @@ describe("resources router", () => {
     });
 
     const created = await caller.resources.reportProvider({
-      detail: "La direccion visible no coincide con el local.",
+      detail: "La dirección visible no coincide con el local.",
       providerId: "11111111-1111-4111-8111-111111111111",
       reason: "incorrect_location",
     });
@@ -483,7 +769,7 @@ describe("resources router", () => {
       {
         reporterId: "member-ana",
         report: {
-          detail: "La direccion visible no coincide con el local.",
+          detail: "La dirección visible no coincide con el local.",
           providerId: "11111111-1111-4111-8111-111111111111",
           reason: "incorrect_location",
         },
@@ -493,7 +779,7 @@ describe("resources router", () => {
       status: "created",
       reviewItem: {
         provider: {
-          name: "Clinica Veterinaria San Roque",
+          name: "Clínica Veterinaria San Roque",
         },
         reason: "incorrect_location",
         reportCount: 1,
@@ -536,7 +822,7 @@ describe("resources router", () => {
 
     await expect(
       caller.resources.reportProvider({
-        detail: "La direccion visible no coincide con el local.",
+        detail: "La dirección visible no coincide con el local.",
         providerId: "11111111-1111-4111-8111-111111111111",
         reason: "incorrect_location",
       }),
@@ -630,7 +916,7 @@ describe("resources router", () => {
       items: [
         {
           id: "11111111-1111-4111-8111-111111111111",
-          name: "Clinica Veterinaria San Roque",
+          name: "Clínica Veterinaria San Roque",
         },
       ],
       pageSize: 10,
@@ -1067,14 +1353,14 @@ describe("resources router", () => {
         },
       },
     });
-    expect(created.name).toBe("Clinica Veterinaria San Roque");
+    expect(created.name).toBe("Clínica Veterinaria San Roque");
     expect(JSON.stringify(created)).not.toContain("-16.510231");
     expect(auditEvents).toHaveLength(1);
     expect(auditEvents[0]).toMatchObject({
       action: "resource_provider.create",
       target: {
         id: "11111111-1111-4111-8111-111111111111",
-        label: "Clinica Veterinaria San Roque",
+        label: "Clínica Veterinaria San Roque",
         type: "resource_provider",
       },
     });
@@ -1385,7 +1671,7 @@ describe("resources router", () => {
 
     const updated = await caller.resources.admin.updateProvider({
       providerId: "11111111-1111-4111-8111-111111111111",
-      name: "Clinica Veterinaria San Roque Norte",
+      name: "Clínica Veterinaria San Roque Norte",
       logoUrl: null,
       location: {
         exactLatitude: -16.510231,
@@ -1405,7 +1691,7 @@ describe("resources router", () => {
     expect(updateInput).toMatchObject({
       adminId: "member-admin-la-paz",
       provider: {
-        name: "Clinica Veterinaria San Roque Norte",
+        name: "Clínica Veterinaria San Roque Norte",
         logoUrl: null,
         location: {
           exactLatitude: -16.510231,
@@ -1414,7 +1700,7 @@ describe("resources router", () => {
       },
     });
     expect(updated).toMatchObject({
-      name: "Clinica Veterinaria San Roque Norte",
+      name: "Clínica Veterinaria San Roque Norte",
       contactOptions: [
         {
           kind: "whatsapp",
@@ -1432,7 +1718,7 @@ describe("resources router", () => {
         },
         target: {
           id: "11111111-1111-4111-8111-111111111111",
-          label: "Clinica Veterinaria San Roque Norte",
+          label: "Clínica Veterinaria San Roque Norte",
           type: "resource_provider",
         },
       }),
@@ -1471,7 +1757,7 @@ describe("resources router", () => {
 
     const updated = await caller.resources.admin.updateProvider({
       providerId: "11111111-1111-4111-8111-111111111111",
-      name: "Clinica Veterinaria San Roque Norte",
+      name: "Clínica Veterinaria San Roque Norte",
     });
 
     expect(updateInput?.provider.logoUrl).toBeUndefined();
@@ -1641,7 +1927,7 @@ describe("resources router", () => {
         action: "resource_provider.archive",
         target: {
           id: "11111111-1111-4111-8111-111111111111",
-          label: "Clinica Veterinaria San Roque",
+          label: "Clínica Veterinaria San Roque",
           type: "resource_provider",
         },
       }),
@@ -1679,6 +1965,7 @@ describe("resources router", () => {
             providerProfile({
               sponsorPlacement: {
                 kind: "Local Sponsor Placement",
+                deliveryToken: "provider-details-delivery-token",
                 label: "Patrocinado",
                 disclosure:
                   "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
@@ -1764,7 +2051,7 @@ describe("resources router", () => {
       target: {
         id: "22222222-2222-4222-8222-222222222222",
         label:
-          "Clinica Veterinaria San Roque - 22222222-2222-4222-8222-222222222222",
+          "Clínica Veterinaria San Roque - 22222222-2222-4222-8222-222222222222",
         type: "local_sponsor_placement",
       },
     });
@@ -1781,7 +2068,7 @@ describe("resources router", () => {
             adminListResult([
               sponsorPlacement({
                 providerId: "11111111-1111-4111-8111-111111111111",
-                providerName: "Clinica Veterinaria San Roque",
+                providerName: "Clínica Veterinaria San Roque",
               }),
               sponsorPlacement({
                 placementId: "33333333-3333-4333-8333-333333333333",
@@ -1831,7 +2118,7 @@ describe("resources router", () => {
           openCount: 30,
         },
         placementId: "22222222-2222-4222-8222-222222222222",
-        providerName: "Clinica Veterinaria San Roque",
+        providerName: "Clínica Veterinaria San Roque",
       }),
       expect.objectContaining({
         placementId: "33333333-3333-4333-8333-333333333333",
@@ -1937,7 +2224,7 @@ describe("resources router", () => {
     });
 
     expect(created).toMatchObject({
-      providerName: "Clinica Veterinaria San Roque",
+      providerName: "Clínica Veterinaria San Roque",
       surface: "resources_directory",
       logoUrl: "https://example.com/sponsor-logo.png",
       imageUrl: "https://example.com/sponsor-banner.png",
@@ -2209,7 +2496,7 @@ describe("resources router", () => {
     await expect(
       caller.resources.admin.updateProvider({
         providerId: "11111111-1111-4111-8111-111111111111",
-        name: "Clinica Veterinaria San Roque Norte",
+        name: "Clínica Veterinaria San Roque Norte",
       }),
     ).rejects.toMatchObject({
       code: "NOT_FOUND",
@@ -2280,7 +2567,7 @@ function buildSponsorPlacement(): SponsorPlacementFixture {
     label: "Patrocinado",
     placementId: "22222222-2222-4222-8222-222222222222",
     providerId: "11111111-1111-4111-8111-111111111111",
-    providerName: "Clinica Veterinaria San Roque",
+    providerName: "Clínica Veterinaria San Roque",
     providerVerificationStatus: "verified",
     safetyPolicy: {
       eligibleSurfaces: ["resources_directory"],

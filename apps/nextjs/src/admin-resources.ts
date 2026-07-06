@@ -276,7 +276,7 @@ const providerFixtures: ResourceProviderState[] = [
     city: "Santa Cruz de la Sierra",
     contactLabel: "Contacto institucional verificado",
     department: "Santa Cruz",
-    name: "Clinica San Roque",
+    name: "Clínica San Roque",
     providerId: "clinic-san-roque",
     serviceAreaLabel: "Santa Cruz urbano",
     sponsorPlacements: [],
@@ -295,7 +295,7 @@ const providerFixtures: ResourceProviderState[] = [
     serviceAreaLabel: "La Paz y El Alto",
     sponsorPlacements: [],
     verificationBadge: {
-      note: "Identidad pendiente de revision por Rastro.",
+      note: "Identidad pendiente de revisión por Rastro.",
       status: "unverified",
     },
   },
@@ -304,7 +304,7 @@ const providerFixtures: ResourceProviderState[] = [
 export const resourceProviderCategoryOptions = [
   {
     id: "veterinary",
-    label: "Clinica veterinaria",
+    label: "Clínica veterinaria",
   },
   {
     id: "shelter",
@@ -312,7 +312,7 @@ export const resourceProviderCategoryOptions = [
   },
   {
     id: "groomer",
-    label: "Peluqueria para mascotas",
+    label: "Peluquería para mascotas",
   },
   {
     id: "pet_food",
@@ -391,7 +391,7 @@ export function createInMemoryAdminResourceManagement(
 
       return {
         announcement: {
-          body: "El proveedor queda disponible para revision y gestion administrativa.",
+          body: "El proveedor queda disponible para revisión y gestión administrativa.",
           title: "Proveedor de recursos creado",
         },
         provider: toProviderViewModel(provider),
@@ -427,7 +427,7 @@ export function createInMemoryAdminResourceManagement(
           locale: "es-BO",
           metrics: buildMetricsViewModel(state.providers, metricsAsOfDate),
           providers: state.providers.map(toProviderViewModel),
-          title: "Gestion de proveedores de recursos",
+          title: "Gestión de proveedores de recursos",
         },
       };
     },
@@ -462,7 +462,7 @@ function buildForbiddenResult(): AdminResourceForbiddenResult {
   return {
     status: "forbidden",
     viewModel: {
-      body: "Esta superficie esta disponible solo para administradores de Rastro.",
+      body: "Esta superficie está disponible solo para administradores de Rastro.",
       locale: "es-BO",
       title: "Acceso restringido",
     },
@@ -541,7 +541,7 @@ function createProvider(
     serviceAreaLabel: input.serviceAreaLabel,
     sponsorPlacements: [],
     verificationBadge: {
-      note: "Identidad pendiente de revision por Rastro.",
+      note: "Identidad pendiente de revisión por Rastro.",
       status: "unverified",
     },
   };
@@ -647,14 +647,14 @@ function validateAttachSponsorPlacementInput(
   if (!startsOn) {
     fieldErrors.push({
       field: "startsOn",
-      message: "Usa una fecha valida con formato YYYY-MM-DD.",
+      message: "Usa una fecha válida con formato YYYY-MM-DD.",
     });
   }
 
   if (!endsOn) {
     fieldErrors.push({
       field: "endsOn",
-      message: "Usa una fecha valida con formato YYYY-MM-DD.",
+      message: "Usa una fecha válida con formato YYYY-MM-DD.",
     });
   }
 

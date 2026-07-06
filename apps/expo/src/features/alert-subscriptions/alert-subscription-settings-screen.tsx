@@ -153,15 +153,19 @@ function useAlertSubscriptionSettingsController({
   );
   const canMutateSubscription =
     session.kind === "member" && subscriptionLoadState === "ready";
+  const viewModelRadiusKm =
+    session.kind === "member" && subscriptionLoadState === "ready"
+      ? selectedRadiusKm
+      : 5;
   const viewModel = React.useMemo(
     () =>
       buildAlertSubscriptionSettingsViewModel({
         loadState: subscriptionLoadState,
-        radiusKm: selectedRadiusKm,
+        radiusKm: viewModelRadiusKm,
         session,
         subscription,
       }),
-    [selectedRadiusKm, session, subscription, subscriptionLoadState],
+    [viewModelRadiusKm, session, subscription, subscriptionLoadState],
   );
 
   React.useEffect(() => {
@@ -170,6 +174,7 @@ function useAlertSubscriptionSettingsController({
     if (session.kind === "visitor") {
       setSubscriptionLoad({ state: "ready" });
       setSubscription(null);
+      setSelectedRadiusKm(5);
       setLastDetectedLocation(undefined);
       return;
     }
@@ -188,9 +193,7 @@ function useAlertSubscriptionSettingsController({
         setSubscriptionLoad({ memberId: session.memberId, state: "ready" });
         setFeedback(null);
 
-        if (nextSubscription) {
-          setSelectedRadiusKm(nextSubscription.radiusKm);
-        }
+        setSelectedRadiusKm(nextSubscription?.radiusKm ?? 5);
 
         setLastDetectedLocation(nextSubscription?.dynamicAlertArea?.location);
       })
@@ -343,10 +346,7 @@ function useAlertSubscriptionSettingsController({
         await repository.unsubscribeAlertSubscription(memberSession);
 
       setSubscription(nextSubscription);
-
-      if (nextSubscription) {
-        setSelectedRadiusKm(nextSubscription.radiusKm);
-      }
+      setSelectedRadiusKm(nextSubscription?.radiusKm ?? 5);
 
       setFeedback({
         message: "Te desuscribiste de las alertas cercanas.",

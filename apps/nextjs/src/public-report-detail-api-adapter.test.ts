@@ -8,6 +8,7 @@ import type {
 import { getPublicReportDetailWithCaller } from "./public-report-detail-api-adapter";
 
 const persistedLostReportId = "11111111-1111-4111-8111-111111110001";
+const persistedV7LostReportId = "019f4e42-15f5-7689-89c7-3f089e90fd08";
 const hiddenReportId = "11111111-1111-4111-8111-111111110002";
 const unknownReportId = "11111111-1111-4111-8111-111111110003";
 
@@ -16,7 +17,7 @@ const persistedLostReport = {
   type: "lost_pet",
   status: "active",
   outcome: null,
-  title: "Bruno esta perdido en Achumani DB",
+  title: "Bruno está perdido en Achumani DB",
   description: "Bruno responde a su nombre y llevaba collar azul.",
   pet: {
     name: "Bruno",
@@ -71,6 +72,23 @@ describe("public report detail API adapter", () => {
     );
 
     expect(report).toBe(persistedLostReport);
+  });
+
+  it("accepts shared public UUID versions before calling the API", async () => {
+    const detail = vi.fn<PublicReportDetailCaller["report"]["detail"]>(() =>
+      Promise.resolve({
+        ...persistedLostReport,
+        id: persistedV7LostReportId,
+      }),
+    );
+
+    const report = await getPublicReportDetailWithCaller(
+      callerThat(detail),
+      persistedV7LostReportId,
+    );
+
+    expect(report?.id).toBe(persistedV7LostReportId);
+    expect(detail).toHaveBeenCalledWith({ id: persistedV7LostReportId });
   });
 
   it("returns null for malformed public IDs before calling the API", async () => {

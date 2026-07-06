@@ -19,7 +19,7 @@ describe("Sighting Report creation view model", () => {
       title: "Reportar avistamiento",
       visitorAction: {
         intent: "sighting-report",
-        label: "Iniciar sesion para reportar avistamiento",
+        label: "Iniciar sesión para reportar avistamiento",
       },
     });
   });
@@ -73,12 +73,12 @@ describe("Sighting Report creation view model", () => {
 
     expect(
       attemptedDetailsViewModel.sightingDetails.fields.observedAtLabel.error,
-    ).toBe("Indica cuando fue visto.");
+    ).toBe("Indica cuándo fue visto.");
     expect(
       attemptedDetailsViewModel.sightingDetails.fields.description.error,
-    ).toBe("Agrega una descripcion del avistamiento.");
+    ).toBe("Agrega una descripción del avistamiento.");
     expect(attemptedDetailsViewModel.pet.fields.description.error).toBe(
-      "Agrega senas visibles de la mascota vista.",
+      "Agrega señas visibles de la mascota vista.",
     );
 
     const attemptedContactViewModel = buildSightingReportCreationViewModel({
@@ -122,7 +122,7 @@ describe("Sighting Report creation view model", () => {
     });
 
     expect(viewModel.sightingDetails.fields.description.error).toBe(
-      "Escribe una descripcion de al menos 10 caracteres.",
+      "Escribe una descripción de al menos 10 caracteres.",
     );
     expect(viewModel.canPublish).toBe(false);
   });
@@ -136,16 +136,16 @@ describe("Sighting Report creation view model", () => {
     expect(viewModel.canPublish).toBe(false);
     expect(viewModel.photos.error).toBeUndefined();
     expect(viewModel.review.validationErrors).toEqual([
-      "Selecciona donde fue visto el animal.",
-      "Indica cuando fue visto.",
-      "Describe la condicion observada.",
-      "Indica hacia donde iba.",
-      "Agrega una descripcion del avistamiento.",
-      "Agrega senas visibles de la mascota vista.",
+      "Selecciona dónde fue visto el animal.",
+      "Indica cuándo fue visto.",
+      "Describe la condición observada.",
+      "Indica hacia dónde iba.",
+      "Agrega una descripción del avistamiento.",
+      "Agrega señas visibles de la mascota vista.",
     ]);
     expect(() =>
       toPublishSightingReportInput({ draft: createSightingReportDraft() }),
-    ).toThrow("Selecciona donde fue visto el animal.");
+    ).toThrow("Selecciona dónde fue visto el animal.");
   });
 
   it("lets a member publish a useful no-photo Sighting Report with Spanish sighting-specific copy", () => {
@@ -291,7 +291,7 @@ describe("Sighting Report creation view model", () => {
     });
 
     expect(() => toPublishSightingReportInput({ draft })).toThrow(
-      "Selecciona una ubicacion dentro de Bolivia.",
+      "Selecciona una ubicación dentro de Bolivia.",
     );
   });
 

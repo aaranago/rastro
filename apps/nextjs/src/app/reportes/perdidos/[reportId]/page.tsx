@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { getSession } from "~/auth/server";
+import { PublicCommunityReportPageContent } from "~/public-community-report-page";
 import {
   buildPublicLostReportMetadata,
   getPublicLostReportViewModel,
 } from "~/public-lost-reports";
-import { PublicCommunityReportPageContent } from "~/public-community-report-page";
-import { getSession } from "~/auth/server";
 
 type PublicLostReportSearchParams = Record<
   string,
@@ -56,7 +56,7 @@ export default async function PublicLostReportPage(
       isSignedIn={Boolean(session)}
       report={{
         ...report,
-        descriptionLabel: "Descripcion",
+        descriptionLabel: "Descripción",
         event: report.lastSeen,
       }}
       searchParams={searchParams}

@@ -40,11 +40,13 @@ describe("public download page", () => {
     expect(html).toContain("Reportes");
     expect(html).toContain("Adopciones");
     expect(html).toContain("Recursos");
+    expect(html).toContain("Instalación");
     expect(html).toContain("Instalar, abrir o solicitar acceso");
     expect(html).toContain("Disponible pronto");
     expect(html).toContain("Solicitar acceso Android");
     expect(html).toContain("Solicitar aviso iPhone");
     expect(html).toContain("rastro-app-activity.png");
+    expect(html).not.toContain("Instalacion");
     expect(html).not.toMatch(/precio|compra|comprar|venta|vender|marketplace/i);
   });
 
@@ -108,9 +110,30 @@ describe("public download page", () => {
         }),
       }),
     );
+    const publicReportChatHtml = renderToStaticMarkup(
+      await DownloadPage({
+        searchParams: Promise.resolve({
+          target: "rastro://chats/report/019f4e42-15f5-7689-89c7-3f089e90fd08",
+        }),
+      }),
+    );
+    const v7ReportHtml = renderToStaticMarkup(
+      await DownloadPage({
+        searchParams: Promise.resolve({
+          target:
+            "rastro://reportes/perdidos/019f4e42-15f5-7689-89c7-3f089e90fd08",
+        }),
+      }),
+    );
 
     expect(allowedHtml).toContain(
       'href="rastro://reportes/perdidos/11111111-1111-4111-8111-111111110001"',
+    );
+    expect(v7ReportHtml).toContain(
+      'href="rastro://reportes/perdidos/019f4e42-15f5-7689-89c7-3f089e90fd08"',
+    );
+    expect(publicReportChatHtml).toContain(
+      'href="rastro://chats/report/019f4e42-15f5-7689-89c7-3f089e90fd08"',
     );
     expect(authCallbackHtml).toContain('href="rastro://"');
     expect(authCallbackHtml).not.toContain("auth/callback");

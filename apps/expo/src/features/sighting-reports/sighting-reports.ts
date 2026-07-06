@@ -450,7 +450,7 @@ function assertPublishInput(input: PublishSightingReportInput) {
   ) {
     throw new SightingReportRepositoryError(
       "exact_location_required",
-      "An Exact Location in Bolivia is required for a Sighting Report.",
+      "Se necesita una ubicación exacta interna en Bolivia para publicar el avistamiento.",
     );
   }
 
@@ -485,7 +485,7 @@ function assertSearchQuery(query: SearchActiveSightingReportsQuery) {
   ) {
     throw new SightingReportRepositoryError(
       "search_location_required",
-      "La busqueda necesita una ubicacion resuelta en Bolivia para el radio PostGIS.",
+      "La búsqueda necesita una ubicación resuelta en Bolivia para el radio PostGIS.",
     );
   }
 }
@@ -534,7 +534,7 @@ function toPublicSightingReportDetail(
     contactOptions: buildPublicContactOptions(report),
     description: report.sightingDescription,
     direction: {
-      label: "Direccion",
+      label: "Dirección",
       value: report.direction,
     },
     kind: "sighting-report",
@@ -543,7 +543,7 @@ function toPublicSightingReportDetail(
       value: report.observedAt,
     },
     observedCondition: {
-      label: "Condicion observada",
+      label: "Condición observada",
       value: report.observedCondition,
     },
     pet: { ...report.petSnapshot },

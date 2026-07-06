@@ -131,7 +131,7 @@ describe("signInWithShellSocialProvider", () => {
       messages: {
         canceled: "Cancelaste el ingreso.",
         failed: "No pudimos iniciar sesión con ese proveedor.",
-        unavailable: "Ese proveedor no esta disponible.",
+        unavailable: "Ese proveedor no está disponible.",
       },
       openAuthSession: (url, callbackURL) => {
         browserSessions.push({ callbackURL, url });
@@ -183,8 +183,8 @@ describe("signInWithShellSocialProvider", () => {
         `https://auth.example.test/api/auth/expo-authorization-proxy?authorizationURL=${encodeURIComponent(authorizationURL)}`,
       messages: {
         canceled: "Cancelaste el ingreso.",
-        failed: "No pudimos iniciar sesion con ese proveedor.",
-        unavailable: "Ese proveedor no esta disponible.",
+        failed: "No pudimos iniciar sesión con ese proveedor.",
+        unavailable: "Ese proveedor no está disponible.",
       },
       openAuthSession: (url, callbackURL) => {
         browserSessions.push({ callbackURL, url });
@@ -220,7 +220,7 @@ describe("signInWithShellSocialProvider", () => {
       messages: {
         canceled: "Cancelaste el ingreso.",
         failed: "No pudimos iniciar sesión con ese proveedor.",
-        unavailable: "Ese proveedor no esta disponible.",
+        unavailable: "Ese proveedor no está disponible.",
       },
       openAuthSession: () =>
         Promise.resolve({

@@ -1260,7 +1260,7 @@ export const LocalSponsorPlacementDeliveryEvent = pgTable(
       .references(() => ResourceProvider.id, { onDelete: "cascade" }),
     surface: localSponsorPlacementSurface().notNull(),
     eventType: localSponsorPlacementDeliveryEventType().notNull(),
-    idempotencyKey: t.varchar({ length: 191 }),
+    idempotencyKey: t.varchar({ length: 191 }).notNull(),
     memberId: t.text().references(() => user.id, { onDelete: "set null" }),
     source: t.varchar({ length: 80 }),
     occurredAt: t

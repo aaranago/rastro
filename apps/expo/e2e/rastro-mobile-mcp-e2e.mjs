@@ -1079,7 +1079,7 @@ async function verifyAdoptionCreationWorkflow() {
   await seedAndroidGalleryImage();
   await openDeepLinkUntilVisibleText(
     ["rastro:///report-create/adoption"],
-    "Dar en adopcion",
+    "Dar en adopción",
   );
   await tapVisibleText("Crear aqui", "adoption-inline-pet-mode");
   await replaceTextByAccessibilityLabel("Nombre", petName, {
@@ -1101,19 +1101,19 @@ async function verifyAdoptionCreationWorkflow() {
   });
   await screenshot("adoption-photo-selected.png");
   await tapVisibleText("Continuar", "adoption-photos-continue");
-  await waitForVisibleText("Sobre la adopcion", "adoption-details-step", {
+  await waitForVisibleText("Sobre la adopción", "adoption-details-step", {
     timeoutMs: 60000,
   });
 
-  await replaceTextByAccessibilityLabel("Sobre la adopcion", adoptionSummary, {
+  await replaceTextByAccessibilityLabel("Sobre la adopción", adoptionSummary, {
     context: "adoption-summary",
   });
   await tapVisibleText("Continuar", "adoption-details-continue");
-  await waitForVisibleText("Elegir ubicacion", "adoption-location-step", {
+  await waitForVisibleText("Elegir ubicación", "adoption-location-step", {
     timeoutMs: 30000,
   });
-  await tapVisibleText("Elegir ubicacion", "adoption-location-open");
-  await waitForVisibleText("Ubicacion del reporte", "location-picker", {
+  await tapVisibleText("Elegir ubicación", "adoption-location-open");
+  await waitForVisibleText("Ubicación del reporte", "location-picker", {
     timeoutMs: 30000,
   });
   await tapVisibleText("Marcar punto exacto en La Paz", "location-map-open");
@@ -1121,7 +1121,7 @@ async function verifyAdoptionCreationWorkflow() {
     timeoutMs: 30000,
   });
   await tapVisibleText("Confirmar punto elegido", "location-map-confirm");
-  await waitForVisibleText("Cambiar ubicacion", "adoption-location-selected", {
+  await waitForVisibleText("Cambiar ubicación", "adoption-location-selected", {
     timeoutMs: 30000,
   });
   await tapVisibleText("Continuar", "adoption-location-continue");
@@ -1130,17 +1130,17 @@ async function verifyAdoptionCreationWorkflow() {
   });
   await tapVisibleText("Chat en Rastro", "adoption-contact-chat");
   await tapVisibleText("Continuar", "adoption-contact-continue");
-  await waitForVisibleText("Publicar adopcion", "adoption-review-step", {
+  await waitForVisibleText("Publicar adopción", "adoption-review-step", {
     timeoutMs: 30000,
   });
   await screenshot("adoption-review-ready.png");
-  await tapVisibleText("Publicar adopcion", "adoption-publish-open");
+  await tapVisibleText("Publicar adopción", "adoption-publish-open");
   await waitForTestID("report-publish-confirmation", { timeoutMs: 30000 });
   await screenshot("adoption-publish-confirmation.png");
   await tapVisibleText("Confirmar y publicar", "adoption-publish-confirm", {
     timeoutMs: 30000,
   });
-  await waitForVisibleText("Adopcion publicada", "adoption-publish-success", {
+  await waitForVisibleText("Adopción publicada", "adoption-publish-success", {
     timeoutMs: 60000,
   });
   await screenshot("adoption-published.png");
@@ -1153,7 +1153,7 @@ async function verifyAdoptionCreationWorkflow() {
   });
   const reportId = await findPublishedAdoptionReportIdByPetName(petName);
 
-  await tapVisibleText("Ver adopcion", "adoption-open-published");
+  await tapVisibleText("Ver adopción", "adoption-open-published");
   await waitForTestID("public-report-detail-screen", { timeoutMs: 30000 });
   await waitForTestID("public-report-media-gallery", { timeoutMs: 30000 });
   await screenshot("adoption-published-owner-detail.png");

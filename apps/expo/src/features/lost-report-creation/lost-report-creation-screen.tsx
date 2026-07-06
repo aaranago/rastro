@@ -115,6 +115,7 @@ export interface LostReportCreationScreenProps {
   onSharePublishedReport?: (
     confirmation: LostReportPublishConfirmation,
   ) => Promise<void> | void;
+  petProfileLoadNotice?: React.ReactNode;
   petProfiles?: readonly (LostReportPetProfileOption | PetProfileSummary)[];
   pickLostReportPhoto?: () =>
     | LostReportPhoto
@@ -154,6 +155,7 @@ export function LostReportCreationScreen({
   onRecordSponsorPlacementDelivery,
   onReportSponsorPlacement,
   onSharePublishedReport,
+  petProfileLoadNotice,
   petProfiles = [],
   pickLostReportPhoto,
   renderReportMediaManager,
@@ -370,14 +372,14 @@ export function LostReportCreationScreen({
         publishState === "confirming" || publishState === "publishing" ? (
           <ReportCreationPublishConfirmationModal
             activityIndicatorColor={shellColors.white}
-            body="Al confirmar, Rastro creara un reporte publico de mascota perdida con la zona y contacto que revisaste."
+            body="Al confirmar, Rastro creará un reporte público de mascota perdida con la zona y contacto que revisaste."
             canConfirm={viewModel.canPublish}
             Icon={ReportCreationIcon}
             onCancel={cancelPublishConfirmation}
             onConfirm={confirmPublish}
             publishState={toReportCreationPublishState(publishState)}
             rows={buildLostReportPublishConfirmationRows(viewModel)}
-            title="Confirmar publicacion"
+            title="Confirmar publicación"
           />
         ) : null
       }
@@ -388,6 +390,7 @@ export function LostReportCreationScreen({
       onChooseLocation={openLocationPicker}
       onClose={onClose}
       onResumeRecoveredDraft={resumeDraft}
+      petProfileLoadNotice={petProfileLoadNotice}
       petProfiles={petProfiles}
       publish={requestPublishConfirmation}
       publishState={publishState}
@@ -494,7 +497,7 @@ function buildLostReportPublishConfirmationRows(
     },
     {
       label: "Estado",
-      value: "Publico activo despues de confirmar",
+      value: "Público activo después de confirmar",
     },
     ...viewModel.review.rows,
   ];
@@ -518,6 +521,7 @@ function LostReportCreationEditor({
   onChooseLocation,
   onClose,
   onResumeRecoveredDraft,
+  petProfileLoadNotice,
   petProfiles,
   publish,
   publishState,
@@ -538,6 +542,7 @@ function LostReportCreationEditor({
   onChooseLocation: () => void;
   onClose?: () => void;
   onResumeRecoveredDraft: () => void;
+  petProfileLoadNotice?: React.ReactNode;
   petProfiles: readonly LostReportPetProfileOption[];
   publish: () => void;
   publishState: PublishState;
@@ -565,7 +570,7 @@ function LostReportCreationEditor({
     canContinueCurrentStep || currentStepId === "review";
   const locationError =
     validationDisplay.attemptedStepId === "location" && !draft.exactLocation
-      ? "Selecciona la ubicacion interna."
+      ? "Selecciona la ubicación interna."
       : undefined;
   const scrollToActiveStep = React.useCallback(() => {
     scrollViewRef.current?.scrollTo({
@@ -665,6 +670,7 @@ function LostReportCreationEditor({
       <ReportCreationDraftPersistenceAlert
         draftPersistence={draftPersistence}
       />
+      {petProfileLoadNotice}
       <LostReportCurrentStepContent
         addPhoto={addPhoto}
         currentStepId={currentStepId}
@@ -880,7 +886,7 @@ function PetProfileSection({
       <SegmentedChoice
         options={[
           { label: "Usar perfil", value: "existing" },
-          { label: "Crear aqui", value: "inline-create" },
+          { label: "Crear aquí", value: "inline-create" },
         ]}
         selectedValue={draft.petSelectionMode}
         onSelect={(value) =>
@@ -1121,8 +1127,8 @@ function LocationPrivacySection({
         icon="map.fill"
         label={
           viewModel.location.hasExactLocation
-            ? "Cambiar ubicacion"
-            : "Elegir ubicacion"
+            ? "Cambiar ubicación"
+            : "Elegir ubicación"
         }
         onPress={onChooseLocation}
         variant="secondary"

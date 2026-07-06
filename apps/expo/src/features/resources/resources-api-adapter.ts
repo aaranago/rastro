@@ -188,7 +188,7 @@ function toLocalSponsorPlacement(
 ) {
   return {
     kind: placement.kind,
-    placementId: placement.placementId,
+    deliveryToken: placement.deliveryToken,
     label: placement.label,
     disclosure: placement.disclosure,
     logoUrl: placement.logoUrl,

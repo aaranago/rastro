@@ -12,7 +12,7 @@ export default function PublicNotFound() {
             Enlace no disponible
           </p>
           <h1 className="mt-3 max-w-3xl text-4xl font-bold tracking-normal sm:text-5xl">
-            Reporte o adopcion no disponible
+            Reporte o adopción no disponible
           </h1>
           <p className="text-muted-foreground mt-4 max-w-2xl text-lg leading-8">
             Puede haber sido cerrado, moderado, retirado o movido. Vuelve al

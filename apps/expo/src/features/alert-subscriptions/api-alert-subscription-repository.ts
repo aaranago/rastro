@@ -309,7 +309,7 @@ function buildRecordLocationInput(
   const location = input.currentLocation ?? input.lastDetectedLocation;
 
   if (!location) {
-    throw new Error("La suscripcion necesita una ubicacion para alertas.");
+    throw new Error("La suscripción necesita una ubicación para alertas.");
   }
 
   return {
@@ -466,7 +466,7 @@ function assertMemberSession(
   session: AlertSubscriptionsSessionState,
 ): AlertSubscriptionsMemberSession {
   if (session.kind === "visitor") {
-    throw new Error("Inicia sesion para administrar alertas.");
+    throw new Error("Inicia sesión para administrar alertas.");
   }
 
   return session;

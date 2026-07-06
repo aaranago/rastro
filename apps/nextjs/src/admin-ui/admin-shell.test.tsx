@@ -53,7 +53,7 @@ describe("admin shell foundation", () => {
     expect(html).not.toContain("Overview");
     expect(html).not.toContain("Resource Provider");
     expect(html).not.toContain("Local Sponsor Placements");
-    expect(html).not.toContain("Review Mode");
+    expect(html).not.toContain("modo de revisión");
   });
 
   it("keeps the admin navigation mobile-safe and keyboard focus visible", () => {

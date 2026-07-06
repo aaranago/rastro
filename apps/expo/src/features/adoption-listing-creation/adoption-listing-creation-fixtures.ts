@@ -35,7 +35,7 @@ export const adoptionListingCreationFixtures = {
     },
     {
       breed: "Cruce pequeno",
-      description: "Jugueton, carinoso y con energia para paseos cortos.",
+      description: "Juguetón, cariñoso y con energía para paseos cortos.",
       id: "pet-max",
       name: "Max",
       photos: [

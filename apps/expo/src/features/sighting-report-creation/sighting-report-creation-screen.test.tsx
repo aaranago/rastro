@@ -257,13 +257,13 @@ describe("SightingReportCreationScreen", () => {
     expect(findText(screen, "Fotos opcionales")).toBe(false);
     expect(findText(screen, "Chat en Rastro")).toBe(false);
     expect(findText(screen, "Publicar avistamiento")).toBe(false);
-    expect(findText(screen, "Indica cuando fue visto.")).toBe(false);
-    expect(findText(screen, "Describe la condicion observada.")).toBe(false);
-    expect(findText(screen, "Indica hacia donde iba.")).toBe(false);
-    expect(findText(screen, "Agrega una descripcion del avistamiento.")).toBe(
+    expect(findText(screen, "Indica cuándo fue visto.")).toBe(false);
+    expect(findText(screen, "Describe la condición observada.")).toBe(false);
+    expect(findText(screen, "Indica hacia dónde iba.")).toBe(false);
+    expect(findText(screen, "Agrega una descripción del avistamiento.")).toBe(
       false,
     );
-    expect(findText(screen, "Agrega senas visibles de la mascota vista.")).toBe(
+    expect(findText(screen, "Agrega señas visibles de la mascota vista.")).toBe(
       false,
     );
   });
@@ -370,19 +370,19 @@ describe("SightingReportCreationScreen", () => {
     expect(findText(attemptedScreen, "Fotos opcionales")).toBe(false);
     expect(findText(attemptedScreen, "Chat en Rastro")).toBe(false);
     expect(findText(attemptedScreen, "Publicar avistamiento")).toBe(false);
-    expect(findText(attemptedScreen, "Indica cuando fue visto.")).toBe(true);
-    expect(findText(attemptedScreen, "Describe la condicion observada.")).toBe(
+    expect(findText(attemptedScreen, "Indica cuándo fue visto.")).toBe(true);
+    expect(findText(attemptedScreen, "Describe la condición observada.")).toBe(
       true,
     );
-    expect(findText(attemptedScreen, "Indica hacia donde iba.")).toBe(true);
+    expect(findText(attemptedScreen, "Indica hacia dónde iba.")).toBe(true);
     expect(
-      findText(attemptedScreen, "Agrega una descripcion del avistamiento."),
+      findText(attemptedScreen, "Agrega una descripción del avistamiento."),
     ).toBe(true);
     expect(
-      findText(attemptedScreen, "Agrega senas visibles de la mascota vista."),
+      findText(attemptedScreen, "Agrega señas visibles de la mascota vista."),
     ).toBe(true);
     expect(
-      findText(attemptedScreen, "Selecciona donde fue visto el animal."),
+      findText(attemptedScreen, "Selecciona dónde fue visto el animal."),
     ).toBe(false);
     expect(findText(attemptedScreen, "Elige chat, WhatsApp o ambos.")).toBe(
       false,
@@ -740,7 +740,7 @@ describe("SightingReportCreationScreen", () => {
     const chooseLocationButton = findElement(
       screen,
       (element) =>
-        element.type === "Pressable" && findText(element, "Elegir ubicacion"),
+        element.type === "Pressable" && findText(element, "Elegir ubicación"),
     );
 
     expect(findText(screen, "Selecciona el punto donde fue vista.")).toBe(true);
@@ -777,7 +777,7 @@ describe("SightingReportCreationScreen", () => {
       <SightingReportCreationScreen locationAdapter={adapter} />,
     );
 
-    expect(findText(updatedScreen, "Cambiar ubicacion")).toBe(true);
+    expect(findText(updatedScreen, "Cambiar ubicación")).toBe(true);
     expect(findText(updatedScreen, "Avenida Arce")).toBe(true);
     expect(durableDraft.draft.exactSightingLocation).toEqual(confirmedLocation);
   });
@@ -826,7 +826,7 @@ describe("SightingReportCreationScreen", () => {
     expect(
       findText(
         retryScreen,
-        "No pudimos publicar. Tu borrador sigue aqui para intentar de nuevo.",
+        "No pudimos publicar. Tu borrador sigue aquí para intentar de nuevo.",
       ),
     ).toBe(true);
     expect(findText(retryScreen, "Publicar avistamiento")).toBe(true);

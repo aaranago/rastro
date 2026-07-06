@@ -248,12 +248,18 @@ describe("Resource Provider profile screen", () => {
     const readyScreen = renderScreen(createProfileScreen(adapter));
     await flushEffects();
 
+    expect(recordSponsorDelivery).not.toHaveBeenCalled();
+
+    triggerLayoutByTestId(readyScreen, "resource-provider-profile-screen");
+    await flushPromises();
+
     const impressionDelivery = recordSponsorDelivery.mock.calls[0]?.[0];
     if (!impressionDelivery) {
       throw new Error("Expected provider-details sponsor impression.");
     }
 
     expect(impressionDelivery).toEqual({
+      deliveryToken: "profile-sponsor-delivery-token",
       eventType: "impression",
       idempotencyKey: impressionDelivery.idempotencyKey,
       providerId: "11111111-1111-4111-8111-111111111111",
@@ -267,12 +273,18 @@ describe("Resource Provider profile screen", () => {
     pressByText(readyScreen, "Llamar");
     await flushPromises();
 
-    expect(recordSponsorDelivery).toHaveBeenCalledWith({
+    const openDelivery = recordSponsorDelivery.mock.calls[1]?.[0];
+    expect(openDelivery).toEqual({
+      deliveryToken: "profile-sponsor-delivery-token",
       eventType: "open",
+      idempotencyKey: openDelivery?.idempotencyKey,
       providerId: "11111111-1111-4111-8111-111111111111",
       source: "provider-details-contact-phone",
       surface: "provider_details",
     });
+    expect(openDelivery?.idempotencyKey).toMatch(
+      /^provider-details:[^:]+:11111111-1111-4111-8111-111111111111:phone:open$/,
+    );
   });
 
   it("shows a compact fallback when an attached provider image fails", async () => {
@@ -295,7 +307,7 @@ describe("Resource Provider profile screen", () => {
     const fallbackScreen = renderScreen(createProfileScreen(adapter));
 
     expect(findText(fallbackScreen, "No pudimos cargar esta foto")).toBe(true);
-    expect(findText(fallbackScreen, "Clinica Veterinaria San Roque")).toBe(
+    expect(findText(fallbackScreen, "Clínica Veterinaria San Roque")).toBe(
       true,
     );
   });
@@ -815,7 +827,7 @@ describe("Resource Provider profile screen", () => {
 
 const profile: ResourceProviderProfileData = {
   id: "11111111-1111-4111-8111-111111111111",
-  name: "Clinica Veterinaria San Roque",
+  name: "Clínica Veterinaria San Roque",
   categoryId: "veterinary",
   description: "Veterinaria local con atencion general y urgencias.",
   approximateLocationLabel: "Sopocachi, La Paz",
@@ -828,6 +840,7 @@ const profile: ResourceProviderProfileData = {
   photoUrl: "https://example.com/provider-photo.png",
   sponsorPlacement: {
     kind: "Local Sponsor Placement",
+    deliveryToken: "profile-sponsor-delivery-token",
     label: "Patrocinado",
     disclosure: "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
     logoUrl: "https://example.com/sponsor-logo.png",
@@ -973,6 +986,17 @@ function changeTextByTestId(
   }
 
   (onChangeText as (value: string) => void)(text);
+}
+
+function triggerLayoutByTestId(node: React.ReactNode, testID: string) {
+  const element = getElementByTestId(node, testID);
+  const onLayout = element.props.onLayout;
+
+  if (typeof onLayout !== "function") {
+    throw new Error(`Expected layout handler ${testID}`);
+  }
+
+  (onLayout as () => void)();
 }
 
 function getElementByTestId(node: React.ReactNode, testID: string) {

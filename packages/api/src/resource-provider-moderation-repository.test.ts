@@ -7,7 +7,7 @@ const provider = {
   department: "La Paz",
   locationLabel: "Sopocachi, La Paz",
   providerId: "11111111-1111-4111-8111-111111111111",
-  providerName: "Clinica Veterinaria San Roque",
+  providerName: "Clínica Veterinaria San Roque",
   verificationStatus: "verified" as const,
 };
 
@@ -33,7 +33,7 @@ describe("Resource Provider moderation repository", () => {
       repository.createResourceProviderReport({
         reporterId: "member-ana",
         report: {
-          detail: "La direccion visible no coincide con el local.",
+          detail: "La dirección visible no coincide con el local.",
           providerId: provider.providerId,
           reason: "incorrect_location",
         },
@@ -44,7 +44,7 @@ describe("Resource Provider moderation repository", () => {
         provider: {
           city: "La Paz",
           department: "La Paz",
-          name: "Clinica Veterinaria San Roque",
+          name: "Clínica Veterinaria San Roque",
         },
         reason: "incorrect_location",
         reportCount: 1,
@@ -88,7 +88,7 @@ describe("Resource Provider moderation repository", () => {
       },
     });
     const report = {
-      detail: "Este perfil parece repetir informacion falsa.",
+      detail: "Este perfil parece repetir información falsa.",
       providerId: provider.providerId,
       reason: "spam" as const,
     };

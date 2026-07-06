@@ -49,7 +49,7 @@ describe("Expo app config", () => {
       "expo-image-picker",
       {
         cameraPermission:
-          "Rastro usa la camara para tomar fotos de reportes de mascotas.",
+          "Rastro usa la cámara para tomar fotos de reportes de mascotas.",
         microphonePermission: false,
         photosPermission:
           "Rastro usa tus fotos para adjuntarlas a reportes de mascotas.",

@@ -163,7 +163,7 @@ export function createAdoptionListingDraft(
   const base: AdoptionListingDraft = {
     adoptionDetails: {
       adoptionSummary:
-        "Busca un hogar responsable donde pueda recibir tiempo, cuidado y carino.",
+        "Busca un hogar responsable donde pueda recibir tiempo, cuidado y cariño.",
       healthNotes: "",
       idealHome: "",
     },
@@ -308,7 +308,7 @@ export function buildAdoptionListingCreationViewModel({
           draft.contact.whatsappPhone.trim().length === 0
             ? "Ingresa el número de WhatsApp que quieres mostrar."
             : undefined,
-        label: "Numero de WhatsApp",
+        label: "Número de WhatsApp",
         placeholder: "+591 70000000",
         value: draft.contact.whatsappPhone,
         visible: draft.contact.whatsappEnabled,
@@ -319,7 +319,7 @@ export function buildAdoptionListingCreationViewModel({
     petProfile: {
       selectedLabel: selectedPet
         ? `${selectedPet.name} · ${selectedPet.typeLabel}`
-        : "Crear perfil en linea",
+        : "Crear perfil en línea",
     },
     petSelection: {
       inlineForm: buildInlinePetForm({
@@ -345,7 +345,7 @@ export function buildAdoptionListingCreationViewModel({
         ? getPhotoStepError(effectivePhotos)
         : undefined,
       helpLabel:
-        "Maximo 5 fotos. Rastro prepara miniaturas y retira datos de ubicacion antes de subirlas.",
+        "Máximo 5 fotos. Rastro prepara miniaturas y retira datos de ubicación antes de subirlas.",
       items: effectivePhotos,
       permissionBody:
         "Te pediremos acceso solo para elegir fotos de esta adopción.",
@@ -410,7 +410,7 @@ export function toPublishAdoptionListingInput({
   }
 
   if (!draft.exactLocation) {
-    throw new Error("Exact Location is required.");
+    throw new Error("Se necesita una ubicación exacta interna.");
   }
 
   return {
@@ -593,7 +593,7 @@ function buildContactOptions(currentOption: AdoptionListingContactChoice) {
 
 function getAdoptionSummaryError(value: string) {
   return getReportCreationMinimumDescriptionError({
-    emptyMessage: "Cuenta que tipo de hogar necesita.",
+    emptyMessage: "Cuenta qué tipo de hogar necesita.",
     shortMessage: "Describe la adopción con al menos 10 caracteres.",
     value,
   });
@@ -610,12 +610,12 @@ function buildInlinePetForm({
     fields: {
       breed: {
         label: "Raza",
-        placeholder: "Mestizo, Siames, Labrador...",
+        placeholder: "Mestizo, Siamés, Labrador...",
         value: draft.breed,
       },
       description: {
-        label: "Descripcion y marcas",
-        placeholder: "Color, personalidad, senas o cuidados relevantes",
+        label: "Descripción y marcas",
+        placeholder: "Color, personalidad, señas o cuidados relevantes",
         value: draft.description,
       },
       name: {
@@ -628,7 +628,7 @@ function buildInlinePetForm({
         value: draft.name,
       },
     },
-    modeLabel: "Crear Pet Profile en linea",
+    modeLabel: "Crear perfil de mascota en línea",
     typeOptions: adoptionListingPetTypeOptions.map((option) => ({
       isSelected: draft.type === option,
       label: option,
@@ -644,7 +644,7 @@ function buildLocationViewModel(draft: AdoptionListingDraft) {
     : "Selecciona un punto exacto para uso interno.";
   const approximatePublicLabel = location
     ? `${location.locationCellLabel} · zona de 300 m`
-    : "Elige una ubicacion para calcular la zona.";
+    : "Elige una ubicación para calcular la zona.";
 
   return {
     approximatePublicLabel,
@@ -652,9 +652,9 @@ function buildLocationViewModel(draft: AdoptionListingDraft) {
     hasExactLocation: Boolean(location),
     mapPreviewLabel: location
       ? `${location.locationCellLabel}, Bolivia`
-      : "Bolivia - elige una ubicacion",
+      : "Bolivia - elige una ubicación",
     publicPrecisionLabel: draft.showExactPinPublicly
-      ? "Pin exacto publico"
+      ? "Pin exacto público"
       : "Zona aproximada de 300 m",
     showExactPinPublicly: draft.showExactPinPublicly,
     exactPinOptInLabel: "Mostrar pin exacto públicamente",
@@ -695,8 +695,8 @@ function buildReviewRows({
     {
       label: "Ubicación pública",
       value: draft.showExactPinPublicly
-        ? "Punto exacto publico"
-        : "Zona aproximada publica",
+        ? "Punto exacto público"
+        : "Zona aproximada pública",
     },
     {
       label: "Contacto",

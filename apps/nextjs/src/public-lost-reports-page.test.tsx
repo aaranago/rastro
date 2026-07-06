@@ -31,7 +31,7 @@ function persistedLostReport(
     type: "lost_pet",
     status: "active",
     outcome: null,
-    title: "Bruno esta perdido en Achumani DB",
+    title: "Bruno está perdido en Achumani DB",
     description:
       "Bruno responde a su nombre y llevaba collar azul. Puede estar asustado por el trafico.",
     pet: {
@@ -122,7 +122,7 @@ describe("public Lost Pet Report page", () => {
     );
 
     expect(html).toContain("Reporte activo");
-    expect(html).toContain("Bruno esta perdido en Achumani DB");
+    expect(html).toContain("Bruno está perdido en Achumani DB");
     expect(html).toContain("Perro - Mestizo - miel - mediano");
     expect(html).toContain("bo lpb achumani - zona aproximada");
     expect(html).toContain("Escribir por WhatsApp");
@@ -227,10 +227,10 @@ describe("public Lost Pet Report page", () => {
       openGraph: {
         locale: "es_BO",
         siteName: "Rastro",
-        title: "Bruno esta perdido en Achumani, La Paz | Rastro",
+        title: "Bruno está perdido en Achumani, La Paz | Rastro",
         type: "article",
       },
-      title: "Bruno esta perdido en Achumani, La Paz | Rastro",
+      title: "Bruno está perdido en Achumani, La Paz | Rastro",
     });
     expect(JSON.stringify(metadata)).not.toContain("-16.536229");
     expect(JSON.stringify(metadata)).not.toContain("-68.073419");

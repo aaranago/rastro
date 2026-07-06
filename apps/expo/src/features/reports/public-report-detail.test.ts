@@ -38,7 +38,7 @@ describe("public report detail view model", () => {
           isCurrentMember: false,
         },
         pet: {
-          breed: "Siames",
+          breed: "Siamés",
           color: "Collar rojo",
           distinguishingTraits: "Mancha blanca en el pecho",
           name: "Luna",
@@ -74,7 +74,7 @@ describe("public report detail view model", () => {
         "https://cdn.rastro.bo/luna-2.jpg",
       ],
       statusLabel: "Activo",
-      subtitle: "Gato · Siames",
+      subtitle: "Gato · Siamés",
       title: "Se busca a Luna",
       typeLabel: "Mascota perdida",
     });
@@ -352,7 +352,7 @@ function createReport(
       preference: "in_app_chat",
     },
     createdAt: new Date("2026-06-24T13:00:00.000Z"),
-    description: "Se perdio cerca de la zona y puede estar asustada.",
+    description: "Se perdió cerca de la zona y puede estar asustada.",
     eventOccurredAt: new Date("2026-06-24T12:30:00.000Z"),
     id: publicReportIds.defaultLost,
     location: {
@@ -368,7 +368,7 @@ function createReport(
       isCurrentMember: true,
     },
     pet: {
-      breed: "Siames",
+      breed: "Siamés",
       color: "Collar rojo",
       distinguishingTraits: "Mancha blanca en el pecho",
       name: "Luna",

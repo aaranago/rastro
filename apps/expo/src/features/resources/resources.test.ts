@@ -242,6 +242,7 @@ describe("Resources directory", () => {
 
     expect(sponsoredProvider?.sponsorPlacement).toEqual({
       kind: "Local Sponsor Placement",
+      deliveryToken: "static-san-roque-delivery-token",
       label: "Patrocinado",
       disclosure:
         "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
@@ -698,7 +699,7 @@ describe("Resources directory", () => {
     const viewModel = buildResourceProviderProfileViewModel(profile);
 
     expect(viewModel.logoUrl).toContain("text=RQ");
-    expect(viewModel.heroImageUrl).toContain("Clinica+Rastro+QA");
+    expect(viewModel.heroImageUrl).toContain("Clínica+Rastro+QA");
     expect(viewModel.mediaItems).toEqual([
       {
         accessibilityLabel: "Foto principal de Clínica Rastro QA",
@@ -729,6 +730,7 @@ describe("Resources directory", () => {
     });
     expect(viewModel.sponsorPlacement).toEqual({
       kind: "Local Sponsor Placement",
+      deliveryToken: "static-san-roque-delivery-token",
       label: "Patrocinado",
       disclosure:
         "Patrocinado: apoyo local. No cambia la prioridad de reportes.",
@@ -1256,7 +1258,7 @@ function buildProviderSummary(
 ): ResourceProviderSummary {
   return {
     id: "11111111-1111-4111-8111-111111111111",
-    name: "Clinica Veterinaria San Roque",
+    name: "Clínica Veterinaria San Roque",
     categoryId: "veterinary",
     description: "Veterinaria local con atencion general y urgencias.",
     approximateLocationLabel: "Sopocachi, La Paz",

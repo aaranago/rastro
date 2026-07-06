@@ -1,5 +1,8 @@
-import type { LegendListRenderItemProps } from "@legendapp/list";
-import type { ComponentProps } from "react";
+import type {
+  LegendListRenderItemProps,
+  OnViewableItemsChanged,
+  ViewabilityConfig,
+} from "@legendapp/list";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -61,6 +64,9 @@ import { createSponsorDeliverySessionId } from "./sponsor-delivery-session";
 
 const defaultResourcesAdapter = defaultApiResourcesAdapter;
 const resourcesMinimumTopInset = 64;
+const resourcesSponsorImpressionViewabilityConfig: ViewabilityConfig = {
+  itemVisiblePercentThreshold: 50,
+};
 
 type ResourceScreenIconName = MaterialCommunityIconName;
 
@@ -384,7 +390,7 @@ export function ResourcesScreen({
       provider: ResourceProviderSummaryViewModel,
       eventType: "impression" | "open",
       source: string,
-      idempotencyKey?: string,
+      idempotencyKey: string,
     ) => {
       if (!isFocused) {
         return;
@@ -394,13 +400,17 @@ export function ResourcesScreen({
         return;
       }
 
-      const placementId = provider.sponsorPlacement?.placementId;
+      const deliveryToken = provider.sponsorPlacement?.deliveryToken;
+
+      if (!deliveryToken) {
+        return;
+      }
 
       void adapter
         .recordSponsorDelivery({
+          deliveryToken,
           eventType,
           idempotencyKey,
-          ...(placementId ? { placementId } : {}),
           providerId: provider.id,
           source,
           surface: "resources_directory",
@@ -444,7 +454,12 @@ export function ResourcesScreen({
       );
 
       if (provider) {
-        recordSponsorDelivery(provider, "open", `resources-${mode}`);
+        recordSponsorDelivery(
+          provider,
+          "open",
+          `resources-${mode}`,
+          `resources:${sponsorDeliverySessionIdRef.current}:${mode}:${provider.id}:open`,
+        );
       }
 
       onOpenProvider?.(providerId);
@@ -452,9 +467,22 @@ export function ResourcesScreen({
     [listData, mode, onOpenProvider, recordSponsorDelivery],
   );
 
+  const handleViewableItemsChanged = useCallback<
+    NonNullable<OnViewableItemsChanged<ResourceProviderSummaryViewModel>>
+  >(
+    ({ viewableItems }) => {
+      for (const viewableItem of viewableItems) {
+        if (viewableItem.isViewable) {
+          recordSponsorImpression(viewableItem.item);
+        }
+      }
+    },
+    [recordSponsorImpression],
+  );
+
   const renderProvider = useCallback(
     ({ item }: LegendListRenderItemProps<ResourceProviderSummaryViewModel>) => (
-      <ImpressionTrackedResourceProviderCard
+      <ResourceProviderCard
         id={item.id}
         name={item.name}
         categoryLabel={item.categoryLabel}
@@ -472,18 +500,11 @@ export function ResourcesScreen({
         emergencyLabel={item.emergencyLabel}
         imageUrl={item.logoUrl ?? item.photoUrl}
         contactLabels={item.contactLabels}
-        onImpression={recordSponsorImpression}
         onOpenProvider={onOpenProvider ? handleOpenProvider : undefined}
         onReportProvider={onReportProvider}
-        provider={item}
       />
     ),
-    [
-      handleOpenProvider,
-      onOpenProvider,
-      onReportProvider,
-      recordSponsorImpression,
-    ],
+    [handleOpenProvider, onOpenProvider, onReportProvider],
   );
 
   const header = (
@@ -564,9 +585,11 @@ export function ResourcesScreen({
           },
         ]}
         contentInsetAdjustmentBehavior="automatic"
+        onViewableItemsChanged={handleViewableItemsChanged}
         refreshing={status === "loading"}
         onRefresh={handleRefresh}
         scrollIndicatorInsets={{ bottom: listBottomInset }}
+        viewabilityConfig={resourcesSponsorImpressionViewabilityConfig}
       />
     </View>
   );
@@ -1616,21 +1639,6 @@ function shouldRenderResourcesStateInResults(
 
 function providerKeyExtractor(provider: ResourceProviderSummaryViewModel) {
   return provider.id;
-}
-
-function ImpressionTrackedResourceProviderCard({
-  onImpression,
-  provider,
-  ...props
-}: ComponentProps<typeof ResourceProviderCard> & {
-  onImpression: (provider: ResourceProviderSummaryViewModel) => void;
-  provider: ResourceProviderSummaryViewModel;
-}) {
-  useEffect(() => {
-    onImpression(provider);
-  }, [onImpression, provider]);
-
-  return <ResourceProviderCard {...props} />;
 }
 
 function ProviderSeparator() {

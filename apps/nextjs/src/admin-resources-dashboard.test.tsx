@@ -50,8 +50,8 @@ describe("AdminResourcesDashboard", () => {
     expect(html).toContain("Cola de proveedores");
     expect(html).toContain("1 proveedor");
     expect(html).not.toContain("modelo administrativo temporal");
-    expect(html).not.toContain("no confirma publicacion");
-    expect(html).toContain("Clinica Veterinaria San Roque");
+    expect(html).not.toContain("no confirma publicación");
+    expect(html).toContain("Clínica Veterinaria San Roque");
     expect(html).toContain("Clínica veterinaria");
     expect(html).toContain("Sopocachi");
     expect(html).toContain("La Paz");
@@ -115,7 +115,7 @@ describe("AdminResourcesDashboard", () => {
       ],
       ok: false,
       providerId: "11111111-1111-4111-8111-111111111111",
-      providerName: "Clinica Veterinaria San Roque",
+      providerName: "Clínica Veterinaria San Roque",
       workflow: "sponsor",
     });
 
@@ -140,7 +140,7 @@ describe("AdminResourcesDashboard", () => {
       ],
       ok: false,
       providerId: "11111111-1111-4111-8111-111111111111",
-      providerName: "Clinica Veterinaria San Roque",
+      providerName: "Clínica Veterinaria San Roque",
       workflow: "archive",
     });
 
@@ -177,7 +177,7 @@ describe("AdminResourcesDashboard", () => {
     ]);
 
     expect(html).toContain("3 proveedores");
-    expect(html).toContain("Clinica Veterinaria San Roque");
+    expect(html).toContain("Clínica Veterinaria San Roque");
     expect(html).toContain("Patitas Cochabamba");
     expect(html).toContain("Apoyo Animal Santa Cruz");
     expect(html).toContain("Santa Cruz de la Sierra");
@@ -199,7 +199,7 @@ describe("AdminResourcesDashboard", () => {
             role: "member",
           },
           {
-            body: "Esta superficie esta disponible solo para administradores de Rastro.",
+            body: "Esta superficie está disponible solo para administradores de Rastro.",
             locale: "es-BO",
             title: "Acceso restringido",
           },
@@ -237,7 +237,7 @@ describe("AdminResourcesDashboard", () => {
               "contactOptions.1.kind": "whatsapp",
               "contactOptions.1.label": "WhatsApp",
               "contactOptions.1.value": "",
-              name: "Clinica con contactos",
+              name: "Clínica con contactos",
               resourceAction: "create_provider",
             },
             workflow: "create",
@@ -454,7 +454,7 @@ function providerProfile(
 ): AdminResourceProviderProfile {
   return {
     id: "11111111-1111-4111-8111-111111111111",
-    name: "Clinica Veterinaria San Roque",
+    name: "Clínica Veterinaria San Roque",
     addressLabel: "Plaza Abaroa, La Paz",
     categoryId: "veterinary",
     city: "La Paz",
@@ -475,6 +475,7 @@ function providerProfile(
     isVerified: true,
     sponsorPlacement: {
       kind: "Local Sponsor Placement",
+      deliveryToken: "admin-dashboard-delivery-token",
       label: "Patrocinado",
       disclosure:
         "Patrocinado: apoyo local. No cambia la prioridad de reportes.",

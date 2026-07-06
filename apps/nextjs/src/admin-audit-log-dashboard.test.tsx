@@ -50,7 +50,7 @@ describe("AdminAuditLogDashboard", () => {
     );
     expect(html).toContain("table-fixed");
     expect(html).toContain("break-words");
-    expect(html).toContain("Review Mode activado para adopciones");
+    expect(html).toContain("modo de revisión activado para adopciones");
     expect(html).toContain("La Paz, La Paz");
     expect(html).not.toMatch(/marketplace|seller|comprar|vender/i);
   });
@@ -141,7 +141,7 @@ function auditLogData(): AdminAuditLogData {
       occurredAt: `2026-06-26T1${index % 10}:00:00.000Z`,
       summary:
         index === 0
-          ? "Review Mode activado para adopciones"
+          ? "modo de revisión activado para adopciones"
           : `Contenido ocultado por revisión ${index}`,
       target: {
         id: index === 0 ? "admin-settings" : `target-${index}`,

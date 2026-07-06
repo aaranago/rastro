@@ -30,7 +30,7 @@ describe("admin resource management", () => {
     expect(resources.listProviders(memberViewer)).toEqual({
       status: "forbidden",
       viewModel: {
-        body: "Esta superficie esta disponible solo para administradores de Rastro.",
+        body: "Esta superficie está disponible solo para administradores de Rastro.",
         locale: "es-BO",
         title: "Acceso restringido",
       },
@@ -95,7 +95,7 @@ describe("admin resource management", () => {
       viewModel: {
         createActionLabel: "Registrar proveedor",
         locale: "es-BO",
-        title: "Gestion de proveedores de recursos",
+        title: "Gestión de proveedores de recursos",
       },
     });
 
@@ -107,10 +107,10 @@ describe("admin resource management", () => {
       expect.arrayContaining([
         expect.objectContaining({
           category: "veterinary",
-          categoryLabel: "Clinica veterinaria",
+          categoryLabel: "Clínica veterinaria",
           city: "Santa Cruz de la Sierra",
           department: "Santa Cruz",
-          name: "Clinica San Roque",
+          name: "Clínica San Roque",
           serviceAreaLabel: "Santa Cruz urbano",
         }),
       ]),

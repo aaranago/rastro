@@ -442,7 +442,7 @@ function assertPublishInput(input: PublishFoundPetReportInput) {
   ) {
     throw new FoundPetReportRepositoryError(
       "exact_location_required",
-      "An Exact Location in Bolivia is required for a Found Pet Report.",
+      "Se necesita una ubicación exacta interna en Bolivia para publicar el reporte de mascota encontrada.",
     );
   }
 
@@ -471,7 +471,7 @@ function assertSearchQuery(query: SearchActiveFoundPetReportsQuery) {
   ) {
     throw new FoundPetReportRepositoryError(
       "search_location_required",
-      "La busqueda necesita una ubicacion resuelta en Bolivia para el radio PostGIS.",
+      "La búsqueda necesita una ubicación resuelta en Bolivia para el radio PostGIS.",
     );
   }
 }
@@ -518,7 +518,7 @@ function toPublicFoundPetReportDetail(
 
   return {
     condition: {
-      label: "Condicion",
+      label: "Condición",
       value: report.condition,
     },
     contactOptions: buildPublicContactOptions(report),

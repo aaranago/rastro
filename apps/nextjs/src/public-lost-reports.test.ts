@@ -18,7 +18,7 @@ function publicReportDetail(
     type: "lost_pet",
     status: "active",
     outcome: null,
-    title: "Bruno esta perdido en Achumani DB",
+    title: "Bruno está perdido en Achumani DB",
     description:
       "Bruno responde a su nombre y llevaba collar azul. Puede estar asustado por el trafico.",
     pet: {
@@ -130,7 +130,7 @@ describe("public Lost Pet Report page data", () => {
       description:
         "Bruno responde a su nombre y llevaba collar azul. Puede estar asustado por el trafico.",
       lastSeen: {
-        label: "Visto por ultima vez",
+        label: "Visto por última vez",
         value: "19 de junio de 2026, 18:40",
       },
       pet: {
@@ -154,7 +154,7 @@ describe("public Lost Pet Report page data", () => {
         type: "approximate",
       },
       statusLabel: "Reporte activo",
-      title: "Bruno esta perdido en Achumani DB",
+      title: "Bruno está perdido en Achumani DB",
     });
   });
 
@@ -223,10 +223,10 @@ describe("public Lost Pet Report page data", () => {
           "https://rastro.bo/reportes/perdidos/11111111-1111-4111-8111-111111110001",
       },
       description:
-        "Ayuda a encontrar a Bruno, Perro Mestizo - miel - mediano. Ultima vez visto en zona aproximada: Achumani, La Paz.",
+        "Ayuda a encontrar a Bruno, Perro Mestizo - miel - mediano. Última vez visto en zona aproximada: Achumani, La Paz.",
       openGraph: {
         description:
-          "Ayuda a encontrar a Bruno, Perro Mestizo - miel - mediano. Ultima vez visto en zona aproximada: Achumani, La Paz.",
+          "Ayuda a encontrar a Bruno, Perro Mestizo - miel - mediano. Última vez visto en zona aproximada: Achumani, La Paz.",
         images: [
           {
             alt: "Bruno, perro mestizo color miel",
@@ -235,17 +235,17 @@ describe("public Lost Pet Report page data", () => {
         ],
         locale: "es_BO",
         siteName: "Rastro",
-        title: "Bruno esta perdido en Achumani, La Paz | Rastro",
+        title: "Bruno está perdido en Achumani, La Paz | Rastro",
         type: "article",
         url: "https://rastro.bo/reportes/perdidos/11111111-1111-4111-8111-111111110001",
       },
-      title: "Bruno esta perdido en Achumani, La Paz | Rastro",
+      title: "Bruno está perdido en Achumani, La Paz | Rastro",
       twitter: {
         card: "summary_large_image",
         description:
-          "Ayuda a encontrar a Bruno, Perro Mestizo - miel - mediano. Ultima vez visto en zona aproximada: Achumani, La Paz.",
+          "Ayuda a encontrar a Bruno, Perro Mestizo - miel - mediano. Última vez visto en zona aproximada: Achumani, La Paz.",
         images: ["https://cdn.rastro.bo/reports/bruno-1.jpg"],
-        title: "Bruno esta perdido en Achumani, La Paz | Rastro",
+        title: "Bruno está perdido en Achumani, La Paz | Rastro",
       },
     });
     expect(JSON.stringify(metadata)).not.toContain("-16.536229");

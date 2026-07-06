@@ -25,7 +25,7 @@ describe("admin moderation dashboard", () => {
             label: "Correo verificado requerido para publicar",
           },
         },
-        title: "Panel de moderacion",
+        title: "Panel de moderación",
       },
     });
 
@@ -332,7 +332,7 @@ describe("admin moderation dashboard", () => {
     expect(dashboard.getViewModel(memberViewer)).toEqual({
       status: "forbidden",
       viewModel: {
-        body: "Esta superficie esta disponible solo para administradores de Rastro.",
+        body: "Esta superficie está disponible solo para administradores de Rastro.",
         locale: "es-BO",
         title: "Acceso restringido",
       },
@@ -345,7 +345,7 @@ describe("admin moderation dashboard", () => {
     ).toEqual({
       status: "forbidden",
       viewModel: {
-        body: "Esta superficie esta disponible solo para administradores de Rastro.",
+        body: "Esta superficie está disponible solo para administradores de Rastro.",
         locale: "es-BO",
         title: "Acceso restringido",
       },

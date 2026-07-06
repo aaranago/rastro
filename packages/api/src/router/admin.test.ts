@@ -57,7 +57,7 @@ describe("admin settings router", () => {
                 id: "admin-audit-event-1",
                 metadata: null,
                 source: "admin.settings.update",
-                summary: "Actualizo ajustes globales de publicacion.",
+                summary: "Actualizo ajustes globales de publicación.",
                 target: {
                   id: "global",
                   label: "Ajustes globales",
@@ -725,7 +725,7 @@ describe("admin settings router", () => {
               lastReportedAt: new Date("2026-06-26T16:00:00.000Z"),
               newestReport: {
                 createdAt: new Date("2026-06-26T16:00:00.000Z"),
-                detail: "La direccion visible no coincide con el local.",
+                detail: "La dirección visible no coincide con el local.",
                 reporter: {
                   displayName: "Ana S.",
                   email: "ana@example.com",
@@ -737,7 +737,7 @@ describe("admin settings router", () => {
                 department: "La Paz",
                 id: "11111111-1111-4111-8111-111111111111",
                 locationLabel: "Sopocachi, La Paz",
-                name: "Clinica Veterinaria San Roque",
+                name: "Clínica Veterinaria San Roque",
                 verificationStatus: "verified",
               },
               reason: "incorrect_location",
@@ -765,7 +765,7 @@ describe("admin settings router", () => {
         },
         provider: {
           city: "La Paz",
-          name: "Clinica Veterinaria San Roque",
+          name: "Clínica Veterinaria San Roque",
         },
         reason: "incorrect_location",
         reportCount: 2,
@@ -784,7 +784,7 @@ describe("admin settings router", () => {
       lastReportedAt: new Date("2026-06-26T16:00:00.000Z"),
       newestReport: {
         createdAt: new Date("2026-06-26T16:00:00.000Z"),
-        detail: "La direccion visible no coincide con el local.",
+        detail: "La dirección visible no coincide con el local.",
         reporter: {
           displayName: "Ana S.",
           email: "ana@example.com",
@@ -797,7 +797,7 @@ describe("admin settings router", () => {
         department: "La Paz",
         id: "11111111-1111-4111-8111-111111111111",
         locationLabel: "Sopocachi, La Paz",
-        name: "Clinica Veterinaria San Roque",
+        name: "Clínica Veterinaria San Roque",
         verificationStatus: "verified",
       },
       reason: "incorrect_location",
@@ -871,7 +871,7 @@ describe("admin settings router", () => {
         {
           id: "22222222-2222-4222-8222-222222222222",
           provider: {
-            name: "Clinica Veterinaria San Roque",
+            name: "Clínica Veterinaria San Roque",
           },
         },
       ],

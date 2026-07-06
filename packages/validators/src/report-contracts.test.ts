@@ -127,9 +127,14 @@ describe("report validation contracts", () => {
   it("validates report-linked chat input without client-supplied actor fields", () => {
     expect(
       openReportChatConversationInputSchema.safeParse({
-        reportId: "report-sighting-sopocachi",
+        reportId: "019f3723-63a5-7823-b301-a09c86509378",
       }).success,
     ).toBe(true);
+    expect(
+      openReportChatConversationInputSchema.safeParse({
+        reportId: "report-sighting-sopocachi",
+      }).success,
+    ).toBe(false);
     expect(
       chatConversationIdInputSchema.safeParse({
         conversationId: "11111111-1111-4111-8111-111111111111",

@@ -116,7 +116,7 @@ describe("Adoption Listing publish adapter", () => {
     });
   });
 
-  it("accepts Review Mode pending review without requiring public nearby visibility", async () => {
+  it("accepts modo de revisión pending review without requiring public nearby visibility", async () => {
     const client = createClient({
       created: {
         id: "report-adoption-backend-1",

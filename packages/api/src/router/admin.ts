@@ -712,7 +712,7 @@ export const adminRouter = createTRPCRouter({
             reportType: item.target.reportType,
           },
           source: "admin.moderation.unmarkFalseReportTarget",
-          summary: `Reabrio revision de falsedad para ${item.target.title}.`,
+          summary: `Reabrio revisión de falsedad para ${item.target.title}.`,
           target: {
             id: item.target.id,
             label: item.target.title,
@@ -747,7 +747,7 @@ export const adminRouter = createTRPCRouter({
               input.verifiedEmailRequiredToPublish,
           },
           source: "admin.settings.update",
-          summary: "Actualizo ajustes globales de publicacion.",
+          summary: "Actualizo ajustes globales de publicación.",
           target: {
             id: "global",
             label: "Ajustes globales",

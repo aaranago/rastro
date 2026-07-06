@@ -29,7 +29,7 @@ describe("admin sponsor placement dashboard", () => {
 
     expect(html).toContain("Gestión de patrocinios locales");
     expect(html).toContain("Crear patrocinio");
-    expect(html).toContain("Clinica Veterinaria San Roque");
+    expect(html).toContain("Clínica Veterinaria San Roque");
     expect(html).toContain("Patitas La Paz");
     expect(html).toContain("Directorio de recursos");
     expect(html).toContain("Perfil del proveedor");
@@ -45,10 +45,10 @@ describe("admin sponsor placement dashboard", () => {
     expect(html).toContain("https://example.com/sponsor-logo.png");
     expect(html).toContain("https://example.com/sponsor-banner.png");
     expect(html).toContain(
-      "Logo de patrocinio de Clinica Veterinaria San Roque",
+      "Logo de patrocinio de Clínica Veterinaria San Roque",
     );
     expect(html).toContain(
-      "Imagen de patrocinio de Clinica Veterinaria San Roque",
+      "Imagen de patrocinio de Clínica Veterinaria San Roque",
     );
     expect(html).toContain("data-sponsor-placement-card");
     expect(html).toContain("<table");
@@ -68,7 +68,7 @@ describe("admin sponsor placement dashboard", () => {
     const html = renderToStaticMarkup(
       <AdminSponsorPlacementDashboard
         accessDenied={{
-          body: "Esta superficie esta disponible solo para administradores.",
+          body: "Esta superficie está disponible solo para administradores.",
           title: "Acceso restringido",
         }}
         viewer={{
@@ -131,7 +131,7 @@ describe("admin sponsor placement dashboard", () => {
           ok: false,
           placementId: "22222222-2222-4222-8222-222222222222",
           providerId: "11111111-1111-4111-8111-111111111111",
-          providerName: "Clinica Veterinaria San Roque",
+          providerName: "Clínica Veterinaria San Roque",
           submittedValues: {
             imageAssetId: "33333333-3333-4333-8333-333333333333",
             imageUrl: "nota-url",
@@ -206,7 +206,7 @@ function sponsorPlacement(
     logoUrl: "https://example.com/sponsor-logo.png",
     placementId: "22222222-2222-4222-8222-222222222222",
     providerId: "11111111-1111-4111-8111-111111111111",
-    providerName: "Clinica Veterinaria San Roque",
+    providerName: "Clínica Veterinaria San Roque",
     providerVerificationStatus: "verified",
     safetyPolicy: {
       eligibleSurfaces: ["resources_directory"],

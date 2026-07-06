@@ -258,8 +258,7 @@ describe("Activity screen links", () => {
 
     expect(shellContext.requestAuthPrompt).toHaveBeenCalledWith({
       returnTo: "/mis-reportes",
-      sourceHref:
-        "rastro://auth/sign-in?returnTo=%2Fmis-reportes",
+      sourceHref: "rastro://auth/sign-in?returnTo=%2Fmis-reportes",
     });
     expect(repository.getInbox).not.toHaveBeenCalled();
   });
@@ -307,9 +306,9 @@ describe("Activity screen links", () => {
     expect(
       findText(listProps.ListEmptyComponent, "Sin actividad todavía"),
     ).toBe(true);
-    expect(findText(listProps.ListEmptyComponent, "Ver reportes cercanos")).toBe(
-      true,
-    );
+    expect(
+      findText(listProps.ListEmptyComponent, "Ver reportes cercanos"),
+    ).toBe(true);
 
     const onPress = emptyAction?.props.onPress;
 
@@ -491,7 +490,9 @@ describe("Activity screen links", () => {
       throw new Error("Expected candidate activity row data.");
     }
 
-    const row = renderFunctionElement(listProps.renderItem({ item: candidateRow }));
+    const row = renderFunctionElement(
+      listProps.renderItem({ item: candidateRow }),
+    );
 
     if (!React.isValidElement<ElementProps>(row)) {
       throw new Error("Expected activity row to render.");
@@ -798,6 +799,43 @@ describe("Activity screen links", () => {
       "activity-section-report-updates",
       "activity-item-report-update-report-update-1",
     ]);
+  });
+
+  it("normalizes Activity row accessibility labels without doubled punctuation", async () => {
+    shellContext.session = createMemberSession();
+    const repository = createScreenRepository(
+      Promise.resolve(createMixedActivityInbox()),
+    );
+
+    void renderActivityScreen({ focus: "reports", repository });
+    await runPendingEffects();
+    const screen = renderActivityScreen({ focus: "reports", repository });
+    const listProps = getLegendListProps<{
+      data: Record<string, unknown>[];
+      renderItem: (props: {
+        index: number;
+        item: Record<string, unknown>;
+      }) => React.ReactNode;
+    }>(screen);
+    const rowItem = listProps.data.find(
+      (item) => item.testID === "activity-item-report-update-report-update-1",
+    );
+
+    if (!rowItem) {
+      throw new Error("Expected a report update row.");
+    }
+
+    const row = listProps.renderItem({ index: 1, item: rowItem });
+    const pressable = findElement(
+      row,
+      (element) => element.type === "Pressable",
+    );
+    const accessibilityLabel = pressable?.props.accessibilityLabel;
+
+    expect(typeof accessibilityLabel).toBe("string");
+    expect(accessibilityLabel).toContain("Toby");
+    expect(accessibilityLabel).toContain("Resultado registrado: Reunida");
+    expect(accessibilityLabel).not.toContain("..");
   });
 
   it("renders the conversation-focused Activity screen with chats only", async () => {
