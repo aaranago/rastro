@@ -96,6 +96,7 @@ interface MisMascotasController {
   photoPickerError?: string;
   profileLoadError?: string;
   profileSaveError?: string;
+  retryProfiles: () => void;
   removeDraftPhoto: (photoId: string) => void;
   selectProfile: (profileId: string) => void;
   submitDraft: () => void;
@@ -137,6 +138,7 @@ function useMisMascotasController({
     isLoadingProfiles,
     profileLoadError,
     profiles,
+    retryProfiles,
     selectedProfileId,
     setProfiles,
     setSelectedProfileId,
@@ -274,6 +276,7 @@ function useMisMascotasController({
     photoPickerError,
     profileLoadError,
     profileSaveError,
+    retryProfiles,
     removeDraftPhoto,
     selectProfile,
     submitDraft,
@@ -416,8 +419,12 @@ function usePetProfilesDataSource({
   const [profileLoadError, setProfileLoadError] = useState<
     string | undefined
   >();
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const memberSessionKey =
     session.kind === "member" ? session.memberId : "visitor";
+  const retryProfiles = useCallback(() => {
+    setLoadAttempt((current) => current + 1);
+  }, []);
 
   useEffect(() => {
     if (!repository || session.kind !== "member") {
@@ -461,12 +468,13 @@ function usePetProfilesDataSource({
     return () => {
       requestState.isActive = false;
     };
-  }, [memberSessionKey, repository, session]);
+  }, [loadAttempt, memberSessionKey, repository, session]);
 
   return {
     isLoadingProfiles,
     profileLoadError,
     profiles,
+    retryProfiles,
     selectedProfileId,
     setProfiles,
     setSelectedProfileId,
@@ -525,6 +533,11 @@ function MemberMisMascotasScreen({
   viewModel: MemberMisMascotasViewModel;
 }) {
   const selectedProfileIdForList = viewModel.selectedProfile?.id;
+  const firstPetFormViewModel =
+    viewModel.state === "empty" && controller.formViewModel?.mode === "create"
+      ? controller.formViewModel
+      : undefined;
+  const isListEmpty = viewModel.cards.length === 0;
   const renderPetProfileCard = useCallback(
     ({ item }: LegendListRenderItemProps<PetProfileCardViewModel>) => (
       <PetProfileCard
@@ -546,16 +559,36 @@ function MemberMisMascotasScreen({
       ItemSeparatorComponent={PetProfileCardSeparator}
       keyExtractor={petProfileCardKeyExtractor}
       ListEmptyComponent={
-        <MemberPetProfilesEmptyState
-          onCreate={controller.beginCreate}
-          viewModel={viewModel}
-        />
+        firstPetFormViewModel ? (
+          <PetProfileFormSurface
+            draft={controller.draft}
+            draftPersistence={controller.draftPersistence}
+            form={firstPetFormViewModel}
+            isSaving={controller.isSavingProfile}
+            onAddPhoto={controller.addDraftPhoto}
+            onCancel={controller.cancelForm}
+            onDraftChange={controller.updateDraft}
+            onRemovePhoto={controller.removeDraftPhoto}
+            onSubmit={controller.submitDraft}
+            photoPickerError={controller.photoPickerError}
+          />
+        ) : (
+          <MemberPetProfilesEmptyState
+            isLoadingProfiles={controller.isLoadingProfiles}
+            onCreate={controller.beginCreate}
+            onRetry={controller.retryProfiles}
+            profileLoadError={controller.profileLoadError}
+            viewModel={viewModel}
+          />
+        )
       }
       ListFooterComponent={
         <MemberPetProfilesFooter
           draft={controller.draft}
           draftPersistence={controller.draftPersistence}
-          formViewModel={controller.formViewModel}
+          formViewModel={
+            firstPetFormViewModel ? undefined : controller.formViewModel
+          }
           isSavingProfile={controller.isSavingProfile}
           onAddPhoto={controller.addDraftPhoto}
           onCancelForm={controller.cancelForm}
@@ -572,9 +605,17 @@ function MemberMisMascotasScreen({
       ListHeaderComponent={
         <MemberPetProfilesHeader
           createActionLabel={viewModel.createActionLabel}
-          isLoadingProfiles={controller.isLoadingProfiles}
+          hideCreateAction={
+            Boolean(controller.formViewModel) ||
+            (isListEmpty &&
+              (controller.isLoadingProfiles ||
+                Boolean(controller.profileLoadError)))
+          }
+          isLoadingProfiles={controller.isLoadingProfiles && !isListEmpty}
           onCreate={controller.beginCreate}
-          profileLoadError={controller.profileLoadError}
+          profileLoadError={
+            isListEmpty ? undefined : controller.profileLoadError
+          }
           profileSaveError={controller.profileSaveError}
           subtitle={viewModel.subtitle}
           title={viewModel.title}
@@ -588,12 +629,28 @@ function MemberMisMascotasScreen({
 }
 
 function MemberPetProfilesEmptyState({
+  isLoadingProfiles,
   onCreate,
+  onRetry,
+  profileLoadError,
   viewModel,
 }: {
+  isLoadingProfiles: boolean;
   onCreate: () => void;
+  onRetry: () => void;
+  profileLoadError?: string;
   viewModel: MemberMisMascotasViewModel;
 }) {
+  if (isLoadingProfiles) {
+    return <PetProfilesLoadingState />;
+  }
+
+  if (profileLoadError) {
+    return (
+      <PetProfilesLoadErrorState message={profileLoadError} onRetry={onRetry} />
+    );
+  }
+
   if (viewModel.state !== "empty") {
     return null;
   }
@@ -610,8 +667,55 @@ function MemberPetProfilesEmptyState({
   );
 }
 
+function PetProfilesLoadingState() {
+  return (
+    <View style={styles.emptyState}>
+      <ActivityIndicator color={shellColors.primary} size="large" />
+      <Text selectable style={styles.panelTitle}>
+        Cargando tus mascotas
+      </Text>
+      <Text selectable style={styles.panelBody}>
+        Estamos revisando tus perfiles guardados antes de mostrar opciones de
+        creación.
+      </Text>
+    </View>
+  );
+}
+
+function PetProfilesLoadErrorState({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <View style={styles.emptyState}>
+      <View style={styles.largeIcon}>
+        <ShellIcon
+          color={shellColors.lost}
+          name="exclamationmark.triangle.fill"
+          size={34}
+        />
+      </View>
+      <Text selectable style={styles.panelTitle}>
+        No pudimos cargar tus mascotas
+      </Text>
+      <Text selectable style={styles.panelBody}>
+        {message} Reintenta antes de crear para evitar duplicar perfiles.
+      </Text>
+      <PrimaryButton
+        iconName="arrow.clockwise"
+        label="Reintentar"
+        onPress={onRetry}
+      />
+    </View>
+  );
+}
+
 function MemberPetProfilesHeader({
   createActionLabel,
+  hideCreateAction,
   isLoadingProfiles,
   onCreate,
   profileLoadError,
@@ -620,6 +724,7 @@ function MemberPetProfilesHeader({
   title,
 }: {
   createActionLabel: string;
+  hideCreateAction?: boolean;
   isLoadingProfiles: boolean;
   onCreate: () => void;
   profileLoadError?: string;
@@ -630,13 +735,15 @@ function MemberPetProfilesHeader({
   return (
     <View style={styles.listHeader}>
       <ScreenHeader title={title} body={subtitle} />
-      <View style={styles.topActions}>
-        <PrimaryButton
-          iconName="plus"
-          label={createActionLabel}
-          onPress={onCreate}
-        />
-      </View>
+      {!hideCreateAction ? (
+        <View style={styles.topActions}>
+          <PrimaryButton
+            iconName="plus"
+            label={createActionLabel}
+            onPress={onCreate}
+          />
+        </View>
+      ) : null}
       {isLoadingProfiles ? (
         <View style={styles.inlineStatus}>
           <ActivityIndicator color={shellColors.primary} size="small" />

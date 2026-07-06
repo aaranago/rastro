@@ -1,6 +1,7 @@
 import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { PetProfileRepository } from "./pet-profiles";
 import { MisMascotasScreen } from "./pet-profiles-screen";
 
 (globalThis as { React?: typeof React }).React = React;
@@ -115,6 +116,94 @@ describe("MisMascotasScreen visitor actions", () => {
 
     expect(onRequestSignIn).toHaveBeenCalledOnce();
   });
+
+  it("uses the create form as the primary empty state after Crear ahora", () => {
+    const screen = renderFunctionElement(
+      <MisMascotasScreen
+        initialProfiles={[]}
+        session={{ kind: "member", memberId: "member-camila" }}
+      />,
+    );
+    const initialListProps = getLegendListProps<{
+      ListEmptyComponent: React.ReactNode;
+    }>(screen);
+    const initialEmptyState = renderFunctionElement(
+      initialListProps.ListEmptyComponent,
+    );
+
+    getPressableOnPress(findPressableByText(initialEmptyState, "Crear ahora"))();
+
+    resetRenderCursor();
+
+    const nextScreen = renderFunctionElement(
+      <MisMascotasScreen
+        initialProfiles={[]}
+        session={{ kind: "member", memberId: "member-camila" }}
+      />,
+    );
+    const nextListProps = getLegendListProps<{
+      ListEmptyComponent: React.ReactNode;
+      ListFooterComponent: React.ReactNode;
+      ListHeaderComponent: React.ReactNode;
+    }>(nextScreen);
+    const nextEmptyState = renderFunctionElement(
+      nextListProps.ListEmptyComponent,
+    );
+    const nextFooter = renderFunctionElement(nextListProps.ListFooterComponent);
+    const nextHeader = renderFunctionElement(nextListProps.ListHeaderComponent);
+
+    expect(containsText(nextEmptyState, "Crear perfil de mascota")).toBe(true);
+    expect(containsText(nextEmptyState, "Nombre")).toBe(true);
+    expect(containsText(nextEmptyState, "Aún no tienes mascotas")).toBe(false);
+    expect(containsText(nextFooter, "Crear perfil de mascota")).toBe(false);
+    expect(containsText(nextHeader, "Crear perfil de mascota")).toBe(false);
+  });
+
+  it("does not show an empty-pets state while member profiles are loading", () => {
+    const screen = renderFunctionElement(
+      <MisMascotasScreen
+        repository={createPendingRepository()}
+        session={{ kind: "member", memberId: "member-camila" }}
+      />,
+    );
+    const listProps = getLegendListProps<{ ListEmptyComponent: React.ReactNode }>(
+      screen,
+    );
+    const emptyState = renderFunctionElement(listProps.ListEmptyComponent);
+
+    expect(containsText(emptyState, "Cargando tus mascotas")).toBe(true);
+    expect(containsText(emptyState, "Aún no tienes mascotas")).toBe(false);
+  });
+
+  it("shows a retryable load failure instead of a false empty state", async () => {
+    const repository = createFailingRepository();
+    void renderFunctionElement(
+      <MisMascotasScreen
+        repository={repository}
+        session={{ kind: "member", memberId: "member-camila" }}
+      />,
+    );
+
+    await runPendingEffects();
+    resetRenderCursor();
+
+    const nextScreen = renderFunctionElement(
+      <MisMascotasScreen
+        repository={repository}
+        session={{ kind: "member", memberId: "member-camila" }}
+      />,
+    );
+    const listProps = getLegendListProps<{ ListEmptyComponent: React.ReactNode }>(
+      nextScreen,
+    );
+    const emptyState = renderFunctionElement(listProps.ListEmptyComponent);
+
+    expect(containsText(emptyState, "No pudimos cargar tus mascotas")).toBe(
+      true,
+    );
+    expect(containsText(emptyState, "Reintentar")).toBe(true);
+    expect(containsText(emptyState, "Aún no tienes mascotas")).toBe(false);
+  });
 });
 
 type ElementProps = Record<string, unknown> & {
@@ -122,6 +211,69 @@ type ElementProps = Record<string, unknown> & {
 };
 
 type TestElement = React.ReactElement<ElementProps>;
+
+function resetRenderCursor() {
+  reactState.cursor = 0;
+  reactState.refCursor = 0;
+}
+
+function createPendingRepository() {
+  const pendingProfiles = new Promise<never>((resolve) => {
+    void resolve;
+  });
+  const repository: PetProfileRepository = {
+    createPetProfile: vi.fn(() =>
+      Promise.reject(new Error("Not used in this test.")),
+    ),
+    getPetProfile: vi.fn(() => Promise.resolve(null)),
+    listPetProfiles: vi.fn(() => pendingProfiles),
+    updatePetProfile: vi.fn(() =>
+      Promise.reject(new Error("Not used in this test.")),
+    ),
+  };
+
+  return repository;
+}
+
+function createFailingRepository() {
+  const repository: PetProfileRepository = {
+    createPetProfile: vi.fn(() =>
+      Promise.reject(new Error("Not used in this test.")),
+    ),
+    getPetProfile: vi.fn(() => Promise.resolve(null)),
+    listPetProfiles: vi.fn().mockRejectedValue(new Error("offline")),
+    updatePetProfile: vi.fn(() =>
+      Promise.reject(new Error("Not used in this test.")),
+    ),
+  };
+
+  return repository;
+}
+
+async function runPendingEffects() {
+  const effects = [...reactState.effects];
+  reactState.effects = [];
+
+  for (const effect of effects) {
+    effect();
+  }
+
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+function getLegendListProps<TProps extends ElementProps>(
+  node: React.ReactNode,
+): TProps {
+  const list = findElement(node, (element) => element.type === "LegendList");
+
+  if (!list) {
+    throw new Error("Expected MisMascotasScreen to render a LegendList.");
+  }
+
+  return list.props as TProps;
+}
 
 function renderFunctionElement(node: React.ReactNode): React.ReactNode {
   if (!React.isValidElement<ElementProps>(node)) {
