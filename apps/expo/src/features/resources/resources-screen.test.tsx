@@ -2,6 +2,7 @@ import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ResourceManualLocationOption } from "./resource-location-options";
+import type { ResourceProviderSummary } from "./resource-types";
 import type { ResourceProviderSummaryViewModel } from "./resources-view-model";
 import type { ResourcesAdapter } from "./static-resources-adapter";
 import {
@@ -317,6 +318,35 @@ describe("ResourcesScreen", () => {
         .props.accessibilityState,
     ).toEqual({ selected: true });
   });
+
+  it("labels map provider actions for assistive navigation", async () => {
+    const adapter = createResourcesAdapter([buildProviderSummary()]);
+    const onOpenProvider = vi.fn();
+    const props = {
+      adapter,
+      initialLocation: testManualLocationOptions[0]?.location,
+      initialMode: "map" as const,
+      manualLocationOptions: testManualLocationOptions,
+      onOpenProvider,
+    };
+
+    void renderResourcesScreen(props);
+    await runPendingEffects();
+    const readyScreen = renderResourcesScreen(props);
+
+    expect(
+      getElementByTestId(readyScreen, "resources-map-provider-clinic-san-roque")
+        .props.accessibilityLabel,
+    ).toBe("Seleccionar Clinica Veterinaria San Roque, Sopocachi, La Paz");
+    expect(
+      getElementByTestId(readyScreen, "resources-map-provider-clinic-san-roque")
+        .props.accessibilityState,
+    ).toEqual({ selected: true });
+    expect(
+      getElementByTestId(readyScreen, "resources-map-selected-provider").props
+        .accessibilityLabel,
+    ).toBe("Abrir Clinica Veterinaria San Roque");
+  });
 });
 
 type ElementProps = Record<string, unknown> & {
@@ -350,12 +380,33 @@ const testManualLocationOptions = [
   },
 ] satisfies readonly ResourceManualLocationOption[];
 
-function createResourcesAdapter(): ResourcesAdapter {
+function createResourcesAdapter(
+  providers: readonly ResourceProviderSummary[] = [],
+): ResourcesAdapter {
   return {
     getProviderProfile: vi.fn(),
     getProviderProfileDetail: vi.fn(),
     reportProvider: vi.fn(),
-    searchProviders: vi.fn().mockResolvedValue([]),
+    searchProviders: vi.fn().mockResolvedValue(providers),
+  };
+}
+
+function buildProviderSummary(): ResourceProviderSummary {
+  return {
+    id: "clinic-san-roque",
+    name: "Clinica Veterinaria San Roque",
+    categoryId: "veterinary",
+    description: "Veterinaria local.",
+    approximateLocationLabel: "Sopocachi, La Paz",
+    approximateLocation: {
+      label: "Sopocachi",
+      latitude: -16.51,
+      locationCell: "Sopocachi",
+      longitude: -68.12,
+      precision: "approximate",
+    },
+    isVerified: true,
+    contactOptions: [],
   };
 }
 

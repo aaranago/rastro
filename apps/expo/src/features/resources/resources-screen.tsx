@@ -1201,6 +1201,9 @@ function ResourcesMapPanel({
 
           return (
             <Pressable
+              accessibilityLabel={getResourceMapProviderSelectionLabel(
+                provider,
+              )}
               accessibilityRole="button"
               accessibilityState={{ selected: isSelected }}
               key={`map-list:${provider.id}`}
@@ -1315,6 +1318,7 @@ export function ResourceMapSelectedProvider({
 
   return (
     <Pressable
+      accessibilityLabel={getResourceMapProviderOpenLabel(provider)}
       accessibilityRole="button"
       onPress={handleOpen}
       testID="resources-map-selected-provider"
@@ -1326,6 +1330,18 @@ export function ResourceMapSelectedProvider({
       {content}
     </Pressable>
   );
+}
+
+function getResourceMapProviderSelectionLabel(
+  provider: ResourceProviderSummaryViewModel,
+) {
+  return `Seleccionar ${provider.name}, ${provider.locationLabel}`;
+}
+
+function getResourceMapProviderOpenLabel(
+  provider: ResourceProviderSummaryViewModel,
+) {
+  return `Abrir ${provider.name}`;
 }
 
 function ResourcesMapStatusPanel({
