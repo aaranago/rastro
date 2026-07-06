@@ -312,9 +312,6 @@ importers:
       '@t3-oss/env-nextjs':
         specifier: ^0.13.8
         version: 0.13.8(arktype@2.1.20)(typescript@5.9.3)(valibot@1.0.0-beta.15(typescript@5.9.3))(zod@4.1.12)
-      '@tanstack/react-form':
-        specifier: 'catalog:'
-        version: 1.23.8(@tanstack/react-start@1.135.2(crossws@0.4.1(srvx@0.9.6))(react-dom@19.1.4(react@19.1.4))(react@19.1.4)(vite@7.1.12(@types/node@22.18.12)(jiti@2.6.1)(lightningcss@1.30.1)(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1)))(react-dom@19.1.4(react@19.1.4))(react@19.1.4)
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.90.8(react@19.1.4)

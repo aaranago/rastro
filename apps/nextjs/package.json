@@ -24,7 +24,6 @@
     "@aws-sdk/s3-request-presigner": "^3.1073.0",
     "@hookform/resolvers": "^5.4.0",
     "@t3-oss/env-nextjs": "^0.13.8",
-    "@tanstack/react-form": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
