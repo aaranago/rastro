@@ -1078,7 +1078,7 @@ export async function persistRegisteredAlertSubscriptionPushToken({
 
 const pushRegistrationUnavailableFeedback = {
   message:
-    "Tu suscripción quedó activa, pero este dispositivo todavía no puede recibir notificaciones. Reintenta cuando los permisos o el proyecto Expo estén listos.",
+    "Tu suscripción quedó activa, pero este dispositivo todavía no puede recibir notificaciones. Reintenta cuando los permisos y la configuración de avisos estén listos.",
   tone: "warning",
 } satisfies Feedback;
 

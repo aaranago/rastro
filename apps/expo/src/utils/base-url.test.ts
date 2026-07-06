@@ -23,6 +23,7 @@ vi.mock("react-native", () => reactNative);
 
 describe("Expo API base URL resolution", () => {
   beforeEach(() => {
+    delete (globalThis as { __DEV__?: boolean }).__DEV__;
     expoConstants.expoConfig = undefined;
     reactNative.Platform.OS = "android";
   });
@@ -85,6 +86,18 @@ describe("Expo API base URL resolution", () => {
     };
 
     expect(getBaseUrl()).toBe("https://api.rastro.bo");
+  });
+
+  it("uses the Android emulator host before an env-file tunnel when development host metadata is missing", () => {
+    (globalThis as { __DEV__?: boolean }).__DEV__ = true;
+    expoConstants.expoConfig = {
+      extra: {
+        apiBaseUrl: "https://offline-rastro-tunnel.ngrok-free.dev",
+        apiBaseUrlSource: "env-file",
+      },
+    };
+
+    expect(getBaseUrl()).toBe("http://10.0.2.2:3000");
   });
 
   it("uses the explicit Expo public API base URL for release-like builds", () => {

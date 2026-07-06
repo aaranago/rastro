@@ -1,5 +1,5 @@
-import Constants from "expo-constants";
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 
 interface ExplicitBaseUrl {
   source: "env-file" | "process" | "unknown";
@@ -61,7 +61,9 @@ function getExplicitBaseUrl(): ExplicitBaseUrl | undefined {
 }
 
 function getLocalDevelopmentBaseUrl(): string | undefined {
-  const host = getHostFromHostUri(Constants.expoConfig?.hostUri);
+  const host =
+    getHostFromHostUri(Constants.expoConfig?.hostUri) ??
+    getFallbackDevelopmentHost();
 
   return host ? `http://${getDeviceReachableHost(host)}:3000` : undefined;
 }
@@ -87,6 +89,16 @@ function getHostFromHostUri(hostUri: unknown): string | undefined {
   } catch {
     return trimmedHostUri.split(":")[0] ?? undefined;
   }
+}
+
+function getFallbackDevelopmentHost(): string | undefined {
+  return isDevelopmentRuntime() ? "localhost" : undefined;
+}
+
+function isDevelopmentRuntime() {
+  const developmentFlag = (globalThis as { __DEV__?: unknown }).__DEV__;
+
+  return developmentFlag === true;
 }
 
 function getDeviceReachableHost(host: string): string {
