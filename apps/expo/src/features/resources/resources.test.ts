@@ -1291,7 +1291,7 @@ function buildProviderProfile(
     serviceAreaLabel: "Atiende La Paz y El Alto",
     hoursLabel: "Lun - Dom: 24 horas",
     shortDescription:
-      "Atencion veterinaria general y orientacion para familias cuidadoras.",
+      "Atención veterinaria general y orientación para familias cuidadoras.",
     websiteUrl: "https://sanroque.example.com",
     ...overrides,
   };

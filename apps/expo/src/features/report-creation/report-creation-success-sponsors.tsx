@@ -1,5 +1,5 @@
-import * as React from "react";
 import type { ViewToken } from "react-native";
+import * as React from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 
@@ -340,10 +340,10 @@ export function getSponsorPlacementReportReceiptMessage(
   receipt: ResourceProviderReportReceipt,
 ) {
   if (receipt.status === "already_reported") {
-    return "Ya recibimos tu reporte sobre este proveedor. Moderacion lo mantiene en revision.";
+    return "Ya recibimos tu reporte sobre este proveedor. Moderación lo mantiene en revisión.";
   }
 
-  return "Reporte enviado. Moderacion revisara este proveedor con la informacion recibida.";
+  return "Reporte enviado. Moderación revisará este proveedor con la información recibida.";
 }
 
 export function getSponsorPlacementReportFailureMessage(error: unknown) {

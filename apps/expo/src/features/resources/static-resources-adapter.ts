@@ -527,7 +527,7 @@ export function toResolvedResourceProviderSearchLocation(
   }
 
   const label =
-    location.label ?? (location.kind === "current" ? "Ubicacion actual" : "");
+    location.label ?? (location.kind === "current" ? "Ubicación actual" : "");
 
   if (label.trim().length === 0) {
     return null;

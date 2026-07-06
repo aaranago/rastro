@@ -23,6 +23,12 @@ const reactState = vi.hoisted(() => ({
   refs: [] as { current: unknown }[],
   values: [] as unknown[],
 }));
+const routeFocus = vi.hoisted(() => ({
+  isFocused: true,
+}));
+const reactNativePlatform = vi.hoisted(() => ({
+  OS: "ios" as "android" | "ios",
+}));
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof React>("react");
@@ -127,8 +133,17 @@ vi.mock("expo-image", () => ({
   Image: "Image",
 }));
 
+vi.mock("expo-router", () => ({
+  useFocusEffect: (callback: () => void | (() => void)) => {
+    if (routeFocus.isFocused) {
+      callback();
+    }
+  },
+}));
+
 vi.mock("react-native", () => ({
   ActivityIndicator: "ActivityIndicator",
+  Platform: reactNativePlatform,
   Pressable: "Pressable",
   ScrollView: "ScrollView",
   StyleSheet: {
@@ -168,6 +183,8 @@ vi.mock("../maps/map-provider-config", () => ({
 
 beforeEach(() => {
   resetReactHarness();
+  routeFocus.isFocused = true;
+  reactNativePlatform.OS = "ios";
 });
 
 describe("ResourceMapSelectedProvider", () => {
@@ -377,9 +394,65 @@ describe("ResourcesScreen", () => {
       )?.props.numberOfLines,
     ).toBe(2);
     expect(
-      findElement(selectedProvider, (element) => element.props.children === "Ver")
-        ?.props.style,
+      findElement(
+        selectedProvider,
+        (element) => element.props.children === "Ver",
+      )?.props.style,
     ).toEqual(expect.objectContaining({ alignSelf: "flex-start" }));
+  });
+
+  it("keeps provider search and the native map unmounted while the route is blurred", async () => {
+    routeFocus.isFocused = false;
+    const adapter = createResourcesAdapter([buildProviderSummary()]);
+    const props = {
+      adapter,
+      initialLocation: testManualLocationOptions[0]?.location,
+      initialMode: "map" as const,
+      manualLocationOptions: testManualLocationOptions,
+    };
+
+    void renderResourcesScreen(props);
+    await runPendingEffects();
+    const blurredScreen = renderResourcesScreen(props);
+
+    expect(adapter.searchProviders).not.toHaveBeenCalled();
+    expect(
+      findElement(
+        blurredScreen,
+        (element) => element.props.testID === "resources-map-panel",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("uses lightweight Android map props and markers for resource maps", async () => {
+    reactNativePlatform.OS = "android";
+    const adapter = createResourcesAdapter([buildProviderSummary()]);
+    const props = {
+      adapter,
+      initialLocation: testManualLocationOptions[0]?.location,
+      initialMode: "map" as const,
+      manualLocationOptions: testManualLocationOptions,
+    };
+
+    void renderResourcesScreen(props);
+    await runPendingEffects();
+    const readyScreen = renderResourcesScreen(props);
+    const map = getElementByType(readyScreen, "MapView");
+    const marker = getElementByType(readyScreen, "Marker");
+
+    expect(map.props).toMatchObject({
+      liteMode: true,
+      showsBuildings: false,
+      showsIndoors: false,
+      showsPointsOfInterest: false,
+      showsTraffic: false,
+      toolbarEnabled: false,
+    });
+    expect(marker.props).toMatchObject({
+      pinColor: "#146C5A",
+      tracksViewChanges: false,
+    });
+    expect(marker.props.children).toBeUndefined();
   });
 });
 
@@ -447,6 +520,18 @@ function buildProviderSummary(): ResourceProviderSummary {
 function renderResourcesScreen(
   props: React.ComponentProps<typeof ResourcesScreen>,
 ) {
+  reactState.cursor = 0;
+  reactState.effectCursor = 0;
+  reactState.refCursor = 0;
+
+  const rendered = renderFunctionElement(
+    React.createElement(ResourcesScreen, props),
+  );
+
+  if (!routeFocus.isFocused) {
+    return rendered;
+  }
+
   reactState.cursor = 0;
   reactState.effectCursor = 0;
   reactState.refCursor = 0;
@@ -569,6 +654,16 @@ function getElementByTestId(
 
   if (!element) {
     throw new Error(`Unable to find element with testID "${testID}".`);
+  }
+
+  return element;
+}
+
+function getElementByType(node: React.ReactNode, type: string): TestElement {
+  const element = findElement(node, (candidate) => candidate.type === type);
+
+  if (!element) {
+    throw new Error(`Unable to find element with type "${type}".`);
   }
 
   return element;

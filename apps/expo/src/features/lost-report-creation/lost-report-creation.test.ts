@@ -33,7 +33,7 @@ const profiles: PetProfileSummary[] = [
 
 const reportSuccessSponsorPlacement: LostReportSuccessLocalSponsorPlacement = {
   actionLabel: "Ver recurso",
-  body: "Atencion veterinaria y orientacion local para los primeros cuidados.",
+  body: "Atención veterinaria y orientación local para los primeros cuidados.",
   categoryLabel: "Veterinaria",
   eligibleSurfaces: ["report_success", "contextual_care_resources"],
   id: "11111111-1111-4111-8111-111111111111",
@@ -78,7 +78,7 @@ describe("Lost Pet Report creation view model", () => {
       "Zona aproximada de 300 m",
     );
     expect(viewModel.location.exactPinOptInLabel).toBe(
-      "Mostrar pin exacto publicamente",
+      "Mostrar pin exacto públicamente",
     );
     expect(viewModel.contact.options.map((option) => option.label)).toEqual([
       "Chat en Rastro",
@@ -671,7 +671,7 @@ describe("Lost Pet Report creation view model", () => {
       title: "Recurso de cuidado",
     });
     expect(viewModel.success.localSponsorPlacement?.body).toContain(
-      "orientacion local",
+      "orientación local",
     );
     expect(
       viewModel.success.localSponsorPlacement?.recoveryPriorityDisclosure,
@@ -702,7 +702,7 @@ describe("Lost Pet Report creation view model", () => {
     const placement = {
       actionLabel: "Ver recurso",
       adminMediaAssetId: "admin-only-media",
-      body: "Atencion local para primeros cuidados.",
+      body: "Atención local para primeros cuidados.",
       categoryLabel: "Veterinaria",
       eligibleSurfaces: ["resources_directory"],
       id: "22222222-2222-4222-8222-222222222222",

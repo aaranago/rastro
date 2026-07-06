@@ -34,7 +34,7 @@ export function PublicLostReportDeepLinkScreen({
   return (
     <PublicReportDeepLinkScreen
       accentColor={shellColors.primary}
-      body="Este enlace abre el reporte compartido en la app. Si el detalle aun no esta sincronizado en tu telefono, puedes abrir la pagina publica."
+      body="Este enlace abre el reporte compartido en la app. Si el detalle aún no está sincronizado en tu teléfono, puedes abrir la página pública."
       lifecycle={
         lifecycle
           ? buildPublicReportLifecycleViewModel({

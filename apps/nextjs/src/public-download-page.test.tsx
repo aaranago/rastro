@@ -30,7 +30,7 @@ describe("public download page", () => {
       },
       title: "Descargar Rastro | Rastro",
     });
-    expect(html).toContain("Sigue esta adopcion en Rastro");
+    expect(html).toContain("Sigue esta adopción en Rastro");
     expect(html).toContain(
       'href="rastro://adopciones/22222222-2222-4222-8222-222222220001"',
     );
@@ -80,6 +80,43 @@ describe("public download page", () => {
     expect(html).toContain("Reporta una mascota perdida");
     expect(html).toContain('href="rastro://report-create/lost"');
     expect(html).not.toContain("Sigue este reporte en Rastro");
+  });
+
+  it("only forwards public app-open targets", async () => {
+    const { default: DownloadPage } = await import("./app/descargar/page");
+
+    const allowedHtml = renderToStaticMarkup(
+      await DownloadPage({
+        searchParams: Promise.resolve({
+          target:
+            "rastro://reportes/perdidos/11111111-1111-4111-8111-111111110001",
+        }),
+      }),
+    );
+    const authCallbackHtml = renderToStaticMarkup(
+      await DownloadPage({
+        searchParams: Promise.resolve({
+          target:
+            "rastro://auth/callback?cookie=better-auth.session_token%3Dattacker",
+        }),
+      }),
+    );
+    const arbitraryAppRouteHtml = renderToStaticMarkup(
+      await DownloadPage({
+        searchParams: Promise.resolve({
+          target: "rastro://chats/55555555-5555-4555-8555-555555555555",
+        }),
+      }),
+    );
+
+    expect(allowedHtml).toContain(
+      'href="rastro://reportes/perdidos/11111111-1111-4111-8111-111111110001"',
+    );
+    expect(authCallbackHtml).toContain('href="rastro://"');
+    expect(authCallbackHtml).not.toContain("auth/callback");
+    expect(authCallbackHtml).not.toContain("better-auth.session_token");
+    expect(arbitraryAppRouteHtml).toContain('href="rastro://"');
+    expect(arbitraryAppRouteHtml).not.toContain("rastro://chats");
   });
 
   it("ignores unsafe app-open targets", async () => {

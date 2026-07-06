@@ -42,7 +42,7 @@ describe("Adoption Listing publish adapter", () => {
         name: "Nala",
         species: "cat",
       },
-      title: "Nala en adopcion en Sopocachi",
+      title: "Nala en adopción en Sopocachi",
       type: "adoption",
     });
     expect(createInput.description).toContain(

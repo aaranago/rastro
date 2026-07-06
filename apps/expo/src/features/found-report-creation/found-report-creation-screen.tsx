@@ -1031,7 +1031,7 @@ function LocationPrivacySection({
   viewModel: FoundReportCreationViewModel;
 }) {
   return (
-    <ReportCreationSection styles={styles} title="Ubicacion y privacidad">
+    <ReportCreationSection styles={styles} title="Ubicación y privacidad">
       <ReportCreationLocationPreview
         accentColor={foundAccent}
         coordinates={coordinates}
@@ -1042,7 +1042,7 @@ function LocationPrivacySection({
         accentColor={foundAccent}
         Icon={FoundReportCreationIcon}
         icon="location.fill"
-        label="Ubicacion interna"
+        label="Ubicación interna"
         styles={styles}
         value={viewModel.location.exactInternalLabel}
       />
@@ -1307,7 +1307,7 @@ function validateFoundReportContactStep(draft: FoundReportDraft) {
     draft.contact.whatsappEnabled &&
     draft.contact.whatsappPhone.trim().length === 0
   ) {
-    return ["Ingresa un numero para WhatsApp."];
+    return ["Ingresa un número para WhatsApp."];
   }
 
   return [];

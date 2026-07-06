@@ -58,7 +58,7 @@ describe("Lost Pet Report publish view model", () => {
     });
     expect(viewModel.blockers).toEqual([
       "Agrega al menos una foto.",
-      "Ingresa un numero de WhatsApp.",
+      "Ingresa un número de WhatsApp.",
     ]);
   });
 });

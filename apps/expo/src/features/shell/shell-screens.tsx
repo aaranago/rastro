@@ -200,7 +200,7 @@ export function ResourcesScreen() {
               Vet 24h Sopocachi
             </Text>
             <Text maxFontSizeMultiplier={1.25} style={styles.cardBody}>
-              Atencion veterinaria y farmacia
+              Atención veterinaria y farmacia
             </Text>
           </View>
         </View>

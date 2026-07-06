@@ -44,7 +44,7 @@ describe("retry queue", () => {
       },
     ]);
     expect(retryQueueStatusLabelsEs).toEqual({
-      blocked: "Requiere revision",
+      blocked: "Requiere revisión",
       queued: "Pendiente",
       retrying: "Reintentando",
       succeeded: "Enviado",

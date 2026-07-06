@@ -34,11 +34,32 @@ const resolvedManualLocation: NearbySearchLocation = {
   coordinates: { latitude: -16.5, longitude: -68.1193 },
   manualLocationKind: "place",
 };
+const nearbyPublicIds = {
+  adoptionNala: "22222222-2222-4222-8222-000000000001",
+  apiAdoptionNala: "22222222-2222-4222-8222-000000000101",
+  apiFoundCat: "33333333-3333-4333-8333-000000000101",
+  apiLostBruno: "11111111-1111-4111-8111-000000000101",
+  apiSightingDog: "44444444-4444-4444-8444-000000000101",
+  apiVisibleToby: "11111111-1111-4111-8111-000000000102",
+  cachedDeletedToby: "11111111-1111-4111-8111-000000000304",
+  cachedFalseMarkedLuna: "11111111-1111-4111-8111-000000000302",
+  cachedHiddenBruno: "11111111-1111-4111-8111-000000000301",
+  cachedPendingReviewNala: "11111111-1111-4111-8111-000000000305",
+  cachedUnavailableMichi: "11111111-1111-4111-8111-000000000303",
+  foundCat: "33333333-3333-4333-8333-000000000001",
+  lostBruno: "11111111-1111-4111-8111-000000000001",
+  lostBrunoClosed: "11111111-1111-4111-8111-000000000202",
+  lostLuna: "11111111-1111-4111-8111-000000000002",
+  lostLunaActive: "11111111-1111-4111-8111-000000000203",
+  lostRawManualPin: "11111111-1111-4111-8111-000000000201",
+  repositoryToby: "11111111-1111-4111-8111-000000000001",
+  sightingDog: "44444444-4444-4444-8444-000000000001",
+} as const;
 
 const reports: LostPetReportSummary[] = [
   {
     coordinates: { latitude: -16.5405, longitude: -68.0889 },
-    id: "lost-bruno",
+    id: nearbyPublicIds.lostBruno,
     petName: "Bruno",
     species: "Perro",
     breed: "Golden Retriever",
@@ -47,14 +68,14 @@ const reports: LostPetReportSummary[] = [
     distanceMeters: 300,
     locationCellLabel: "Achumani",
     publicLocation: { kind: "approximate" },
-    shareTarget: buildTestShareTarget("lost-bruno", "Bruno"),
+    shareTarget: buildTestShareTarget(nearbyPublicIds.lostBruno, "Bruno"),
     lastSeenAtLabel: "Hace 40 min",
     lastSeenSummary: "Collar azul con plaquita, visto cerca del parque.",
     alertPriority: "urgent",
   },
   {
     coordinates: { latitude: -16.5103, longitude: -68.1299 },
-    id: "lost-luna",
+    id: nearbyPublicIds.lostLuna,
     petName: "Luna",
     species: "Gato",
     breed: "Siamés",
@@ -63,7 +84,7 @@ const reports: LostPetReportSummary[] = [
     distanceMeters: 12_400,
     locationCellLabel: "Sopocachi",
     publicLocation: { kind: "approximate" },
-    shareTarget: buildTestShareTarget("lost-luna", "Luna"),
+    shareTarget: buildTestShareTarget(nearbyPublicIds.lostLuna, "Luna"),
     lastSeenAtLabel: "Ayer",
     lastSeenSummary: "Se escapó durante la lluvia.",
     alertPriority: "standard",
@@ -75,19 +96,18 @@ const sightingReport = {
   coordinates: { latitude: -16.5103, longitude: -68.1299 },
   direction: "Iba hacia la avenida 20 de Octubre.",
   distanceMeters: 650,
-  id: "sighting-dog-sopocachi",
+  id: nearbyPublicIds.sightingDog,
   locationCellLabel: "Sopocachi",
   observedAtLabel: "Hace 25 min",
   observedCondition: "Asustado, caminando rapido.",
   publicLocation: { kind: "approximate" },
   reportKind: "sighting-report",
   shareTarget: {
-    appDeepLink: "rastro://reportes/avistamientos/sighting-dog-sopocachi",
-    message:
-      "Avistamiento de Perro en Rastro: https://rastro.bo/reportes/avistamientos/sighting-dog-sopocachi",
-    path: "/reportes/avistamientos/sighting-dog-sopocachi",
+    appDeepLink: `rastro://reportes/avistamientos/${nearbyPublicIds.sightingDog}`,
+    message: `Avistamiento de Perro en Rastro: https://rastro.bo/reportes/avistamientos/${nearbyPublicIds.sightingDog}`,
+    path: `/reportes/avistamientos/${nearbyPublicIds.sightingDog}`,
     title: "Avistamiento de mascota: Perro",
-    webUrl: "https://rastro.bo/reportes/avistamientos/sighting-dog-sopocachi",
+    webUrl: `https://rastro.bo/reportes/avistamientos/${nearbyPublicIds.sightingDog}`,
   },
   sightingSummary:
     "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.",
@@ -102,17 +122,16 @@ const foundReport = {
   distanceMeters: 850,
   foundAtLabel: "Hace 15 min",
   foundSummary: "Esta resguardado con una vecina cerca de la plaza.",
-  id: "found-cat-miraflores",
+  id: nearbyPublicIds.foundCat,
   locationCellLabel: "Miraflores",
   publicLocation: { kind: "approximate" },
   reportKind: "found-pet-report",
   shareTarget: {
-    appDeepLink: "rastro://reportes/encontrados/found-cat-miraflores",
-    message:
-      "Mascota encontrada en Rastro: https://rastro.bo/reportes/encontrados/found-cat-miraflores",
-    path: "/reportes/encontrados/found-cat-miraflores",
+    appDeepLink: `rastro://reportes/encontrados/${nearbyPublicIds.foundCat}`,
+    message: `Mascota encontrada en Rastro: https://rastro.bo/reportes/encontrados/${nearbyPublicIds.foundCat}`,
+    path: `/reportes/encontrados/${nearbyPublicIds.foundCat}`,
     title: "Mascota encontrada",
-    webUrl: "https://rastro.bo/reportes/encontrados/found-cat-miraflores",
+    webUrl: `https://rastro.bo/reportes/encontrados/${nearbyPublicIds.foundCat}`,
   },
   species: "Gato",
   title: "Gato encontrado",
@@ -123,19 +142,18 @@ const adoptionListing = {
   breed: "Mestizo",
   coordinates: { latitude: -16.5103, longitude: -68.1299 },
   distanceMeters: 1_400,
-  id: "adoption-nala-sopocachi",
+  id: nearbyPublicIds.adoptionNala,
   locationCellLabel: "Sopocachi",
   petName: "Nala",
   publicLocation: { kind: "approximate" },
   publishedAtLabel: "Hoy",
   reportKind: "adoption-listing",
   shareTarget: {
-    appDeepLink: "rastro://adopciones/adoption-nala-sopocachi",
-    message:
-      "Adopcion de Nala en Rastro: https://rastro.bo/adopciones/adoption-nala-sopocachi",
-    path: "/adopciones/adoption-nala-sopocachi",
-    title: "Adopcion: Nala",
-    webUrl: "https://rastro.bo/adopciones/adoption-nala-sopocachi",
+    appDeepLink: `rastro://adopciones/${nearbyPublicIds.adoptionNala}`,
+    message: `Adopción de Nala en Rastro: https://rastro.bo/adopciones/${nearbyPublicIds.adoptionNala}`,
+    path: `/adopciones/${nearbyPublicIds.adoptionNala}`,
+    title: "Adopción: Nala",
+    webUrl: `https://rastro.bo/adopciones/${nearbyPublicIds.adoptionNala}`,
   },
   species: "Gato",
 } satisfies AdoptionListingSummary;
@@ -254,7 +272,7 @@ describe("nearby Lost Pet Report discovery", () => {
       results: [
         buildApiReport({
           description: "Collar azul con placa, visto cerca del parque.",
-          id: "api-lost-bruno",
+          id: nearbyPublicIds.apiLostBruno,
           mediaUrl: "https://cdn.rastro.bo/reports/bruno.jpg",
           pet: {
             breed: "Golden Retriever",
@@ -269,7 +287,7 @@ describe("nearby Lost Pet Report discovery", () => {
         buildApiReport({
           description: "Esta resguardado con una vecina cerca de la plaza.",
           eventOccurredAt: new Date("2026-06-19T18:00:00.000Z"),
-          id: "api-found-cat",
+          id: nearbyPublicIds.apiFoundCat,
           pet: {
             breed: "Criollo",
             color: "Gris",
@@ -284,7 +302,7 @@ describe("nearby Lost Pet Report discovery", () => {
           description:
             "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.",
           eventOccurredAt: new Date("2026-06-19T19:35:00.000Z"),
-          id: "api-sighting-dog",
+          id: nearbyPublicIds.apiSightingDog,
           pet: {
             breed: "Mestizo",
             color: "Cafe",
@@ -298,7 +316,7 @@ describe("nearby Lost Pet Report discovery", () => {
         buildApiReport({
           createdAt: new Date("2026-06-19T12:00:00.000Z"),
           description: "Nala busca un hogar tranquilo y responsable.",
-          id: "api-adoption-nala",
+          id: nearbyPublicIds.apiAdoptionNala,
           mediaUrl: "https://cdn.rastro.bo/reports/nala.jpg",
           pet: {
             breed: "Mestizo",
@@ -307,7 +325,7 @@ describe("nearby Lost Pet Report discovery", () => {
             name: "Nala",
             species: "cat",
           },
-          title: "Nala en adopcion",
+          title: "Nala en adopción",
           type: "adoption",
         }),
       ],
@@ -366,7 +384,7 @@ describe("nearby Lost Pet Report discovery", () => {
         alertPriority: "urgent",
         coordinates: { latitude: -16.5, longitude: -68.1193 },
         distanceMeters: 0,
-        id: "api-lost-bruno",
+        id: nearbyPublicIds.apiLostBruno,
         lastSeenAtLabel: "Hace 20 min",
         lastSeenSummary: "Collar azul con placa, visto cerca del parque.",
         locationCellLabel: "Zona Sur, La Paz",
@@ -375,8 +393,8 @@ describe("nearby Lost Pet Report discovery", () => {
         publicLocation: { kind: "approximate" },
         reportKind: "lost-pet-report",
         shareTarget: {
-          path: "/reportes/perdidos/api-lost-bruno",
-          webUrl: "https://rastro.bo/reportes/perdidos/api-lost-bruno",
+          path: `/reportes/perdidos/${nearbyPublicIds.apiLostBruno}`,
+          webUrl: `https://rastro.bo/reportes/perdidos/${nearbyPublicIds.apiLostBruno}`,
         },
         species: "Perro",
       },
@@ -386,11 +404,11 @@ describe("nearby Lost Pet Report discovery", () => {
         distanceMeters: 0,
         foundAtLabel: "Hace 2 h",
         foundSummary: "Esta resguardado con una vecina cerca de la plaza.",
-        id: "api-found-cat",
+        id: nearbyPublicIds.apiFoundCat,
         locationCellLabel: "Zona Sur, La Paz",
         reportKind: "found-pet-report",
         shareTarget: {
-          path: "/reportes/encontrados/api-found-cat",
+          path: `/reportes/encontrados/${nearbyPublicIds.apiFoundCat}`,
         },
         species: "Gato",
         title: "Gato encontrado",
@@ -399,13 +417,13 @@ describe("nearby Lost Pet Report discovery", () => {
         coordinates: { latitude: -16.5, longitude: -68.1193 },
         distanceMeters: 0,
         direction: "Zona Sur, La Paz",
-        id: "api-sighting-dog",
+        id: nearbyPublicIds.apiSightingDog,
         locationCellLabel: "Zona Sur, La Paz",
         observedAtLabel: "Hace 25 min",
         observedCondition: "Asustado, caminando rapido.",
         reportKind: "sighting-report",
         shareTarget: {
-          path: "/reportes/avistamientos/api-sighting-dog",
+          path: `/reportes/avistamientos/${nearbyPublicIds.apiSightingDog}`,
         },
         sightingSummary:
           "Paso por la esquina de la plaza y siguio caminando sin dejarse acercar.",
@@ -416,14 +434,14 @@ describe("nearby Lost Pet Report discovery", () => {
         coordinates: { latitude: -16.5, longitude: -68.1193 },
         distanceMeters: 0,
         healthNotes: "Vacunada y desparasitada.",
-        id: "api-adoption-nala",
+        id: nearbyPublicIds.apiAdoptionNala,
         locationCellLabel: "Zona Sur, La Paz",
         petName: "Nala",
         photoUrl: "https://cdn.rastro.bo/reports/nala.jpg",
         publishedAtLabel: "Hace 8 h",
         reportKind: "adoption-listing",
         shareTarget: {
-          path: "/adopciones/api-adoption-nala",
+          path: `/adopciones/${nearbyPublicIds.apiAdoptionNala}`,
         },
       },
     ]);
@@ -438,19 +456,19 @@ describe("nearby Lost Pet Report discovery", () => {
     expect(viewModel.mapPins).toMatchObject([
       {
         coordinates: { latitude: -16.5, longitude: -68.1193 },
-        publicSummaryId: "api-lost-bruno",
+        publicSummaryId: nearbyPublicIds.apiLostBruno,
       },
       {
         coordinates: { latitude: -16.5, longitude: -68.1193 },
-        publicSummaryId: "api-found-cat",
+        publicSummaryId: nearbyPublicIds.apiFoundCat,
       },
       {
         coordinates: { latitude: -16.5, longitude: -68.1193 },
-        publicSummaryId: "api-sighting-dog",
+        publicSummaryId: nearbyPublicIds.apiSightingDog,
       },
       {
         coordinates: { latitude: -16.5, longitude: -68.1193 },
-        publicSummaryId: "api-adoption-nala",
+        publicSummaryId: nearbyPublicIds.apiAdoptionNala,
       },
     ]);
     expect(JSON.stringify(result.reports)).not.toContain("images.unsplash.com");
@@ -510,15 +528,27 @@ describe("nearby Lost Pet Report discovery", () => {
     const cache = createInMemoryLastLoadedCache<NearbyLostReportsResult>();
     const cacheKey = "nearby-api:zona-sur:5:moderation";
     const omittedByBackend = [
-      buildCachedLostReport("hidden-bruno", "Bruno oculto"),
-      buildCachedLostReport("false-marked-luna", "Luna marcada falsa"),
-      buildCachedLostReport("deleted-toby", "Toby eliminado"),
-      buildCachedLostReport("unavailable-michi", "Michi no disponible"),
-      buildCachedLostReport("pending-review-nala", "Nala en revisión"),
+      buildCachedLostReport(nearbyPublicIds.cachedHiddenBruno, "Bruno oculto"),
+      buildCachedLostReport(
+        nearbyPublicIds.cachedFalseMarkedLuna,
+        "Luna marcada falsa",
+      ),
+      buildCachedLostReport(
+        nearbyPublicIds.cachedDeletedToby,
+        "Toby eliminado",
+      ),
+      buildCachedLostReport(
+        nearbyPublicIds.cachedUnavailableMichi,
+        "Michi no disponible",
+      ),
+      buildCachedLostReport(
+        nearbyPublicIds.cachedPendingReviewNala,
+        "Nala en revisión",
+      ),
     ];
     const backendVisibleReport = buildApiReport({
       description: "Collar verde, visto cerca de la plaza.",
-      id: "api-visible-toby",
+      id: nearbyPublicIds.apiVisibleToby,
       pet: {
         breed: "Mestizo",
         color: "Cafe",
@@ -575,10 +605,10 @@ describe("nearby Lost Pet Report discovery", () => {
 
     assertNearbyViewModelKind(viewModel, "ready");
     expect(refreshedResult.reports.map((report) => report.id)).toEqual([
-      "api-visible-toby",
+      nearbyPublicIds.apiVisibleToby,
     ]);
     expect(viewModel.cards.map((card) => card.id)).toEqual([
-      "api-visible-toby",
+      nearbyPublicIds.apiVisibleToby,
     ]);
     expect(JSON.stringify(viewModel)).not.toContain("hidden-bruno");
     expect(JSON.stringify(viewModel)).not.toContain("false-marked-luna");
@@ -619,8 +649,14 @@ describe("nearby Lost Pet Report discovery", () => {
       cacheKey,
       buildCachedNearbyResult({
         reports: [
-          buildCachedLostReport("hidden-bruno", "Bruno oculto"),
-          buildCachedLostReport("pending-review-nala", "Nala en revisión"),
+          buildCachedLostReport(
+            nearbyPublicIds.cachedHiddenBruno,
+            "Bruno oculto",
+          ),
+          buildCachedLostReport(
+            nearbyPublicIds.cachedPendingReviewNala,
+            "Nala en revisión",
+          ),
         ],
       }),
     );
@@ -663,8 +699,14 @@ describe("nearby Lost Pet Report discovery", () => {
   it("does not let a failed cache write return older excluded cards after backend success", async () => {
     const staleCachedResult = buildCachedNearbyResult({
       reports: [
-        buildCachedLostReport("hidden-bruno", "Bruno oculto"),
-        buildCachedLostReport("false-marked-luna", "Luna marcada falsa"),
+        buildCachedLostReport(
+          nearbyPublicIds.cachedHiddenBruno,
+          "Bruno oculto",
+        ),
+        buildCachedLostReport(
+          nearbyPublicIds.cachedFalseMarkedLuna,
+          "Luna marcada falsa",
+        ),
       ],
     });
     let shouldFailBackend = false;
@@ -694,7 +736,7 @@ describe("nearby Lost Pet Report discovery", () => {
                   results: [
                     buildApiReport({
                       description: "Visto por la avenida principal.",
-                      id: "api-visible-toby",
+                      id: nearbyPublicIds.apiVisibleToby,
                       pet: {
                         breed: "Mestizo",
                         color: "Cafe",
@@ -730,12 +772,12 @@ describe("nearby Lost Pet Report discovery", () => {
     });
 
     expect(refreshedResult.reports.map((report) => report.id)).toEqual([
-      "api-visible-toby",
+      nearbyPublicIds.apiVisibleToby,
     ]);
     expect(staleAfterFailedRefresh.isOffline).toBe(true);
     expect(staleAfterFailedRefresh.isStale).toBe(true);
     expect(staleAfterFailedRefresh.reports.map((report) => report.id)).toEqual([
-      "api-visible-toby",
+      nearbyPublicIds.apiVisibleToby,
     ]);
     expect(JSON.stringify(staleAfterFailedRefresh)).not.toContain(
       "hidden-bruno",
@@ -807,7 +849,7 @@ describe("nearby Lost Pet Report discovery", () => {
                     buildApiReport({
                       description:
                         "Collar azul con placa, visto cerca del parque.",
-                      id: "api-lost-bruno",
+                      id: nearbyPublicIds.apiLostBruno,
                       pet: {
                         breed: "Golden Retriever",
                         color: "Dorado",
@@ -863,7 +905,9 @@ describe("nearby Lost Pet Report discovery", () => {
     expect(staleResult.isOffline).toBe(true);
     expect(staleResult.isStale).toBe(true);
     expect(viewModel.offlineLabel).toBe("Sin conexión · resultados guardados");
-    expect(viewModel.cards.map((card) => card.id)).toEqual(["api-lost-bruno"]);
+    expect(viewModel.cards.map((card) => card.id)).toEqual([
+      nearbyPublicIds.apiLostBruno,
+    ]);
   });
 
   it("browses Lost Pet Reports published through the Rastro-owned search boundary without signing in", async () => {
@@ -935,14 +979,13 @@ describe("nearby Lost Pet Report discovery", () => {
       publicLocationLabel: "Sopocachi · zona aproximada",
       reportActionLabel: "Reportar",
       shareTarget: {
-        message:
-          "Ayuda a encontrar a Toby en Rastro: https://rastro.bo/reportes/perdidos/lost-report-1",
-        webUrl: "https://rastro.bo/reportes/perdidos/lost-report-1",
+        message: `Ayuda a encontrar a Toby en Rastro: https://rastro.bo/reportes/perdidos/${nearbyPublicIds.repositoryToby}`,
+        webUrl: `https://rastro.bo/reportes/perdidos/${nearbyPublicIds.repositoryToby}`,
       },
       title: "Toby",
     });
     expect(result.reports[0]?.shareTarget.webUrl).toBe(
-      "https://rastro.bo/reportes/perdidos/lost-report-1",
+      `https://rastro.bo/reportes/perdidos/${nearbyPublicIds.repositoryToby}`,
     );
     expect(viewModel.cards[0]?.shareTarget.message).not.toContain(
       "Plaza Abaroa",
@@ -987,7 +1030,7 @@ describe("nearby Lost Pet Report discovery", () => {
       reports: [
         {
           ...firstReport,
-          id: "lost-raw-manual-pin",
+          id: nearbyPublicIds.lostRawManualPin,
           locationCellLabel: "Pin manual -16.4882, -68.1287",
         },
       ],
@@ -1022,7 +1065,7 @@ describe("nearby Lost Pet Report discovery", () => {
     const closedReport = {
       ...urgentReport,
       alertPriority: "urgent",
-      id: "lost-bruno-closed",
+      id: nearbyPublicIds.lostBrunoClosed,
       outcome: "reunited",
       status: "closed",
     } satisfies LostPetReportSummary;
@@ -1032,7 +1075,7 @@ describe("nearby Lost Pet Report discovery", () => {
         {
           ...activeReport,
           distanceMeters: 900,
-          id: "lost-luna-active",
+          id: nearbyPublicIds.lostLunaActive,
           status: "active",
         } satisfies LostPetReportSummary,
       ],
@@ -1053,8 +1096,8 @@ describe("nearby Lost Pet Report discovery", () => {
     assertNearbyViewModelKind(viewModel, "ready");
     expect(viewModel.urgentAlert).toBeUndefined();
     expect(viewModel.cards.map((card) => card.id)).toEqual([
-      "lost-luna-active",
-      "lost-bruno-closed",
+      nearbyPublicIds.lostLunaActive,
+      nearbyPublicIds.lostBrunoClosed,
     ]);
     expect(viewModel.cards[1]).toMatchObject({
       lifecycle: {
@@ -1095,9 +1138,8 @@ describe("nearby Lost Pet Report discovery", () => {
       publicLocationLabel: "Sopocachi · zona aproximada",
       reportKind: "sighting-report",
       shareTarget: {
-        path: "/reportes/avistamientos/sighting-dog-sopocachi",
-        webUrl:
-          "https://rastro.bo/reportes/avistamientos/sighting-dog-sopocachi",
+        path: `/reportes/avistamientos/${nearbyPublicIds.sightingDog}`,
+        webUrl: `https://rastro.bo/reportes/avistamientos/${nearbyPublicIds.sightingDog}`,
       },
       subtitle: "Mestizo • Asustado, caminando rapido.",
       summary:
@@ -1106,7 +1148,7 @@ describe("nearby Lost Pet Report discovery", () => {
     });
     expect(viewModel.cards[0]?.summary).not.toMatch(/encontrad|asegurad/i);
     expect(viewModel.mapPins[0]).toMatchObject({
-      publicSummaryId: "sighting-dog-sopocachi",
+      publicSummaryId: nearbyPublicIds.sightingDog,
       title: "Avistamiento de perro",
     });
     expect(result.reports[0]).toMatchObject({
@@ -1154,10 +1196,10 @@ describe("nearby Lost Pet Report discovery", () => {
     ) as Partial<Record<NearbyPublicReportKind, string>>;
 
     expect(cardHrefsByKind).toEqual({
-      "adoption-listing": "/adopciones/adoption-nala-sopocachi",
-      "found-pet-report": "/reportes/encontrados/found-cat-miraflores",
-      "lost-pet-report": "/reportes/perdidos/lost-bruno",
-      "sighting-report": "/reportes/avistamientos/sighting-dog-sopocachi",
+      "adoption-listing": `/adopciones/${nearbyPublicIds.adoptionNala}`,
+      "found-pet-report": `/reportes/encontrados/${nearbyPublicIds.foundCat}`,
+      "lost-pet-report": `/reportes/perdidos/${nearbyPublicIds.lostBruno}`,
+      "sighting-report": `/reportes/avistamientos/${nearbyPublicIds.sightingDog}`,
     });
     expect(pinHrefsByKind).toEqual(cardHrefsByKind);
     expect(viewModel.mapPins.map((pin) => pin.routeTarget)).toEqual(
@@ -1200,10 +1242,9 @@ describe("nearby Lost Pet Report discovery", () => {
     expect(shareCalls).toEqual([
       [
         {
-          message:
-            "Ayuda a encontrar a Bruno en Rastro: https://rastro.bo/reportes/perdidos/lost-bruno",
+          message: `Ayuda a encontrar a Bruno en Rastro: https://rastro.bo/reportes/perdidos/${nearbyPublicIds.lostBruno}`,
           title: "Mascota perdida: Bruno",
-          url: "https://rastro.bo/reportes/perdidos/lost-bruno",
+          url: `https://rastro.bo/reportes/perdidos/${nearbyPublicIds.lostBruno}`,
         },
         {
           dialogTitle: "Compartir reporte de mascota perdida",

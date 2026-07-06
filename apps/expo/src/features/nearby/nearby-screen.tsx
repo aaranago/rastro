@@ -1611,7 +1611,7 @@ function toReportMapPreview(
 }
 
 function formatVisiblePriorityLabel(label: string) {
-  if (label === "Adopcion") {
+  if (label === "Adopción") {
     return "Adopción";
   }
 

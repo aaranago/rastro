@@ -442,7 +442,7 @@ export function AdoptionListingCreationScreen({
         publishState === "confirming" || publishState === "publishing" ? (
           <ReportCreationPublishConfirmationModal
             activityIndicatorColor={shellColors.white}
-            body="Al confirmar, Rastro enviara esta adopcion al backend. Si Review Mode esta activo quedara pendiente de revision; si no, se publicara."
+            body="Al confirmar, Rastro enviará esta adopción al backend. Si Review Mode está activo quedará pendiente de revisión; si no, se publicará."
             canConfirm={viewModel.canPublish}
             Icon={AdoptionListingCreationIcon}
             onCancel={cancelPublishConfirmation}
@@ -583,11 +583,11 @@ function getAdoptionListingSuccessCopy({
 }) {
   if (publishedListing?.status === "pending_review") {
     return {
-      body: "Tu adopcion fue recibida y queda en Review Mode. El equipo la revisara antes de mostrarla publicamente.",
+      body: "Tu adopción fue recibida y queda en Review Mode. El equipo la revisará antes de mostrarla públicamente.",
       canShare: false,
       primaryActionLabel: "Ver estado",
       shareActionLabel: "Compartir",
-      title: "Adopcion enviada a revision",
+      title: "Adopción enviada a revisión",
     };
   }
 
@@ -606,11 +606,11 @@ function buildAdoptionListingPublishConfirmationRows(
   return [
     {
       label: "Tipo",
-      value: "Adopcion",
+      value: "Adopción",
     },
     {
       label: "Estado",
-      value: "Publica o pendiente de revision por Review Mode",
+      value: "Pública o pendiente de revisión por Review Mode",
     },
     {
       label: "Hora",
@@ -995,7 +995,7 @@ function validateCurrentAdoptionListingStep({
 
   if (stepId === "photos") {
     if (!attemptedViewModel.selectedPet) {
-      errors.push("Elige o crea la mascota para la adopcion.");
+      errors.push("Elige o crea la mascota para la adopción.");
     }
 
     if (!hasReadyAdoptionListingPhoto(draft)) {
@@ -1121,7 +1121,7 @@ function CreationHeader({
       </View>
       <View style={styles.headerCopy}>
         <Text maxFontSizeMultiplier={1.15} style={styles.eyebrow}>
-          Adopcion
+          Adopción
         </Text>
         <Text maxFontSizeMultiplier={1.2} style={styles.title}>
           {title}
@@ -1129,7 +1129,7 @@ function CreationHeader({
       </View>
       {onClose ? (
         <Pressable
-          accessibilityLabel="Volver de adopcion"
+          accessibilityLabel="Volver de adopción"
           accessibilityRole="button"
           onPress={onClose}
           style={styles.iconButton}
@@ -1285,7 +1285,7 @@ function LocationPrivacySection({
   viewModel: AdoptionListingCreationViewModel;
 }) {
   return (
-    <ReportCreationSection styles={styles} title="Ubicacion y privacidad">
+    <ReportCreationSection styles={styles} title="Ubicación y privacidad">
       <ReportCreationLocationPreview
         accentColor={adoptionAccent}
         coordinates={coordinates}
@@ -1296,7 +1296,7 @@ function LocationPrivacySection({
         accentColor={adoptionAccent}
         Icon={AdoptionListingCreationIcon}
         icon="location.fill"
-        label="Ubicacion interna"
+        label="Ubicación interna"
         styles={styles}
         value={viewModel.location.exactInternalLabel}
       />
@@ -1450,7 +1450,7 @@ function SegmentButton({
 
 function createFallbackPhoto(index: number): AdoptionListingPhoto {
   return {
-    alt: "Foto para adopcion",
+    alt: "Foto para adopción",
     id: `adoption-listing-photo-${index + 1}`,
     mediaId: `adoption-listing-media-${index + 1}`,
     status: "ready",

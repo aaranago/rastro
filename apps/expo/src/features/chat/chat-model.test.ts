@@ -307,7 +307,7 @@ describe("Chat repository", () => {
           statusLabel: undefined,
         },
         hide: {
-          label: "Ocultar conversacion",
+          label: "Ocultar conversación",
         },
         report: {
           label: "Reportar chat",

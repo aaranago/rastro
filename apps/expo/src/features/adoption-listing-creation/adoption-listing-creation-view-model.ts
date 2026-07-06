@@ -306,7 +306,7 @@ export function buildAdoptionListingCreationViewModel({
           showContactValidation &&
           draft.contact.whatsappEnabled &&
           draft.contact.whatsappPhone.trim().length === 0
-            ? "Ingresa el numero de WhatsApp que quieres mostrar."
+            ? "Ingresa el número de WhatsApp que quieres mostrar."
             : undefined,
         label: "Numero de WhatsApp",
         placeholder: "+591 70000000",
@@ -348,11 +348,11 @@ export function buildAdoptionListingCreationViewModel({
         "Maximo 5 fotos. Rastro prepara miniaturas y retira datos de ubicacion antes de subirlas.",
       items: effectivePhotos,
       permissionBody:
-        "Te pediremos acceso solo para elegir fotos de esta adopcion.",
+        "Te pediremos acceso solo para elegir fotos de esta adopción.",
       permissionTitle: "Antes de abrir tus fotos",
     },
     review: {
-      publishActionLabel: canPublish ? "Publicar adopcion" : "Completar datos",
+      publishActionLabel: canPublish ? "Publicar adopción" : "Completar datos",
       rows: buildReviewRows({
         contactOption,
         draft,
@@ -372,12 +372,12 @@ export function buildAdoptionListingCreationViewModel({
       selectedPet,
     }),
     success: {
-      body: "Tu adopcion ya puede mostrarse cerca de la zona aproximada y compartirse con la comunidad.",
-      primaryActionLabel: "Ver adopcion",
+      body: "Tu adopción ya puede mostrarse cerca de la zona aproximada y compartirse con la comunidad.",
+      primaryActionLabel: "Ver adopción",
       shareActionLabel: "Compartir",
-      title: "Adopcion publicada",
+      title: "Adopción publicada",
     },
-    title: "Dar en adopcion",
+    title: "Dar en adopción",
     verificationBadge: {
       label: verificationBadge?.label,
       required: false,
@@ -529,7 +529,7 @@ function validateAdoptionListingDraft({
     draft.contact.whatsappEnabled &&
     draft.contact.whatsappPhone.trim().length === 0
   ) {
-    errors.push("Ingresa un numero de WhatsApp.");
+    errors.push("Ingresa un número de WhatsApp.");
   }
 
   return errors;
@@ -545,7 +545,7 @@ function buildAdoptionDetailsViewModel(
         error: showValidation
           ? getAdoptionSummaryError(draft.adoptionDetails.adoptionSummary)
           : undefined,
-        label: "Sobre la adopcion",
+        label: "Sobre la adopción",
         placeholder:
           "Personalidad, historia y el cuidado que necesita para su nuevo hogar",
         value: draft.adoptionDetails.adoptionSummary,
@@ -561,7 +561,7 @@ function buildAdoptionDetailsViewModel(
         value: draft.adoptionDetails.idealHome,
       },
     },
-    title: "Detalles de adopcion",
+    title: "Detalles de adopción",
   };
 }
 
@@ -575,14 +575,14 @@ function buildContactOptions(currentOption: AdoptionListingContactChoice) {
       value: "chat" as const,
     },
     {
-      body: "Muestra el numero que elijas para contacto directo.",
+      body: "Muestra el número que elijas para contacto directo.",
       iconName: "phone.fill",
       isSelected: currentOption === "whatsapp",
       label: "WhatsApp",
       value: "whatsapp" as const,
     },
     {
-      body: "Permite chat en la app y WhatsApp en la misma adopcion.",
+      body: "Permite chat en la app y WhatsApp en la misma adopción.",
       iconName: "bubble.left.and.phone.fill",
       isSelected: currentOption === "both",
       label: "Ambos",
@@ -594,7 +594,7 @@ function buildContactOptions(currentOption: AdoptionListingContactChoice) {
 function getAdoptionSummaryError(value: string) {
   return getReportCreationMinimumDescriptionError({
     emptyMessage: "Cuenta que tipo de hogar necesita.",
-    shortMessage: "Describe la adopcion con al menos 10 caracteres.",
+    shortMessage: "Describe la adopción con al menos 10 caracteres.",
     value,
   });
 }
@@ -657,10 +657,10 @@ function buildLocationViewModel(draft: AdoptionListingDraft) {
       ? "Pin exacto publico"
       : "Zona aproximada de 300 m",
     showExactPinPublicly: draft.showExactPinPublicly,
-    exactPinOptInLabel: "Mostrar pin exacto publicamente",
+    exactPinOptInLabel: "Mostrar pin exacto públicamente",
     toggleBody:
       "Por defecto mostramos una zona de 300 m alrededor del pin. Activa el punto exacto solo si es seguro compartirlo.",
-    toggleLabel: "Mostrar pin exacto publicamente",
+    toggleLabel: "Mostrar pin exacto públicamente",
   };
 }
 
@@ -689,11 +689,11 @@ function buildReviewRows({
       value: formatPhotoCount(photos.length),
     },
     {
-      label: "Ubicacion interna",
+      label: "Ubicación interna",
       value: draft.exactLocation?.addressLabel ?? "Pendiente",
     },
     {
-      label: "Ubicacion publica",
+      label: "Ubicación pública",
       value: draft.showExactPinPublicly
         ? "Punto exacto publico"
         : "Zona aproximada publica",
@@ -736,7 +736,7 @@ function buildSteps({
     {
       id: "location" as const,
       isComplete: Boolean(draft.exactLocation),
-      label: "Ubicacion",
+      label: "Ubicación",
     },
     {
       id: "contact" as const,
@@ -897,7 +897,7 @@ function getContactError(contact: AdoptionListingContactDraft) {
   }
 
   if (contact.whatsappEnabled && contact.whatsappPhone.trim().length === 0) {
-    return "Ingresa un numero para WhatsApp.";
+    return "Ingresa un número para WhatsApp.";
   }
 
   return undefined;

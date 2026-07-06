@@ -34,7 +34,7 @@ export default function NearbyStackLayout() {
       />
       <Stack.Screen
         name="adopciones/[listingId]"
-        options={{ title: "Adopcion" }}
+        options={{ title: "Adopción" }}
       />
     </Stack>
   );

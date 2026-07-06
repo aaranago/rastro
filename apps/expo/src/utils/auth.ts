@@ -21,6 +21,8 @@ import { getBaseUrl } from "./base-url";
 
 const mobileAuthScheme = "rastro";
 const mobileAuthCallbackPath = "auth/callback";
+const mobileAuthCallbackTransactionStorageKey = `${mobileAuthScheme}_callback_transaction`;
+const mobileAuthCallbackTransactionMaxAgeMs = 10 * 60 * 1000;
 const mobileAuthCookieStorageKey = `${mobileAuthScheme}_cookie`;
 const betterAuthBasePath = "/api/auth";
 const betterAuthCallbackPathSegment = "/callback/";
@@ -94,6 +96,7 @@ export interface MobileAuthCallbackSearchParams {
   error?: string | string[] | undefined;
   error_description?: string | string[] | undefined;
   message?: string | string[] | undefined;
+  transaction?: string | string[] | undefined;
 }
 
 export interface MobileAuthSessionFetchRequest {
@@ -188,10 +191,33 @@ async function runAuthAction(
   }
 }
 
-function createMobileAuthCallbackURL() {
-  return Linking.createURL(mobileAuthCallbackPath, {
-    scheme: mobileAuthScheme,
-  });
+export function createMobileAuthCallbackURL() {
+  const callbackURL = new URL(
+    Linking.createURL(mobileAuthCallbackPath, {
+      scheme: mobileAuthScheme,
+    }),
+  );
+
+  callbackURL.searchParams.set(
+    "transaction",
+    beginMobileAuthCallbackTransaction(),
+  );
+
+  return callbackURL.toString();
+}
+
+export function beginMobileAuthCallbackTransaction(now = Date.now()) {
+  const id = createMobileAuthCallbackTransactionId();
+
+  SecureStore.setItem(
+    mobileAuthCallbackTransactionStorageKey,
+    JSON.stringify({
+      createdAt: now,
+      id,
+    }),
+  );
+
+  return id;
 }
 
 export function createMobileAuthProxyURL(authorizationURL: string) {
@@ -437,9 +463,90 @@ export function completeMobileAuthCallback(
     };
   }
 
+  if (
+    !consumeMobileAuthCallbackTransaction(
+      getFirstCallbackSearchParam(params.transaction),
+    )
+  ) {
+    return {
+      message: socialAuthMessages.failed,
+      ok: false,
+      reason: "failed",
+    };
+  }
+
   persistMobileAuthCookie(setCookieHeader);
 
   return { ok: true };
+}
+
+function consumeMobileAuthCallbackTransaction(
+  transactionId: string | undefined,
+  now = Date.now(),
+) {
+  if (!transactionId) {
+    return false;
+  }
+
+  const transaction = readMobileAuthCallbackTransaction();
+
+  if (!transaction) {
+    return false;
+  }
+
+  if (transaction.id !== transactionId) {
+    return false;
+  }
+
+  SecureStore.setItem(mobileAuthCallbackTransactionStorageKey, "");
+
+  return now - transaction.createdAt <= mobileAuthCallbackTransactionMaxAgeMs;
+}
+
+function readMobileAuthCallbackTransaction() {
+  const storedValue = SecureStore.getItem(
+    mobileAuthCallbackTransactionStorageKey,
+  );
+
+  if (!storedValue) {
+    return null;
+  }
+
+  try {
+    const parsedValue: unknown = JSON.parse(storedValue);
+
+    if (!isRecord(parsedValue)) {
+      return null;
+    }
+
+    const id = parsedValue.id;
+    const createdAt = parsedValue.createdAt;
+
+    if (typeof id !== "string" || typeof createdAt !== "number") {
+      return null;
+    }
+
+    return { createdAt, id };
+  } catch {
+    SecureStore.setItem(mobileAuthCallbackTransactionStorageKey, "");
+    return null;
+  }
+}
+
+function createMobileAuthCallbackTransactionId() {
+  const cryptoApi = (
+    globalThis as {
+      crypto?: {
+        randomUUID?: () => string;
+      };
+    }
+  ).crypto;
+
+  if (typeof cryptoApi?.randomUUID === "function") {
+    return cryptoApi.randomUUID();
+  }
+
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
 function getFirstCallbackSearchParam(

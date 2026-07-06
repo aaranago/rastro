@@ -287,7 +287,7 @@ function toPublicSummary(
       id: report.id,
       lastSeenAtLabel: report.publishedAtLabel,
       photoUrl: report.photoUrl,
-      priorityLabel: "Adopcion",
+      priorityLabel: "Adopción",
       publicLocationLabel: formatPublicLocation(report),
       reportKind: "adoption-listing",
       routeTarget: buildNearbyReportRouteTarget({

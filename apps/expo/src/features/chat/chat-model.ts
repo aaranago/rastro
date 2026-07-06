@@ -475,7 +475,7 @@ export function buildChatConversationViewModel({
         }),
       },
       hide: {
-        label: "Ocultar conversacion",
+        label: "Ocultar conversación",
       },
       report: {
         label: isReported ? "Chat reportado" : "Reportar chat",
@@ -657,7 +657,7 @@ function findConversationOrThrow(
   if (!conversation) {
     throw new ChatRepositoryError(
       "chat_conversation_not_found",
-      "La conversacion no fue encontrada.",
+      "La conversación no fue encontrada.",
     );
   }
 
@@ -675,7 +675,7 @@ function assertConversationParticipant(
   ) {
     throw new ChatRepositoryError(
       "chat_conversation_member_required",
-      "Solo los miembros de la conversacion pueden usar este chat.",
+      "Solo los miembros de la conversación pueden usar este chat.",
     );
   }
 }
@@ -688,7 +688,7 @@ function assertMemberCanSend(conversation: ChatConversation, memberId: string) {
   ) {
     throw new ChatRepositoryError(
       "chat_member_blocked",
-      "Este miembro esta bloqueado para esta conversacion.",
+      "Este miembro está bloqueado para esta conversación.",
     );
   }
 }
@@ -701,7 +701,7 @@ function getParticipant(conversation: ChatConversation, memberId: string) {
   if (!participant) {
     throw new ChatRepositoryError(
       "chat_conversation_member_required",
-      "Solo los miembros de la conversacion pueden usar este chat.",
+      "Solo los miembros de la conversación pueden usar este chat.",
     );
   }
 
@@ -741,7 +741,7 @@ function compareMessagesByCreatedAt(left: ChatMessage, right: ChatMessage) {
 
 function buildSubjectLinkLabel(kind: ChatSubjectKind) {
   if (kind === "adoption-listing") {
-    return "Ver adopcion relacionada";
+    return "Ver adopción relacionada";
   }
 
   return "Ver reporte relacionado";
@@ -751,7 +751,7 @@ function assertSubject(subject: ChatSubject) {
   if (subject.id.trim().length === 0 || subject.href.trim().length === 0) {
     throw new ChatRepositoryError(
       "chat_subject_required",
-      "La conversacion debe estar vinculada a un reporte o adopcion.",
+      "La conversación debe estar vinculada a un reporte o adopción.",
     );
   }
 }

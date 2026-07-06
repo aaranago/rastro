@@ -402,7 +402,7 @@ function normalizeLocationSnapshot(
     },
     countryCode: "BO",
     detectedAt: normalizeDateValue(location.recordedAt),
-    label: location.label ?? "Ubicacion registrada en Bolivia",
+    label: location.label ?? "Ubicación registrada en Bolivia",
     locationCellLabel: location.locationCell ?? "Bolivia",
     source: "last",
   };

@@ -1,3 +1,6 @@
+import type { PublicSightingReportShareTarget } from "@acme/validators";
+import { buildPublicSightingReportShareTarget } from "@acme/validators";
+
 import type {
   PetProfilesSessionState,
   PetProfileType,
@@ -109,20 +112,6 @@ export interface PublishSightingReportInput {
   photos: readonly PetProfilePhotoSource[];
   showExactPublicLocation?: boolean;
   sightingDescription: string;
-}
-
-interface PublicSightingReportShareTargetInput {
-  publicWebBaseUrl: string;
-  reportId: string;
-  title: string;
-}
-
-export interface PublicSightingReportShareTarget {
-  appDeepLink: string;
-  message: string;
-  path: string;
-  title: string;
-  webUrl: string;
 }
 
 export interface SightingReport {
@@ -280,38 +269,16 @@ export interface InMemorySightingReportRepositoryOptions {
   mediaAdapter?: PetProfileMediaAdapter;
   now?: () => string;
   publicWebBaseUrl?: string;
+  reportIdFactory?: (sequence: number) => string;
   trustSafety?: TrustSafetyRepository;
 }
 
 const defaultPublicWebBaseUrl = "https://rastro.bo";
-const publicSightingReportPathPrefix = "/reportes/avistamientos";
 
 export interface ReportSightingReportInput {
   detail?: string;
   reason: SubmitTrustSafetyReportInput["reason"];
   reportId: string;
-}
-
-function publicSightingReportPathForId(reportId: string) {
-  return `${publicSightingReportPathPrefix}/${encodeURIComponent(reportId)}`;
-}
-
-function buildPublicSightingReportShareTarget({
-  publicWebBaseUrl,
-  reportId,
-  title,
-}: PublicSightingReportShareTargetInput): PublicSightingReportShareTarget {
-  const path = publicSightingReportPathForId(reportId);
-  const webUrl = `${publicWebBaseUrl.replace(/\/+$/, "")}${path}`;
-  const shareTitle = `Avistamiento de mascota: ${title}`;
-
-  return {
-    appDeepLink: `rastro://${path.replace(/^\//, "")}`,
-    message: `Ayuda a ubicar este avistamiento de ${title} en Rastro: ${webUrl}`,
-    path,
-    title: shareTitle,
-    webUrl,
-  };
 }
 
 export function createInMemorySightingReportRepository(
@@ -321,6 +288,8 @@ export function createInMemorySightingReportRepository(
     options.mediaAdapter ?? createLocalPetProfileMediaAdapter();
   const now = options.now ?? (() => "2026-01-01T00:00:00.000Z");
   const publicWebBaseUrl = options.publicWebBaseUrl ?? defaultPublicWebBaseUrl;
+  const reportIdFactory =
+    options.reportIdFactory ?? createSequentialSightingReportId;
   const trustSafety =
     options.trustSafety ?? createInMemoryTrustSafetyRepository({ now });
   const reports: SightingReport[] = [];
@@ -338,7 +307,7 @@ export function createInMemorySightingReportRepository(
       assertPublishInput(input);
 
       const createdAt = now();
-      const id = `sighting-report-${reports.length + 1}`;
+      const id = reportIdFactory(reports.length + 1);
       const petSnapshot = {
         breed: input.pet.breed.trim(),
         description: input.pet.description.trim(),
@@ -447,6 +416,10 @@ export function createInMemorySightingReportRepository(
   };
 }
 
+function createSequentialSightingReportId(sequence: number) {
+  return `44444444-4444-4444-8444-${String(sequence).padStart(12, "0")}`;
+}
+
 function assertMemberCanPublishSightingReport(
   session: SightingReportsSessionState,
 ): asserts session is Extract<SightingReportsSessionState, { kind: "member" }> {
@@ -524,7 +497,7 @@ function buildPublicLocation(
     return {
       addressLabel: input.exactLocation.addressLabel,
       kind: "exact",
-      label: input.exactLocation.addressLabel ?? "Ubicacion exacta",
+      label: input.exactLocation.addressLabel ?? "Ubicación exacta",
       latitude: input.exactLocation.latitude,
       longitude: input.exactLocation.longitude,
     };
@@ -630,7 +603,7 @@ function toPublicDetailLocation(
 ): PublicSightingReportDetail["publicLocation"] {
   return toPublicReportDetailLocation(
     publicLocation,
-    "Ubicacion exacta compartida por quien reporto el avistamiento.",
+    "Ubicación exacta compartida por quien reportó el avistamiento.",
   );
 }
 

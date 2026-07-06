@@ -784,7 +784,7 @@ async function createReports({
       mediaCount: 1,
       petName: "Luna",
       species: "cat",
-      title: `${reportTitlePrefix} Adopcion Luna Tranquila`,
+      title: `${reportTitlePrefix} Adopción Luna Tranquila`,
       type: "adoption",
     },
   ] as const satisfies readonly {
@@ -1071,7 +1071,7 @@ function getProviderCategoryLabel(category: ResourceProviderCategory) {
     case "shelter":
       return "Refugio";
     case "groomer":
-      return "Peluqueria";
+      return "Peluquería";
     case "pet_food":
       return "Alimento";
     case "trainer":

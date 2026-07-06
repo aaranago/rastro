@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  beginMobileAuthCallbackTransaction,
   completeMobileAuthCallback,
+  createMobileAuthCallbackURL,
   createMobileAuthProxyURL,
   fetchMobileAuthSessionWithCookie,
   getAvailableShellSocialAuthProviders,
@@ -270,6 +272,18 @@ describe("mobile auth configuration helpers", () => {
     expect(mobileAuthCallbackRedirectHref).not.toBe("/");
   });
 
+  it("adds a one-time transaction to routed mobile auth callback URLs", () => {
+    const callbackURL = createMobileAuthCallbackURL();
+    const transaction = new URL(callbackURL).searchParams.get("transaction");
+
+    expect(callbackURL).toMatch(/^rastro:\/\/auth\/callback\?transaction=/);
+    expect(transaction).toBeTruthy();
+    expect(secureStore.setItem).toHaveBeenCalledWith(
+      "rastro_callback_transaction",
+      expect.stringContaining(`"id":"${transaction}"`),
+    );
+  });
+
   it("builds the Expo auth proxy on the Better Auth callback origin", () => {
     const authorizationURL =
       "https://accounts.google.com/o/oauth2/auth?state=abc&redirect_uri=https%3A%2F%2Fauth.example.test%2Fapi%2Fauth%2Fcallback%2Fgoogle";
@@ -334,18 +348,56 @@ describe("mobile auth configuration helpers", () => {
   });
 
   it("persists the Better Auth cookie from a routed mobile callback", () => {
+    const transaction = beginMobileAuthCallbackTransaction();
+    secureStore.getItem.mockImplementation((key?: string) => {
+      if (key === "rastro_callback_transaction") {
+        return JSON.stringify({
+          createdAt: Date.now(),
+          id: transaction,
+        });
+      }
+
+      return null;
+    });
+
     expect(
       completeMobileAuthCallback({
         cookie: "__Secure-better-auth.session_token=abc; Path=/; HttpOnly",
+        transaction,
       }),
     ).toEqual({ ok: true });
 
+    expect(secureStore.getItem).toHaveBeenCalledWith(
+      "rastro_callback_transaction",
+    );
     expect(secureStore.getItem).toHaveBeenCalledWith("rastro_cookie");
+    expect(secureStore.setItem).toHaveBeenCalledWith(
+      "rastro_callback_transaction",
+      "",
+    );
     expect(secureStore.setItem).toHaveBeenCalledWith(
       "rastro_cookie",
       "stored:__Secure-better-auth.session_token=abc; Path=/; HttpOnly",
     );
     expect(authStore.notify).toHaveBeenCalledWith("$sessionSignal");
+  });
+
+  it("rejects routed mobile callback cookies without the pending transaction", () => {
+    expect(
+      completeMobileAuthCallback({
+        cookie: "better-auth.session_token=attacker",
+      }),
+    ).toEqual({
+      message: "No pudimos completar el ingreso con ese proveedor.",
+      ok: false,
+      reason: "failed",
+    });
+
+    expect(secureStore.setItem).not.toHaveBeenCalledWith(
+      "rastro_cookie",
+      expect.any(String),
+    );
+    expect(authStore.notify).not.toHaveBeenCalled();
   });
 
   it("checks the mobile session with an explicit Cookie header", async () => {

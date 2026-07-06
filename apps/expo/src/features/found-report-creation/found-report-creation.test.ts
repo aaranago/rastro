@@ -492,7 +492,7 @@ describe("Found Pet Report creation view model", () => {
     });
     expect(whatsappViewModel.contact.currentOption).toBe("whatsapp");
     expect(whatsappViewModel.contact.whatsappField).toMatchObject({
-      error: "Ingresa el numero de WhatsApp que quieres mostrar.",
+      error: "Ingresa el número de WhatsApp que quieres mostrar.",
       visible: true,
     });
 

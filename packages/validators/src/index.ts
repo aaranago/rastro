@@ -1664,11 +1664,11 @@ export function buildPublicAdoptionListingShareTarget({
 }: PublicAdoptionListingShareTargetInput): PublicAdoptionListingShareTarget {
   const path = publicAdoptionListingPathForId(listingId);
   const webUrl = `${publicWebBaseUrl.replace(/\/+$/, "")}${path}`;
-  const shareTitle = `Mascota en adopcion: ${title}`;
+  const shareTitle = `Mascota en adopción: ${title}`;
 
   return {
     appDeepLink: `rastro://${path.replace(/^\//, "")}`,
-    message: `Conoce a ${title} en adopcion en Rastro: ${webUrl}`,
+    message: `Conoce a ${title} en adopción en Rastro: ${webUrl}`,
     path,
     title: shareTitle,
     webUrl,

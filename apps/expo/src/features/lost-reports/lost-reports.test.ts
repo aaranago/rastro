@@ -24,6 +24,9 @@ const petProfileInput: CreatePetProfileInput = {
   photos: [{ id: "pet-photo-1", uri: "file:///toby-profile.heic" }],
   type: "Perro",
 };
+const lostReportIds = {
+  first: "11111111-1111-4111-8111-000000000001",
+} as const;
 
 describe("Lost Pet Report publishing", () => {
   it("lets a member publish a Lost Pet Report from an existing Pet Profile with approximate public location by default", async () => {
@@ -360,7 +363,7 @@ describe("Lost Pet Report browsing", () => {
     expect(result.reports).toHaveLength(1);
     expect(result.reports[0]).toMatchObject({
       distanceMeters: 0,
-      id: "lost-report-1",
+      id: lostReportIds.first,
       locationCellLabel: "Sopocachi",
       petName: "Toby",
       publicLocation: {
@@ -370,12 +373,11 @@ describe("Lost Pet Report browsing", () => {
       },
     });
     expect(result.reports[0]?.shareTarget).toEqual({
-      appDeepLink: "rastro://reportes/perdidos/lost-report-1",
-      message:
-        "Ayuda a encontrar a Toby en Rastro: https://rastro.bo/reportes/perdidos/lost-report-1",
-      path: "/reportes/perdidos/lost-report-1",
+      appDeepLink: `rastro://reportes/perdidos/${lostReportIds.first}`,
+      message: `Ayuda a encontrar a Toby en Rastro: https://rastro.bo/reportes/perdidos/${lostReportIds.first}`,
+      path: `/reportes/perdidos/${lostReportIds.first}`,
       title: "Mascota perdida: Toby",
-      webUrl: "https://rastro.bo/reportes/perdidos/lost-report-1",
+      webUrl: `https://rastro.bo/reportes/perdidos/${lostReportIds.first}`,
     });
     expect(result.reports[0]?.publicLocation).not.toHaveProperty("latitude");
     expect(result.reports[0]?.publicLocation).not.toHaveProperty("longitude");
@@ -433,7 +435,7 @@ describe("Lost Pet Report browsing", () => {
           longitude: -68.1299,
         },
         countryCode: "BO",
-        label: "Ubicacion actual en La Paz",
+        label: "Ubicación actual en La Paz",
         locationCellLabel: "Sopocachi",
         source: "current",
       },

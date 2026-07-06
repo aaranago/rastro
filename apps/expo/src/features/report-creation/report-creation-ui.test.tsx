@@ -149,7 +149,7 @@ describe("ReportCreationPublishConfirmationModal", () => {
         publishState="editing"
         rows={[
           { label: "Tipo", value: "Reporte de avistamiento" },
-          { label: "Ubicacion", value: "Sopocachi, La Paz" },
+          { label: "Ubicación", value: "Sopocachi, La Paz" },
           { label: "Contacto", value: "Chat en Rastro" },
         ]}
         title="Confirmar publicacion"
@@ -642,7 +642,7 @@ describe("ReportCreationProgressSteps", () => {
       <ReportCreationProgressSteps
         steps={[
           { id: "details", isComplete: true, label: "Detalles" },
-          { id: "location", isComplete: true, label: "Ubicacion" },
+          { id: "location", isComplete: true, label: "Ubicación" },
           { id: "contact", isComplete: false, label: "Contacto" },
           { id: "review", isComplete: false, label: "Revisar" },
           { id: "success", isComplete: false, label: "Publicado" },

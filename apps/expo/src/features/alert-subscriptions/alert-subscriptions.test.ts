@@ -35,7 +35,7 @@ const currentLocation: AlertSubscriptionLocationSnapshot = {
   },
   countryCode: "BO",
   detectedAt: "2026-06-18T12:00:00.000Z",
-  label: "Ubicacion actual en Sopocachi",
+  label: "Ubicación actual en Sopocachi",
   locationCellLabel: "Sopocachi",
   source: "current",
 };
@@ -51,6 +51,9 @@ const lastDetectedLocation: AlertSubscriptionLocationSnapshot = {
   locationCellLabel: "Queru Queru",
   source: "last",
 };
+const lostReportIds = {
+  first: "11111111-1111-4111-8111-000000000001",
+} as const;
 
 describe("Alert Subscription preferences", () => {
   it("lets a member enable and disable an Alert Subscription with a Dynamic Alert Area and Alert Radius", async () => {
@@ -68,7 +71,7 @@ describe("Alert Subscription preferences", () => {
     expect(enabled).toMatchObject({
       dynamicAlertArea: {
         location: {
-          label: "Ubicacion actual en Sopocachi",
+          label: "Ubicación actual en Sopocachi",
           source: "current",
         },
         reason: "manual-refresh",
@@ -120,7 +123,7 @@ describe("Alert Subscription preferences", () => {
 
     expect(foregroundUpdate.dynamicAlertArea).toMatchObject({
       location: {
-        label: "Ubicacion actual en Sopocachi",
+        label: "Ubicación actual en Sopocachi",
         source: "current",
       },
       reason: "foreground",
@@ -230,11 +233,11 @@ describe("Alert Subscription preferences", () => {
     expect(firstMatch).toEqual([
       {
         body: "Toby fue reportada cerca de Sopocachi.",
-        deepLink: "rastro://reportes/perdidos/lost-report-1",
+        deepLink: `rastro://reportes/perdidos/${lostReportIds.first}`,
         memberId: member.memberId,
         reportId: nearbyActive.id,
         title: "Mascota perdida cerca de ti",
-        webUrl: "https://rastro.bo/reportes/perdidos/lost-report-1",
+        webUrl: `https://rastro.bo/reportes/perdidos/${lostReportIds.first}`,
       },
     ]);
 

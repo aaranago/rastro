@@ -1,7 +1,6 @@
 import Image from "next/image";
 
 import { buildAppDownloadPath } from "~/public-report-detail-mapping";
-
 import { AuthShowcase } from "./_components/auth-showcase";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -20,7 +19,7 @@ const primaryActions = [
       context: "create-adoption",
       target: "rastro://report-create/adoption",
     }),
-    label: "Publicar adopcion",
+    label: "Publicar adopción",
     tone: "secondary",
   },
   {
@@ -41,7 +40,7 @@ const publicSections = [
       context: "report",
       target: "rastro://actividad",
     }),
-    text: "Perdidos, encontrados y avistamientos se organizan por ubicacion aproximada para cuidar datos sensibles.",
+    text: "Perdidos, encontrados y avistamientos se organizan por ubicación aproximada para cuidar datos sensibles.",
   },
   {
     cta: "Abrir adopciones",
@@ -50,7 +49,7 @@ const publicSections = [
       context: "adoption",
       target: "rastro://adopciones",
     }),
-    text: "Las publicaciones de adopcion se mantienen fuera de compras, ventas o subastas.",
+    text: "Las publicaciones de adopción se mantienen fuera de compras, ventas o subastas.",
   },
   {
     cta: "Ver recursos locales",
@@ -79,7 +78,7 @@ export default async function HomePage(props: { searchParams: SearchParams }) {
         <div className="container grid gap-10 py-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:py-16">
           <div className="max-w-3xl">
             <p className="text-primary text-sm font-semibold uppercase">
-              Red de recuperacion en Bolivia
+              Red de recuperación en Bolivia
             </p>
             <h1 className="mt-3 text-4xl font-extrabold tracking-normal sm:text-6xl">
               Rastro
@@ -139,12 +138,11 @@ export default async function HomePage(props: { searchParams: SearchParams }) {
             Vista real de Rastro
           </p>
           <h2 className="mt-2 text-2xl font-semibold">
-            Casos, mensajes y recursos en un solo flujo movil
+            Casos, mensajes y recursos en un solo flujo móvil
           </h2>
           <p className="text-muted-foreground mt-3 leading-7">
-            La app muestra actividad comunitaria, reportes y servicios con
-            zonas aproximadas para coordinar ayuda sin publicar coordenadas
-            exactas.
+            La app muestra actividad comunitaria, reportes y servicios con zonas
+            aproximadas para coordinar ayuda sin publicar coordenadas exactas.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -174,8 +172,8 @@ export default async function HomePage(props: { searchParams: SearchParams }) {
             Gestiona tus reportes y contactos
           </h2>
           <p className="text-muted-foreground mt-2 text-sm">
-            Inicia sesion para responder mensajes, revisar tus publicaciones y
-            mantener actualizada tu informacion.
+            Inicia sesión para responder mensajes, revisar tus publicaciones y
+            mantener actualizada tu información.
           </p>
         </div>
 

@@ -267,6 +267,7 @@ export interface InMemoryLostPetReportRepositoryOptions {
   now?: () => string;
   petProfiles?: PetProfileRepository;
   publicWebBaseUrl?: string;
+  reportIdFactory?: (sequence: number) => string;
   trustSafety?: TrustSafetyRepository;
 }
 
@@ -291,6 +292,8 @@ export function createInMemoryLostPetReportRepository(
       now,
     });
   const publicWebBaseUrl = options.publicWebBaseUrl ?? defaultPublicWebBaseUrl;
+  const reportIdFactory =
+    options.reportIdFactory ?? createSequentialLostPetReportId;
   const trustSafety =
     options.trustSafety ?? createInMemoryTrustSafetyRepository({ now });
   const reports: LostPetReport[] = [];
@@ -313,7 +316,7 @@ export function createInMemoryLostPetReportRepository(
         session,
       });
       const createdAt = now();
-      const id = `lost-report-${reports.length + 1}`;
+      const id = reportIdFactory(reports.length + 1);
       const report: LostPetReport = {
         caretakerMemberId: petProfile.caretakerMemberId,
         contactOption: normalizeContactOption(input.contactOption),
@@ -429,6 +432,10 @@ export function createInMemoryLostPetReportRepository(
   };
 }
 
+function createSequentialLostPetReportId(sequence: number) {
+  return `11111111-1111-4111-8111-${String(sequence).padStart(12, "0")}`;
+}
+
 function assertMemberCanPublishLostPetReport(
   session: LostReportsSessionState,
 ): asserts session is Extract<LostReportsSessionState, { kind: "member" }> {
@@ -531,7 +538,7 @@ function buildPublicLocation(
     return {
       addressLabel: input.exactLocation.addressLabel,
       kind: "exact",
-      label: input.exactLocation.addressLabel ?? "Ubicacion exacta",
+      label: input.exactLocation.addressLabel ?? "Ubicación exacta",
       latitude: input.exactLocation.latitude,
       longitude: input.exactLocation.longitude,
     };
@@ -598,7 +605,7 @@ function toPublicDetailLocation(
 ): PublicLostPetReportDetail["publicLocation"] {
   return toPublicReportDetailLocation(
     publicLocation,
-    "Ubicacion exacta compartida por la persona cuidadora.",
+    "Ubicación exacta compartida por la persona cuidadora.",
   );
 }
 

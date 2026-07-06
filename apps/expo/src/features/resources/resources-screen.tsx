@@ -3,6 +3,7 @@ import type { ComponentProps } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,7 @@ import {
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "expo-router";
 import { LegendList } from "@legendapp/list";
 
 import type { MaterialCommunityIconName } from "../icons/safe-material-community-icon";
@@ -96,6 +98,7 @@ export function ResourcesScreen({
   onUseCurrentLocationPress,
 }: ResourcesScreenProps) {
   const safeAreaInsets = useSafeAreaInsets();
+  const isFocused = useResourceRouteFocusState();
   const [mode, setMode] = useState<ResourcesDirectoryMode>(initialMode);
   const [location, setLocation] =
     useState<ResourceSearchLocation>(initialLocation);
@@ -124,6 +127,7 @@ export function ResourcesScreen({
   const [isOfflineContent, setIsOfflineContent] = useState(false);
   const [isStaleContent, setIsStaleContent] = useState(false);
   const [reloadVersion, setReloadVersion] = useState(0);
+  const [mapMountKey, setMapMountKey] = useState(0);
   const sponsorDeliverySessionIdRef = useRef(createSponsorDeliverySessionId());
   const recordedSponsorImpressionsRef = useRef(new Set<string>());
 
@@ -138,6 +142,10 @@ export function ResourcesScreen({
   );
 
   useEffect(() => {
+    if (!isFocused) {
+      return;
+    }
+
     let isCurrent = true;
 
     setStatus("loading");
@@ -175,7 +183,16 @@ export function ResourcesScreen({
     return () => {
       isCurrent = false;
     };
-  }, [adapter, reloadVersion, searchQuery]);
+  }, [adapter, isFocused, reloadVersion, searchQuery]);
+
+  useEffect(() => {
+    if (isFocused) {
+      setMapMountKey((current) => current + 1);
+      return;
+    }
+
+    setSelectedMapProviderId(undefined);
+  }, [isFocused]);
 
   useEffect(() => {
     if (location.kind === "manual" && !isManualSearchFocused) {
@@ -364,6 +381,10 @@ export function ResourcesScreen({
       source: string,
       idempotencyKey?: string,
     ) => {
+      if (!isFocused) {
+        return;
+      }
+
       if (!provider.isSponsored || !adapter.recordSponsorDelivery) {
         return;
       }
@@ -381,11 +402,15 @@ export function ResourcesScreen({
         })
         .catch(() => undefined);
     },
-    [adapter],
+    [adapter, isFocused],
   );
 
   const recordSponsorImpression = useCallback(
     (provider: ResourceProviderSummaryViewModel) => {
+      if (!isFocused) {
+        return;
+      }
+
       if (viewModel.state !== "ready" || !provider.isSponsored) {
         return;
       }
@@ -404,7 +429,7 @@ export function ResourcesScreen({
         `resources:${sponsorDeliverySessionIdRef.current}:${impressionKey}`,
       );
     },
-    [mode, recordSponsorDelivery, viewModel.state],
+    [isFocused, mode, recordSponsorDelivery, viewModel.state],
   );
 
   const handleOpenProvider = useCallback(
@@ -460,33 +485,45 @@ export function ResourcesScreen({
     <ResourcesHeader
       viewModel={viewModel}
       mode={mode}
-      location={location}
-      manualLocationMatches={manualLocationMatches}
-      manualSearchFeedback={manualSearchFeedback}
-      manualSearchText={manualSearchText}
-      selectedCategoryIds={selectedCategoryIds}
-      selectedMapProviderId={selectedMapProviderId}
-      mapCameraCenter={mapCameraCenter}
-      isManualSearchFocused={isManualSearchFocused}
-      isResolvingLocation={isResolvingLocation}
-      onModeChange={handleModeChange}
-      onManualSearchTextChange={setManualSearchText}
-      onManualSearchFocus={() => {
-        setIsManualSearchFocused(true);
-        onManualSearchPress?.();
+      search={{
+        feedback: manualSearchFeedback,
+        isFocused: isManualSearchFocused,
+        isResolvingLocation,
+        location,
+        matches: manualLocationMatches,
+        text: manualSearchText,
       }}
-      onManualSearchBlur={() => {
-        setTimeout(() => setIsManualSearchFocused(false), 120);
+      filters={{
+        selectedCategoryIds,
       }}
-      onManualSearchSubmit={handleManualSearchSubmit}
-      onSelectManualLocation={applyManualLocation}
-      onUseCurrentLocationPress={handleUseCurrentLocation}
-      onSelectAllCategories={handleSelectAllCategories}
-      onToggleCategory={handleToggleCategory}
-      onOpenProvider={onOpenProvider ? handleOpenProvider : undefined}
-      onSelectMapProvider={setSelectedMapProviderId}
-      onMapCameraCenterChange={setMapCameraCenter}
-      onNoticeAction={handleNoticeAction}
+      map={{
+        cameraCenter: mapCameraCenter,
+        isScreenFocused: isFocused,
+        mountKey: mapMountKey,
+        selectedProviderId: selectedMapProviderId,
+      }}
+      actions={{
+        onMapCameraCenterChange: setMapCameraCenter,
+        onManualSearchBlur: () => {
+          setTimeout(() => setIsManualSearchFocused(false), 120);
+        },
+        onManualSearchFocus: () => {
+          setIsManualSearchFocused(true);
+          onManualSearchPress?.();
+        },
+        onManualSearchSubmit: handleManualSearchSubmit,
+        onManualSearchTextChange: setManualSearchText,
+        onModeChange: handleModeChange,
+        onNoticeAction: handleNoticeAction,
+        onOpenProvider: onOpenProvider ? handleOpenProvider : undefined,
+        onSelectAllCategories: handleSelectAllCategories,
+        onSelectManualLocation: applyManualLocation,
+        onSelectMapProvider: setSelectedMapProviderId,
+        onToggleCategory: handleToggleCategory,
+        onUseCurrentLocationPress: () => {
+          void handleUseCurrentLocation();
+        },
+      }}
     />
   );
 
@@ -530,99 +567,104 @@ export function ResourcesScreen({
   );
 }
 
+interface ResourcesHeaderSearchProps {
+  feedback?: string;
+  isFocused: boolean;
+  isResolvingLocation: boolean;
+  location: ResourceSearchLocation;
+  matches: readonly ResourceManualLocationOption[];
+  text: string;
+}
+
+interface ResourcesHeaderFiltersProps {
+  selectedCategoryIds: readonly ResourceCategoryId[];
+}
+
+interface ResourcesHeaderMapProps {
+  cameraCenter?: ResourceCoordinate;
+  isScreenFocused: boolean;
+  mountKey: number;
+  selectedProviderId?: string;
+}
+
+interface ResourcesHeaderActions {
+  onMapCameraCenterChange: (coordinate: ResourceCoordinate) => void;
+  onManualSearchBlur: () => void;
+  onManualSearchFocus: () => void;
+  onManualSearchSubmit: () => void;
+  onManualSearchTextChange: (value: string) => void;
+  onModeChange: (mode: ResourcesDirectoryMode) => void;
+  onNoticeAction: (kind: ResourceNoticeAction["kind"]) => void;
+  onOpenProvider?: (providerId: string) => void;
+  onSelectAllCategories: () => void;
+  onSelectManualLocation: (option: ResourceManualLocationOption) => void;
+  onSelectMapProvider: (providerId: string) => void;
+  onToggleCategory: (categoryId: ResourceCategoryId) => void;
+  onUseCurrentLocationPress: () => void;
+}
+
 function ResourcesHeader({
-  viewModel,
+  actions,
+  filters,
+  map,
   mode,
-  location,
-  manualLocationMatches,
-  manualSearchFeedback,
-  manualSearchText,
-  selectedCategoryIds,
-  selectedMapProviderId,
-  mapCameraCenter,
-  isManualSearchFocused,
-  isResolvingLocation,
-  onModeChange,
-  onManualSearchTextChange,
-  onManualSearchFocus,
-  onManualSearchBlur,
-  onManualSearchSubmit,
-  onSelectManualLocation,
-  onUseCurrentLocationPress,
-  onSelectAllCategories,
-  onToggleCategory,
-  onOpenProvider,
-  onSelectMapProvider,
-  onMapCameraCenterChange,
-  onNoticeAction,
+  search,
+  viewModel,
 }: {
+  actions: ResourcesHeaderActions;
+  filters: ResourcesHeaderFiltersProps;
+  map: ResourcesHeaderMapProps;
   viewModel: ResourcesDirectoryViewModel;
   mode: ResourcesDirectoryMode;
-  location: ResourceSearchLocation;
-  manualLocationMatches: readonly ResourceManualLocationOption[];
-  manualSearchFeedback?: string;
-  manualSearchText: string;
-  selectedCategoryIds: readonly ResourceCategoryId[];
-  selectedMapProviderId?: string;
-  mapCameraCenter?: ResourceCoordinate;
-  isManualSearchFocused: boolean;
-  isResolvingLocation: boolean;
-  onModeChange: (mode: ResourcesDirectoryMode) => void;
-  onManualSearchTextChange: (value: string) => void;
-  onManualSearchFocus: () => void;
-  onManualSearchBlur: () => void;
-  onManualSearchSubmit: () => void;
-  onSelectManualLocation: (option: ResourceManualLocationOption) => void;
-  onUseCurrentLocationPress: () => void;
-  onSelectAllCategories: () => void;
-  onToggleCategory: (categoryId: ResourceCategoryId) => void;
-  onOpenProvider?: (providerId: string) => void;
-  onSelectMapProvider: (providerId: string) => void;
-  onMapCameraCenterChange: (coordinate: ResourceCoordinate) => void;
-  onNoticeAction: (kind: ResourceNoticeAction["kind"]) => void;
+  search: ResourcesHeaderSearchProps;
 }) {
   return (
     <View style={styles.header}>
       <ResourcesHeaderTitle locationLabel={viewModel.location.label} />
       <ResourcesSearchSection
-        isFocused={isManualSearchFocused}
-        isResolvingLocation={isResolvingLocation}
-        manualSearchFeedback={manualSearchFeedback}
-        manualSearchText={manualSearchText}
-        matches={manualLocationMatches}
-        selectedLocationLabel={getSelectedManualLocationLabel(location)}
-        onBlur={onManualSearchBlur}
-        onChangeText={onManualSearchTextChange}
-        onFocus={onManualSearchFocus}
-        onSelectManualLocation={onSelectManualLocation}
-        onSubmit={onManualSearchSubmit}
-        onUseCurrentLocationPress={onUseCurrentLocationPress}
+        isFocused={search.isFocused}
+        isResolvingLocation={search.isResolvingLocation}
+        manualSearchFeedback={search.feedback}
+        manualSearchText={search.text}
+        matches={search.matches}
+        selectedLocationLabel={getSelectedManualLocationLabel(search.location)}
+        onBlur={actions.onManualSearchBlur}
+        onChangeText={actions.onManualSearchTextChange}
+        onFocus={actions.onManualSearchFocus}
+        onSelectManualLocation={actions.onSelectManualLocation}
+        onSubmit={actions.onManualSearchSubmit}
+        onUseCurrentLocationPress={actions.onUseCurrentLocationPress}
       />
 
       <ResourcesTrustSummary viewModel={viewModel} />
 
-      <ResourcesModeSelector activeMode={mode} onModeChange={onModeChange} />
+      <ResourcesModeSelector
+        activeMode={mode}
+        onModeChange={actions.onModeChange}
+      />
       <ResourceCategoryFilterRow
         categories={viewModel.categories}
         resultSummaryLabel={viewModel.resultSummaryLabel}
-        selectedCategoryIds={selectedCategoryIds}
-        onSelectAllCategories={onSelectAllCategories}
-        onToggleCategory={onToggleCategory}
+        selectedCategoryIds={filters.selectedCategoryIds}
+        onSelectAllCategories={actions.onSelectAllCategories}
+        onToggleCategory={actions.onToggleCategory}
       />
 
       <ResourcesMapSlot
-        cameraCenter={mapCameraCenter}
-        location={location}
+        cameraCenter={map.cameraCenter}
+        mapMountKey={map.mountKey}
+        isVisible={map.isScreenFocused}
+        location={search.location}
         mode={mode}
-        onCameraCenterChange={onMapCameraCenterChange}
-        onOpenProvider={onOpenProvider}
-        onSelectProvider={onSelectMapProvider}
-        selectedProviderId={selectedMapProviderId}
+        onCameraCenterChange={actions.onMapCameraCenterChange}
+        onOpenProvider={actions.onOpenProvider}
+        onSelectProvider={actions.onSelectMapProvider}
+        selectedProviderId={map.selectedProviderId}
         viewModel={viewModel}
       />
       <ResourcesNoticeSlot
         viewModel={viewModel}
-        onNoticeAction={onNoticeAction}
+        onNoticeAction={actions.onNoticeAction}
       />
     </View>
   );
@@ -630,6 +672,8 @@ function ResourcesHeader({
 
 function ResourcesMapSlot({
   cameraCenter,
+  mapMountKey,
+  isVisible,
   location,
   mode,
   onCameraCenterChange,
@@ -639,6 +683,8 @@ function ResourcesMapSlot({
   viewModel,
 }: {
   cameraCenter?: ResourceCoordinate;
+  mapMountKey: number;
+  isVisible: boolean;
   location: ResourceSearchLocation;
   mode: ResourcesDirectoryMode;
   onCameraCenterChange: (coordinate: ResourceCoordinate) => void;
@@ -647,13 +693,14 @@ function ResourcesMapSlot({
   selectedProviderId?: string;
   viewModel: ResourcesDirectoryViewModel;
 }) {
-  if (mode !== "map") {
+  if (mode !== "map" || !isVisible) {
     return null;
   }
 
   return (
     <ResourcesMapPanel
       cameraCenter={cameraCenter}
+      mapMountKey={mapMountKey}
       location={location}
       onCameraCenterChange={onCameraCenterChange}
       onOpenProvider={onOpenProvider}
@@ -843,7 +890,13 @@ function ResourceCategoryFilterRow({
 
   return (
     <View style={styles.categorySection}>
-      <View style={styles.categoriesBlock}>
+      <ScrollView
+        accessibilityLabel="Filtros de servicios"
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categoriesContent}
+        style={styles.categoriesRail}
+      >
         <Pressable
           accessibilityLabel="Todos los servicios"
           accessibilityRole="button"
@@ -866,18 +919,16 @@ function ResourceCategoryFilterRow({
             Todos
           </Text>
         </Pressable>
-        <View style={styles.categoryList}>
-          {categories.map((category) => (
-            <CategoryChip
-              key={category.id}
-              id={category.id}
-              label={category.label}
-              isSelected={category.isSelected}
-              onToggleCategory={onToggleCategory}
-            />
-          ))}
-        </View>
-      </View>
+        {categories.map((category) => (
+          <CategoryChip
+            key={category.id}
+            id={category.id}
+            label={category.label}
+            isSelected={category.isSelected}
+            onToggleCategory={onToggleCategory}
+          />
+        ))}
+      </ScrollView>
 
       <Text selectable style={styles.resultSummary}>
         {resultSummaryLabel}
@@ -1074,6 +1125,7 @@ function ManualLocationChip({
 
 function ResourcesMapPanel({
   cameraCenter,
+  mapMountKey,
   location,
   onCameraCenterChange,
   onOpenProvider,
@@ -1082,6 +1134,7 @@ function ResourcesMapPanel({
   viewModel,
 }: {
   cameraCenter?: ResourceCoordinate;
+  mapMountKey: number;
   location: ResourceSearchLocation;
   onCameraCenterChange: (coordinate: ResourceCoordinate) => void;
   onOpenProvider?: (providerId: string) => void;
@@ -1134,11 +1187,13 @@ function ResourcesMapPanel({
       ) : (
         <View style={styles.resourceMapFrame}>
           <MapView
+            key={`resources-map:${mapMountKey}`}
             initialRegion={buildResourceMapRegion({
               cameraCenter,
               currentLocation,
               pins,
             })}
+            liteMode={Platform.OS === "android"}
             loadingEnabled
             mapPadding={{ bottom: 12, left: 12, right: 12, top: 12 }}
             onRegionChangeComplete={(region) =>
@@ -1148,42 +1203,23 @@ function ResourcesMapPanel({
               })
             }
             provider={getNativeMapProvider()}
+            showsBuildings={false}
+            showsIndoors={false}
+            showsPointsOfInterest={false}
+            showsTraffic={false}
             style={styles.resourceMap}
+            toolbarEnabled={false}
           >
             {pins.map((provider) => (
-              <Marker
-                coordinate={provider.approximateLocation}
-                identifier={provider.id}
+              <ResourceProviderMapMarker
+                isSelected={provider.id === selectedProvider?.id}
                 key={provider.id}
-                onPress={() => onSelectProvider(provider.id)}
-                title={provider.name}
-              >
-                <View
-                  style={[
-                    styles.resourceMapMarker,
-                    provider.id === selectedProvider?.id
-                      ? styles.resourceMapMarkerSelected
-                      : null,
-                  ]}
-                >
-                  <ResourceScreenIcon
-                    color={resourcesColors.surface}
-                    name={getMapMarkerIcon(provider.categoryLabel)}
-                    size={18}
-                  />
-                </View>
-              </Marker>
+                provider={provider}
+                onSelectProvider={onSelectProvider}
+              />
             ))}
             {currentLocation ? (
-              <Marker
-                coordinate={currentLocation}
-                identifier="resource-search-origin"
-                title="Zona de búsqueda"
-              >
-                <View style={styles.currentLocationMarker}>
-                  <View style={styles.currentLocationDot} />
-                </View>
-              </Marker>
+              <ResourceSearchOriginMarker coordinate={currentLocation} />
             ) : null}
           </MapView>
         </View>
@@ -1349,6 +1385,107 @@ function getResourceMapProviderOpenLabel(
   provider: ResourceProviderSummaryViewModel,
 ) {
   return `Abrir ${provider.name}`;
+}
+
+function ResourceProviderMapMarker({
+  isSelected,
+  provider,
+  onSelectProvider,
+}: {
+  isSelected: boolean;
+  provider: ResourceProviderSummaryViewModel & {
+    approximateLocation: ResourceCoordinate;
+  };
+  onSelectProvider: (providerId: string) => void;
+}) {
+  const handlePress = useCallback(() => {
+    onSelectProvider(provider.id);
+  }, [onSelectProvider, provider.id]);
+
+  if (Platform.OS === "android") {
+    return (
+      <Marker
+        coordinate={provider.approximateLocation}
+        identifier={provider.id}
+        onPress={handlePress}
+        pinColor={
+          isSelected ? resourcesColors.primary : resourcesColors.secondary
+        }
+        title={provider.name}
+        tracksViewChanges={false}
+      />
+    );
+  }
+
+  return (
+    <Marker
+      coordinate={provider.approximateLocation}
+      identifier={provider.id}
+      onPress={handlePress}
+      title={provider.name}
+      tracksViewChanges={false}
+    >
+      <View
+        style={[
+          styles.resourceMapMarker,
+          isSelected ? styles.resourceMapMarkerSelected : null,
+        ]}
+      >
+        <ResourceScreenIcon
+          color={resourcesColors.surface}
+          name={getMapMarkerIcon(provider.categoryLabel)}
+          size={18}
+        />
+      </View>
+    </Marker>
+  );
+}
+
+function ResourceSearchOriginMarker({
+  coordinate,
+}: {
+  coordinate: ResourceCoordinate;
+}) {
+  if (Platform.OS === "android") {
+    return (
+      <Marker
+        coordinate={coordinate}
+        identifier="resource-search-origin"
+        pinColor={resourcesColors.tertiary}
+        title="Zona de búsqueda"
+        tracksViewChanges={false}
+      />
+    );
+  }
+
+  return (
+    <Marker
+      coordinate={coordinate}
+      identifier="resource-search-origin"
+      title="Zona de búsqueda"
+      tracksViewChanges={false}
+    >
+      <View style={styles.currentLocationMarker}>
+        <View style={styles.currentLocationDot} />
+      </View>
+    </Marker>
+  );
+}
+
+function useResourceRouteFocusState() {
+  const [isFocused, setIsFocused] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+
+      return () => {
+        setIsFocused(false);
+      };
+    }, []),
+  );
+
+  return isFocused;
 }
 
 function ResourcesMapStatusPanel({
@@ -1851,32 +1988,29 @@ const styles = StyleSheet.create({
   modeTextActive: {
     color: resourcesColors.surface,
   },
-  categoriesBlock: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    flexWrap: "wrap",
-    gap: 8,
-  },
   categorySection: {
-    gap: 8,
+    gap: 6,
   },
-  categoryList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    flexShrink: 1,
+  categoriesRail: {
+    marginHorizontal: -2,
+    maxHeight: 38,
+  },
+  categoriesContent: {
+    alignItems: "center",
     gap: 8,
-    minWidth: 0,
+    minHeight: 38,
+    paddingHorizontal: 2,
   },
   categoryChip: {
     flexShrink: 0,
-    minHeight: 40,
+    minHeight: 36,
     justifyContent: "center",
     borderRadius: 999,
     backgroundColor: resourcesColors.surface,
     borderWidth: 1,
     borderColor: resourcesColors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
   categoryChipSelected: {
     backgroundColor: resourcesColors.primary,
@@ -1884,8 +2018,8 @@ const styles = StyleSheet.create({
   },
   categoryChipText: {
     color: resourcesColors.muted,
-    fontSize: 14,
-    lineHeight: 17,
+    fontSize: 13,
+    lineHeight: 16,
     fontWeight: "800",
   },
   categoryChipTextSelected: {

@@ -3,13 +3,13 @@ import { Pressable, Text, View } from "react-native";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { NearbyLocationAdapter } from "../nearby/nearby-location-adapter";
+import type { ReportMediaDraftSnapshot } from "../report-media";
+import type { LostReportDraft } from "./lost-report-creation-types";
+import type { LostReportSuccessLocalSponsorPlacement } from "./lost-report-creation-view-model";
 import {
   getSponsorPlacementReportFailureMessage,
   getSponsorPlacementReportReceiptMessage,
 } from "../report-creation/report-creation-success-sponsors";
-import type { ReportMediaDraftSnapshot } from "../report-media";
-import type { LostReportDraft } from "./lost-report-creation-types";
-import type { LostReportSuccessLocalSponsorPlacement } from "./lost-report-creation-view-model";
 import { lostReportCreationFixtures } from "./lost-report-creation-fixtures";
 import { LostReportCreationScreen } from "./lost-report-creation-screen";
 import {
@@ -60,7 +60,7 @@ const reactState = vi.hoisted(() => ({
 }));
 const successSponsorPlacement: LostReportSuccessLocalSponsorPlacement = {
   actionLabel: "Ver recurso",
-  body: "Atencion veterinaria local para reportes recientes.",
+  body: "Atención veterinaria local para reportes recientes.",
   categoryLabel: "Veterinaria",
   eligibleSurfaces: ["report_success", "contextual_care_resources"],
   id: "11111111-1111-4111-8111-111111111111",
@@ -225,11 +225,11 @@ describe("lost report success sponsor reporting copy", () => {
   it.each([
     [
       "created",
-      "Reporte enviado. Moderacion revisara este proveedor con la informacion recibida.",
+      "Reporte enviado. Moderación revisará este proveedor con la información recibida.",
     ],
     [
       "already_reported",
-      "Ya recibimos tu reporte sobre este proveedor. Moderacion lo mantiene en revision.",
+      "Ya recibimos tu reporte sobre este proveedor. Moderación lo mantiene en revisión.",
     ],
   ] as const)(
     "maps %s receipts to backend-confirmed copy",
@@ -420,7 +420,7 @@ describe("LostReportCreationScreen", () => {
     expect(
       findText(screen, "Conversaciones dentro de Rastro con notificaciones."),
     ).toBe(false);
-    expect(findText(screen, "Ubicacion publica")).toBe(false);
+    expect(findText(screen, "Ubicación pública")).toBe(false);
     expect(findText(screen, "Agrega al menos una foto.")).toBe(false);
   });
 
@@ -480,7 +480,7 @@ describe("LostReportCreationScreen", () => {
     expect(findText(attemptedScreen, "Ingresa el nombre de la mascota.")).toBe(
       false,
     );
-    expect(findText(attemptedScreen, "Ubicacion publica")).toBe(false);
+    expect(findText(attemptedScreen, "Ubicación pública")).toBe(false);
   });
 
   it("advances ready-photo drafts to details and returns to photos without rendering every section", async () => {
@@ -514,7 +514,7 @@ describe("LostReportCreationScreen", () => {
         "Conversaciones dentro de Rastro con notificaciones.",
       ),
     ).toBe(false);
-    expect(findText(detailsScreen, "Ubicacion publica")).toBe(false);
+    expect(findText(detailsScreen, "Ubicación pública")).toBe(false);
     expect(findText(detailsScreen, "Agrega al menos una foto.")).toBe(false);
 
     const backButton = findElement(
@@ -1095,9 +1095,7 @@ function findText(node: React.ReactNode, text: string): boolean {
     return true;
   }
 
-  return getSearchChildren(rendered).some((child) =>
-    findText(child, text),
-  );
+  return getSearchChildren(rendered).some((child) => findText(child, text));
 }
 
 function findElement(
@@ -1176,10 +1174,7 @@ function recordVisibleSponsorItems(
   const onViewableItemsChanged = sponsorList?.props.onViewableItemsChanged;
   const data = sponsorList?.props.data;
 
-  if (
-    !isUnknownArray(data) ||
-    typeof onViewableItemsChanged !== "function"
-  ) {
+  if (!isUnknownArray(data) || typeof onViewableItemsChanged !== "function") {
     throw new Error("Expected report success sponsor FlatList.");
   }
 

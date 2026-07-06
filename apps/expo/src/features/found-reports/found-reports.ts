@@ -1,3 +1,6 @@
+import type { PublicFoundReportShareTarget } from "@acme/validators";
+import { buildPublicFoundReportShareTarget } from "@acme/validators";
+
 import type {
   PetProfilesSessionState,
   PetProfileType,
@@ -108,20 +111,6 @@ export interface PublishFoundPetReportInput {
   pet: FoundPetReportPetSnapshot;
   photos: readonly PetProfilePhotoSource[];
   showExactPublicLocation?: boolean;
-}
-
-interface PublicFoundReportShareTargetInput {
-  publicWebBaseUrl: string;
-  reportId: string;
-  title: string;
-}
-
-export interface PublicFoundReportShareTarget {
-  appDeepLink: string;
-  message: string;
-  path: string;
-  title: string;
-  webUrl: string;
 }
 
 export interface FoundPetReport {
@@ -273,38 +262,16 @@ export interface InMemoryFoundPetReportRepositoryOptions {
   mediaAdapter?: PetProfileMediaAdapter;
   now?: () => string;
   publicWebBaseUrl?: string;
+  reportIdFactory?: (sequence: number) => string;
   trustSafety?: TrustSafetyRepository;
 }
 
 const defaultPublicWebBaseUrl = "https://rastro.bo";
-const publicFoundReportPathPrefix = "/reportes/encontrados";
 
 export interface ReportFoundPetReportInput {
   detail?: string;
   reason: SubmitTrustSafetyReportInput["reason"];
   reportId: string;
-}
-
-function publicFoundReportPathForId(reportId: string) {
-  return `${publicFoundReportPathPrefix}/${encodeURIComponent(reportId)}`;
-}
-
-function buildPublicFoundReportShareTarget({
-  publicWebBaseUrl,
-  reportId,
-  title,
-}: PublicFoundReportShareTargetInput): PublicFoundReportShareTarget {
-  const path = publicFoundReportPathForId(reportId);
-  const webUrl = `${publicWebBaseUrl.replace(/\/+$/, "")}${path}`;
-  const shareTitle = `Mascota encontrada: ${title}`;
-
-  return {
-    appDeepLink: `rastro://${path.replace(/^\//, "")}`,
-    message: `Ayuda a reunir a ${title} en Rastro: ${webUrl}`,
-    path,
-    title: shareTitle,
-    webUrl,
-  };
 }
 
 export function createInMemoryFoundPetReportRepository(
@@ -314,6 +281,8 @@ export function createInMemoryFoundPetReportRepository(
     options.mediaAdapter ?? createLocalPetProfileMediaAdapter();
   const now = options.now ?? (() => "2026-01-01T00:00:00.000Z");
   const publicWebBaseUrl = options.publicWebBaseUrl ?? defaultPublicWebBaseUrl;
+  const reportIdFactory =
+    options.reportIdFactory ?? createSequentialFoundPetReportId;
   const trustSafety =
     options.trustSafety ?? createInMemoryTrustSafetyRepository({ now });
   const reports: FoundPetReport[] = [];
@@ -331,7 +300,7 @@ export function createInMemoryFoundPetReportRepository(
       assertPublishInput(input);
 
       const createdAt = now();
-      const id = `found-report-${reports.length + 1}`;
+      const id = reportIdFactory(reports.length + 1);
       const petSnapshot = {
         breed: input.pet.breed.trim(),
         description: input.pet.description.trim(),
@@ -439,6 +408,10 @@ export function createInMemoryFoundPetReportRepository(
   };
 }
 
+function createSequentialFoundPetReportId(sequence: number) {
+  return `33333333-3333-4333-8333-${String(sequence).padStart(12, "0")}`;
+}
+
 function assertMemberCanPublishFoundPetReport(
   session: FoundReportsSessionState,
 ): asserts session is Extract<FoundReportsSessionState, { kind: "member" }> {
@@ -510,7 +483,7 @@ function buildPublicLocation(
     return {
       addressLabel: input.exactLocation.addressLabel,
       kind: "exact",
-      label: input.exactLocation.addressLabel ?? "Ubicacion exacta",
+      label: input.exactLocation.addressLabel ?? "Ubicación exacta",
       latitude: input.exactLocation.latitude,
       longitude: input.exactLocation.longitude,
     };
@@ -611,7 +584,7 @@ function toPublicDetailLocation(
 ): PublicFoundPetReportDetail["publicLocation"] {
   return toPublicReportDetailLocation(
     publicLocation,
-    "Ubicacion exacta compartida por quien encontro la mascota.",
+    "Ubicación exacta compartida por quien encontró la mascota.",
   );
 }
 

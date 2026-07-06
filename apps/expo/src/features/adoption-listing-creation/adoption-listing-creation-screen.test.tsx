@@ -256,7 +256,7 @@ describe("AdoptionListingCreationScreen", () => {
     expect(findText(screen, "Paso 1 de 5")).toBe(true);
     expect(findText(screen, "Mascota")).toBe(true);
     expect(findText(screen, "Antes de abrir tus fotos")).toBe(true);
-    expect(findText(screen, "Detalles de adopcion")).toBe(false);
+    expect(findText(screen, "Detalles de adopción")).toBe(false);
     expect(findText(screen, "Chat en Rastro")).toBe(false);
     expect(findText(screen, "Insignia")).toBe(false);
     expect(findText(screen, "Agrega al menos una foto.")).toBe(false);
@@ -271,7 +271,7 @@ describe("AdoptionListingCreationScreen", () => {
       screen,
       (element) =>
         element.type === "Pressable" &&
-        element.props.accessibilityLabel === "Volver de adopcion",
+        element.props.accessibilityLabel === "Volver de adopción",
     );
 
     void getPressableOnPress(routeBackButton)();
@@ -316,7 +316,7 @@ describe("AdoptionListingCreationScreen", () => {
 
     expect(findText(attemptedScreen, "Paso 1 de 5")).toBe(true);
     expect(findText(attemptedScreen, "Agrega al menos una foto.")).toBe(true);
-    expect(findText(attemptedScreen, "Detalles de adopcion")).toBe(false);
+    expect(findText(attemptedScreen, "Detalles de adopción")).toBe(false);
     expect(
       findText(attemptedScreen, "Cuenta que tipo de hogar necesita."),
     ).toBe(false);
@@ -354,7 +354,7 @@ describe("AdoptionListingCreationScreen", () => {
     );
 
     expect(findText(detailsScreen, "Paso 2 de 5")).toBe(true);
-    expect(findText(detailsScreen, "Detalles de adopcion")).toBe(true);
+    expect(findText(detailsScreen, "Detalles de adopción")).toBe(true);
     expect(findText(detailsScreen, "Antes de abrir tus fotos")).toBe(false);
     expect(findText(detailsScreen, "Chat en Rastro")).toBe(false);
     expect(findText(detailsScreen, "Insignia")).toBe(false);
@@ -374,7 +374,7 @@ describe("AdoptionListingCreationScreen", () => {
 
     expect(findText(photosScreen, "Paso 1 de 5")).toBe(true);
     expect(findText(photosScreen, "Antes de abrir tus fotos")).toBe(true);
-    expect(findText(photosScreen, "Detalles de adopcion")).toBe(false);
+    expect(findText(photosScreen, "Detalles de adopción")).toBe(false);
     expect(
       findElement(
         photosScreen,
@@ -403,7 +403,7 @@ describe("AdoptionListingCreationScreen", () => {
     );
 
     expect(findText(editedFreshScreen, "Paso 2 de 5")).toBe(true);
-    expect(findText(editedFreshScreen, "Detalles de adopcion")).toBe(true);
+    expect(findText(editedFreshScreen, "Detalles de adopción")).toBe(true);
 
     const discardButton = findElement(
       editedFreshScreen,
@@ -430,7 +430,7 @@ describe("AdoptionListingCreationScreen", () => {
     );
     expect(findText(resetScreen, "Paso 1 de 5")).toBe(true);
     expect(findText(resetScreen, "Antes de abrir tus fotos")).toBe(true);
-    expect(findText(resetScreen, "Detalles de adopcion")).toBe(false);
+    expect(findText(resetScreen, "Detalles de adopción")).toBe(false);
     expect(
       findElement(
         resetScreen,
@@ -441,7 +441,7 @@ describe("AdoptionListingCreationScreen", () => {
 
   it("adds photos from an injected media source instead of fixture samples", async () => {
     const pickAdoptionListingPhoto = vi.fn().mockResolvedValue({
-      alt: "Foto de adopcion subida",
+      alt: "Foto de adopción subida",
       id: "adoption-local-1",
       mediaId: "adoption-media-1",
       originalUri: "file:///adoption-original.jpg",
@@ -463,7 +463,7 @@ describe("AdoptionListingCreationScreen", () => {
     expect(pickAdoptionListingPhoto).toHaveBeenCalledTimes(1);
     expect(durableDraft.draft?.photos).toEqual([
       {
-        alt: "Foto de adopcion subida",
+        alt: "Foto de adopción subida",
         id: "adoption-local-1",
         mediaId: "adoption-media-1",
         originalUri: "file:///adoption-original.jpg",
@@ -495,7 +495,7 @@ describe("AdoptionListingCreationScreen", () => {
     const publishButton = findElement(
       screen,
       (element) =>
-        element.type === "Pressable" && findText(element, "Publicar adopcion"),
+        element.type === "Pressable" && findText(element, "Publicar adopción"),
     );
 
     await getPressableOnPress(publishButton)();
@@ -519,11 +519,11 @@ describe("AdoptionListingCreationScreen", () => {
     );
 
     expect(findText(confirmationScreen, "Confirmar publicacion")).toBe(true);
-    expect(findText(confirmationScreen, "Adopcion")).toBe(true);
+    expect(findText(confirmationScreen, "Adopción")).toBe(true);
     expect(
       findText(
         confirmationScreen,
-        "Publica o pendiente de revision por Review Mode",
+        "Pública o pendiente de revisión por Review Mode",
       ),
     ).toBe(true);
 
@@ -546,7 +546,7 @@ describe("AdoptionListingCreationScreen", () => {
     const viewListingButton = findElement(
       successScreen,
       (element) =>
-        element.type === "Pressable" && findText(element, "Ver adopcion"),
+        element.type === "Pressable" && findText(element, "Ver adopción"),
     );
 
     void getPressableOnPress(shareButton)();
@@ -589,7 +589,7 @@ describe("AdoptionListingCreationScreen", () => {
     const publishButton = findElement(
       screen,
       (element) =>
-        element.type === "Pressable" && findText(element, "Publicar adopcion"),
+        element.type === "Pressable" && findText(element, "Publicar adopción"),
     );
 
     await getPressableOnPress(publishButton)();
@@ -637,7 +637,7 @@ describe("AdoptionListingCreationScreen", () => {
     expect(publishAdoptionListing).toHaveBeenCalledTimes(1);
     expect(durableDraft.clearDraft).toHaveBeenCalledTimes(1);
     expect(draftPublished).toHaveBeenCalledTimes(1);
-    expect(findText(successScreen, "Adopcion enviada a revision")).toBe(true);
+    expect(findText(successScreen, "Adopción enviada a revisión")).toBe(true);
     expect(findText(successScreen, "Review Mode")).toBe(true);
     expect(shareButton?.props.disabled).toBe(true);
     expect(sharePublishedListing).not.toHaveBeenCalled();
@@ -660,7 +660,7 @@ describe("AdoptionListingCreationScreen", () => {
       (element) => element.type === "Pressable" && findText(element, "Atrás"),
     );
 
-    expect(findText(reviewScreen, "Publicar adopcion")).toBe(true);
+    expect(findText(reviewScreen, "Publicar adopción")).toBe(true);
     expect(findText(reviewScreen, "Continuar")).toBe(false);
 
     void getPressableOnPress(backButton)();
@@ -672,7 +672,7 @@ describe("AdoptionListingCreationScreen", () => {
     );
 
     expect(findText(contactScreen, "Contacto")).toBe(true);
-    expect(findText(contactScreen, "Publicar adopcion")).toBe(false);
+    expect(findText(contactScreen, "Publicar adopción")).toBe(false);
     expect(findText(contactScreen, "Continuar")).toBe(true);
   });
 

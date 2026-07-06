@@ -251,7 +251,7 @@ describe("FoundReportCreationScreen", () => {
     expect(findText(screen, "Paso 1 de 5")).toBe(true);
     expect(findText(screen, "Antes de abrir tus fotos")).toBe(true);
     expect(findText(screen, "Detalles de la encontrada")).toBe(false);
-    expect(findText(screen, "Ubicacion y privacidad")).toBe(false);
+    expect(findText(screen, "Ubicación y privacidad")).toBe(false);
     expect(findText(screen, "Chat en Rastro")).toBe(false);
     expect(findText(screen, "Completar datos")).toBe(false);
     expect(findText(screen, "Agrega al menos una foto.")).toBe(false);
@@ -348,7 +348,7 @@ describe("FoundReportCreationScreen", () => {
     expect(findText(detailsScreen, "Paso 2 de 5")).toBe(true);
     expect(findText(detailsScreen, "Detalles de la encontrada")).toBe(true);
     expect(findText(detailsScreen, "Antes de abrir tus fotos")).toBe(false);
-    expect(findText(detailsScreen, "Ubicacion y privacidad")).toBe(false);
+    expect(findText(detailsScreen, "Ubicación y privacidad")).toBe(false);
     expect(findText(detailsScreen, "Chat en Rastro")).toBe(false);
 
     const backButton = findElement(

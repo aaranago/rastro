@@ -18,10 +18,10 @@ export const metadata: Metadata = {
       : "http://localhost:3000",
   ),
   title: "Rastro",
-  description: "Red de recuperacion de mascotas en Bolivia",
+  description: "Red de recuperación de mascotas en Bolivia",
   openGraph: {
     title: "Rastro",
-    description: "Red de recuperacion de mascotas en Bolivia",
+    description: "Red de recuperación de mascotas en Bolivia",
     url: env.VERCEL_PROJECT_PRODUCTION_URL
       ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}`
       : "http://localhost:3000",

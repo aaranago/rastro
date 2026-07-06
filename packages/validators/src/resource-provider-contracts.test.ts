@@ -31,7 +31,7 @@ const createProviderInput = {
   category: "veterinary",
   description: "Veterinaria local con atencion general y urgencias.",
   shortDescription:
-    "Atencion veterinaria general y orientacion para familias cuidadoras.",
+    "Atención veterinaria general y orientación para familias cuidadoras.",
   location: {
     exactLatitude: -16.510231,
     exactLongitude: -68.123881,
@@ -445,12 +445,12 @@ describe("resource provider validation contracts", () => {
         id: "clinic-san-roque",
         name: "Clinica Veterinaria San Roque",
         categoryId: "veterinary",
-        description: "Veterinaria local con atencion general y urgencias.",
+        description: "Veterinaria local con atención general y urgencias.",
         approximateLocationLabel: "Sopocachi, La Paz",
         serviceAreaLabel: "Atiende La Paz y El Alto",
         hoursLabel: "Lun - Dom: 24 horas",
         shortDescription:
-          "Atencion veterinaria general y orientacion para familias cuidadoras.",
+          "Atención veterinaria general y orientación para familias cuidadoras.",
         contactOptions: [
           {
             kind: "phone",
@@ -543,12 +543,12 @@ describe("resource provider validation contracts", () => {
       id: "11111111-1111-4111-8111-111111111111",
       name: "Clinica Veterinaria San Roque",
       categoryId: "veterinary",
-      description: "Veterinaria local con atencion general y urgencias.",
+      description: "Veterinaria local con atención general y urgencias.",
       approximateLocationLabel: "Sopocachi, La Paz",
       serviceAreaLabel: "Atiende La Paz y El Alto",
       hoursLabel: "Lun - Dom: 24 horas",
       shortDescription:
-        "Atencion veterinaria general y orientacion para familias cuidadoras.",
+        "Atención veterinaria general y orientación para familias cuidadoras.",
       contactOptions: [
         {
           kind: "phone",
@@ -806,7 +806,7 @@ describe("resource provider validation contracts", () => {
       serviceAreaLabel: "Atiende La Paz y El Alto",
       hoursLabel: "Lun - Dom: 24 horas",
       shortDescription:
-        "Atencion veterinaria general y orientacion para familias cuidadoras.",
+        "Atención veterinaria general y orientación para familias cuidadoras.",
       contactOptions: [
         {
           kind: "phone",

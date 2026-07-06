@@ -10,6 +10,7 @@ import type {
   ReportCreationJourney,
   ReportCreationJourneyStepId,
 } from "../report-creation/report-creation-journey";
+import type { ReportCreationSponsorDeliveryInput } from "../report-creation/report-creation-success-sponsors";
 import type { ReportCreationFieldViewModel } from "../report-creation/report-creation-ui";
 import type {
   ReportMediaDraftSnapshot,
@@ -36,6 +37,7 @@ import {
   retreatReportCreationJourney,
 } from "../report-creation/report-creation-journey";
 import { publishReportCreation } from "../report-creation/report-creation-publish";
+import { ReportCreationSuccessSponsorStack } from "../report-creation/report-creation-success-sponsors";
 import {
   ReportCreationActionButton,
   ReportCreationContactOptionSection,
@@ -56,8 +58,6 @@ import {
   ReportCreationToggleRow,
   useReportCreationPublishedResultActions,
 } from "../report-creation/report-creation-ui";
-import type { ReportCreationSponsorDeliveryInput } from "../report-creation/report-creation-success-sponsors";
-import { ReportCreationSuccessSponsorStack } from "../report-creation/report-creation-success-sponsors";
 import { ReportLocationPickerScreen } from "../report-location-picker";
 import { useReportLocationPickerDraft } from "../report-location-picker/use-report-location-picker";
 import { reportMediaSnapshotToCreationPhotos } from "../report-media";
@@ -1100,7 +1100,7 @@ function LocationPrivacySection({
   viewModel: LostReportCreationViewModel;
 }) {
   return (
-    <Section title="Ubicacion y privacidad">
+    <Section title="Ubicación y privacidad">
       <ReportCreationLocationPreview
         accentColor={shellColors.primary}
         coordinates={coordinates}
@@ -1109,7 +1109,7 @@ function LocationPrivacySection({
       />
       <InfoRow
         icon="location.fill"
-        label="Ubicacion interna"
+        label="Ubicación interna"
         value={viewModel.location.exactInternalLabel}
       />
       <InfoRow

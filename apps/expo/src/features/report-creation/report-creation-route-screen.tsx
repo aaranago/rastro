@@ -535,7 +535,9 @@ function createSelectedLostReportInitialDraft({
   petProfiles,
   profileId,
 }: {
-  petProfiles: Parameters<typeof createInitialLostReportDraft>[0]["petProfiles"];
+  petProfiles: Parameters<
+    typeof createInitialLostReportDraft
+  >[0]["petProfiles"];
   profileId?: string;
 }) {
   if (!profileId) {
@@ -869,9 +871,9 @@ function buildCreatedReportShareTarget({
     case "adoption-listing":
       return {
         appDeepLink,
-        message: `Conoce esta mascota en adopcion en Rastro: ${webUrl}`,
+        message: `Conoce esta mascota en adopción en Rastro: ${webUrl}`,
         path,
-        title: "Mascota en adopcion en Rastro",
+        title: "Mascota en adopción en Rastro",
         webUrl,
       };
     case "found-pet-report":

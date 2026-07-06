@@ -1096,12 +1096,12 @@ function toTestIdSegment(value: string) {
 }
 
 function getCompactSubjectLinkLabel(subject: ChatSubject) {
-  return subject.kind === "adoption-listing" ? "Ver adopcion" : "Ver reporte";
+  return subject.kind === "adoption-listing" ? "Ver adopción" : "Ver reporte";
 }
 
 function getSubjectKindLabel(subject: ChatSubject) {
   return subject.kind === "adoption-listing"
-    ? "Adopcion vinculada"
+    ? "Adopción vinculada"
     : "Reporte vinculado";
 }
 

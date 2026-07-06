@@ -428,7 +428,7 @@ function validateSightingReportDraft(draft: SightingReportDraft) {
     draft.contact.whatsappEnabled &&
     draft.contact.whatsappPhone.trim().length === 0
   ) {
-    errors.push("Ingresa un numero de WhatsApp.");
+    errors.push("Ingresa un número de WhatsApp.");
   }
 
   return errors;
@@ -520,7 +520,7 @@ function buildLocationViewModel(draft: SightingReportDraft) {
   return {
     approximatePublicLabel,
     exactInternalLabel,
-    exactPinOptInLabel: "Mostrar pin exacto publicamente",
+    exactPinOptInLabel: "Mostrar pin exacto públicamente",
     hasExactLocation: Boolean(location),
     mapPreviewLabel: location
       ? `${location.locationCellLabel}, Bolivia`
@@ -531,7 +531,7 @@ function buildLocationViewModel(draft: SightingReportDraft) {
     showExactPinPublicly: draft.showExactPinPublicly,
     toggleBody:
       "Por defecto mostramos una zona de 300 m alrededor del pin. Activa el punto exacto solo si no expone a la mascota ni a quien reporta.",
-    toggleLabel: "Mostrar pin exacto publicamente",
+    toggleLabel: "Mostrar pin exacto públicamente",
   };
 }
 
@@ -565,11 +565,11 @@ function buildReviewRows({
       value: draft.sightingDetails.direction || "Pendiente",
     },
     {
-      label: "Ubicacion interna",
+      label: "Ubicación interna",
       value: draft.exactSightingLocation?.addressLabel ?? "Pendiente",
     },
     {
-      label: "Ubicacion publica",
+      label: "Ubicación pública",
       value: draft.showExactPinPublicly
         ? "Punto exacto publico"
         : "Zona aproximada publica",
@@ -602,7 +602,7 @@ function buildSteps({
     {
       id: "location" as const,
       isComplete: Boolean(draft.exactSightingLocation),
-      label: "Ubicacion",
+      label: "Ubicación",
     },
     {
       id: "contact" as const,
@@ -726,7 +726,7 @@ function getContactError(contact: SightingReportContactDraft) {
   }
 
   if (contact.whatsappEnabled && contact.whatsappPhone.trim().length === 0) {
-    return "Ingresa un numero para WhatsApp.";
+    return "Ingresa un número para WhatsApp.";
   }
 
   return undefined;
@@ -764,7 +764,7 @@ function buildContactOptions(currentOption: SightingReportContactOption) {
       value: "chat" as const,
     },
     {
-      body: "Muestra el numero que elijas para coordinar informacion.",
+      body: "Muestra el número que elijas para coordinar información.",
       iconName: "phone.fill",
       isSelected: currentOption === "whatsapp",
       label: "WhatsApp",

@@ -126,6 +126,15 @@ vi.mock("@expo/vector-icons", () => ({
   MaterialCommunityIcons: "MaterialCommunityIcons",
 }));
 
+vi.mock("../icons/safe-material-community-icon", async () => {
+  const actualReact = await vi.importActual<typeof React>("react");
+
+  return {
+    SafeMaterialCommunityIcon: (props: Record<string, unknown>) =>
+      actualReact.createElement("SafeMaterialCommunityIcon", props),
+  };
+});
+
 vi.mock("@nandorojo/galeria", async () => {
   const actualReact = await vi.importActual<typeof React>("react");
   const GaleriaImage = (props: ElementProps) =>
@@ -813,7 +822,7 @@ const profile: ResourceProviderProfileData = {
   serviceAreaLabel: "Atiende La Paz y El Alto",
   hoursLabel: "Lun - Dom: 24 horas",
   shortDescription:
-    "Atencion veterinaria general y orientacion para familias cuidadoras.",
+    "Atención veterinaria general y orientación para familias cuidadoras.",
   isVerified: true,
   logoUrl: "https://example.com/provider-logo.png",
   photoUrl: "https://example.com/provider-photo.png",

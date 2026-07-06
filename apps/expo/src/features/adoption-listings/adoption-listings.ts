@@ -275,6 +275,7 @@ export interface AdoptionListingRepository {
 }
 
 export interface InMemoryAdoptionListingRepositoryOptions {
+  listingIdFactory?: (sequence: number) => string;
   mediaAdapter?: PetProfileMediaAdapter;
   now?: () => string;
   petProfiles?: PetProfileRepository;
@@ -303,6 +304,8 @@ export function createInMemoryAdoptionListingRepository(
       now,
     });
   const publicWebBaseUrl = options.publicWebBaseUrl ?? defaultPublicWebBaseUrl;
+  const listingIdFactory =
+    options.listingIdFactory ?? createSequentialAdoptionListingId;
   const trustSafety =
     options.trustSafety ?? createInMemoryTrustSafetyRepository({ now });
   const listings: AdoptionListing[] = [];
@@ -328,7 +331,7 @@ export function createInMemoryAdoptionListingRepository(
         session,
       });
       const createdAt = now();
-      const id = `adoption-listing-${listings.length + 1}`;
+      const id = listingIdFactory(listings.length + 1);
       const listing: AdoptionListing = {
         adoptionSummary: input.adoptionSummary.trim(),
         contactOption: normalizeContactOption(input.contactOption),
@@ -395,6 +398,10 @@ export function createInMemoryAdoptionListingRepository(
       });
     },
   };
+}
+
+function createSequentialAdoptionListingId(sequence: number) {
+  return `22222222-2222-4222-8222-${String(sequence).padStart(12, "0")}`;
 }
 
 function assertMemberCanPublishAdoptionListing(
@@ -501,7 +508,7 @@ function buildPublicLocation(
     return {
       addressLabel: input.exactLocation.addressLabel,
       kind: "exact",
-      label: input.exactLocation.addressLabel ?? "Ubicacion exacta",
+      label: input.exactLocation.addressLabel ?? "Ubicación exacta",
       latitude: input.exactLocation.latitude,
       longitude: input.exactLocation.longitude,
     };
@@ -552,7 +559,7 @@ function toPublicAdoptionListingDetail(
     photos: listing.photos.map(clonePhotoAsset),
     publicLocation: toPublicDetailLocation(listing.publicLocation),
     shareTarget: { ...listing.shareTarget },
-    statusLabel: "Adopcion activa",
+    statusLabel: "Adopción activa",
     title: `${listing.petName} busca un hogar`,
     verificationBadge: {
       label: listing.verificationBadge?.label,
@@ -609,7 +616,7 @@ function toPublicDetailLocation(
 ): PublicAdoptionListingDetail["publicLocation"] {
   return toPublicReportDetailLocation(
     publicLocation,
-    "Ubicacion exacta compartida por quien publica la adopcion.",
+    "Ubicación exacta compartida por quien publica la adopción.",
   );
 }
 

@@ -38,6 +38,15 @@ vi.mock("@expo/vector-icons", () => ({
   MaterialCommunityIcons: "MaterialCommunityIcons",
 }));
 
+vi.mock("../icons/safe-material-community-icon", async () => {
+  const actualReact = await vi.importActual<typeof React>("react");
+
+  return {
+    SafeMaterialCommunityIcon: (props: Record<string, unknown>) =>
+      actualReact.createElement("SafeMaterialCommunityIcon", props),
+  };
+});
+
 vi.mock("react-native", () => ({
   Pressable: "Pressable",
   StyleSheet: {

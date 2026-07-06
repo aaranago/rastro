@@ -30,6 +30,9 @@ const location: NearbySearchLocation = {
   manualLocationKind: "place",
   source: "manual",
 };
+const adoptionListingIds = {
+  first: "22222222-2222-4222-8222-000000000001",
+} as const;
 
 describe("Adoption Listing public detail", () => {
   it("lets a member publish a non-monetary Adoption Listing with an optional verification badge", async () => {
@@ -106,12 +109,12 @@ describe("Adoption Listing public detail", () => {
         type: "approximate",
       },
       shareTarget: {
-        appDeepLink: "rastro://adopciones/adoption-listing-1",
-        path: "/adopciones/adoption-listing-1",
-        title: "Mascota en adopcion: Nala",
-        webUrl: "https://rastro.bo/adopciones/adoption-listing-1",
+        appDeepLink: `rastro://adopciones/${adoptionListingIds.first}`,
+        path: `/adopciones/${adoptionListingIds.first}`,
+        title: "Mascota en adopción: Nala",
+        webUrl: `https://rastro.bo/adopciones/${adoptionListingIds.first}`,
       },
-      statusLabel: "Adopcion activa",
+      statusLabel: "Adopción activa",
       title: "Nala busca un hogar",
       verificationBadge: {
         label: "Organizacion verificada",
@@ -274,12 +277,12 @@ describe("Adoption Listing nearby browsing and sharing", () => {
     expect(viewModel.cards).toHaveLength(1);
     expect(viewModel.cards[0]).toMatchObject({
       eventAtLabel: "Hace 1 min",
-      priorityLabel: "Adopcion",
+      priorityLabel: "Adopción",
       publicLocationLabel: "Sopocachi · zona aproximada",
       reportKind: "adoption-listing",
       shareTarget: {
-        path: "/adopciones/adoption-listing-1",
-        webUrl: "https://rastro.bo/adopciones/adoption-listing-1",
+        path: `/adopciones/${adoptionListingIds.first}`,
+        webUrl: `https://rastro.bo/adopciones/${adoptionListingIds.first}`,
       },
       subtitle: "Gato • Mestizo",
       summary: "Nala busca un hogar tranquilo donde reciba tiempo y cuidado.",
@@ -290,7 +293,7 @@ describe("Adoption Listing nearby browsing and sharing", () => {
       },
     });
     expect(viewModel.mapPins[0]).toMatchObject({
-      publicSummaryId: "adoption-listing-1",
+      publicSummaryId: adoptionListingIds.first,
       title: "Nala",
     });
 
@@ -311,14 +314,13 @@ describe("Adoption Listing nearby browsing and sharing", () => {
     expect(shareCalls).toEqual([
       [
         {
-          message:
-            "Conoce a Nala en adopcion en Rastro: https://rastro.bo/adopciones/adoption-listing-1",
-          title: "Mascota en adopcion: Nala",
-          url: "https://rastro.bo/adopciones/adoption-listing-1",
+          message: `Conoce a Nala en adopción en Rastro: https://rastro.bo/adopciones/${adoptionListingIds.first}`,
+          title: "Mascota en adopción: Nala",
+          url: `https://rastro.bo/adopciones/${adoptionListingIds.first}`,
         },
         {
-          dialogTitle: "Compartir adopcion",
-          subject: "Mascota en adopcion: Nala",
+          dialogTitle: "Compartir adopción",
+          subject: "Mascota en adopción: Nala",
         },
       ],
     ]);

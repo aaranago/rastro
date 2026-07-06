@@ -37,16 +37,16 @@ export const metadata: Metadata = {
 const contextContent = {
   adoption: {
     eyebrow: "Adopciones",
-    lead: "Abre Rastro para seguir esta adopcion, revisar sus datos publicos y contactar de forma segura desde el celular.",
-    title: "Sigue esta adopcion en Rastro",
+    lead: "Abre Rastro para seguir esta adopción, revisar sus datos públicos y contactar de forma segura desde el celular.",
+    title: "Sigue esta adopción en Rastro",
   },
   "create-adoption": {
     eyebrow: "Adopciones",
     lead: "Abre Rastro para publicar un caso no monetario y encontrar un hogar responsable en Bolivia.",
-    title: "Publica una adopcion en Rastro",
+    title: "Publica una adopción en Rastro",
   },
   general: {
-    eyebrow: "Rastro movil",
+    eyebrow: "Rastro móvil",
     lead: "Abre Rastro para seguir reportes, adopciones y recursos locales de mascotas en Bolivia desde el celular.",
     title: "Descargar Rastro",
   },
@@ -76,25 +76,25 @@ const useCases = [
     title: "Reportes",
   },
   {
-    body: "Consulta publicaciones de adopcion responsable y conversa con la persona a cargo.",
+    body: "Consulta publicaciones de adopción responsable y conversa con la persona a cargo.",
     title: "Adopciones",
   },
   {
-    body: "Encuentra veterinarias, refugios, tiendas y servicios utiles cerca de tu ciudad.",
+    body: "Encuentra veterinarias, refugios, tiendas y servicios útiles cerca de tu ciudad.",
     title: "Recursos",
   },
 ];
 
 const installOptions = [
   {
-    body: "La publicacion en Google Play todavia no esta disponible. Conserva el enlace y solicita acceso mientras se habilita la tienda.",
+    body: "La publicación en Google Play todavía no está disponible. Conserva el enlace y solicita acceso mientras se habilita la tienda.",
     cta: "Solicitar acceso Android",
     href: "mailto:hola@rastro.bo?subject=Acceso%20Android%20a%20Rastro",
     status: "Disponible pronto",
     title: "Android",
   },
   {
-    body: "La distribucion para iPhone todavia no esta disponible. Puedes pedir aviso y volver al enlace compartido cuando tengas acceso.",
+    body: "La distribución para iPhone todavía no está disponible. Puedes pedir aviso y volver al enlace compartido cuando tengas acceso.",
     cta: "Solicitar aviso iPhone",
     href: "mailto:hola@rastro.bo?subject=Acceso%20iPhone%20a%20Rastro",
     status: "Disponible pronto",
@@ -125,7 +125,9 @@ export default async function DownloadPage(props: DownloadPageProps) {
   const returnHref = resolveReturnHref(
     getSingleSearchParam(searchParams, "returnTo"),
   );
-  const openHref = resolveOpenHref(getSingleSearchParam(searchParams, "target"));
+  const openHref = resolveOpenHref(
+    getSingleSearchParam(searchParams, "target"),
+  );
   const returnLabel =
     returnHref === "/" ? "Volver al inicio" : "Volver al enlace compartido";
   const content = contextContent[context];
@@ -169,15 +171,15 @@ export default async function DownloadPage(props: DownloadPageProps) {
               Instalar, abrir o solicitar acceso
             </h2>
             <p className="text-muted-foreground mt-3 leading-7">
-              Si ya tienes Rastro instalado, abre la app desde este
-              dispositivo. Si todavia no, esta pagina conserva el enlace
-              compartido y muestra el estado de descarga para cada plataforma.
+              Si ya tienes Rastro instalado, abre la app desde este dispositivo.
+              Si todavía no, esta página conserva el enlace compartido y muestra
+              el estado de descarga para cada plataforma.
             </p>
           </section>
 
           <section
             className="grid gap-3 sm:grid-cols-2"
-            aria-label="Opciones de instalacion"
+            aria-label="Opciones de instalación"
           >
             {installOptions.map((option) => (
               <article
@@ -214,7 +216,7 @@ export default async function DownloadPage(props: DownloadPageProps) {
             />
             <div className="p-5">
               <h2 className="text-lg font-semibold">
-                Flujo movil para recuperar y ayudar
+                Flujo móvil para recuperar y ayudar
               </h2>
               <p className="text-muted-foreground mt-2 text-sm leading-6">
                 Reportes, conversaciones y recursos se mantienen dentro de
@@ -293,8 +295,71 @@ function resolveOpenHref(value: string | undefined) {
   try {
     const url = new URL(trimmed);
 
-    return url.protocol === "rastro:" ? trimmed : "rastro://";
+    return isAllowedPublicAppOpenHref(url) ? trimmed : "rastro://";
   } catch {
     return "rastro://";
   }
+}
+
+function isAllowedPublicAppOpenHref(url: URL) {
+  if (
+    url.protocol !== "rastro:" ||
+    url.username ||
+    url.password ||
+    url.port ||
+    url.search ||
+    url.hash
+  ) {
+    return false;
+  }
+
+  const path = url.pathname.replace(/\/+$/, "");
+
+  if (!path) {
+    return publicAppOpenRootHosts.has(url.hostname);
+  }
+
+  if (url.hostname === "report-create") {
+    return publicReportCreationPaths.has(path);
+  }
+
+  if (url.hostname === "adopciones") {
+    return isUuidPath(path);
+  }
+
+  if (url.hostname === "reportes") {
+    return isAllowedReportDetailPath(path);
+  }
+
+  return false;
+}
+
+const publicAppOpenRootHosts = new Set([
+  "",
+  "actividad",
+  "adopciones",
+  "recursos",
+]);
+
+const publicReportCreationPaths = new Set([
+  "/adoption",
+  "/found",
+  "/lost",
+  "/sighting",
+]);
+
+const reportDetailPathPattern =
+  /^\/(avistamientos|encontrados|perdidos)\/([^/]+)$/;
+
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuidPath(path: string) {
+  return uuidPattern.test(path.slice(1));
+}
+
+function isAllowedReportDetailPath(path: string) {
+  const match = reportDetailPathPattern.exec(path);
+
+  return Boolean(match?.[2] && uuidPattern.test(match[2]));
 }

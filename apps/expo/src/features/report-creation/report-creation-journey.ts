@@ -284,7 +284,7 @@ const canonicalSteps = [
   },
   {
     id: "location",
-    label: "Ubicacion",
+    label: "Ubicación",
   },
   {
     id: "contact",

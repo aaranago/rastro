@@ -108,7 +108,7 @@ function buildPublishBlockers(draft: LostPetReportDraft) {
     contactOptionNeedsPhone(draft.contactOption) &&
     !draft.contactOption.phoneNumber?.trim()
   ) {
-    blockers.push("Ingresa un numero de WhatsApp.");
+    blockers.push("Ingresa un número de WhatsApp.");
   }
 
   return blockers;

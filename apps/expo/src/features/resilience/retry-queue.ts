@@ -3,7 +3,7 @@ import type { AsyncKeyValueStorage } from "./storage";
 export type RetryQueueStatus = "blocked" | "queued" | "retrying" | "succeeded";
 
 export const retryQueueStatusLabelsEs = {
-  blocked: "Requiere revision",
+  blocked: "Requiere revisión",
   queued: "Pendiente",
   retrying: "Reintentando",
   succeeded: "Enviado",

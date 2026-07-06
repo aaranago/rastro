@@ -26,13 +26,13 @@ describe("public home page", () => {
       }),
     );
 
-    expect(html).toContain("Red de recuperacion en Bolivia");
+    expect(html).toContain("Red de recuperación en Bolivia");
     expect(html).toContain("Reportes, adopciones y recursos locales");
     expect(html).toContain("Reportar mascota perdida");
     expect(html).toContain(
       'href="/descargar?context=lost-report&amp;target=rastro%3A%2F%2Freport-create%2Flost"',
     );
-    expect(html).toContain("Publicar adopcion");
+    expect(html).toContain("Publicar adopción");
     expect(html).toContain(
       'href="/descargar?context=create-adoption&amp;target=rastro%3A%2F%2Freport-create%2Fadoption"',
     );

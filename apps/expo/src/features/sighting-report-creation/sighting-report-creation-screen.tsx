@@ -1090,7 +1090,7 @@ function LocationPrivacySection({
   viewModel: SightingReportCreationViewModel;
 }) {
   return (
-    <ReportCreationSection styles={styles} title="Ubicacion y privacidad">
+    <ReportCreationSection styles={styles} title="Ubicación y privacidad">
       <ReportCreationLocationPreview
         accentColor={sightingAccent}
         coordinates={coordinates}
@@ -1101,7 +1101,7 @@ function LocationPrivacySection({
         accentColor={sightingAccent}
         Icon={SightingReportCreationIcon}
         icon="location.fill"
-        label="Ubicacion interna"
+        label="Ubicación interna"
         styles={styles}
         value={viewModel.location.exactInternalLabel}
       />

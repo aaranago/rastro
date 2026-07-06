@@ -498,7 +498,7 @@ describe("AlertSubscriptionSettingsScreen backend behavior", () => {
     expect(repository.enableAlertSubscription).toHaveBeenCalledWith(member, {
       lastDetectedLocation: {
         ...savedLocation,
-        label: "Ultima ubicacion detectada en Sopocachi",
+        label: "Última ubicación detectada en Sopocachi",
         source: "last",
       },
       radiusKm: 5,
@@ -741,7 +741,7 @@ function createSubscription(
         },
         countryCode: "BO",
         detectedAt: "2026-06-30T13:01:00.000Z",
-        label: "Ubicacion actual en Sopocachi",
+        label: "Ubicación actual en Sopocachi",
         locationCellLabel: "Sopocachi",
         source: "current",
       },

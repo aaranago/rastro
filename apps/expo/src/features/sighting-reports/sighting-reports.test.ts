@@ -14,6 +14,9 @@ const member: MemberSession = {
   kind: "member",
   memberId: "member-camila",
 };
+const sightingReportIds = {
+  first: "44444444-4444-4444-8444-000000000001",
+} as const;
 
 describe("Sighting Report public detail and nearby search", () => {
   it("publishes a no-photo Sighting Report and exposes public detail plus nearby summaries", async () => {
@@ -100,10 +103,10 @@ describe("Sighting Report public detail and nearby search", () => {
       },
       reportLabel: "Reporte de avistamiento",
       shareTarget: {
-        appDeepLink: "rastro://reportes/avistamientos/sighting-report-1",
-        path: "/reportes/avistamientos/sighting-report-1",
+        appDeepLink: `rastro://reportes/avistamientos/${sightingReportIds.first}`,
+        path: `/reportes/avistamientos/${sightingReportIds.first}`,
         title: "Avistamiento de mascota: Perro",
-        webUrl: "https://rastro.bo/reportes/avistamientos/sighting-report-1",
+        webUrl: `https://rastro.bo/reportes/avistamientos/${sightingReportIds.first}`,
       },
       statusLabel: "Reporte activo",
       title: "Perro visto",
@@ -136,7 +139,7 @@ describe("Sighting Report public detail and nearby search", () => {
     expect(result.reports[0]).toMatchObject({
       direction: "Iba hacia la avenida 20 de Octubre.",
       distanceMeters: 0,
-      id: "sighting-report-1",
+      id: sightingReportIds.first,
       locationCellLabel: "Sopocachi",
       observedCondition: "Asustado, caminando rapido, sin heridas visibles.",
       photoUrl: undefined,

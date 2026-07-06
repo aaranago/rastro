@@ -215,7 +215,7 @@ export function createInMemoryAlertSubscriptionRepository(
     if (!current) {
       throw new AlertSubscriptionRepositoryError(
         "alert_subscription_not_found",
-        "No se encontro una suscripcion de alertas para esta persona.",
+        "No se encontró una suscripción de alertas para esta persona.",
       );
     }
 
@@ -336,7 +336,7 @@ export function createInMemoryAlertSubscriptionRepository(
       if (!current) {
         throw new AlertSubscriptionRepositoryError(
           "alert_subscription_not_found",
-          "No se encontro una suscripcion de alertas para esta persona.",
+          "No se encontró una suscripción de alertas para esta persona.",
         );
       }
 
@@ -379,7 +379,7 @@ export function createInMemoryAlertSubscriptionRepository(
       if (!current) {
         throw new AlertSubscriptionRepositoryError(
           "alert_subscription_not_found",
-          "No se encontro una suscripcion de alertas para esta persona.",
+          "No se encontró una suscripción de alertas para esta persona.",
         );
       }
 

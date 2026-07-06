@@ -113,7 +113,7 @@ const tabs = [
     icon: {
       sf: "location",
       selectedSf: "location.fill",
-      drawable: "ic_menu_mylocation",
+      drawable: "rastro_tab_nearby",
     },
   },
   {
@@ -122,7 +122,7 @@ const tabs = [
     icon: {
       sf: "bell",
       selectedSf: "bell.fill",
-      drawable: "ic_dialog_info",
+      drawable: "rastro_tab_activity",
     },
   },
   {
@@ -131,7 +131,7 @@ const tabs = [
     icon: {
       sf: "book",
       selectedSf: "book.fill",
-      drawable: "ic_menu_agenda",
+      drawable: "rastro_tab_resources",
     },
   },
   {
@@ -140,7 +140,7 @@ const tabs = [
     icon: {
       sf: "person",
       selectedSf: "person.fill",
-      drawable: "ic_menu_myplaces",
+      drawable: "rastro_tab_profile",
     },
   },
 ] as const satisfies readonly {

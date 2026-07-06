@@ -16,12 +16,14 @@ export default function MobileAuthCallbackRoute() {
       error: getCallbackSearchParam(rawParams.error),
       error_description: getCallbackSearchParam(rawParams.error_description),
       message: getCallbackSearchParam(rawParams.message),
+      transaction: getCallbackSearchParam(rawParams.transaction),
     }),
     [
       rawParams.cookie,
       rawParams.error,
       rawParams.error_description,
       rawParams.message,
+      rawParams.transaction,
     ],
   );
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);

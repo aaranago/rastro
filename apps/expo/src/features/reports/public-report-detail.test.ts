@@ -7,11 +7,16 @@ import {
   createApiPublicReportDetailAdapter,
 } from "./public-report-detail";
 
+const publicReportIds = {
+  defaultLost: "11111111-1111-4111-8111-000000000001",
+  lostDetail: "11111111-1111-4111-8111-000000000101",
+} as const;
+
 describe("public report detail view model", () => {
   it("turns a Lost Pet report detail into a user-facing screen model without raw ids", () => {
     const viewModel = buildPublicReportDetailViewModel(
       createReport({
-        id: "report-lost-raw-id",
+        id: publicReportIds.lostDetail,
         location: {
           latitude: -16.5,
           longitude: -68.12,
@@ -48,7 +53,7 @@ describe("public report detail view model", () => {
     expect(viewModel).toMatchObject({
       contactActions: [
         {
-          href: "rastro://chats/report/report-lost-raw-id",
+          href: `rastro://chats/report/${publicReportIds.lostDetail}`,
           kind: "in-app-chat",
           label: "Enviar mensaje en Rastro",
         },
@@ -90,7 +95,7 @@ describe("public report detail view model", () => {
       ]),
     );
     expect(viewModel.shareMessage).toContain(
-      "https://rastro.bo/reportes/perdidos/report-lost-raw-id",
+      `https://rastro.bo/reportes/perdidos/${publicReportIds.lostDetail}`,
     );
     expect(
       JSON.stringify({
@@ -349,7 +354,7 @@ function createReport(
     createdAt: new Date("2026-06-24T13:00:00.000Z"),
     description: "Se perdio cerca de la zona y puede estar asustada.",
     eventOccurredAt: new Date("2026-06-24T12:30:00.000Z"),
-    id: "report-lost-1",
+    id: publicReportIds.defaultLost,
     location: {
       latitude: -16.5,
       longitude: -68.12,

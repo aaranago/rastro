@@ -21,7 +21,7 @@ export function PublicFoundReportDeepLinkScreen({
   return (
     <PublicReportDeepLinkScreen
       accentColor={shellColors.found}
-      body="Este enlace abre un reporte de mascota encontrada compartido en la app. Si el detalle aun no esta sincronizado en tu telefono, puedes abrir la pagina publica."
+      body="Este enlace abre un reporte de mascota encontrada compartido en la app. Si el detalle aún no está sincronizado en tu teléfono, puedes abrir la página pública."
       onReport={onReport}
       reportId={safeReportId}
       title="Reporte de mascota encontrada"

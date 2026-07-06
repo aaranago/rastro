@@ -448,7 +448,7 @@ function validateFoundReportDraft(draft: FoundReportDraft) {
     draft.contact.whatsappEnabled &&
     draft.contact.whatsappPhone.trim().length === 0
   ) {
-    errors.push("Ingresa un numero de WhatsApp.");
+    errors.push("Ingresa un número de WhatsApp.");
   }
 
   return errors;
@@ -484,7 +484,7 @@ function getContactError(contact: FoundReportContactDraft) {
   }
 
   if (contact.whatsappEnabled && contact.whatsappPhone.trim().length === 0) {
-    return "Ingresa un numero para WhatsApp.";
+    return "Ingresa un número para WhatsApp.";
   }
 
   return undefined;
@@ -500,7 +500,7 @@ function buildContactOptions(currentOption: FoundReportContactOption) {
       value: "chat" as const,
     },
     {
-      body: "Muestra el numero que elijas para coordinar la devolucion.",
+      body: "Muestra el número que elijas para coordinar la devolución.",
       iconName: "phone.fill",
       isSelected: currentOption === "whatsapp",
       label: "WhatsApp",
@@ -555,7 +555,7 @@ function buildLocationViewModel(draft: FoundReportDraft) {
   return {
     approximatePublicLabel,
     exactInternalLabel,
-    exactPinOptInLabel: "Mostrar pin exacto publicamente",
+    exactPinOptInLabel: "Mostrar pin exacto públicamente",
     hasExactLocation: Boolean(location),
     mapPreviewLabel: location
       ? `${location.locationCellLabel}, Bolivia`
@@ -566,7 +566,7 @@ function buildLocationViewModel(draft: FoundReportDraft) {
     showExactPinPublicly: draft.showExactPinPublicly,
     toggleBody:
       "Por defecto mostramos una zona de 300 m alrededor del pin. Activa el punto exacto solo si es seguro para ti y para la mascota.",
-    toggleLabel: "Mostrar pin exacto publicamente",
+    toggleLabel: "Mostrar pin exacto públicamente",
   };
 }
 
@@ -593,11 +593,11 @@ function buildReviewRows({
       value: draft.foundDetails.foundAtLabel || "Pendiente",
     },
     {
-      label: "Ubicacion interna",
+      label: "Ubicación interna",
       value: draft.exactFoundLocation?.addressLabel ?? "Pendiente",
     },
     {
-      label: "Ubicacion publica",
+      label: "Ubicación pública",
       value: draft.showExactPinPublicly
         ? "Punto exacto publico"
         : "Zona aproximada publica",
@@ -631,7 +631,7 @@ function buildSteps({
     {
       id: "location" as const,
       isComplete: Boolean(draft.exactFoundLocation),
-      label: "Ubicacion",
+      label: "Ubicación",
     },
     {
       id: "contact" as const,

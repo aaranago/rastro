@@ -139,7 +139,7 @@ export function toCreateAdoptionListingReportInput(
       name: petProfile.name.trim(),
       species: speciesByAdoptionPetType[petProfile.type],
     },
-    title: `${petProfile.name.trim()} en adopcion en ${locationCell}`,
+    title: `${petProfile.name.trim()} en adopción en ${locationCell}`,
     type: "adoption",
   };
 }

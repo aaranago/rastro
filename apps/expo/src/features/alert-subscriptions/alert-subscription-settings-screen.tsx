@@ -1016,7 +1016,7 @@ function toLastDetectedLocationFallback(
     ...location,
     label: location.label
       .replace("Ubicación actual", "Última ubicación detectada")
-      .replace("Ubicacion actual", "Ultima ubicacion detectada"),
+      .replace("Ubicación actual", "Última ubicación detectada"),
     source: "last",
   };
 }

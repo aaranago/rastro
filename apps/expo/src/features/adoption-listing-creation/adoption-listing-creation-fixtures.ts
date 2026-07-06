@@ -52,7 +52,7 @@ export const adoptionListingCreationFixtures = {
   ] satisfies AdoptionListingPetProfileOption[],
   photoSamples: [
     {
-      alt: "Foto para adopcion",
+      alt: "Foto para adopción",
       id: "adoption-listing-photo-sample-1",
       mediaId: "adoption-listing-media-sample-1",
       status: "ready",
@@ -60,7 +60,7 @@ export const adoptionListingCreationFixtures = {
       uri: "file:///adoption-listing-photo-sample-1.jpg",
     },
     {
-      alt: "Foto adicional para adopcion",
+      alt: "Foto adicional para adopción",
       id: "adoption-listing-photo-sample-2",
       mediaId: "adoption-listing-media-sample-2",
       status: "ready",

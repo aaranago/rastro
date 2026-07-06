@@ -69,6 +69,7 @@ describe("MobileAuthCallbackRoute", () => {
   it("replaces successful callbacks to the concrete nearby tab route", () => {
     callbackParams.value = {
       cookie: "better-auth.session_token=abc",
+      transaction: "transaction-1",
     };
 
     void renderFunctionElements(<MobileAuthCallbackRoute />);
@@ -78,6 +79,7 @@ describe("MobileAuthCallbackRoute", () => {
       error: undefined,
       error_description: undefined,
       message: undefined,
+      transaction: "transaction-1",
     });
     expect(router.replace).toHaveBeenCalledWith("/(tabs)/(nearby)");
     expect(router.replace).not.toHaveBeenCalledWith("/");

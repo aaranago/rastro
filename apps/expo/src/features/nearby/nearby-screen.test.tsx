@@ -598,7 +598,7 @@ function createLaunchSponsorProvider(
     approximateLocationLabel: "Sopocachi, La Paz",
     categoryId: "veterinary",
     contactOptions: [],
-    description: "Atencion veterinaria local para familias con mascotas.",
+    description: "Atención veterinaria local para familias con mascotas.",
     id,
     name,
     photoUrl: "https://example.com/sponsor-san-roque-photo.png",

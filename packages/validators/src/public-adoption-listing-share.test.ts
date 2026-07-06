@@ -34,9 +34,9 @@ describe("public Adoption Listing share target", () => {
     );
     expect(target).toEqual({
       appDeepLink: `rastro://adopciones/${listingId}`,
-      message: `Conoce a Nala en adopcion en Rastro: https://rastro.bo/adopciones/${listingId}`,
+      message: `Conoce a Nala en adopción en Rastro: https://rastro.bo/adopciones/${listingId}`,
       path: `/adopciones/${listingId}`,
-      title: "Mascota en adopcion: Nala",
+      title: "Mascota en adopción: Nala",
       webUrl: `https://rastro.bo/adopciones/${listingId}`,
     });
     expect(JSON.stringify(target).toLowerCase()).not.toMatch(

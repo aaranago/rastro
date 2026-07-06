@@ -340,7 +340,7 @@ export function buildLostReportCreationViewModel({
           showContactValidation &&
           draft.contact.whatsappEnabled &&
           draft.contact.whatsappPhone.trim().length === 0
-            ? "Ingresa el numero de WhatsApp que quieres mostrar."
+            ? "Ingresa el número de WhatsApp que quieres mostrar."
             : undefined,
         label: "Numero de WhatsApp",
         placeholder: "+591 70000000",
@@ -506,7 +506,7 @@ export function toLostReportSuccessLocalSponsorPlacementFromProvider({
 
 function getReportSuccessResourceCategoryLabel(categoryId: ResourceCategoryId) {
   const labels = {
-    groomer: "Peluqueria",
+    groomer: "Peluquería",
     other: "Recurso local",
     pet_food: "Alimentos",
     pet_store: "Tienda",
@@ -722,7 +722,7 @@ function validateLostReportDraft({
     draft.contact.whatsappEnabled &&
     draft.contact.whatsappPhone.trim().length === 0
   ) {
-    errors.push("Ingresa un numero de WhatsApp.");
+    errors.push("Ingresa un número de WhatsApp.");
   }
 
   return errors;
@@ -750,7 +750,7 @@ function buildContactOptions(currentOption: LostReportContactOption) {
       value: "chat" as const,
     },
     {
-      body: "Muestra el numero que elijas para contacto directo.",
+      body: "Muestra el número que elijas para contacto directo.",
       iconName: "phone.fill",
       isSelected: currentOption === "whatsapp",
       label: "WhatsApp",
@@ -824,10 +824,10 @@ function buildLocationViewModel(draft: LostReportDraft) {
       ? "Pin exacto publico"
       : "Zona aproximada de 300 m",
     showExactPinPublicly: draft.showExactPinPublicly,
-    exactPinOptInLabel: "Mostrar pin exacto publicamente",
+    exactPinOptInLabel: "Mostrar pin exacto públicamente",
     toggleBody:
       "Por defecto mostramos una zona de 300 m alrededor del pin. Activa el punto exacto solo si es seguro compartirlo.",
-    toggleLabel: "Mostrar pin exacto publicamente",
+    toggleLabel: "Mostrar pin exacto públicamente",
   };
 }
 
@@ -858,11 +858,11 @@ function buildReviewRows({
       value: draft.lostDetails.lastSeenAtLabel || "Pendiente",
     },
     {
-      label: "Ubicacion interna",
+      label: "Ubicación interna",
       value: draft.exactLocation?.addressLabel ?? "Pendiente",
     },
     {
-      label: "Ubicacion publica",
+      label: "Ubicación pública",
       value: draft.showExactPinPublicly
         ? "Punto exacto publico"
         : "Zona aproximada publica",
@@ -898,7 +898,7 @@ function buildSteps({
     {
       id: "location" as const,
       isComplete: Boolean(draft.exactLocation),
-      label: "Ubicacion",
+      label: "Ubicación",
     },
     {
       id: "contact" as const,
@@ -1052,7 +1052,7 @@ function getContactError(contact: LostReportContactDraft) {
   }
 
   if (contact.whatsappEnabled && contact.whatsappPhone.trim().length === 0) {
-    return "Ingresa un numero para WhatsApp.";
+    return "Ingresa un número para WhatsApp.";
   }
 
   return undefined;

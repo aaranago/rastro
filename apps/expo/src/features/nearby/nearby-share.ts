@@ -41,7 +41,7 @@ export function shareNearbyLostReport(
 
 function getShareDialogTitle(reportKind: NearbyPublicReportKind | undefined) {
   if (reportKind === "adoption-listing") {
-    return "Compartir adopcion";
+    return "Compartir adopción";
   }
 
   if (reportKind === "found-pet-report") {

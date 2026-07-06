@@ -66,7 +66,7 @@ export function PublicReportDeepLinkScreen({
           }}
           style={[styles.button, { backgroundColor: accentColor }]}
         >
-          <Text style={styles.buttonText}>Abrir pagina publica</Text>
+          <Text style={styles.buttonText}>Abrir página pública</Text>
         </Pressable>
         {onReport ? (
           <Pressable

@@ -46,7 +46,7 @@ describe("Adoption Listing creation view model", () => {
     expect(viewModel).toMatchObject({
       canPublish: false,
       kind: "member",
-      title: "Dar en adopcion",
+      title: "Dar en adopción",
     });
     expect(viewModel.petProfile.selectedLabel).toBe("Nala · Gato");
     expect(viewModel.photos.error).toContain("Agrega al menos una foto");
@@ -207,7 +207,7 @@ describe("Adoption Listing creation view model", () => {
     });
 
     expect(viewModel.adoptionDetails.fields.adoptionSummary.error).toBe(
-      "Describe la adopcion con al menos 10 caracteres.",
+      "Describe la adopción con al menos 10 caracteres.",
     );
     expect(viewModel.canPublish).toBe(false);
   });

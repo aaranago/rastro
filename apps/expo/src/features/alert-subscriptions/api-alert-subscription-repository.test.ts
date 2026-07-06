@@ -20,7 +20,7 @@ const currentLocation: AlertSubscriptionLocationSnapshot = {
   },
   countryCode: "BO",
   detectedAt: "2026-06-30T13:00:00.000Z",
-  label: "Ubicacion actual en Sopocachi",
+  label: "Ubicación actual en Sopocachi",
   locationCellLabel: "Sopocachi",
   source: "current",
 };
@@ -40,7 +40,7 @@ describe("API alert subscription repository", () => {
         location: {
           countryCode: "BO",
           detectedAt: "2026-06-30T13:02:00.000Z",
-          label: "Ubicacion actual en Sopocachi",
+          label: "Ubicación actual en Sopocachi",
         },
         reason: "manual-refresh",
         resolvedAt: "2026-06-30T13:02:00.000Z",
@@ -100,7 +100,7 @@ describe("API alert subscription repository", () => {
       radiusMeters: 10000,
     });
     expect(client.alerts.recordLocation.mutate).toHaveBeenCalledWith({
-      label: "Ubicacion actual en Sopocachi",
+      label: "Ubicación actual en Sopocachi",
       latitude: -16.5103,
       locationCell: "Sopocachi",
       longitude: -68.1299,
@@ -208,7 +208,7 @@ function createApiSubscription(): ApiAlertSubscription {
     categories: ["lost_pet"],
     id: "alert-subscription-1",
     location: {
-      label: "Ubicacion actual en Sopocachi",
+      label: "Ubicación actual en Sopocachi",
       latitude: -16.5103,
       locationCell: "Sopocachi",
       longitude: -68.1299,
