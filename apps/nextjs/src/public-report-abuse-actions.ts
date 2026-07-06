@@ -26,11 +26,13 @@ export async function reportPublicReportAbuse(formData: FormData) {
     redirectToReport(returnTo, "invalid");
   }
 
+  let status: string;
+
   try {
     const caller = await createPublicReportAbuseCaller();
     const result = await caller.report.reportAbuse(parsed.data);
 
-    redirectToReport(returnTo, result.status);
+    status = result.status;
   } catch (error) {
     if (isTrpcUnauthorizedError(error)) {
       redirect(buildAuthHomeHref("signin-required", returnTo));
@@ -38,15 +40,17 @@ export async function reportPublicReportAbuse(formData: FormData) {
 
     redirectToReport(returnTo, "error");
   }
+
+  redirectToReport(returnTo, status);
 }
 
 async function createPublicReportAbuseCaller() {
   const [{ appRouter, createTRPCContext }, { env }, { headers }] =
     await Promise.all([
-    import("@acme/api"),
-    import("~/env"),
-    import("next/headers"),
-  ]);
+      import("@acme/api"),
+      import("~/env"),
+      import("next/headers"),
+    ]);
   const requestHeaders = new Headers(await headers());
   requestHeaders.set("x-trpc-source", "next-public-report-abuse");
   const context = await createTRPCContext({

@@ -21,7 +21,7 @@ const authServer = vi.hoisted(() => ({
       signUpEmail: vi.fn(),
     },
   },
-  getEnabledSocialAuthProviders: vi.fn(() => []),
+  getEnabledSocialAuthProviders: vi.fn(() => [] as string[]),
   getSession: vi.fn(),
 }));
 
@@ -40,6 +40,11 @@ describe("auth server actions", () => {
     nextHeaders.headers.mockClear();
     authServer.auth.api.deleteUser.mockReset();
     authServer.auth.api.requestPasswordReset.mockReset();
+    authServer.auth.api.signInEmail.mockReset();
+    authServer.auth.api.signInSocial.mockReset();
+    authServer.auth.api.signUpEmail.mockReset();
+    authServer.getEnabledSocialAuthProviders.mockReset();
+    authServer.getEnabledSocialAuthProviders.mockReturnValue([]);
     authServer.getSession.mockReset();
   });
 
@@ -124,5 +129,82 @@ describe("auth server actions", () => {
         },
       }),
     );
+  });
+
+  it("uses a safe returnTo as the email sign-in callback URL and final redirect", async () => {
+    const { signInWithEmail } = await import("./actions");
+    const formData = new FormData();
+    formData.set("email", "ANA@EXAMPLE.COM");
+    formData.set("password", "password123");
+    formData.set(
+      "returnTo",
+      "/reportes/encontrados/11111111-1111-4111-8111-111111111111",
+    );
+    authServer.auth.api.signInEmail.mockResolvedValue({
+      user: {
+        id: "member-ana",
+      },
+    });
+
+    await expect(signInWithEmail(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/reportes/encontrados/11111111-1111-4111-8111-111111111111",
+    );
+    expect(authServer.auth.api.signInEmail).toHaveBeenCalledWith({
+      body: {
+        callbackURL:
+          "/reportes/encontrados/11111111-1111-4111-8111-111111111111",
+        email: "ana@example.com",
+        password: "password123",
+      },
+    });
+  });
+
+  it("strips unsafe returnTo values before email sign-in callbacks", async () => {
+    const { signInWithEmail } = await import("./actions");
+    const formData = new FormData();
+    formData.set("email", "ana@example.com");
+    formData.set("password", "password123");
+    formData.set("returnTo", "https://evil.example/reportes/perdidos/1");
+    authServer.auth.api.signInEmail.mockResolvedValue({
+      user: {
+        id: "member-ana",
+      },
+    });
+
+    await expect(signInWithEmail(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/?auth=signin-success#auth",
+    );
+    expect(authServer.auth.api.signInEmail).toHaveBeenCalledWith({
+      body: {
+        callbackURL: "/",
+        email: "ana@example.com",
+        password: "password123",
+      },
+    });
+  });
+
+  it("uses a safe returnTo as the social sign-in callback URL", async () => {
+    const { signInWithSocialProvider } = await import("./actions");
+    const formData = new FormData();
+    formData.set("provider", "google");
+    formData.set(
+      "returnTo",
+      "/reportes/avistamientos/11111111-1111-4111-8111-111111111111",
+    );
+    authServer.getEnabledSocialAuthProviders.mockReturnValue(["google"]);
+    authServer.auth.api.signInSocial.mockResolvedValue({
+      url: "https://accounts.google.test/oauth",
+    });
+
+    await expect(signInWithSocialProvider(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:https://accounts.google.test/oauth",
+    );
+    expect(authServer.auth.api.signInSocial).toHaveBeenCalledWith({
+      body: {
+        callbackURL:
+          "/reportes/avistamientos/11111111-1111-4111-8111-111111111111",
+        provider: "google",
+      },
+    });
   });
 });
