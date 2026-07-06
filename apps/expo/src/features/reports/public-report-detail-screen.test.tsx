@@ -232,6 +232,61 @@ describe("PublicReportDetailContent", () => {
     expect(findStateSetterPayload("No se pudo abrir WhatsApp.")).toBe(true);
   });
 
+  it("prompts visitors immediately before opening in-app chat contact actions", async () => {
+    const onRequestMemberSignIn = vi.fn();
+    const screen = renderFunctionElement(
+      <PublicReportDetailContent
+        isVisitor
+        onRequestMemberSignIn={onRequestMemberSignIn}
+        viewModel={createViewModel({
+          contactActions: [
+            {
+              href: "rastro://chats/report/report-lost-1",
+              kind: "in-app-chat",
+              label: "Enviar mensaje en Rastro",
+            },
+          ],
+          isCurrentMember: false,
+        })}
+      />,
+    );
+
+    pressByText(screen, "Enviar mensaje en Rastro");
+    await flushPromises();
+
+    expect(onRequestMemberSignIn).toHaveBeenCalledWith({
+      returnTo: "/chats/report/report-lost-1",
+      sourceHref: "rastro://chats/report/report-lost-1",
+    });
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("opens in-app chat contact actions directly for members", async () => {
+    const onRequestMemberSignIn = vi.fn();
+    const screen = renderFunctionElement(
+      <PublicReportDetailContent
+        isVisitor={false}
+        onRequestMemberSignIn={onRequestMemberSignIn}
+        viewModel={createViewModel({
+          contactActions: [
+            {
+              href: "rastro://chats/report/report-lost-1",
+              kind: "in-app-chat",
+              label: "Enviar mensaje en Rastro",
+            },
+          ],
+          isCurrentMember: false,
+        })}
+      />,
+    );
+
+    pressByText(screen, "Enviar mensaje en Rastro");
+    await flushPromises();
+
+    expect(onRequestMemberSignIn).not.toHaveBeenCalled();
+    expect(router.push).toHaveBeenCalledWith("/chats/report/report-lost-1");
+  });
+
   it("surfaces map and public-page open failures instead of swallowing them", async () => {
     reactNativeMocks.openURL.mockRejectedValue(new Error("blocked"));
     const screen = renderFunctionElement(

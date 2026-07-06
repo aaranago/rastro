@@ -28,7 +28,10 @@ import type {
 } from "./public-report-detail";
 import type { TrustSafetyReportReason } from "../trust-safety";
 import { runPublicContactAction } from "../contact-actions/contact-actions";
-import { openInternalRastroHref } from "../navigation/internal-rastro-links";
+import {
+  openInternalRastroHref,
+  resolveInternalRastroHref,
+} from "../navigation/internal-rastro-links";
 import { ShellIcon } from "../shell/shell-overlays";
 import { shellColors } from "../shell/shell-theme";
 import { useRastroShell } from "../shell/shell-provider";
@@ -118,16 +121,16 @@ export function PublicReportDetailScreen({
       <PublicReportDetailContent
         isVisitor={session.kind === "visitor"}
         onReportAbuse={adapter.reportAbuse}
-        onRequestMemberSignIn={() => {
-          const returnTo = buildPublicReportAbuseAuthReturnTo(
-            loadState.viewModel,
-          );
+        onRequestMemberSignIn={(request) => {
+          const returnTo =
+            request?.returnTo ??
+            buildPublicReportAbuseAuthReturnTo(loadState.viewModel);
 
           requestAuthPrompt({
             returnTo,
-            sourceHref: `rastro://auth/sign-in?returnTo=${encodeURIComponent(
-              returnTo,
-            )}`,
+            sourceHref:
+              request?.sourceHref ??
+              `rastro://auth/sign-in?returnTo=${encodeURIComponent(returnTo)}`,
           });
         }}
         openReportAbuseOnLoad={openReportAbuseOnLoad}
@@ -169,7 +172,10 @@ export function PublicReportDetailContent({
   onReportAbuse?: (
     input: PublicReportAbuseReportInput,
   ) => Promise<PublicReportAbuseReportResult>;
-  onRequestMemberSignIn?: () => void;
+  onRequestMemberSignIn?: (request?: {
+    returnTo: string;
+    sourceHref: string;
+  }) => void;
   onShare?: () => void;
   openReportAbuseOnLoad?: boolean;
   viewModel: PublicReportDetailViewModel;
@@ -212,6 +218,19 @@ export function PublicReportDetailContent({
         return;
       }
 
+      if (isVisitor && action.kind === "in-app-chat") {
+        const returnTo = resolveChatActionReturnTo(action.href);
+
+        if (returnTo) {
+          onRequestMemberSignIn?.({
+            returnTo,
+            sourceHref: action.href,
+          });
+          setActionFeedback(null);
+          return;
+        }
+      }
+
       const result = await runPublicContactAction(action, {
         openChat: ({ href }) => {
           openInternalHref(href);
@@ -221,7 +240,13 @@ export function PublicReportDetailContent({
 
       setActionFeedback(result.kind === "error" ? result : null);
     },
-    [onOpenContactAction, openExternalUrl, openInternalHref],
+    [
+      isVisitor,
+      onOpenContactAction,
+      onRequestMemberSignIn,
+      openExternalUrl,
+      openInternalHref,
+    ],
   );
   const handleOpenLocation = React.useCallback(async () => {
     if (onOpenLocation) {
@@ -940,6 +965,16 @@ export function buildPublicReportAbuseAuthReturnTo(
   const separator = viewModel.appPath.includes("?") ? "&" : "?";
 
   return `${viewModel.appPath}${separator}reportar=1`;
+}
+
+function resolveChatActionReturnTo(href: string) {
+  const resolvedHref = resolveInternalRastroHref(href);
+
+  if (typeof resolvedHref !== "string" || !resolvedHref.startsWith("/chats/")) {
+    return undefined;
+  }
+
+  return resolvedHref;
 }
 
 function getContactActionIconName(
