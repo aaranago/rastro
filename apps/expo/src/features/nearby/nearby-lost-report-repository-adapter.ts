@@ -350,5 +350,5 @@ function formatLastSeenAt(lastSeenAt: string, generatedAt: string) {
     return "Ayer";
   }
 
-  return `Hace ${days} dias`;
+  return `Hace ${days} días`;
 }

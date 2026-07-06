@@ -234,7 +234,7 @@ const reportDepartmentByLocationCellPrefix = {
   "bo-lpb": "La Paz",
   "bo-oru": "Oruro",
   "bo-pnd": "Pando",
-  "bo-pts": "Potosi",
+  "bo-pts": "Potosí",
   "bo-scz": "Santa Cruz",
   "bo-tja": "Tarija",
 } satisfies Record<string, string>;

@@ -37,13 +37,13 @@ const firstRunTourCopy = {
   steps: [
     {
       title: "Encuentra reportes cerca",
-      body: "Explora mascotas perdidas, encontradas y avistamientos por zona en Bolivia. No pedimos ubicacion al abrir la app.",
+      body: "Explora mascotas perdidas, encontradas y avistamientos por zona en Bolivia. No pedimos ubicación al abrir la app.",
       iconName: "location.magnifyingglass",
       iconFallback: "GPS",
     },
     {
-      title: "Reporta con datos utiles",
-      body: "Agrega fotos, ubicacion aproximada y contacto seguro para que la comunidad pueda ayudar sin exponer datos de mas.",
+      title: "Reporta con datos útiles",
+      body: "Agrega fotos, ubicación aproximada y contacto seguro para que la comunidad pueda ayudar sin exponer datos de más.",
       iconName: "doc.text.image.fill",
       iconFallback: "DAT",
     },

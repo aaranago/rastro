@@ -8,7 +8,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { Image } from "expo-image";
 
 import type {
   AppStateActionDescriptor,
@@ -17,6 +16,7 @@ import type {
   AppStateKind,
   AppStateTone,
 } from "./app-state-types";
+import { ShellIcon } from "../shell/shell-icon";
 import { shellColors } from "../shell/shell-theme";
 
 export interface AppStatePanelProps {
@@ -173,12 +173,7 @@ export function AppStatePanel({
         {descriptor.kind === "loading" ? (
           <ActivityIndicator color={toneColors.accent} />
         ) : (
-          <Image
-            contentFit="contain"
-            source={`sf:${iconName}`}
-            style={styles.icon}
-            tintColor={toneColors.accent}
-          />
+          <ShellIcon color={toneColors.accent} name={iconName} size={28} />
         )}
       </View>
 
@@ -329,12 +324,7 @@ function AppStateActionButton({
       ]}
     >
       {action.iconName ? (
-        <Image
-          contentFit="contain"
-          source={`sf:${action.iconName}`}
-          style={styles.actionIcon}
-          tintColor={iconColor}
-        />
+        <ShellIcon color={iconColor} name={action.iconName} size={18} />
       ) : null}
       <Text
         maxFontSizeMultiplier={1.2}
@@ -374,10 +364,6 @@ const styles = StyleSheet.create({
     minWidth: 148,
     paddingHorizontal: 16,
     paddingVertical: 12,
-  },
-  actionIcon: {
-    height: 18,
-    width: 18,
   },
   actionText: {
     flexShrink: 1,
@@ -448,10 +434,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     maxWidth: 460,
     textAlign: "center",
-  },
-  icon: {
-    height: 34,
-    width: 34,
   },
   iconShell: {
     alignItems: "center",

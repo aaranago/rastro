@@ -8,7 +8,7 @@ END $$;
 DO $$ BEGIN
 	ALTER TABLE "local_sponsor_placement" ADD CONSTRAINT "local_sponsor_placement_no_window_overlap_excl" EXCLUDE USING gist (
 		"provider_id" WITH =,
-		("surface"::text) WITH =,
+		"surface" WITH =,
 		tstzrange("starts_at", "ends_at", '[]') WITH &&
 	);
 EXCEPTION

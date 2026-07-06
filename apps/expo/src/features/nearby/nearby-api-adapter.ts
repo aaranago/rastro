@@ -440,7 +440,7 @@ function formatEventAt(eventAt: Date, generatedAt: string) {
     return "Ayer";
   }
 
-  return `Hace ${days} dias`;
+  return `Hace ${days} días`;
 }
 
 function isUrgentReport(report: ApiNearbyReport, generatedAt: string) {

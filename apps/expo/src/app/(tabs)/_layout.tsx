@@ -1,4 +1,4 @@
-import { StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 
 import { AppStateScreen } from "~/features/app-states";
@@ -46,15 +46,19 @@ function RastroTabs() {
       >
         {model.tabs.map((tab) => (
           <NativeTabs.Trigger key={tab.key} name={tab.routeName}>
-            <Icon
-              drawable={tab.icon.drawable}
-              sf={
-                {
-                  default: tab.icon.sf,
-                  selected: tab.icon.selectedSf,
-                } as never
-              }
-            />
+            {Platform.OS === "ios" ? (
+              <Icon
+                drawable={tab.icon.drawable}
+                sf={
+                  {
+                    default: tab.icon.sf,
+                    selected: tab.icon.selectedSf,
+                  } as never
+                }
+              />
+            ) : (
+              <Icon drawable={tab.icon.drawable} />
+            )}
             <Label>{tab.label}</Label>
           </NativeTabs.Trigger>
         ))}

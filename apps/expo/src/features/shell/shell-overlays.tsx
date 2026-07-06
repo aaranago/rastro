@@ -22,7 +22,6 @@ import { Image } from "expo-image";
 import { usePathname, useRouter, useSegments } from "expo-router";
 
 import type { ReportIntent } from "../../i18n";
-import type { MaterialCommunityIconName } from "../icons/safe-material-community-icon";
 import type {
   ShellAuthActionResult,
   ShellAuthCredentials,
@@ -37,7 +36,7 @@ import type {
   ShellFirstRunTourStore,
 } from "./shell-onboarding";
 import authWelcomeIllustration from "../../../assets/auth-welcome-illustration.png";
-import { SafeMaterialCommunityIcon } from "../icons/safe-material-community-icon";
+import { mobileHomeHref } from "../navigation/home-route";
 import { buildReportCreationHref } from "../report-creation/report-creation-routes";
 import { createExpoSecureStoreKeyValueStorage } from "../resilience/storage";
 import {
@@ -50,147 +49,17 @@ import {
   createShellFirstRunTourStore,
   loadShellFirstRunTourModel,
 } from "./shell-onboarding";
+import { ShellIcon } from "./shell-icon";
 import { useRastroShell } from "./shell-provider";
 import { reportIntentColors, shellColors } from "./shell-theme";
 
-export interface IconProps {
-  name: string;
-  color: string;
-  fallback?: string;
-  size?: number;
-}
+export { ShellIcon } from "./shell-icon";
 
 type ShellAuthPromptMode = "create-account" | "password-reset" | "sign-in";
 type ShellAuthPromptPendingAction =
   | ShellAuthPromptAction
   | "password-reset"
   | ShellSocialAuthProvider;
-
-const androidIconFallbacks: Record<string, string> = {
-  "arrow.right": "->",
-  "arrow.right.to.line": "->",
-  "bell.fill": "!",
-  "checkmark.seal.fill": "OK",
-  "chevron.left": "<",
-  "chevron.right": ">",
-  "eye.fill": "o",
-  "heart.fill": "<3",
-  "lock.fill": "*",
-  "megaphone.fill": "!",
-  "person.badge.plus": "+",
-  "person.crop.circle.badge.plus": "+",
-  sparkles: "*",
-  xmark: "x",
-};
-
-const androidVectorIconNames: Record<string, MaterialCommunityIconName> = {
-  "arrow.clockwise": "refresh",
-  "arrow.left": "arrow-left",
-  "arrow.right": "arrow-right",
-  "arrow.right.to.line": "login",
-  "arrow.triangle.2.circlepath": "sync",
-  "arrow.up.right": "arrow-top-right",
-  "bell.badge.fill": "bell-badge",
-  "bell.fill": "bell",
-  "bell.slash.fill": "bell-off",
-  "bubble.left.and.phone.fill": "phone-message",
-  "camera.fill": "camera",
-  "checkmark.circle.fill": "check-circle",
-  "checkmark.seal.fill": "check-decagram",
-  "chevron.left": "chevron-left",
-  "chevron.right": "chevron-right",
-  "circle.grid.2x2.fill": "view-grid",
-  "cross.case.fill": "medical-bag",
-  "doc.text.image.fill": "file-image",
-  "exclamationmark.bubble.fill": "message-alert",
-  "exclamationmark.triangle.fill": "alert",
-  "eye.fill": "eye",
-  "figure.walk.motion": "walk",
-  "gearshape.fill": "cog",
-  "hands.sparkles.fill": "hand-heart",
-  "heart.text.square.fill": "heart-box",
-  "heart.fill": "heart",
-  hourglass: "timer-sand",
-  "house.fill": "home",
-  "info.circle.fill": "information",
-  "list.bullet": "format-list-bulleted",
-  "list.bullet.rectangle": "format-list-bulleted-square",
-  "location.fill": "map-marker",
-  "location.fill.viewfinder": "crosshairs-gps",
-  "location.magnifyingglass": "map-search",
-  "location.slash.fill": "map-marker-off",
-  "lock.fill": "lock",
-  magnifyingglass: "magnify",
-  "map.fill": "map",
-  mappin: "map-marker",
-  "megaphone.fill": "bullhorn",
-  "message.fill": "message",
-  "paperplane.fill": "send",
-  pawprint: "paw",
-  "pawprint.fill": "paw",
-  "person.badge.plus": "account-plus",
-  "person.crop.circle.badge.exclamationmark": "account-alert",
-  "person.crop.circle.badge.plus": "account-plus",
-  "person.fill.checkmark": "account-check",
-  "phone.fill": "phone",
-  plus: "plus",
-  "questionmark.circle.fill": "help-circle",
-  scope: "crosshairs",
-  sparkles: "star-four-points",
-  "square.and.arrow.up": "share-variant",
-  "square.and.pencil": "square-edit-outline",
-  "star.fill": "star",
-  stethoscope: "stethoscope",
-  xmark: "close",
-};
-
-export function ShellIcon({ name, color, fallback, size = 22 }: IconProps) {
-  const resolvedFallback = fallback ?? androidIconFallbacks[name];
-  const androidIconName = androidVectorIconNames[name];
-
-  if (Platform.OS !== "ios" && androidIconName) {
-    return (
-      <SafeMaterialCommunityIcon
-        accessibilityElementsHidden
-        color={color}
-        fallback={resolvedFallback}
-        importantForAccessibility="no"
-        name={androidIconName}
-        size={size}
-      />
-    );
-  }
-
-  if (Platform.OS !== "ios" && resolvedFallback) {
-    return (
-      <Text
-        maxFontSizeMultiplier={1}
-        style={[
-          styles.iconFallback,
-          {
-            color,
-            fontSize:
-              resolvedFallback.length > 1 ? Math.max(9, size * 0.34) : size,
-            height: size,
-            lineHeight: size,
-            width: size,
-          },
-        ]}
-      >
-        {resolvedFallback}
-      </Text>
-    );
-  }
-
-  return (
-    <Image
-      source={`sf:${name}`}
-      tintColor={color}
-      contentFit="contain"
-      style={{ height: size, width: size }}
-    />
-  );
-}
 
 export function ShellFabHost() {
   const {
@@ -414,6 +283,7 @@ function ShellFirstRunTourHost({
   store: ShellFirstRunTourStore;
 }) {
   const { copy } = useRastroShell();
+  const router = useRouter();
   const [tourModel, setTourModel] =
     React.useState<ShellFirstRunTourModel | null>(null);
   const [isVisible, setIsVisible] = React.useState(false);
@@ -450,6 +320,7 @@ function ShellFirstRunTourHost({
       setTourModel((current) =>
         current ? { ...current, shouldShow: false } : current,
       );
+      router.push(mobileHomeHref);
 
       try {
         await store.markCompleted({ reason });
@@ -457,7 +328,7 @@ function ShellFirstRunTourHost({
         // The tour should not block app use if persistence is temporarily unavailable.
       }
     },
-    [store],
+    [router, store],
   );
 
   if (!tourModel) {
@@ -1726,10 +1597,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "900",
     lineHeight: 10,
-  },
-  iconFallback: {
-    fontWeight: "900",
-    textAlign: "center",
   },
   modalBackdrop: {
     backgroundColor: "rgba(23, 32, 28, 0.20)",

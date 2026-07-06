@@ -31,6 +31,7 @@ const api = vi.hoisted(() => ({
 }));
 const router = vi.hoisted(() => ({
   push: vi.fn(),
+  replace: vi.fn(),
 }));
 const routerLocation = vi.hoisted(() => ({
   pathname: "/",

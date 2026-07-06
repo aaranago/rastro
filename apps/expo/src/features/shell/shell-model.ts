@@ -243,16 +243,16 @@ function createShellAppStates(appStates: AppStateCatalog): AppStateCatalog {
       location: {
         ...locationPermissionEducation,
         title: "Encuentra reportes cerca de ti",
-        body: "Usamos tu ubicacion solo para ordenar reportes por distancia.",
+        body: "Usamos tu ubicación solo para ordenar reportes por distancia.",
         reasons: [
-          "No solicitamos ubicacion al abrir la app.",
+          "No solicitamos ubicación al abrir la app.",
           "Puedes buscar por ciudad o zona en Bolivia.",
         ],
         actions: locationPermissionEducation.actions.map((action) => {
           if (action.id === "request-permission") {
             return {
               ...action,
-              label: "Usar mi ubicacion actual",
+              label: "Usar mi ubicación actual",
             };
           }
 

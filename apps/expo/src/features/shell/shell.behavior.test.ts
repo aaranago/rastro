@@ -133,15 +133,15 @@ describe("Rastro shell", () => {
       email: "ana@example.com",
       passwordResetAction: "Enviar enlace de restablecimiento",
       signOutAction: "Cerrar sesión",
-      deletionAction: "Solicitar eliminacion de cuenta",
+      deletionAction: "Solicitar eliminación de cuenta",
     });
     expect(profile.accountSettings?.deletionImpacts).toEqual(
       expect.arrayContaining([
         expect.stringContaining("Perfiles de mascota"),
         expect.stringContaining("Reportes"),
-        expect.stringContaining("adopcion"),
+        expect.stringContaining("adopción"),
         expect.stringContaining("Conversaciones"),
-        expect.stringContaining("Contenido publico"),
+        expect.stringContaining("Contenido público"),
       ]),
     );
   });
@@ -469,7 +469,7 @@ describe("Rastro shell", () => {
     expect(firstRun.shouldShow).toBe(true);
     expect(firstRun.steps.map((step) => step.title)).toEqual([
       "Encuentra reportes cerca",
-      "Reporta con datos utiles",
+      "Reporta con datos útiles",
       "Activa ayuda local",
     ]);
     expect(firstRun.skipLabel).toBe("Omitir");
@@ -528,7 +528,7 @@ describe("Rastro shell", () => {
     expect(shell.appStates.states["offline-stale"]).toMatchObject({
       isStale: true,
       kind: "offline",
-      title: "Sin conexion",
+      title: "Sin conexión",
     });
     expect(shell.appStates.states.retry.actions?.[0]).toMatchObject({
       id: "retry",
@@ -548,13 +548,13 @@ describe("Rastro shell", () => {
       kind: "permission-education",
       permission: "location",
       title: "Encuentra reportes cerca de ti",
-      body: "Usamos tu ubicacion solo para ordenar reportes por distancia.",
+      body: "Usamos tu ubicación solo para ordenar reportes por distancia.",
     });
     expect(shell.appStates.permissionEducation.location.actions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: "request-permission",
-          label: "Usar mi ubicacion actual",
+          label: "Usar mi ubicación actual",
         }),
         expect.objectContaining({
           id: "manual-search",

@@ -64,11 +64,11 @@ export const boliviaDepartmentLocationOptions = [
   {
     coordinates: { latitude: -19.5836, longitude: -65.7531 },
     countryCode: "BO",
-    department: "Potosi",
-    label: "Potosi",
-    locationCellLabel: "Potosi",
+    department: "Potosí",
+    label: "Potosí",
+    locationCellLabel: "Potosí",
     manualLocationKind: "place",
-    municipality: "Potosi",
+    municipality: "Potosí",
     source: "manual",
   },
   {

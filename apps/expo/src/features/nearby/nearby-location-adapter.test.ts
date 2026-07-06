@@ -184,7 +184,7 @@ describe("Nearby foreground location adapter", () => {
       "Chuquisaca",
       "Tarija",
       "Oruro",
-      "Potosi",
+      "Potosí",
       "Beni",
       "Pando",
     ]);
@@ -197,7 +197,7 @@ describe("Nearby foreground location adapter", () => {
       "Sucre",
       "Tarija",
       "Oruro",
-      "Potosi",
+      "Potosí",
       "Trinidad",
       "Cobija",
       "Elegir punto en el mapa",

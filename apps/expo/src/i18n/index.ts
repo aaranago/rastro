@@ -252,7 +252,7 @@ const esBO: ShellCopy = {
       },
       "offline-stale": {
         kind: "offline",
-        title: "Sin conexion",
+        title: "Sin conexión",
         body: "Mostrando contenido guardado. Puede estar desactualizado.",
         isStale: true,
         cachedContentLabel: "contenido guardado",
@@ -268,8 +268,8 @@ const esBO: ShellCopy = {
       retry: {
         kind: "retry",
         title: "Intentar de nuevo",
-        body: "La accion no se completo. Tu informacion se mantiene.",
-        retryTargetLabel: "accion pendiente",
+        body: "La acción no se completó. Tu información se mantiene.",
+        retryTargetLabel: "acción pendiente",
         actions: [
           {
             id: "retry",
@@ -284,8 +284,8 @@ const esBO: ShellCopy = {
         kind: "permission-education",
         permission: "location",
         context: "nearby",
-        title: "Usa tu ubicacion para ver Cerca",
-        body: "Rastro usa tu ubicacion solo para ordenar reportes cercanos o buscar por radio.",
+        title: "Usa tu ubicación para ver Cerca",
+        body: "Rastro usa tu ubicación solo para ordenar reportes cercanos o buscar por radio.",
         iconName: "location.fill",
         reasons: [
           "No pedimos GPS al abrir la app.",
@@ -294,7 +294,7 @@ const esBO: ShellCopy = {
         actions: [
           {
             id: "request-permission",
-            label: "Usar mi ubicacion",
+            label: "Usar mi ubicación",
             iconName: "location.fill",
           },
           {
@@ -338,12 +338,12 @@ const esBO: ShellCopy = {
         iconName: "camera.fill",
         reasons: [
           "Usa cámara o galería cuando crees un reporte.",
-          "Quitamos datos EXIF antes de subir imagenes.",
+          "Quitamos datos EXIF antes de subir imágenes.",
         ],
         actions: [
           {
             id: "request-permission",
-            label: "Elegir foto o camara",
+            label: "Elegir foto o cámara",
             iconName: "camera.fill",
           },
           {
@@ -444,18 +444,18 @@ const esBO: ShellCopy = {
         signOutPending: "Cerrando sesión",
         deletionTitle: "Eliminar cuenta",
         deletionBody:
-          "Puedes iniciar la eliminacion de tu cuenta desde Rastro. Conservamos solo lo necesario para seguridad, moderacion y recuperacion.",
+          "Puedes iniciar la eliminación de tu cuenta desde Rastro. Conservamos solo lo necesario para seguridad, moderación y recuperación.",
         deletionImpacts: [
-          "Perfiles de mascota: dejan de estar bajo tu gestion cuando se complete la eliminacion.",
-          "Reportes y adopcion: se cierran o quedan para moderacion sin datos de contacto publicos.",
-          "Conversaciones: conservamos mensajes necesarios para seguridad y moderacion, sin permitir nuevas respuestas.",
-          "Contenido publico: retiramos contacto personal y mantenemos contexto util para recuperacion cuando corresponde.",
+          "Perfiles de mascota: dejan de estar bajo tu gestión cuando se complete la eliminación.",
+          "Reportes y adopción: se cierran o quedan para moderación sin datos de contacto públicos.",
+          "Conversaciones: conservamos mensajes necesarios para seguridad y moderación, sin permitir nuevas respuestas.",
+          "Contenido público: retiramos contacto personal y mantenemos contexto útil para recuperación cuando corresponde.",
         ],
-        deletionAction: "Solicitar eliminacion de cuenta",
-        deletionPending: "Solicitando eliminacion",
+        deletionAction: "Solicitar eliminación de cuenta",
+        deletionPending: "Solicitando eliminación",
         deletionSuccess:
-          "Te enviaremos las instrucciones para confirmar la eliminacion.",
-        actionFailed: "No pudimos completar esta accion. Intenta de nuevo.",
+          "Te enviaremos las instrucciones para confirmar la eliminación.",
+        actionFailed: "No pudimos completar esta acción. Intenta de nuevo.",
       },
     },
   },
