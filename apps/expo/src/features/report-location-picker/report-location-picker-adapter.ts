@@ -57,8 +57,8 @@ function toRecoverableCurrentLocationResult(
     return {
       kind: "recoverable",
       message:
-        "No tenemos permiso para usar tu ubicacion. Elige un departamento como referencia y marca el punto en el mapa.",
-      title: "Permiso de ubicacion denegado",
+        "No tenemos permiso para usar tu ubicación. Elige un departamento como referencia y marca el punto en el mapa.",
+      title: "Permiso de ubicación denegado",
     };
   }
 
@@ -67,8 +67,8 @@ function toRecoverableCurrentLocationResult(
     message:
       result.reason === "outside-bolivia"
         ? "No pudimos ubicarte dentro de Bolivia. Elige un departamento como referencia y marca el punto en el mapa."
-        : "No pudimos obtener tu ubicacion actual. Elige un departamento como referencia y marca el punto en el mapa.",
-    title: "Elige una ubicacion manual",
+        : "No pudimos obtener tu ubicación actual. Elige un departamento como referencia y marca el punto en el mapa.",
+    title: "Elige una ubicación manual",
   };
 }
 
@@ -88,8 +88,8 @@ function toReportLocationDraftResult(
     return {
       kind: "recoverable",
       message:
-        "Elige una ubicacion dentro de Bolivia para continuar con el reporte.",
-      title: "Elige una ubicacion en Bolivia",
+        "Elige una ubicación dentro de Bolivia para continuar con el reporte.",
+      title: "Elige una ubicación en Bolivia",
     };
   }
 
@@ -126,7 +126,7 @@ function inferAdministrativeArea(location: NearbySearchLocation) {
     { department: "Chuquisaca", municipality: "Sucre" },
     { department: "Tarija", municipality: "Tarija" },
     { department: "Oruro", municipality: "Oruro" },
-    { department: "Potosi", municipality: "Potosi" },
+    { department: "Potosí", municipality: "Potosí" },
     { department: "Beni", municipality: "Trinidad" },
     { department: "Pando", municipality: "Cobija" },
   ] as const;

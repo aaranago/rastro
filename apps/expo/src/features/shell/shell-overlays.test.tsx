@@ -5,6 +5,7 @@ import type { ShellReportAction } from "./shell-model";
 import {
   ReportActionSheet,
   ShellFabHost,
+  shouldRouteHomeAfterFirstRunTour,
   shouldDisplayGlobalReportFab,
   shouldDisplayShellFirstRunTour,
   SignInPrompt,
@@ -450,6 +451,17 @@ describe("ShellFirstRunTourHost", () => {
         shouldShow: true,
       }),
     ).toBe(true);
+  });
+
+  it("routes first-run shell starts to Cerca without stealing deep links", () => {
+    expect(shouldRouteHomeAfterFirstRunTour("/")).toBe(true);
+    expect(shouldRouteHomeAfterFirstRunTour("/actividad")).toBe(true);
+    expect(shouldRouteHomeAfterFirstRunTour("/reportes/perdidos/report-1")).toBe(
+      false,
+    );
+    expect(shouldRouteHomeAfterFirstRunTour("/proveedores/provider-1")).toBe(
+      false,
+    );
   });
 });
 

@@ -134,8 +134,8 @@ describe("Report location picker adapter", () => {
     ).toEqual({
       kind: "recoverable",
       message:
-        "Elige una ubicacion dentro de Bolivia para continuar con el reporte.",
-      title: "Elige una ubicacion en Bolivia",
+        "Elige una ubicación dentro de Bolivia para continuar con el reporte.",
+      title: "Elige una ubicación en Bolivia",
     });
   });
 
@@ -156,8 +156,8 @@ describe("Report location picker adapter", () => {
     ).toEqual({
       kind: "recoverable",
       message:
-        "Elige una ubicacion dentro de Bolivia para continuar con el reporte.",
-      title: "Elige una ubicacion en Bolivia",
+        "Elige una ubicación dentro de Bolivia para continuar con el reporte.",
+      title: "Elige una ubicación en Bolivia",
     });
   });
 
@@ -181,8 +181,8 @@ describe("Report location picker adapter", () => {
     ).resolves.toEqual({
       kind: "recoverable",
       message:
-        "No tenemos permiso para usar tu ubicacion. Elige un departamento como referencia y marca el punto en el mapa.",
-      title: "Permiso de ubicacion denegado",
+        "No tenemos permiso para usar tu ubicación. Elige un departamento como referencia y marca el punto en el mapa.",
+      title: "Permiso de ubicación denegado",
     });
 
     const unavailableNearbyLocationAdapter =
@@ -206,7 +206,7 @@ describe("Report location picker adapter", () => {
       kind: "recoverable",
       message:
         "No pudimos ubicarte dentro de Bolivia. Elige un departamento como referencia y marca el punto en el mapa.",
-      title: "Elige una ubicacion manual",
+      title: "Elige una ubicación manual",
     });
   });
 });

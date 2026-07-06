@@ -24,6 +24,7 @@ import type {
 } from "./resource-types";
 import type { ResourcesAdapter } from "./static-resources-adapter";
 import { SafeMaterialCommunityIcon } from "../icons/safe-material-community-icon";
+import { useRastroShell } from "../shell/shell-provider";
 import { trustSafetyReportReasonOptions } from "../trust-safety";
 import { ResourceProviderProfile } from "./resource-provider-profile";
 import { defaultApiResourcesAdapter } from "./resources-default-api-adapter";
@@ -77,6 +78,7 @@ type ReportState =
 type ProfileFeedback = NonNullable<
   ComponentProps<typeof ResourceProviderProfile>["reportFeedback"]
 >;
+type RequestAuthPrompt = ReturnType<typeof useRastroShell>["requestAuthPrompt"];
 
 interface ProviderReportDraft {
   detail: string;
@@ -108,6 +110,7 @@ export function ResourceProviderProfileScreen({
   initiallyReportProvider = false,
   providerId,
 }: ResourceProviderProfileScreenProps) {
+  const { requestAuthPrompt, session } = useRastroShell();
   const safeAreaInsets = useSafeAreaInsets();
   const profileBottomInset = getResourcesScrollableBottomInset(
     safeAreaInsets.bottom,
@@ -124,7 +127,6 @@ export function ResourceProviderProfileScreen({
     undefined,
   );
   const reportWorkflow = useProviderReportWorkflow(adapter);
-  const initialReportIntentOpenedRef = useRef(false);
   const sponsorDeliverySessionIdRef = useRef(createSponsorDeliverySessionId());
   const recordedSponsorImpressionRef = useRef<string | null>(null);
 
@@ -174,24 +176,18 @@ export function ResourceProviderProfileScreen({
   }, [adapter, reloadVersion, resolvedProviderId]);
 
   const handleRetry = useCallback(() => {
-    initialReportIntentOpenedRef.current = false;
     reportWorkflow.resetReportState();
     setLoadState({ kind: "loading", providerId: resolvedProviderId });
     setReloadVersion((current) => current + 1);
   }, [reportWorkflow, resolvedProviderId]);
 
-  useEffect(() => {
-    if (
-      !initiallyReportProvider ||
-      initialReportIntentOpenedRef.current ||
-      loadState.kind !== "ready"
-    ) {
-      return;
-    }
-
-    initialReportIntentOpenedRef.current = true;
-    reportWorkflow.openReportProvider(loadState.providerId);
-  }, [initiallyReportProvider, loadState, reportWorkflow]);
+  const handleReportProvider = useProtectedProviderReportWorkflow({
+    initiallyReportProvider,
+    loadState,
+    reportWorkflow,
+    requestAuthPrompt,
+    sessionKind: session.kind,
+  });
 
   const currentLoadState = getCurrentLoadState(loadState, resolvedProviderId);
 
@@ -306,7 +302,7 @@ export function ResourceProviderProfileScreen({
         bottomInset={profileBottomInset}
         onContactAction={handleContactAction}
         onOpenLink={handleOpenLink}
-        onReportProvider={reportWorkflow.openReportProvider}
+        onReportProvider={handleReportProvider}
         profile={currentLoadState.profile}
         reportFeedback={reportFeedback ?? linkFeedback}
       />
@@ -326,6 +322,97 @@ export function ResourceProviderProfileScreen({
       />
     </>
   );
+}
+
+function useProtectedProviderReportWorkflow({
+  initiallyReportProvider,
+  loadState,
+  reportWorkflow,
+  requestAuthPrompt,
+  sessionKind,
+}: {
+  initiallyReportProvider: boolean;
+  loadState: ProfileLoadState;
+  reportWorkflow: ReturnType<typeof useProviderReportWorkflow>;
+  requestAuthPrompt: RequestAuthPrompt;
+  sessionKind: "member" | "visitor";
+}) {
+  const initialReportAuthPromptedRef = useRef(false);
+  const initialReportIntentOpenedRef = useRef(false);
+
+  useEffect(() => {
+    if (loadState.kind !== "loading") {
+      return;
+    }
+
+    initialReportAuthPromptedRef.current = false;
+    initialReportIntentOpenedRef.current = false;
+  }, [loadState.kind]);
+
+  useEffect(() => {
+    if (
+      !initiallyReportProvider ||
+      initialReportIntentOpenedRef.current ||
+      loadState.kind !== "ready"
+    ) {
+      return;
+    }
+
+    if (sessionKind !== "member") {
+      if (!initialReportAuthPromptedRef.current) {
+        initialReportAuthPromptedRef.current = true;
+        requestProviderReportAuth({
+          providerId: loadState.providerId,
+          requestAuthPrompt,
+        });
+      }
+
+      return;
+    }
+
+    initialReportIntentOpenedRef.current = true;
+    reportWorkflow.openReportProvider(loadState.providerId);
+  }, [
+    initiallyReportProvider,
+    loadState,
+    reportWorkflow,
+    requestAuthPrompt,
+    sessionKind,
+  ]);
+
+  return useCallback(
+    (reportProviderId: string) => {
+      if (sessionKind !== "member") {
+        requestProviderReportAuth({
+          providerId: reportProviderId,
+          requestAuthPrompt,
+        });
+        return;
+      }
+
+      reportWorkflow.openReportProvider(reportProviderId);
+    },
+    [reportWorkflow, requestAuthPrompt, sessionKind],
+  );
+}
+
+function requestProviderReportAuth({
+  providerId,
+  requestAuthPrompt,
+}: {
+  providerId: string;
+  requestAuthPrompt: RequestAuthPrompt;
+}) {
+  const returnTo = buildResourceProviderProfileHref(providerId, {
+    report: true,
+  }) as string;
+
+  requestAuthPrompt({
+    returnTo,
+    sourceHref: `rastro://auth/sign-in?returnTo=${encodeURIComponent(
+      returnTo,
+    )}`,
+  });
 }
 
 function useProviderReportWorkflow(adapter: ResourcesAdapter) {

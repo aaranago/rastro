@@ -163,7 +163,7 @@ export function ReportLocationPickerScreen({
       footer={
         onCancel ? (
           <Pressable
-            accessibilityLabel="Cancelar seleccion de ubicacion"
+            accessibilityLabel="Cancelar selección de ubicación"
             accessibilityRole="button"
             onPress={onCancel}
             style={styles.secondaryButton}
@@ -176,20 +176,20 @@ export function ReportLocationPickerScreen({
     >
       <View style={styles.section}>
         <Text selectable style={styles.title}>
-          Ubicacion del reporte
+          Ubicación del reporte
         </Text>
         <Text selectable style={styles.body}>
-          Usa tu ubicacion actual o elige una referencia para abrir el mapa.
-          Despues ajusta el pin. Por defecto publicamos una zona aproximada de
+          Usa tu ubicación actual o elige una referencia para abrir el mapa.
+          Después ajusta el pin. Por defecto publicamos una zona aproximada de
           300 m, no el punto exacto.
         </Text>
         <Pressable
-          accessibilityLabel="Usar mi ubicacion actual"
+          accessibilityLabel="Usar mi ubicación actual"
           accessibilityRole="button"
           onPress={handleUseCurrentLocation}
           style={styles.primaryButton}
         >
-          <Text style={styles.primaryButtonText}>Usar mi ubicacion actual</Text>
+          <Text style={styles.primaryButtonText}>Usar mi ubicación actual</Text>
         </Pressable>
       </View>
 
@@ -302,7 +302,7 @@ function ManualLocationDecisionSection({
                 </Text>
                 <Text selectable style={styles.decisionMeta}>
                   Ajusta el pin en el mapa. Rastro muestra una zona de 300 m
-                  salvo que actives el punto exacto publico.
+                  salvo que actives el punto exacto público.
                 </Text>
               </View>
             </Pressable>
@@ -324,7 +324,7 @@ function DepartmentTrigger({
 }) {
   return (
     <Pressable
-      accessibilityLabel={`Cambiar departamento. Seleccion actual: ${selectedDepartment}`}
+      accessibilityLabel={`Cambiar departamento. Selección actual: ${selectedDepartment}`}
       accessibilityRole="button"
       accessibilityState={{ expanded: isDepartmentMenuOpen }}
       onPress={onPress}
@@ -474,7 +474,7 @@ function getKnownBoliviaArea(location: NearbySearchLocation) {
     { department: "Chuquisaca", municipality: "Sucre" },
     { department: "Tarija", municipality: "Tarija" },
     { department: "Oruro", municipality: "Oruro" },
-    { department: "Potosi", municipality: "Potosi" },
+    { department: "Potosí", municipality: "Potosí" },
     { department: "Beni", municipality: "Trinidad" },
     { department: "Pando", municipality: "Cobija" },
   ] as const;

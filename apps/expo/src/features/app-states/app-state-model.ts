@@ -55,17 +55,17 @@ const permissionEducationPresets: Record<
   "nearby-location": {
     permission: "location",
     context: "nearby",
-    title: "Usa tu ubicacion en Cerca",
-    body: "Rastro usa tu ubicacion para ordenar reportes cercanos y mostrar zonas aproximadas, no para publicar tu direccion.",
+    title: "Usa tu ubicación en Cerca",
+    body: "Rastro usa tu ubicación para ordenar reportes cercanos y mostrar zonas aproximadas, no para publicar tu dirección.",
     iconName: "location.fill",
     reasons: [
       "Puedes buscar por ciudad o zona si prefieres.",
-      "Actualizamos la ubicacion solo cuando abres o refrescas Cerca.",
+      "Actualizamos la ubicación solo cuando abres o refrescas Cerca.",
     ],
     actions: [
       createAppStateAction({
         id: "request-permission",
-        label: "Permitir ubicacion",
+        label: "Permitir ubicación",
         iconName: "location.fill",
       }),
       createAppStateAction({
@@ -80,10 +80,10 @@ const permissionEducationPresets: Record<
     permission: "notifications",
     context: "alert-subscription",
     title: "Activa alertas cercanas",
-    body: "Te avisaremos solo sobre nuevos reportes de mascotas perdidas cerca de tu area.",
+    body: "Te avisaremos solo sobre nuevos reportes de mascotas perdidas cerca de tu área.",
     iconName: "bell.badge.fill",
     reasons: [
-      "Puedes cambiar el radio despues.",
+      "Puedes cambiar el radio después.",
       "No enviamos patrocinadores como notificaciones.",
     ],
     actions: [
@@ -103,21 +103,21 @@ const permissionEducationPresets: Record<
     permission: "photos-camera",
     context: "report-media",
     title: "Agrega fotos al reporte",
-    body: "Las fotos ayudan a reconocer a la mascota. Rastro quitara datos EXIF antes de subirlas.",
+    body: "Las fotos ayudan a reconocer a la mascota. Rastro quitará datos EXIF antes de subirlas.",
     iconName: "camera.fill",
     reasons: [
-      "Puedes elegir de galeria o camara.",
+      "Puedes elegir de galería o cámara.",
       "Usa hasta 5 fotos por reporte o ficha.",
     ],
     actions: [
       createAppStateAction({
         id: "request-permission",
-        label: "Permitir fotos y camara",
+        label: "Permitir fotos y cámara",
         iconName: "camera.fill",
       }),
       createAppStateAction({
         id: "continue",
-        label: "Elegir despues",
+        label: "Elegir después",
         variant: "quiet",
       }),
     ],
@@ -126,7 +126,7 @@ const permissionEducationPresets: Record<
     permission: "background-location",
     context: "moving-alerts",
     title: "Alertas mientras te mueves",
-    body: "Usaremos ubicacion en segundo plano solo si activas esta opcion para ajustar tu area de alertas.",
+    body: "Usaremos ubicación en segundo plano solo si activas esta opción para ajustar tu área de alertas.",
     iconName: "figure.walk.motion",
     reasons: [
       "Puedes desactivarlo cuando quieras.",
@@ -162,7 +162,7 @@ export function createLoadingStateDescriptor(
   return {
     kind: "loading",
     title: input.title ?? "Cargando",
-    body: input.body ?? "Estamos preparando la informacion.",
+    body: input.body ?? "Estamos preparando la información.",
     eyebrow: input.eyebrow,
     iconName: input.iconName,
     tone: input.tone,
@@ -305,13 +305,13 @@ export function createOfflineStateDescriptor(
 
   return {
     kind: "offline",
-    title: input.title ?? "Sin conexion",
+    title: input.title ?? "Sin conexión",
     body: input.body ?? buildOfflineBody(input.isStale, contentLabel),
     eyebrow: input.eyebrow,
     iconName: input.iconName ?? "wifi.slash",
     tone: input.tone ?? "warning",
     statusLabel:
-      input.statusLabel ?? (input.isStale ? "Datos guardados" : "Sin conexion"),
+      input.statusLabel ?? (input.isStale ? "Datos guardados" : "Sin conexión"),
     detailLines: input.detailLines,
     footnote: input.footnote,
     isStale: input.isStale,
@@ -364,7 +364,7 @@ function getPermissionDeniedCopy(permission: AppStatePermission) {
   switch (permission) {
     case "location":
       return {
-        title: "Ubicacion desactivada",
+        title: "Ubicación desactivada",
         body: "Puedes abrir ajustes o buscar por ciudad, zona o pin manual en Bolivia.",
         iconName: "location.slash.fill",
       };
@@ -376,14 +376,14 @@ function getPermissionDeniedCopy(permission: AppStatePermission) {
       };
     case "photos-camera":
       return {
-        title: "Fotos y camara desactivadas",
-        body: "Abre ajustes para agregar imagenes al reporte cuando estes listo.",
+        title: "Fotos y cámara desactivadas",
+        body: "Abre ajustes para agregar imágenes al reporte cuando estés listo.",
         iconName: "camera.fill",
       };
     case "background-location":
       return {
-        title: "Ubicacion en segundo plano desactivada",
-        body: "Las alertas mientras te mueves seguiran apagadas. Puedes usar Cerca al abrir la app.",
+        title: "Ubicación en segundo plano desactivada",
+        body: "Las alertas mientras te mueves seguirán apagadas. Puedes usar Cerca al abrir la app.",
         iconName: "location.slash.fill",
       };
   }
@@ -391,10 +391,10 @@ function getPermissionDeniedCopy(permission: AppStatePermission) {
 
 function buildOfflineBody(isStale: boolean, contentLabel: string) {
   if (isStale) {
-    return `Estas viendo ${contentLabel}. Puede estar desactualizado hasta que vuelva la conexion.`;
+    return `Estás viendo ${contentLabel}. Puede estar desactualizado hasta que vuelva la conexión.`;
   }
 
-  return "No hay conexion ahora. Puedes seguir con contenido guardado y reintentar.";
+  return "No hay conexión ahora. Puedes seguir con contenido guardado y reintentar.";
 }
 
 function buildRetryBody(
@@ -402,16 +402,16 @@ function buildRetryBody(
   queuedActionCount: number | undefined,
 ) {
   if (typeof queuedActionCount === "number" && queuedActionCount > 1) {
-    return `Hay ${queuedActionCount} acciones pendientes. Reintentaremos cuando tengas conexion.`;
+    return `Hay ${queuedActionCount} acciones pendientes. Reintentaremos cuando tengas conexión.`;
   }
 
   if (queuedActionCount === 1) {
-    return "Hay 1 accion pendiente. Reintentaremos cuando tengas conexion.";
+    return "Hay 1 acción pendiente. Reintentaremos cuando tengas conexión.";
   }
 
   if (retryTargetLabel) {
-    return `Guardamos ${retryTargetLabel}. Puedes reintentar cuando vuelva la conexion.`;
+    return `Guardamos ${retryTargetLabel}. Puedes reintentar cuando vuelva la conexión.`;
   }
 
-  return "Guardamos tu avance. Puedes reintentar cuando vuelva la conexion.";
+  return "Guardamos tu avance. Puedes reintentar cuando vuelva la conexión.";
 }

@@ -40,6 +40,13 @@ const linking = vi.hoisted(() => ({
   canOpenURL: vi.fn(),
   openURL: vi.fn(),
 }));
+const shellContext = vi.hoisted(() => ({
+  requestAuthPrompt: vi.fn(),
+  session: {
+    id: "member-ana",
+    kind: "member" as const,
+  } as { id: string; kind: "member" } | { kind: "visitor" },
+}));
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof React>("react");
@@ -161,6 +168,10 @@ vi.mock("../../utils/api", () => ({
   trpcClient: api.trpcClient,
 }));
 
+vi.mock("../shell/shell-provider", () => ({
+  useRastroShell: () => shellContext,
+}));
+
 describe("Resource Provider profile screen", () => {
   beforeEach(() => {
     reactState.cursor = 0;
@@ -172,6 +183,11 @@ describe("Resource Provider profile screen", () => {
     linking.openURL.mockReset();
     linking.canOpenURL.mockResolvedValue(true);
     linking.openURL.mockResolvedValue(undefined);
+    shellContext.requestAuthPrompt.mockReset();
+    shellContext.session = {
+      id: "member-ana",
+      kind: "member",
+    };
   });
 
   it("builds the Recursos stack href used by search result cards", () => {
@@ -378,6 +394,57 @@ describe("Resource Provider profile screen", () => {
           element.props.keyboardShouldPersistTaps === "handled",
       )?.props.keyboardShouldPersistTaps,
     ).toBe("handled");
+  });
+
+  it("prompts visitors before opening a protected provider report route intent", async () => {
+    shellContext.session = { kind: "visitor" };
+    const reportProvider = vi.fn<ResourcesAdapter["reportProvider"]>();
+    const adapter = createAdapter({ reportProvider });
+
+    void renderScreen(
+      createProfileScreen(adapter, { initiallyReportProvider: true }),
+    );
+    await flushEffects();
+    void renderScreen(
+      createProfileScreen(adapter, { initiallyReportProvider: true }),
+    );
+    await flushEffects();
+
+    const visitorScreen = renderScreen(
+      createProfileScreen(adapter, { initiallyReportProvider: true }),
+    );
+
+    expect(shellContext.requestAuthPrompt).toHaveBeenCalledWith({
+      returnTo: `/proveedores/${profile.id}?report=1`,
+      sourceHref: `rastro://auth/sign-in?returnTo=${encodeURIComponent(
+        `/proveedores/${profile.id}?report=1`,
+      )}`,
+    });
+    expect(reportProvider).not.toHaveBeenCalled();
+    expect(
+      findElement(visitorScreen, (element) => element.type === "Modal")?.props
+        .visible,
+    ).toBe(false);
+  });
+
+  it("prompts visitors before submitting a provider report from the profile action", async () => {
+    shellContext.session = { kind: "visitor" };
+    const reportProvider = vi.fn<ResourcesAdapter["reportProvider"]>();
+    const adapter = createAdapter({ reportProvider });
+
+    void renderScreen(createProfileScreen(adapter));
+    await flushEffects();
+    const readyScreen = renderScreen(createProfileScreen(adapter));
+
+    pressByText(readyScreen, "Reportar proveedor");
+
+    expect(shellContext.requestAuthPrompt).toHaveBeenCalledWith({
+      returnTo: `/proveedores/${profile.id}?report=1`,
+      sourceHref: `rastro://auth/sign-in?returnTo=${encodeURIComponent(
+        `/proveedores/${profile.id}?report=1`,
+      )}`,
+    });
+    expect(reportProvider).not.toHaveBeenCalled();
   });
 
   it("waits for backend confirmation before showing provider report success", async () => {

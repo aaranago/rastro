@@ -104,10 +104,10 @@ describe("ReportLocationPickerScreen", () => {
     expect(
       findText(
         screen,
-        "Usa tu ubicacion actual o elige una referencia para abrir el mapa. Despues ajusta el pin. Por defecto publicamos una zona aproximada de 300 m, no el punto exacto.",
+        "Usa tu ubicación actual o elige una referencia para abrir el mapa. Después ajusta el pin. Por defecto publicamos una zona aproximada de 300 m, no el punto exacto.",
       ),
     ).toBe(true);
-    expect(findText(screen, "Usar mi ubicacion actual")).toBe(true);
+    expect(findText(screen, "Usar mi ubicación actual")).toBe(true);
     expect(findText(screen, "Referencia para abrir el mapa")).toBe(true);
     expect(findText(screen, "La Paz")).toBe(true);
     expect(
@@ -138,7 +138,7 @@ describe("ReportLocationPickerScreen", () => {
       (element) =>
         element.type === "Pressable" &&
         element.props.accessibilityLabel ===
-          "Cambiar departamento. Seleccion actual: La Paz",
+          "Cambiar departamento. Selección actual: La Paz",
     );
 
     void getPressableOnPress(departmentButton)();
@@ -242,7 +242,7 @@ describe("ReportLocationPickerScreen", () => {
       screen,
       (element) =>
         element.type === "Pressable" &&
-        element.props.accessibilityLabel === "Usar mi ubicacion actual",
+        element.props.accessibilityLabel === "Usar mi ubicación actual",
     );
 
     await getPressableOnPress(currentLocationButton)();
@@ -280,7 +280,7 @@ describe("ReportLocationPickerScreen", () => {
       screen,
       (element) =>
         element.type === "Pressable" &&
-        element.props.accessibilityLabel === "Usar mi ubicacion actual",
+        element.props.accessibilityLabel === "Usar mi ubicación actual",
     );
 
     await getPressableOnPress(currentLocationButton)();
@@ -293,11 +293,11 @@ describe("ReportLocationPickerScreen", () => {
       />,
     );
 
-    expect(findText(deniedScreen, "Permiso de ubicacion denegado")).toBe(true);
+    expect(findText(deniedScreen, "Permiso de ubicación denegado")).toBe(true);
     expect(
       findText(
         deniedScreen,
-        "No tenemos permiso para usar tu ubicacion. Elige un departamento como referencia y marca el punto en el mapa.",
+        "No tenemos permiso para usar tu ubicación. Elige un departamento como referencia y marca el punto en el mapa.",
       ),
     ).toBe(true);
     expect(findText(deniedScreen, "La Paz")).toBe(true);
@@ -365,7 +365,7 @@ describe("ReportLocationPickerScreen", () => {
       (element) =>
         element.type === "Pressable" &&
         element.props.accessibilityLabel ===
-          "Cambiar departamento. Seleccion actual: La Paz",
+          "Cambiar departamento. Selección actual: La Paz",
     );
 
     void getPressableOnPress(departmentButton)();
@@ -475,13 +475,13 @@ describe("ReportLocationPickerScreen", () => {
     );
 
     expect(onConfirm).not.toHaveBeenCalled();
-    expect(findText(recoverableScreen, "Elige una ubicacion en Bolivia")).toBe(
+    expect(findText(recoverableScreen, "Elige una ubicación en Bolivia")).toBe(
       true,
     );
     expect(
       findText(
         recoverableScreen,
-        "Elige una ubicacion dentro de Bolivia para continuar con el reporte.",
+        "Elige una ubicación dentro de Bolivia para continuar con el reporte.",
       ),
     ).toBe(true);
     expect(findText(recoverableScreen, "La Paz")).toBe(true);

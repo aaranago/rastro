@@ -283,6 +283,7 @@ function ShellFirstRunTourHost({
   store: ShellFirstRunTourStore;
 }) {
   const { copy } = useRastroShell();
+  const pathname = usePathname();
   const router = useRouter();
   const [tourModel, setTourModel] =
     React.useState<ShellFirstRunTourModel | null>(null);
@@ -320,7 +321,9 @@ function ShellFirstRunTourHost({
       setTourModel((current) =>
         current ? { ...current, shouldShow: false } : current,
       );
-      router.push(mobileHomeHref);
+      if (shouldRouteHomeAfterFirstRunTour(pathname)) {
+        router.push(mobileHomeHref);
+      }
 
       try {
         await store.markCompleted({ reason });
@@ -328,7 +331,7 @@ function ShellFirstRunTourHost({
         // The tour should not block app use if persistence is temporarily unavailable.
       }
     },
-    [router, store],
+    [pathname, router, store],
   );
 
   if (!tourModel) {
@@ -351,6 +354,14 @@ function ShellFirstRunTourHost({
       })}
     />
   );
+}
+
+export function shouldRouteHomeAfterFirstRunTour(pathname: string | null) {
+  if (!pathname || pathname === "/" || pathname === "/index") {
+    return true;
+  }
+
+  return pathname === "/actividad" || pathname.endsWith("/actividad");
 }
 
 function ShellFirstRunTourModal({

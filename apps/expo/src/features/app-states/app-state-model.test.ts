@@ -17,7 +17,7 @@ describe("app state descriptors", () => {
     assertAppStateKind(descriptor, "permission-education");
     expect(descriptor.permission).toBe("location");
     expect(descriptor.context).toBe("nearby");
-    expect(descriptor.title).toBe("Usa tu ubicacion en Cerca");
+    expect(descriptor.title).toBe("Usa tu ubicación en Cerca");
     expect(descriptor.body).toContain("reportes cercanos");
     expect(descriptor.body).not.toMatch(/carousel|bienvenida/i);
     expect(descriptor.actions.map((action) => action.id)).toEqual([
@@ -56,7 +56,7 @@ describe("app state descriptors", () => {
     expect(stale.statusLabel).toBe("Datos guardados");
     expect(stale.body).toContain("desactualizado");
     expect(stale.lastUpdatedLabel).toBe("Actualizado ayer");
-    expect(fresh.statusLabel).toBe("Sin conexion");
+    expect(fresh.statusLabel).toBe("Sin conexión");
     expect(fresh.body).not.toContain("desactualizado");
   });
 
