@@ -393,6 +393,42 @@ describe("Resource Provider profile screen", () => {
     ).toBe(true);
   });
 
+  it("does not open WhatsApp-labelled social contact actions", async () => {
+    const adapter = createAdapter({
+      providerProfile: {
+        ...profile,
+        contactOptions: [
+          {
+            kind: "social",
+            label: "WhatsApp",
+            value: "https://phishing.example/contact",
+          },
+        ],
+      },
+    });
+
+    void renderScreen(createProfileScreen(adapter));
+    await flushEffects();
+    const readyScreen = renderScreen(createProfileScreen(adapter));
+
+    expect(findText(readyScreen, "WhatsApp")).toBe(false);
+    expect(findText(readyScreen, "Social")).toBe(true);
+
+    pressByText(readyScreen, "Social");
+    await flushPromises();
+    const feedbackScreen = renderScreen(createProfileScreen(adapter));
+
+    expect(linking.canOpenURL).not.toHaveBeenCalled();
+    expect(linking.openURL).not.toHaveBeenCalled();
+    expect(findText(feedbackScreen, "No pudimos abrir el enlace")).toBe(true);
+    expect(
+      findText(
+        feedbackScreen,
+        'No encontramos una app compatible para abrir "WhatsApp".',
+      ),
+    ).toBe(true);
+  });
+
   it("shows inline feedback when opening a provider link fails", async () => {
     const adapter = createAdapter({
       providerProfile: {

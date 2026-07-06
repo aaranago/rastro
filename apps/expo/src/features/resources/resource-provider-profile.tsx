@@ -622,7 +622,15 @@ function getCompactActionLabel(
     return "Mapa";
   }
 
+  if (isWhatsAppLikeLabel(fallbackLabel)) {
+    return "Social";
+  }
+
   return fallbackLabel.length > 12 ? "Social" : fallbackLabel;
+}
+
+function isWhatsAppLikeLabel(label: string) {
+  return /\bwhats\s*app\b|\bwhatsapp\b/i.test(label);
 }
 
 function ProfileLink({

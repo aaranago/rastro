@@ -983,8 +983,13 @@ function getProviderReportReasonLabel(reason: ResourceReportReason) {
 
 function buildContactUrl(action: {
   kind: ResourceContactOption["kind"];
+  label?: string;
   value: string;
 }) {
+  if (action.kind !== "whatsapp" && isWhatsAppLikeLabel(action.label ?? "")) {
+    return undefined;
+  }
+
   if (action.kind === "phone") {
     const phone = normalizeContactPhoneForUrl(action.value, {
       preserveLeadingPlus: true,
@@ -1006,6 +1011,10 @@ function buildContactUrl(action: {
   }
 
   return action.value;
+}
+
+function isWhatsAppLikeLabel(label: string) {
+  return /\bwhats\s*app\b|\bwhatsapp\b/i.test(label);
 }
 
 function normalizeContactPhoneForUrl(
