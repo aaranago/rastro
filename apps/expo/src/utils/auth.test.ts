@@ -99,15 +99,33 @@ afterEach(() => {
   process.env.EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS = originalSocialProvidersEnv;
 });
 
+function createStoredMobileAuthCallbackURL(createdAt = Date.now()) {
+  const transaction = beginMobileAuthCallbackTransaction(createdAt);
+
+  secureStore.getItem.mockImplementation((key?: string) => {
+    if (key === "rastro_callback_transaction") {
+      return JSON.stringify({
+        createdAt,
+        id: transaction,
+      });
+    }
+
+    return null;
+  });
+
+  return `rastro://auth/callback?transaction=${encodeURIComponent(transaction)}`;
+}
+
 describe("signInWithShellSocialProvider", () => {
   it("starts a Better Auth social sign-in with a mobile auth-session handoff", async () => {
+    const callbackURL = createStoredMobileAuthCallbackURL();
     const socialRequests: unknown[] = [];
     const browserSessions: unknown[] = [];
     const persistedCookies: string[] = [];
 
     const result = await signInWithShellSocialProvider("google", {
       availableProviders: ["google", "facebook"],
-      createCallbackURL: () => "rastro://auth/callback",
+      createCallbackURL: () => callbackURL,
       createProxyURL: (authorizationURL) =>
         `https://auth.example.test/api/auth/expo-authorization-proxy?authorizationURL=${encodeURIComponent(authorizationURL)}`,
       messages: {
@@ -119,7 +137,7 @@ describe("signInWithShellSocialProvider", () => {
         browserSessions.push({ callbackURL, url });
         return Promise.resolve({
           type: "success",
-          url: `${callbackURL}?cookie=${encodeURIComponent("better-auth.session_token=abc")}`,
+          url: `${callbackURL}&cookie=${encodeURIComponent("better-auth.session_token=abc")}`,
         });
       },
       persistCookie: (setCookieHeader) => {
@@ -140,15 +158,15 @@ describe("signInWithShellSocialProvider", () => {
     expect(result).toEqual({ ok: true });
     expect(socialRequests).toEqual([
       {
-        callbackURL: "rastro://auth/callback",
+        callbackURL,
         disableRedirect: true,
-        errorCallbackURL: "rastro://auth/callback",
+        errorCallbackURL: callbackURL,
         provider: "google",
       },
     ]);
     expect(browserSessions).toEqual([
       {
-        callbackURL: "rastro://auth/callback",
+        callbackURL,
         url: "https://auth.example.test/api/auth/expo-authorization-proxy?authorizationURL=https%3A%2F%2Fauth.example.test%2Foauth%2Fgoogle",
       },
     ]);
@@ -243,6 +261,46 @@ describe("signInWithShellSocialProvider", () => {
         Promise.resolve({
           type: "success",
           url: "rastro://evil/callback?cookie=better-auth.session_token%3Dabc",
+        }),
+      persistCookie: (setCookieHeader) => {
+        persistedCookies.push(setCookieHeader);
+      },
+      signInSocial: () =>
+        Promise.resolve({
+          data: {
+            redirect: false,
+            url: "https://auth.example.test/oauth/google",
+          },
+          error: null,
+        }),
+    });
+
+    expect(result).toEqual({
+      message: "No pudimos iniciar sesión con ese proveedor.",
+      ok: false,
+      reason: "failed",
+    });
+    expect(persistedCookies).toEqual([]);
+  });
+
+  it("rejects same-path social handoff cookies without the pending transaction", async () => {
+    const callbackURL = createStoredMobileAuthCallbackURL();
+    const persistedCookies: string[] = [];
+
+    const result = await signInWithShellSocialProvider("google", {
+      availableProviders: ["google"],
+      createCallbackURL: () => callbackURL,
+      createProxyURL: (authorizationURL) =>
+        `https://auth.example.test/api/auth/expo-authorization-proxy?authorizationURL=${encodeURIComponent(authorizationURL)}`,
+      messages: {
+        canceled: "Cancelaste el ingreso.",
+        failed: "No pudimos iniciar sesión con ese proveedor.",
+        unavailable: "Ese proveedor no está disponible.",
+      },
+      openAuthSession: () =>
+        Promise.resolve({
+          type: "success",
+          url: "rastro://auth/callback?cookie=better-auth.session_token%3Dattacker",
         }),
       persistCookie: (setCookieHeader) => {
         persistedCookies.push(setCookieHeader);

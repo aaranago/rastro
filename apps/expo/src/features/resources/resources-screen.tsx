@@ -249,6 +249,11 @@ export function ResourcesScreen({
     setMode(nextMode);
   }, []);
 
+  const focusMapOnCoordinate = useCallback((coordinate: ResourceCoordinate) => {
+    setMapCameraCenter(coordinate);
+    setMapMountKey((current) => current + 1);
+  }, []);
+
   const applyManualLocation = useCallback(
     (option: ResourceManualLocationOption) => {
       setLocation(option.location);
@@ -256,10 +261,10 @@ export function ResourcesScreen({
       setManualSearchFeedback(undefined);
       setIsManualSearchFocused(false);
       if (option.location.coordinate) {
-        setMapCameraCenter(option.location.coordinate);
+        focusMapOnCoordinate(option.location.coordinate);
       }
     },
-    [],
+    [focusMapOnCoordinate],
   );
 
   const handleManualSearchSubmit = useCallback(() => {
@@ -308,7 +313,7 @@ export function ResourcesScreen({
         setLocation(resolvedLocation);
         setManualSearchText(resolvedLocation.label ?? "Ubicación actual");
         if ("coordinate" in resolvedLocation && resolvedLocation.coordinate) {
-          setMapCameraCenter(resolvedLocation.coordinate);
+          focusMapOnCoordinate(resolvedLocation.coordinate);
         }
         return;
       }
@@ -336,7 +341,7 @@ export function ResourcesScreen({
     } finally {
       setIsResolvingLocation(false);
     }
-  }, [locationAdapter, onUseCurrentLocationPress]);
+  }, [focusMapOnCoordinate, locationAdapter, onUseCurrentLocationPress]);
 
   const handleSelectAllCategories = useCallback(() => {
     setSelectedCategoryIds([]);

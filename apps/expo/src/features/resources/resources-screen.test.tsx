@@ -424,6 +424,41 @@ describe("ResourcesScreen", () => {
     ).toBeUndefined();
   });
 
+  it("remounts the map around a newly selected manual location", async () => {
+    const adapter = createResourcesAdapter([buildProviderSummary()]);
+    const props = {
+      adapter,
+      initialLocation: testManualLocationOptions[0]?.location,
+      initialMode: "map" as const,
+      manualLocationOptions: testManualLocationOptions,
+    };
+
+    void renderResourcesScreen(props);
+    await runPendingEffects();
+    const readyScreen = renderResourcesScreen(props);
+    const initialMap = getElementByType(readyScreen, "MapView");
+
+    pressInputByTestId(readyScreen, "resources-search-input", "onFocus");
+    const focusedScreen = renderResourcesScreen(props);
+    changeInputTextByTestId(
+      focusedScreen,
+      "resources-search-input",
+      "Equipetrol",
+    );
+    const matchesScreen = renderResourcesScreen(props);
+    pressByText(matchesScreen, "Equipetrol, Santa Cruz");
+    const relocatedScreen = renderResourcesScreen(props);
+    const relocatedMap = getElementByType(relocatedScreen, "MapView");
+
+    expect(relocatedMap.key).not.toBe(initialMap.key);
+    expect(relocatedMap.props.initialRegion).toEqual(
+      expect.objectContaining({
+        latitude: -17.7833,
+        longitude: -63.1821,
+      }),
+    );
+  });
+
   it("uses lightweight Android map props and markers for resource maps", async () => {
     reactNativePlatform.OS = "android";
     const adapter = createResourcesAdapter([buildProviderSummary()]);
@@ -681,6 +716,36 @@ function pressByText(node: React.ReactNode, text: string) {
   }
 
   (onPress as () => void)();
+}
+
+function pressInputByTestId(
+  node: React.ReactNode,
+  testID: string,
+  handlerName: string,
+) {
+  const input = getElementByTestId(node, testID);
+  const handler = input.props[handlerName];
+
+  if (typeof handler !== "function") {
+    throw new Error(`Expected ${testID} to expose ${handlerName}.`);
+  }
+
+  (handler as () => void)();
+}
+
+function changeInputTextByTestId(
+  node: React.ReactNode,
+  testID: string,
+  text: string,
+) {
+  const input = getElementByTestId(node, testID);
+  const onChangeText = input.props.onChangeText;
+
+  if (typeof onChangeText !== "function") {
+    throw new Error(`Expected ${testID} to expose onChangeText.`);
+  }
+
+  (onChangeText as (value: string) => void)(text);
 }
 
 function findElement(

@@ -728,6 +728,18 @@ export async function signInWithShellSocialProvider(
       };
     }
 
+    if (
+      !consumeMobileAuthCallbackTransaction(
+        callbackParameters?.get("transaction") ?? undefined,
+      )
+    ) {
+      return {
+        message: dependencies.messages.failed,
+        ok: false,
+        reason: "failed",
+      };
+    }
+
     await dependencies.persistCookie(setCookieHeader);
 
     return { ok: true };
