@@ -542,6 +542,7 @@ export function ResourcesScreen({
         onModeChange: handleModeChange,
         onNoticeAction: handleNoticeAction,
         onOpenProvider: onOpenProvider ? handleOpenProvider : undefined,
+        onRecordSponsorImpression: recordSponsorImpression,
         onSelectAllCategories: handleSelectAllCategories,
         onSelectManualLocation: applyManualLocation,
         onSelectMapProvider: setSelectedMapProviderId,
@@ -624,6 +625,9 @@ interface ResourcesHeaderActions {
   onModeChange: (mode: ResourcesDirectoryMode) => void;
   onNoticeAction: (kind: ResourceNoticeAction["kind"]) => void;
   onOpenProvider?: (providerId: string) => void;
+  onRecordSponsorImpression: (
+    provider: ResourceProviderSummaryViewModel,
+  ) => void;
   onSelectAllCategories: () => void;
   onSelectManualLocation: (option: ResourceManualLocationOption) => void;
   onSelectMapProvider: (providerId: string) => void;
@@ -686,6 +690,7 @@ function ResourcesHeader({
         mode={mode}
         onCameraCenterChange={actions.onMapCameraCenterChange}
         onOpenProvider={actions.onOpenProvider}
+        onRecordSponsorImpression={actions.onRecordSponsorImpression}
         onSelectProvider={actions.onSelectMapProvider}
         selectedProviderId={map.selectedProviderId}
         viewModel={viewModel}
@@ -706,6 +711,7 @@ function ResourcesMapSlot({
   mode,
   onCameraCenterChange,
   onOpenProvider,
+  onRecordSponsorImpression,
   onSelectProvider,
   selectedProviderId,
   viewModel,
@@ -717,6 +723,9 @@ function ResourcesMapSlot({
   mode: ResourcesDirectoryMode;
   onCameraCenterChange: (coordinate: ResourceCoordinate) => void;
   onOpenProvider?: (providerId: string) => void;
+  onRecordSponsorImpression: (
+    provider: ResourceProviderSummaryViewModel,
+  ) => void;
   onSelectProvider: (providerId: string) => void;
   selectedProviderId?: string;
   viewModel: ResourcesDirectoryViewModel;
@@ -732,6 +741,7 @@ function ResourcesMapSlot({
       location={location}
       onCameraCenterChange={onCameraCenterChange}
       onOpenProvider={onOpenProvider}
+      onRecordSponsorImpression={onRecordSponsorImpression}
       onSelectProvider={onSelectProvider}
       selectedProviderId={selectedProviderId}
       viewModel={viewModel}
@@ -1157,6 +1167,7 @@ function ResourcesMapPanel({
   location,
   onCameraCenterChange,
   onOpenProvider,
+  onRecordSponsorImpression,
   onSelectProvider,
   selectedProviderId,
   viewModel,
@@ -1166,6 +1177,9 @@ function ResourcesMapPanel({
   location: ResourceSearchLocation;
   onCameraCenterChange: (coordinate: ResourceCoordinate) => void;
   onOpenProvider?: (providerId: string) => void;
+  onRecordSponsorImpression: (
+    provider: ResourceProviderSummaryViewModel,
+  ) => void;
   onSelectProvider: (providerId: string) => void;
   selectedProviderId?: string;
   viewModel: ResourcesDirectoryViewModel;
@@ -1256,6 +1270,7 @@ function ResourcesMapPanel({
       {selectedProvider ? (
         <ResourceMapSelectedProvider
           onOpenProvider={onOpenProvider}
+          onSponsorPlacementVisible={onRecordSponsorImpression}
           provider={selectedProvider}
         />
       ) : null}
@@ -1311,9 +1326,13 @@ function ResourcesMapPanel({
 
 export function ResourceMapSelectedProvider({
   onOpenProvider,
+  onSponsorPlacementVisible,
   provider,
 }: {
   onOpenProvider?: (providerId: string) => void;
+  onSponsorPlacementVisible?: (
+    provider: ResourceProviderSummaryViewModel,
+  ) => void;
   provider: ResourceProviderSummaryViewModel & {
     approximateLocation: ResourceCoordinate;
   };
@@ -1321,6 +1340,9 @@ export function ResourceMapSelectedProvider({
   const handleOpen = useCallback(() => {
     onOpenProvider?.(provider.id);
   }, [onOpenProvider, provider.id]);
+  const handleSponsorPlacementVisible = useCallback(() => {
+    onSponsorPlacementVisible?.(provider);
+  }, [onSponsorPlacementVisible, provider]);
 
   const content = (
     <>
@@ -1339,7 +1361,12 @@ export function ResourceMapSelectedProvider({
                 {provider.name}
               </Text>
               {provider.isSponsored ? (
-                <Text numberOfLines={1} style={styles.mapSelectedSponsorBadge}>
+                <Text
+                  numberOfLines={1}
+                  onLayout={handleSponsorPlacementVisible}
+                  style={styles.mapSelectedSponsorBadge}
+                  testID="resources-map-selected-sponsor-badge"
+                >
                   {provider.sponsorLabel ?? "Patrocinado"}
                 </Text>
               ) : null}
@@ -1356,7 +1383,12 @@ export function ResourceMapSelectedProvider({
         ) : null}
       </View>
       {provider.sponsorDisclosure ? (
-        <Text numberOfLines={2} style={styles.mapSelectedSponsorDisclosure}>
+        <Text
+          numberOfLines={2}
+          onLayout={handleSponsorPlacementVisible}
+          style={styles.mapSelectedSponsorDisclosure}
+          testID="resources-map-selected-sponsor-disclosure"
+        >
           {provider.sponsorDisclosure}
         </Text>
       ) : null}

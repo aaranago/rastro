@@ -19,6 +19,7 @@ export const env = createEnv({
     POSTGRES_URL: z.url(),
     RASTRO_ADMIN_EMAILS: z.string().optional(),
     RASTRO_JOB_SECRET: z.string().optional(),
+    RASTRO_SPONSOR_DELIVERY_TOKEN_SECRET: z.string().optional(),
     RASTRO_STORAGE_ACCESS_KEY_ID: z.string().optional(),
     RASTRO_STORAGE_ALLOWED_MIME_TYPES: z.string().optional(),
     RASTRO_STORAGE_BUCKET: z.string().optional(),

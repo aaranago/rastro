@@ -495,7 +495,7 @@ function assertSearchQuery(query: SearchActiveLostPetReportsQuery) {
   ) {
     throw new LostPetReportRepositoryError(
       "search_location_required",
-      "La búsqueda necesita una ubicación resuelta en Bolivia para el radio PostGIS.",
+      "La búsqueda necesita una ubicación resuelta en Bolivia para calcular el radio.",
     );
   }
 }

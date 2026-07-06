@@ -577,7 +577,6 @@ function assertSponsorDeliveryThrottle(input: {
 }
 
 function getSponsorDeliveryThrottleClientKey(input: {
-  requestHeaders?: Headers;
   session: { user?: { id?: string | null } | null } | null;
 }) {
   const memberId = getOptionalSessionUserId(input.session);
@@ -586,40 +585,7 @@ function getSponsorDeliveryThrottleClientKey(input: {
     return `member:${hashThrottleKeyPart(memberId)}`;
   }
 
-  const networkKey = getFirstHeaderValue(
-    input.requestHeaders,
-    "cf-connecting-ip",
-    "true-client-ip",
-    "x-real-ip",
-    "x-forwarded-for",
-  );
-  const userAgent = normalizeThrottleHeaderValue(
-    input.requestHeaders?.get("user-agent"),
-  );
-
-  if (!networkKey && !userAgent) {
-    return null;
-  }
-
-  return `anonymous:${hashThrottleKeyPart(
-    [networkKey || "unknown-network", userAgent || "unknown-agent"].join("|"),
-  )}`;
-}
-
-function getFirstHeaderValue(headers: Headers | undefined, ...names: string[]) {
-  for (const name of names) {
-    const value = normalizeThrottleHeaderValue(headers?.get(name));
-
-    if (value) {
-      return value.split(",")[0]?.trim().toLowerCase() ?? "";
-    }
-  }
-
-  return "";
-}
-
-function normalizeThrottleHeaderValue(value: string | null | undefined) {
-  return value?.trim().slice(0, 200) ?? "";
+  return "anonymous:public";
 }
 
 function hashThrottleKeyPart(value: string) {

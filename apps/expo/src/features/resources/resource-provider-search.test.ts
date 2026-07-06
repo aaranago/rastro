@@ -140,7 +140,7 @@ describe("Resource Provider nearby search", () => {
         },
       ),
     ).rejects.toThrow(
-      "La búsqueda de recursos necesita una ubicación resuelta en Bolivia para el radio PostGIS.",
+      "La búsqueda de recursos necesita una ubicación resuelta en Bolivia para calcular el radio.",
     );
 
     await expect(
@@ -158,7 +158,7 @@ describe("Resource Provider nearby search", () => {
         },
       ),
     ).rejects.toThrow(
-      "La búsqueda de recursos necesita una ubicación resuelta en Bolivia para el radio PostGIS.",
+      "La búsqueda de recursos necesita una ubicación resuelta en Bolivia para calcular el radio.",
     );
 
     await expect(

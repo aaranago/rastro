@@ -448,7 +448,7 @@ describe("resources router", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
-  it("throttles noisy sponsor delivery events by client and verified placement target", async () => {
+  it("throttles anonymous sponsor delivery events by verified placement target", async () => {
     const deliveryToken = createSponsorDeliveryToken({
       placementId: "55555555-5555-4555-8555-555555555555",
       providerId: "66666666-6666-4666-8666-666666666666",
@@ -468,21 +468,18 @@ describe("resources router", () => {
           status: "recorded" as const,
         }),
     };
-    const createSponsorCaller = (clientAddress: string) =>
-      createCaller({
-        localSponsorPlacementDeliveryRepository: repository,
-        requestHeaders: new Headers({
-          "x-forwarded-for": clientAddress,
-          "user-agent": "Rastro test client",
-        }),
-        session: null,
-      });
-    const firstClientCaller = createSponsorCaller("198.51.100.1");
-    const secondClientCaller = createSponsorCaller("198.51.100.2");
+    const caller = createCaller({
+      localSponsorPlacementDeliveryRepository: repository,
+      requestHeaders: new Headers({
+        "x-forwarded-for": "198.51.100.1",
+        "user-agent": "Rastro test client",
+      }),
+      session: null,
+    });
 
     const allowedResults = await Promise.all(
       Array.from({ length: 30 }, (_, index) =>
-        firstClientCaller.resources.recordSponsorDelivery({
+        caller.resources.recordSponsorDelivery({
           deliveryToken,
           eventType: "impression",
           idempotencyKey: `resources-directory-throttle-${index}`,
@@ -499,18 +496,7 @@ describe("resources router", () => {
     );
 
     await expect(
-      secondClientCaller.resources.recordSponsorDelivery({
-        deliveryToken,
-        eventType: "impression",
-        idempotencyKey: "resources-directory-throttle-other-client",
-        providerId: "66666666-6666-4666-8666-666666666666",
-        source: "resources-list",
-        surface: "resources_directory",
-      }),
-    ).resolves.toMatchObject({ status: "recorded" });
-
-    await expect(
-      firstClientCaller.resources.recordSponsorDelivery({
+      caller.resources.recordSponsorDelivery({
         deliveryToken,
         eventType: "impression",
         idempotencyKey: "resources-directory-throttle-over-limit",
@@ -569,6 +555,64 @@ describe("resources router", () => {
         idempotencyKey: "resources-directory-source-rotation-over-limit",
         providerId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
         source: "rotated-source-over-limit",
+        surface: "resources_directory",
+      }),
+    ).rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
+  });
+
+  it("does not allow public sponsor delivery header rotation to bypass throttling", async () => {
+    const deliveryToken = createSponsorDeliveryToken({
+      placementId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      providerId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      surface: "resources_directory",
+    });
+    const repository = {
+      record: () =>
+        Promise.resolve({
+          event: {
+            eventType: "impression" as const,
+            id: "33333333-3333-4333-8333-333333333333",
+            occurredAt: new Date("2026-07-01T12:00:00.000Z"),
+            placementId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+            providerId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+            surface: "resources_directory" as const,
+          },
+          status: "recorded" as const,
+        }),
+    };
+    const createRotatingHeaderCaller = (index: number) =>
+      createCaller({
+        localSponsorPlacementDeliveryRepository: repository,
+        requestHeaders: new Headers({
+          "cf-connecting-ip": `198.51.100.${index}`,
+          "true-client-ip": `203.0.113.${index}`,
+          "user-agent": `Rastro rotated client ${index}`,
+          "x-forwarded-for": `192.0.2.${index}`,
+          "x-real-ip": `198.18.0.${index}`,
+        }),
+        session: null,
+      });
+
+    await Promise.all(
+      Array.from({ length: 30 }, (_, index) =>
+        createRotatingHeaderCaller(index).resources.recordSponsorDelivery({
+          deliveryToken,
+          eventType: "impression",
+          idempotencyKey: `resources-directory-header-rotation-${index}`,
+          providerId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+          source: "resources-list",
+          surface: "resources_directory",
+        }),
+      ),
+    );
+
+    await expect(
+      createRotatingHeaderCaller(31).resources.recordSponsorDelivery({
+        deliveryToken,
+        eventType: "impression",
+        idempotencyKey: "resources-directory-header-rotation-over-limit",
+        providerId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        source: "resources-list",
         surface: "resources_directory",
       }),
     ).rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
@@ -646,7 +690,7 @@ describe("resources router", () => {
     ).rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
   });
 
-  it("does not throttle sponsor delivery when no request fingerprint is available", async () => {
+  it("throttles anonymous sponsor delivery when no request fingerprint is available", async () => {
     const deliveryToken = createSponsorDeliveryToken({
       placementId: "99999999-9999-4999-8999-999999999999",
       providerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -671,7 +715,7 @@ describe("resources router", () => {
     });
 
     const allowedResults = await Promise.all(
-      Array.from({ length: 31 }, (_, index) =>
+      Array.from({ length: 30 }, (_, index) =>
         caller.resources.recordSponsorDelivery({
           deliveryToken,
           eventType: "impression",
@@ -683,10 +727,21 @@ describe("resources router", () => {
       ),
     );
 
-    expect(allowedResults).toHaveLength(31);
+    expect(allowedResults).toHaveLength(30);
     expect(allowedResults).toEqual(
       expect.arrayContaining([expect.objectContaining({ status: "recorded" })]),
     );
+
+    await expect(
+      caller.resources.recordSponsorDelivery({
+        deliveryToken,
+        eventType: "impression",
+        idempotencyKey: "resources-directory-no-fingerprint-over-limit",
+        providerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        source: "resources-list",
+        surface: "resources_directory",
+      }),
+    ).rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
   });
 
   it("no-ops sponsor delivery events when no active placement is available", async () => {

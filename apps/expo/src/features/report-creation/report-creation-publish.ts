@@ -11,7 +11,7 @@ const reportCreationPublishSuspendedMemberMessage =
 const reportCreationPublishMediaReadinessMessage =
   "Termina de subir y confirmar las fotos antes de publicar. Tu borrador sigue aquí.";
 const reportCreationPublishValidationMessage =
-  "El backend rechazó datos del borrador. Revisa la información marcada y vuelve a intentarlo.";
+  "No pudimos validar algunos datos del borrador. Revisa la información marcada y vuelve a intentarlo.";
 const reportCreationPublishNotFoundMessage =
   "No encontramos un recurso necesario para publicar. Tu borrador sigue aquí para intentarlo de nuevo.";
 const reportCreationPublishForbiddenMessage =

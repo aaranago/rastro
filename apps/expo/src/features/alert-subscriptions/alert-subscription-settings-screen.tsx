@@ -1148,7 +1148,7 @@ function formatPushRegistrationFeedback(
   if (pushRegistration.kind === "missing-project-id") {
     return {
       message:
-        "Tu suscripción quedó activa. Falta configurar EAS projectId para probar push real.",
+        "Tu suscripción quedó activa. Falta completar la configuración de notificaciones para probar avisos reales.",
       tone: "warning",
     };
   }

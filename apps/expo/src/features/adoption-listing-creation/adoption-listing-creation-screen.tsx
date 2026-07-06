@@ -444,7 +444,7 @@ export function AdoptionListingCreationScreen({
         publishState === "confirming" || publishState === "publishing" ? (
           <ReportCreationPublishConfirmationModal
             activityIndicatorColor={shellColors.white}
-            body="Al confirmar, Rastro enviará esta adopción al backend. Si el modo de revisión está activo, quedará pendiente de revisión; si no, se publicará."
+            body="Al confirmar, Rastro enviará esta adopción para revisión. Si la revisión previa está activa, quedará pendiente; si no, se publicará."
             canConfirm={viewModel.canPublish}
             Icon={AdoptionListingCreationIcon}
             onCancel={cancelPublishConfirmation}
@@ -586,7 +586,7 @@ function getAdoptionListingSuccessCopy({
 }) {
   if (publishedListing?.status === "pending_review") {
     return {
-      body: "Tu adopción fue recibida y queda en modo de revisión. El equipo la revisará antes de mostrarla públicamente.",
+      body: "Tu adopción fue recibida y queda pendiente. El equipo la revisará antes de mostrarla públicamente.",
       canShare: false,
       primaryActionLabel: "Ver estado",
       shareActionLabel: "Compartir",
@@ -613,7 +613,7 @@ function buildAdoptionListingPublishConfirmationRows(
     },
     {
       label: "Estado",
-      value: "Pública o pendiente de revisión por modo de revisión",
+      value: "Pública o pendiente de revisión previa",
     },
     {
       label: "Hora",

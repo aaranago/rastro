@@ -505,7 +505,7 @@ function assertResourceProviderSearchQuery(query: ResourceProviderSearchQuery) {
     location.locationCellLabel.trim().length === 0
   ) {
     throw new Error(
-      "La búsqueda de recursos necesita una ubicación resuelta en Bolivia para el radio PostGIS.",
+      "La búsqueda de recursos necesita una ubicación resuelta en Bolivia para calcular el radio.",
     );
   }
 }

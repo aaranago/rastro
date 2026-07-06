@@ -196,7 +196,7 @@ export function ResourceProviderProfileScreen({
 
   const currentLoadState = getCurrentLoadState(loadState, resolvedProviderId);
 
-  const handleProfileVisible = useCallback(() => {
+  const handleSponsorPlacementVisible = useCallback(() => {
     if (currentLoadState.kind !== "ready") {
       return;
     }
@@ -317,7 +317,7 @@ export function ResourceProviderProfileScreen({
         bottomInset={profileBottomInset}
         onContactAction={handleContactAction}
         onOpenLink={handleOpenLink}
-        onProfileVisible={handleProfileVisible}
+        onSponsorPlacementVisible={handleSponsorPlacementVisible}
         onReportProvider={handleReportProvider}
         profile={currentLoadState.profile}
         reportFeedback={reportFeedback ?? linkFeedback}

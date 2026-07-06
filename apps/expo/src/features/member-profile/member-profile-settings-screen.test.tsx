@@ -260,7 +260,7 @@ describe("MemberProfileSettingsScreen", () => {
     expect(
       findText(
         screen,
-        "El backend rechazó los datos. Revisa tu nombre y teléfonos.",
+        "No pudimos validar los datos. Revisa tu nombre y teléfonos.",
       ),
     ).toBe(true);
     expect(

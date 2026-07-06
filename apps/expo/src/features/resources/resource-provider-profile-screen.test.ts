@@ -250,7 +250,7 @@ describe("Resource Provider profile screen", () => {
 
     expect(recordSponsorDelivery).not.toHaveBeenCalled();
 
-    triggerLayoutByTestId(readyScreen, "resource-provider-profile-screen");
+    triggerLayoutByTestId(readyScreen, "resource-provider-sponsor-disclosure");
     await flushPromises();
 
     const impressionDelivery = recordSponsorDelivery.mock.calls[0]?.[0];

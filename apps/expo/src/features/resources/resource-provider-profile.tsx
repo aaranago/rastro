@@ -33,7 +33,7 @@ export interface ResourceProviderProfileProps {
     label: string;
     url: string;
   }) => void;
-  onProfileVisible?: () => void;
+  onSponsorPlacementVisible?: () => void;
   onReportProvider?: (providerId: string) => void;
 }
 
@@ -43,7 +43,7 @@ export function ResourceProviderProfile({
   reportFeedback,
   onContactAction,
   onOpenLink,
-  onProfileVisible,
+  onSponsorPlacementVisible,
   onReportProvider,
 }: ResourceProviderProfileProps) {
   const viewModel = buildResourceProviderProfileViewModel(profile);
@@ -61,7 +61,6 @@ export function ResourceProviderProfile({
       contentInsetAdjustmentBehavior="automatic"
       contentInset={{ bottom: scrollBottomInset }}
       scrollIndicatorInsets={{ bottom: scrollBottomInset }}
-      onLayout={onProfileVisible}
       style={styles.root}
       testID="resource-provider-profile-screen"
     >
@@ -114,7 +113,12 @@ export function ResourceProviderProfile({
           </View>
 
           {viewModel.sponsorDisclosure ? (
-            <Text selectable style={styles.sponsorDisclosure}>
+            <Text
+              onLayout={onSponsorPlacementVisible}
+              selectable
+              style={styles.sponsorDisclosure}
+              testID="resource-provider-sponsor-disclosure"
+            >
               {viewModel.sponsorDisclosure}
             </Text>
           ) : null}
@@ -144,6 +148,7 @@ export function ResourceProviderProfile({
         <SponsorMediaPanel
           imageUrl={viewModel.sponsorImageUrl}
           logoUrl={viewModel.sponsorLogoUrl}
+          onVisible={onSponsorPlacementVisible}
           providerName={viewModel.name}
         />
 
@@ -499,10 +504,12 @@ function ProfileFact({
 function SponsorMediaPanel({
   imageUrl,
   logoUrl,
+  onVisible,
   providerName,
 }: {
   imageUrl?: string;
   logoUrl?: string;
+  onVisible?: () => void;
   providerName: string;
 }) {
   if (!logoUrl && !imageUrl) {
@@ -512,6 +519,7 @@ function SponsorMediaPanel({
   return (
     <View
       accessibilityLabel={`Medios de patrocinio de ${providerName}`}
+      onLayout={onVisible}
       style={styles.sponsorMediaPanel}
       testID="resource-provider-sponsor-media"
     >

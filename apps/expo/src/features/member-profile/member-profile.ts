@@ -140,7 +140,7 @@ export function getMemberProfileSaveFailureMessage(error: unknown) {
     message.includes("validation") ||
     message.includes("invalid")
   ) {
-    return "El backend rechazó los datos. Revisa tu nombre y teléfonos.";
+    return "No pudimos validar los datos. Revisa tu nombre y teléfonos.";
   }
 
   if (isOfflineError(error)) {

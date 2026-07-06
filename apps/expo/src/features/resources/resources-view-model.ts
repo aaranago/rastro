@@ -336,7 +336,7 @@ function buildAccessViewModel(viewerKind: "visitor" | "member") {
 
 function buildSearchBoundaryViewModel() {
   return {
-    title: "Búsqueda Rastro/PostGIS",
+    title: "Búsqueda por radio de Rastro",
     body: "Lista y mapa usan el mismo radio de Rastro; el mapa solo orienta la zona.",
     precisionLabel: "Zonas aproximadas en Bolivia",
   };
@@ -608,7 +608,7 @@ function buildLocationViewModel(location: ResourceSearchLocation) {
       label: location.label
         ? `Cerca de ${location.label}`
         : "Usando tu ubicación actual",
-      helper: "Búsqueda por radio PostGIS de Rastro en Bolivia.",
+      helper: "Búsqueda por radio de Rastro en Bolivia.",
     };
   }
 
@@ -625,7 +625,7 @@ function buildLocationViewModel(location: ResourceSearchLocation) {
     return {
       kind: location.kind,
       label: `Buscando en ${location.label}`,
-      helper: "Búsqueda manual dentro de Bolivia con radio PostGIS de Rastro.",
+      helper: "Búsqueda manual dentro de Bolivia con radio de Rastro.",
     };
   }
 

@@ -307,7 +307,7 @@ function VisitorPanel({ onRequestSignIn }: { onRequestSignIn?: () => void }) {
       </Text>
       <Text selectable style={styles.mutedText}>
         Inicia sesión para cargar y guardar tu nombre público, teléfono y
-        WhatsApp desde el backend.
+        WhatsApp en Rastro.
       </Text>
       <ActionButton
         icon="arrow.right.to.line"

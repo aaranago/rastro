@@ -485,7 +485,7 @@ function assertSearchQuery(query: SearchActiveSightingReportsQuery) {
   ) {
     throw new SightingReportRepositoryError(
       "search_location_required",
-      "La búsqueda necesita una ubicación resuelta en Bolivia para el radio PostGIS.",
+      "La búsqueda necesita una ubicación resuelta en Bolivia para calcular el radio.",
     );
   }
 }

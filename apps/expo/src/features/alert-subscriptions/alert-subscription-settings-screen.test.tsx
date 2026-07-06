@@ -139,7 +139,7 @@ describe("AlertSubscriptionSettingsScreen backend behavior", () => {
     expect(repository.registerPushToken).not.toHaveBeenCalled();
     expect(feedback).toEqual({
       message:
-        "Tu suscripción quedó activa. Falta configurar EAS projectId para probar push real.",
+        "Tu suscripción quedó activa. Falta completar la configuración de notificaciones para probar avisos reales.",
       tone: "warning",
     });
   });

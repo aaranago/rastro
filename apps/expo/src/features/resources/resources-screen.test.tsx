@@ -328,6 +328,57 @@ describe("ResourcesScreen", () => {
     expect(recordSponsorDelivery).toHaveBeenCalledTimes(1);
   });
 
+  it("records map sponsor impressions only after the selected sponsor placement is visible", async () => {
+    const recordSponsorDelivery = vi
+      .fn<NonNullable<ResourcesAdapter["recordSponsorDelivery"]>>()
+      .mockResolvedValue({
+        status: "recorded",
+      });
+    const adapter = {
+      ...createResourcesAdapter([buildSponsoredProviderSummary()]),
+      recordSponsorDelivery,
+    } satisfies ResourcesAdapter;
+    const props = {
+      adapter,
+      initialLocation: testManualLocationOptions[0]?.location,
+      initialMode: "map" as const,
+      manualLocationOptions: testManualLocationOptions,
+    };
+
+    void renderResourcesScreen(props);
+    await runPendingEffects();
+    const readyScreen = renderResourcesScreen(props);
+
+    expect(recordSponsorDelivery).not.toHaveBeenCalled();
+
+    triggerLayoutByTestId(
+      readyScreen,
+      "resources-map-selected-sponsor-disclosure",
+    );
+
+    expect(recordSponsorDelivery).toHaveBeenCalledTimes(1);
+    const deliveryInput = recordSponsorDelivery.mock.calls[0]?.[0];
+
+    expect(deliveryInput).toEqual({
+      eventType: "impression",
+      idempotencyKey: deliveryInput?.idempotencyKey,
+      deliveryToken: "resources-directory-delivery-token",
+      providerId: "clinic-san-roque-sponsored",
+      source: "resources-map",
+      surface: "resources_directory",
+    });
+    expect(deliveryInput?.idempotencyKey).toMatch(
+      /^resources:[a-z0-9-]+:map:clinic-san-roque-sponsored$/,
+    );
+
+    triggerLayoutByTestId(
+      readyScreen,
+      "resources-map-selected-sponsor-disclosure",
+    );
+
+    expect(recordSponsorDelivery).toHaveBeenCalledTimes(1);
+  });
+
   it("reveals manual search suggestions from notice actions without a route callback", async () => {
     const adapter = createResourcesAdapter();
     const props = {
@@ -821,6 +872,17 @@ function pressByText(node: React.ReactNode, text: string) {
   }
 
   (onPress as () => void)();
+}
+
+function triggerLayoutByTestId(node: React.ReactNode, testID: string) {
+  const element = getElementByTestId(node, testID);
+  const onLayout = element.props.onLayout;
+
+  if (typeof onLayout !== "function") {
+    throw new Error(`Unable to trigger layout for "${testID}".`);
+  }
+
+  (onLayout as () => void)();
 }
 
 function pressInputByTestId(

@@ -521,10 +521,7 @@ describe("AdoptionListingCreationScreen", () => {
     expect(findText(confirmationScreen, "Confirmar publicación")).toBe(true);
     expect(findText(confirmationScreen, "Adopción")).toBe(true);
     expect(
-      findText(
-        confirmationScreen,
-        "Pública o pendiente de revisión por modo de revisión",
-      ),
+      findText(confirmationScreen, "Pública o pendiente de revisión previa"),
     ).toBe(true);
 
     await getPressableOnPress(confirmPublishButton)();
@@ -567,7 +564,7 @@ describe("AdoptionListingCreationScreen", () => {
     expect(findText(successScreen, "active")).toBe(false);
   });
 
-  it("shows modo de revisión copy and disables sharing when adoption publish returns pending review", async () => {
+  it("shows pending review copy and disables sharing when adoption publish returns pending review", async () => {
     durableDraft.draft = createReadyDraft();
     const publishAdoptionListing = vi.fn().mockResolvedValue({
       id: "report-adoption-backend-2",
@@ -638,7 +635,7 @@ describe("AdoptionListingCreationScreen", () => {
     expect(durableDraft.clearDraft).toHaveBeenCalledTimes(1);
     expect(draftPublished).toHaveBeenCalledTimes(1);
     expect(findText(successScreen, "Adopción enviada a revisión")).toBe(true);
-    expect(findText(successScreen, "modo de revisión")).toBe(true);
+    expect(findText(successScreen, "queda pendiente")).toBe(true);
     expect(shareButton?.props.disabled).toBe(true);
     expect(sharePublishedListing).not.toHaveBeenCalled();
     expect(openPublishedListing).toHaveBeenCalledWith({

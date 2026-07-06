@@ -49,7 +49,7 @@ describe("Member profile settings model", () => {
         data: { code: "BAD_REQUEST" },
         message: "validation failed",
       }),
-    ).toBe("El backend rechazó los datos. Revisa tu nombre y teléfonos.");
+    ).toBe("No pudimos validar los datos. Revisa tu nombre y teléfonos.");
     expect(
       getMemberProfileSaveFailureMessage({
         data: { code: "UNAUTHORIZED" },

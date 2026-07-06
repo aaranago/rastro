@@ -145,7 +145,7 @@ describe("Resources directory", () => {
     ).toContain("Queru Queru, Cochabamba");
   });
 
-  it("uses shared Rastro/PostGIS search boundary copy for list and map views", () => {
+  it("uses shared Rastro radius search boundary copy for list and map views", () => {
     const listViewModel = buildResourcesDirectoryViewModel({
       providers: rastroResourceFixtures.providers,
       location: {
@@ -166,7 +166,7 @@ describe("Resources directory", () => {
     });
 
     expect(listViewModel.searchBoundary).toEqual({
-      title: "Búsqueda Rastro/PostGIS",
+      title: "Búsqueda por radio de Rastro",
       body: "Lista y mapa usan el mismo radio de Rastro; el mapa solo orienta la zona.",
       precisionLabel: "Zonas aproximadas en Bolivia",
     });
@@ -1221,7 +1221,7 @@ describe("Resources directory", () => {
 
     expect(currentLocation.location.label).toBe("Cerca de Cochabamba");
     expect(currentLocation.location.helper).toBe(
-      "Búsqueda por radio PostGIS de Rastro en Bolivia.",
+      "Búsqueda por radio de Rastro en Bolivia.",
     );
     expect(lastLocation.location.label).toBe(
       "Última ubicación: Santa Cruz de la Sierra",
@@ -1232,7 +1232,7 @@ describe("Resources directory", () => {
     expect(manualLocation.location).toEqual({
       kind: "manual",
       label: "Buscando en Tarija",
-      helper: "Búsqueda manual dentro de Bolivia con radio PostGIS de Rastro.",
+      helper: "Búsqueda manual dentro de Bolivia con radio de Rastro.",
     });
     expect(deniedLocation).toMatchObject({
       state: "location_denied",

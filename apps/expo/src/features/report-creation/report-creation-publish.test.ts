@@ -138,7 +138,7 @@ describe("publishReportCreation", () => {
     ],
     [
       { data: { code: "BAD_REQUEST" }, message: "validation failed" },
-      "El backend rechazó datos del borrador. Revisa la información marcada y vuelve a intentarlo.",
+      "No pudimos validar algunos datos del borrador. Revisa la información marcada y vuelve a intentarlo.",
     ],
     [
       { data: { code: "NOT_FOUND" }, message: "resource not found" },
