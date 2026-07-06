@@ -320,6 +320,11 @@ function useNearbyScreenController({
         setInternalLocationState(nextLocationState);
       }
       setIsLocationChooserOpen(false);
+    } catch {
+      if (!locationState) {
+        setInternalLocationState({ kind: "unavailable" });
+      }
+      setIsLocationChooserOpen(true);
     } finally {
       setIsResolvingLocation(false);
     }
@@ -1072,11 +1077,7 @@ function LaunchSponsorBanner({
     [onRecordSponsorDelivery],
   );
   const handleViewableSponsorItemsChanged = useCallback(
-    ({
-      viewableItems,
-    }: {
-      viewableItems: ViewToken<LaunchSponsorItem>[];
-    }) => {
+    ({ viewableItems }: { viewableItems: ViewToken<LaunchSponsorItem>[] }) => {
       for (const viewableItem of viewableItems) {
         if (viewableItem.isViewable) {
           recordSponsorImpression(viewableItem.item);
@@ -1142,7 +1143,9 @@ function LaunchSponsorCard({
       onPress={() => {
         onRecordSponsorDelivery?.({
           eventType: "open",
-          ...(placement.placementId ? { placementId: placement.placementId } : {}),
+          ...(placement.placementId
+            ? { placementId: placement.placementId }
+            : {}),
           providerId: provider.id,
           source: "nearby-launch-banner",
           surface: "launch_home_banner",

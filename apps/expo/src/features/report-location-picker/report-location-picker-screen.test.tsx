@@ -305,6 +305,52 @@ describe("ReportLocationPickerScreen", () => {
     expect(findText(deniedScreen, "Marcar punto exacto en el mapa")).toBe(true);
   });
 
+  it("maps rejected current-location attempts to recoverable copy while keeping manual options visible", async () => {
+    const adapter = createNearbyLocationAdapterBoundary();
+    const onConfirm = vi.fn();
+    adapter.resolveForegroundLocation.mockRejectedValueOnce(
+      new Error("native location failed"),
+    );
+    const screen = renderScreen(
+      <ReportLocationPickerScreen
+        adapter={adapter}
+        manualLocationOptions={manualLocationOptions}
+        onConfirm={onConfirm}
+      />,
+    );
+    const currentLocationButton = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel === "Usar mi ubicación actual",
+    );
+
+    await expect(
+      getPressableOnPress(currentLocationButton)(),
+    ).resolves.toBeUndefined();
+
+    const rejectedScreen = renderScreen(
+      <ReportLocationPickerScreen
+        adapter={adapter}
+        manualLocationOptions={manualLocationOptions}
+        onConfirm={onConfirm}
+      />,
+    );
+
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(findText(rejectedScreen, "Elige una ubicación manual")).toBe(true);
+    expect(
+      findText(
+        rejectedScreen,
+        "No pudimos obtener tu ubicación actual. Elige un departamento como referencia y marca el punto en el mapa.",
+      ),
+    ).toBe(true);
+    expect(findText(rejectedScreen, "La Paz")).toBe(true);
+    expect(findText(rejectedScreen, "Marcar punto exacto en el mapa")).toBe(
+      true,
+    );
+  });
+
   it("confirms a manually selected map pin as a report location draft", () => {
     const onConfirm = vi.fn();
     const adapter = createNearbyLocationAdapterBoundary();

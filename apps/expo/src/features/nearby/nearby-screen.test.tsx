@@ -2,11 +2,13 @@ import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ResourceProviderSummary } from "../resources";
+import type { NearbyLocationAdapter } from "./nearby-location-adapter";
 import type { NearbySponsorDeliveryInput } from "./nearby-screen";
 import type {
   NearbyLocationState,
   NearbyLostReportsAdapter,
   NearbyLostReportsResult,
+  NearbySearchLocation,
 } from "./nearby-types";
 import { NearbyScreen } from "./nearby-screen";
 
@@ -293,7 +295,9 @@ describe("NearbyScreen report actions", () => {
 
   it("surfaces list-card share failures in the header feedback", async () => {
     reactNativeMocks.share.mockRejectedValue(new Error("share blocked"));
-    const adapter = createNearbyLostReportsAdapter(createNearbyResultWithReport());
+    const adapter = createNearbyLostReportsAdapter(
+      createNearbyResultWithReport(),
+    );
     const onShareReport = vi.fn<(reportId: string) => void>();
 
     void renderNearbyScreen({
@@ -321,7 +325,9 @@ describe("NearbyScreen report actions", () => {
 
   it("keeps share and report actions available in map mode", async () => {
     reactNativeMocks.share.mockRejectedValue(new Error("share blocked"));
-    const adapter = createNearbyLostReportsAdapter(createNearbyResultWithReport());
+    const adapter = createNearbyLostReportsAdapter(
+      createNearbyResultWithReport(),
+    );
     const onReport = vi.fn();
     const onShareReport = vi.fn<(reportId: string) => void>();
 
@@ -367,6 +373,91 @@ describe("NearbyScreen report actions", () => {
     expect(
       findText(screen, "No pudimos compartir el reporte. Intenta de nuevo."),
     ).toBe(true);
+  });
+});
+
+describe("NearbyScreen current location actions", () => {
+  beforeEach(() => {
+    resetReactHarness();
+  });
+
+  it("maps rejected current-location attempts to manual fallback without leaking the throw", async () => {
+    const adapter = createNearbyLostReportsAdapter();
+    const locationAdapter = createNearbyLocationAdapterBoundary();
+    const rejectedLocation =
+      createDeferred<
+        Awaited<ReturnType<NearbyLocationAdapter["resolveForegroundLocation"]>>
+      >();
+
+    locationAdapter.resolveForegroundLocation.mockReturnValueOnce(
+      rejectedLocation.promise,
+    );
+
+    void renderNearbyScreen({
+      adapter,
+      locationAdapter,
+      manualLocationOptions,
+    });
+    await runPendingEffects();
+    let screen = renderNearbyScreen({
+      adapter,
+      locationAdapter,
+      manualLocationOptions,
+    });
+
+    pressByAccessibilityLabel(screen, "Cambiar ubicación de búsqueda");
+    screen = renderNearbyScreen({
+      adapter,
+      locationAdapter,
+      manualLocationOptions,
+    });
+
+    const currentLocationPress = getPressableOnPress(
+      findElement(
+        screen,
+        (element) => element.props.testID === "nearby-use-current-location",
+      ),
+    );
+    const currentLocationAttempt = currentLocationPress();
+
+    screen = renderNearbyScreen({
+      adapter,
+      locationAdapter,
+      manualLocationOptions,
+    });
+
+    expect(findText(screen, "Buscando ubicación")).toBe(true);
+
+    rejectedLocation.reject(new Error("native location failed"));
+
+    await expect(currentLocationAttempt).resolves.toBeUndefined();
+
+    screen = renderNearbyScreen({
+      adapter,
+      locationAdapter,
+      manualLocationOptions,
+    });
+
+    expect(locationAdapter.resolveForegroundLocation).toHaveBeenCalledWith({
+      requestPermission: true,
+    });
+    expect(findText(screen, "Ubicación no disponible")).toBe(true);
+    expect(
+      findText(
+        screen,
+        "Usa una ciudad, zona o punto en el mapa en Bolivia para ver reportes cercanos.",
+      ),
+    ).toBe(true);
+    expect(findText(screen, "Buscando ubicación")).toBe(false);
+    expect(findText(screen, "La Paz")).toBe(true);
+    expect(findText(screen, "Elegir punto en el mapa")).toBe(true);
+    expect(
+      findElement(
+        screen,
+        (element) =>
+          element.type === "Pressable" && findText(element, "La Paz"),
+      ),
+    ).toBeDefined();
   });
 });
 
@@ -429,6 +520,13 @@ function createNearbyLostReportsAdapter(
 ): NearbyLostReportsAdapter {
   return {
     searchLostPetReports: vi.fn().mockResolvedValue(result),
+  };
+}
+
+function createNearbyLocationAdapterBoundary() {
+  return {
+    resolveForegroundLocation:
+      vi.fn<NearbyLocationAdapter["resolveForegroundLocation"]>(),
   };
 }
 
@@ -667,6 +765,27 @@ function pressByAccessibilityLabel(
   (onPress as () => void)();
 }
 
+function getPressableOnPress(element: TestElement | undefined) {
+  const onPress = element?.props.onPress;
+
+  if (typeof onPress !== "function") {
+    throw new Error("Expected Pressable onPress handler.");
+  }
+
+  return onPress as () => Promise<void> | void;
+}
+
+function createDeferred<TValue>() {
+  let resolve!: (value: TValue) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<TValue>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+
+  return { promise, reject, resolve };
+}
+
 function isReactNodeArray(node: React.ReactNode): node is React.ReactNode[] {
   return Array.isArray(node);
 }
@@ -691,10 +810,7 @@ function recordVisibleSponsorItems(
   const onViewableItemsChanged = sponsorList?.props.onViewableItemsChanged;
   const data = sponsorList?.props.data;
 
-  if (
-    !isUnknownArray(data) ||
-    typeof onViewableItemsChanged !== "function"
-  ) {
+  if (!isUnknownArray(data) || typeof onViewableItemsChanged !== "function") {
     throw new Error("Expected sponsor FlatList viewability callback.");
   }
 
@@ -747,6 +863,29 @@ const readyLocationState: NearbyLocationState = {
     source: "manual",
   },
 };
+
+const manualLocationOptions = [
+  {
+    coordinates: {
+      latitude: -16.5,
+      longitude: -68.1193,
+    },
+    countryCode: "BO",
+    department: "La Paz",
+    label: "La Paz",
+    locationCellLabel: "La Paz",
+    manualLocationKind: "place",
+    municipality: "La Paz",
+    source: "manual",
+  },
+  {
+    countryCode: "BO",
+    label: "Elegir punto en el mapa",
+    locationCellLabel: "Punto elegido",
+    manualLocationKind: "map-pin",
+    source: "manual",
+  },
+] as const satisfies readonly NearbySearchLocation[];
 
 const emptyNearbyResult: NearbyLostReportsResult = {
   generatedAt: "2026-07-01T12:00:00.000Z",

@@ -107,7 +107,16 @@ export function ReportLocationPickerScreen({
   );
 
   const handleUseCurrentLocation = React.useCallback(async () => {
-    applyPickerResult(await pickerAdapter.resolveCurrentLocation());
+    try {
+      applyPickerResult(await pickerAdapter.resolveCurrentLocation());
+    } catch {
+      applyPickerResult({
+        kind: "recoverable",
+        message:
+          "No pudimos obtener tu ubicación actual. Elige un departamento como referencia y marca el punto en el mapa.",
+        title: "Elige una ubicación manual",
+      });
+    }
   }, [applyPickerResult, pickerAdapter]);
 
   const handleManualLocation = React.useCallback(
