@@ -252,9 +252,7 @@ export function shouldDisplayShellFirstRunTour({
 }
 
 export function shouldDisplayGlobalReportFab({
-  isAuthPromptVisible,
   segments,
-  sessionKind,
 }: {
   isAuthPromptVisible: boolean;
   segments: readonly string[];
@@ -264,15 +262,15 @@ export function shouldDisplayGlobalReportFab({
     return false;
   }
 
-  if (segments.includes("(resources)") || segments.includes("(profile)")) {
+  if (
+    segments.includes("(activity)") ||
+    segments.includes("(resources)") ||
+    segments.includes("(profile)")
+  ) {
     return false;
   }
 
-  return !(
-    sessionKind === "visitor" &&
-    !isAuthPromptVisible &&
-    segments.includes("(activity)")
-  );
+  return true;
 }
 
 function ShellFirstRunTourHost({

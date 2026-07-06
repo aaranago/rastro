@@ -574,7 +574,7 @@ describe("ReportActionSheet", () => {
 });
 
 describe("ShellFabHost", () => {
-  it("shows the global Reportar button on top-level member routes except resources and profile", () => {
+  it("shows the global Reportar button on top-level Nearby without covering Activity, resources, or profile", () => {
     expect(
       shouldDisplayGlobalReportFab({
         isAuthPromptVisible: false,
@@ -588,7 +588,7 @@ describe("ShellFabHost", () => {
         segments: ["(tabs)", "(activity)"],
         sessionKind: "member",
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldDisplayGlobalReportFab({
         isAuthPromptVisible: false,
