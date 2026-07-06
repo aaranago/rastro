@@ -832,6 +832,7 @@ function ResourceCategoryFilterRow({
     <View style={styles.categorySection}>
       <View style={styles.categoriesBlock}>
         <Pressable
+          accessibilityLabel="Todos los servicios"
           accessibilityRole="button"
           accessibilityState={{ selected: hasAllCategoriesSelected }}
           onPress={onSelectAllCategories}
@@ -916,7 +917,9 @@ function ModeButton({
 
   return (
     <Pressable
+      accessibilityLabel={label}
       accessibilityRole="button"
+      accessibilityState={{ selected: isActive }}
       onPress={handlePress}
       testID={`resources-mode-${mode}`}
       style={({ pressed }) => [
@@ -957,6 +960,7 @@ function CategoryChip({
 
   return (
     <Pressable
+      accessibilityLabel={label}
       accessibilityRole="button"
       accessibilityState={{ selected: isSelected }}
       onPress={handlePress}
@@ -1028,6 +1032,7 @@ function ManualLocationChip({
 
   return (
     <Pressable
+      accessibilityLabel={option.location.label}
       accessibilityRole="button"
       onPress={handlePress}
       testID={`resources-location-${toTestIdSegment(option.location.label)}`}

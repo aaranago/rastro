@@ -251,6 +251,52 @@ describe("ResourcesScreen", () => {
     expect(findText(focusedScreen, "Sopocachi, La Paz")).toBe(true);
     expect(adapter.searchProviders).toHaveBeenCalled();
   });
+
+  it("labels mode and category filters for assistive actions", async () => {
+    const adapter = createResourcesAdapter();
+    const props = {
+      adapter,
+      initialLocation: testManualLocationOptions[0]?.location,
+      manualLocationOptions: testManualLocationOptions,
+    };
+
+    void renderResourcesScreen(props);
+    await runPendingEffects();
+    const readyScreen = renderResourcesScreen(props);
+
+    expect(
+      getElementByTestId(readyScreen, "resources-mode-list").props
+        .accessibilityLabel,
+    ).toBe("Lista");
+    expect(
+      getElementByTestId(readyScreen, "resources-mode-list").props
+        .accessibilityState,
+    ).toEqual({ selected: true });
+    expect(
+      getElementByTestId(readyScreen, "resources-mode-map").props
+        .accessibilityLabel,
+    ).toBe("Mapa");
+    expect(
+      getElementByTestId(readyScreen, "resources-mode-map").props
+        .accessibilityState,
+    ).toEqual({ selected: false });
+    expect(
+      getElementByTestId(readyScreen, "resources-category-all").props
+        .accessibilityLabel,
+    ).toBe("Todos los servicios");
+    expect(
+      getElementByTestId(readyScreen, "resources-category-all").props
+        .accessibilityState,
+    ).toEqual({ selected: true });
+    expect(
+      getElementByTestId(readyScreen, "resources-category-veterinary").props
+        .accessibilityLabel,
+    ).toBe("Veterinarias");
+    expect(
+      getElementByTestId(readyScreen, "resources-category-veterinary").props
+        .accessibilityState,
+    ).toEqual({ selected: false });
+  });
 });
 
 type ElementProps = Record<string, unknown> & {
