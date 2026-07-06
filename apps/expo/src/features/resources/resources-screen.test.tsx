@@ -364,6 +364,22 @@ describe("ResourcesScreen", () => {
       getElementByTestId(readyScreen, "resources-map-selected-provider").props
         .accessibilityLabel,
     ).toBe("Abrir Clinica Veterinaria San Roque");
+
+    const selectedProvider = getElementByTestId(
+      readyScreen,
+      "resources-map-selected-provider",
+    );
+
+    expect(
+      findElement(
+        selectedProvider,
+        (element) => element.props.children === "Clinica Veterinaria San Roque",
+      )?.props.numberOfLines,
+    ).toBe(2);
+    expect(
+      findElement(selectedProvider, (element) => element.props.children === "Ver")
+        ?.props.style,
+    ).toEqual(expect.objectContaining({ alignSelf: "flex-start" }));
   });
 });
 

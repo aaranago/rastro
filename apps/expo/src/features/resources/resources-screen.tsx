@@ -1260,30 +1260,32 @@ export function ResourceMapSelectedProvider({
 
   const content = (
     <>
-      <View style={styles.mapSelectedMainRow}>
-        <View style={styles.mapSelectedIcon}>
-          <ResourceScreenIcon
-            color={resourcesColors.primary}
-            name={getMapMarkerIcon(provider.categoryLabel)}
-            size={21}
-          />
-        </View>
-        <View style={styles.mapSelectedCopy}>
-          <View style={styles.mapSelectedTitleRow}>
-            <Text numberOfLines={1} style={styles.mapSelectedTitle}>
-              {provider.name}
-            </Text>
-            {provider.isSponsored ? (
-              <Text numberOfLines={1} style={styles.mapSelectedSponsorBadge}>
-                {provider.sponsorLabel ?? "Patrocinado"}
-              </Text>
-            ) : null}
+      <View style={styles.mapSelectedContentRow}>
+        <View style={styles.mapSelectedMainRow}>
+          <View style={styles.mapSelectedIcon}>
+            <ResourceScreenIcon
+              color={resourcesColors.primary}
+              name={getMapMarkerIcon(provider.categoryLabel)}
+              size={21}
+            />
           </View>
-          <Text numberOfLines={1} style={styles.mapSelectedMeta}>
-            {[provider.distanceLabel, provider.locationLabel]
-              .filter(Boolean)
-              .join(" · ")}
-          </Text>
+          <View style={styles.mapSelectedCopy}>
+            <View style={styles.mapSelectedTitleRow}>
+              <Text numberOfLines={2} style={styles.mapSelectedTitle}>
+                {provider.name}
+              </Text>
+              {provider.isSponsored ? (
+                <Text numberOfLines={1} style={styles.mapSelectedSponsorBadge}>
+                  {provider.sponsorLabel ?? "Patrocinado"}
+                </Text>
+              ) : null}
+            </View>
+            <Text numberOfLines={2} style={styles.mapSelectedMeta}>
+              {[provider.distanceLabel, provider.locationLabel]
+                .filter(Boolean)
+                .join(" · ")}
+            </Text>
+          </View>
         </View>
         {onOpenProvider ? (
           <Text style={styles.mapSelectedAction}>Ver</Text>
@@ -1991,9 +1993,14 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   mapSelectedMainRow: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexDirection: "row",
     gap: 10,
+    minWidth: 0,
+  },
+  mapSelectedContentRow: {
+    alignItems: "stretch",
+    gap: 8,
   },
   mapSelectedIcon: {
     alignItems: "center",
@@ -2008,7 +2015,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   mapSelectedTitleRow: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexDirection: "row",
     gap: 8,
     minWidth: 0,
@@ -2028,9 +2035,15 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   mapSelectedAction: {
+    alignSelf: "flex-start",
+    backgroundColor: resourcesColors.primarySoft,
+    borderRadius: 999,
     color: resourcesColors.primary,
     fontSize: 13,
     fontWeight: "900",
+    overflow: "hidden",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
   mapSelectedSponsorBadge: {
     backgroundColor: resourcesColors.primarySoft,
