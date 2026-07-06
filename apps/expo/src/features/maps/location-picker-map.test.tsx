@@ -22,7 +22,11 @@ vi.mock("react-native", () => ({
 vi.mock("expo-constants", () => ({
   default: {
     expoConfig: {
-      extra: {},
+      extra: {
+        maps: {
+          androidGoogleMapsConfigured: true,
+        },
+      },
     },
   },
 }));
@@ -128,6 +132,13 @@ describe("ManualLocationPickerMap", () => {
         element.props.accessibilityLabel === "Volver a la lista de ubicaciones",
     );
 
+    expect(
+      findElement(screen, (element) => element.type === "MapView"),
+    ).toBeUndefined();
+    expect(findText(screen, "Mapa no disponible")).toBe(true);
+    expect(
+      findText(screen, "El mapa no está disponible en este dispositivo."),
+    ).toBe(true);
     expect(findText(screen, "Volver a la lista")).toBe(true);
     expect(backToListButton).toBeDefined();
     expect(findText(screen, "Cancelar")).toBe(false);

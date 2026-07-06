@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getNativeMapProviderState } from "./map-provider-config";
+import {
+  getNativeMapProvider,
+  getNativeMapProviderState,
+} from "./map-provider-config";
 
 const nativeState = vi.hoisted(() => ({
   extra: {} as Record<string, unknown>,
@@ -35,8 +38,12 @@ describe("getNativeMapProviderState", () => {
     nativeState.os = "android";
   });
 
-  it("keeps native maps ready when the JS manifest does not expose map config", () => {
-    expect(getNativeMapProviderState()).toEqual({ kind: "ready" });
+  it("surfaces a fallback on Android when the JS manifest does not expose map config", () => {
+    expect(getNativeMapProviderState()).toEqual({
+      kind: "error",
+      message:
+        "Este build no tiene Google Maps configurado. Puedes elegir por ciudad o departamento mientras se actualiza el mapa.",
+    });
   });
 
   it("surfaces a fallback when the Android build lacks a Google Maps key", () => {
@@ -73,15 +80,21 @@ describe("getNativeMapProvider", () => {
     nativeState.os = "android";
   });
 
-  it("uses Google Maps on Android", async () => {
-    const { getNativeMapProvider } = await import("./map-provider-config");
+  it("does not select Google Maps on Android when config is missing", () => {
+    expect(getNativeMapProvider()).toBeUndefined();
+  });
+
+  it("uses Google Maps on Android only when explicitly configured", () => {
+    nativeState.extra = {
+      maps: {
+        androidGoogleMapsConfigured: true,
+      },
+    };
 
     expect(getNativeMapProvider()).toBe("google");
   });
 
-  it("uses Apple Maps on iOS when Google Maps is not configured", async () => {
-    const { getNativeMapProvider } = await import("./map-provider-config");
-
+  it("uses Apple Maps on iOS when Google Maps is not configured", () => {
     nativeState.os = "ios";
     nativeState.extra = {
       maps: {
@@ -92,9 +105,7 @@ describe("getNativeMapProvider", () => {
     expect(getNativeMapProvider()).toBeUndefined();
   });
 
-  it("uses Google Maps on iOS only when explicitly configured", async () => {
-    const { getNativeMapProvider } = await import("./map-provider-config");
-
+  it("uses Google Maps on iOS only when explicitly configured", () => {
     nativeState.os = "ios";
     nativeState.extra = {
       maps: {

@@ -29,7 +29,11 @@ vi.mock("expo-image", () => ({
 vi.mock("expo-constants", () => ({
   default: {
     expoConfig: {
-      extra: {},
+      extra: {
+        maps: {
+          androidGoogleMapsConfigured: true,
+        },
+      },
     },
   },
 }));
