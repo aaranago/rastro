@@ -9,6 +9,7 @@ import {
   createReportInputSchema,
   nearbyReportsInputSchema,
   openReportChatConversationInputSchema,
+  ownedReportsInputSchema,
   reportApproximatePublicLocationRadiusMeters,
   reportChatConversationInputSchema,
   sendChatMessageInputSchema,
@@ -112,6 +113,15 @@ describe("report validation contracts", () => {
         types: ["lost_pet", "sighting"],
       }).success,
     ).toBe(true);
+  });
+
+  it("keeps owned report listing input server-derived", () => {
+    expect(ownedReportsInputSchema.safeParse({}).success).toBe(true);
+    expect(
+      ownedReportsInputSchema.safeParse({
+        caretakerId: "member-camila",
+      }).success,
+    ).toBe(false);
   });
 
   it("validates report-linked chat input without client-supplied actor fields", () => {

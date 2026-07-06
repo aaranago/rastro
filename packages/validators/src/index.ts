@@ -358,6 +358,8 @@ export const reportDetailInputSchema = z.object({
   id: z.string().min(1).max(128),
 });
 
+export const ownedReportsInputSchema = z.object({}).strict();
+
 export const openReportChatConversationInputSchema = z
   .object({
     reportId: z.string().min(1).max(128),
@@ -1402,6 +1404,7 @@ export type PublicResourceProviderProfile = z.infer<
 >;
 export type CreateReportInput = z.infer<typeof createReportInputSchema>;
 export type ReportDetailInput = z.infer<typeof reportDetailInputSchema>;
+export type OwnedReportsInput = z.infer<typeof ownedReportsInputSchema>;
 export type NearbyReportsInput = z.infer<typeof nearbyReportsInputSchema>;
 export type UpdateReportInput = z.infer<typeof updateReportInputSchema>;
 export type ResolveReportInput = z.infer<typeof resolveReportInputSchema>;

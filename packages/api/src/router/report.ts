@@ -7,6 +7,7 @@ import {
   createUploadSessionInputSchema,
   deleteReportInputSchema,
   nearbyReportsInputSchema,
+  ownedReportsInputSchema,
   reportDetailInputSchema,
   resolveReportInputSchema,
   updateReportInputSchema,
@@ -16,7 +17,7 @@ import {
 import type { PersistedAdminSettings } from "../admin-settings-repository";
 import type { MediaStorage, StoredObjectHead } from "../media-storage";
 import type { PersistedReportMediaUpload } from "../report-media-repository";
-import type { PersistedReport } from "../report-repository";
+import type { PersistedReport, PublicReport } from "../report-repository";
 import { defaultAdminSettings } from "../admin-settings-repository";
 import { toPublicReport } from "../report-repository";
 import { protectedProcedure, publicProcedure } from "../trpc";
@@ -118,6 +119,73 @@ function canReadReport(
   return (
     report.status !== "pending_review" || report.caretakerId === viewerMemberId
   );
+}
+
+export type OwnedReportAvailabilityState =
+  | "active"
+  | "closed"
+  | "deleted"
+  | "false_report"
+  | "hidden"
+  | "pending_review";
+
+export interface OwnedReportSummary extends PublicReport {
+  availability: {
+    label: string;
+    state: OwnedReportAvailabilityState;
+  };
+}
+
+function toOwnedReportSummary(
+  report: PersistedReport,
+  currentMemberId: string,
+): OwnedReportSummary {
+  return {
+    ...toPublicReport(report, currentMemberId),
+    availability: getOwnedReportAvailability(report),
+  };
+}
+
+function getOwnedReportAvailability(report: PersistedReport) {
+  if (report.deletedAt) {
+    return {
+      label: "Retirado",
+      state: "deleted" as const,
+    };
+  }
+
+  if (report.hiddenAt) {
+    return {
+      label: "Oculto por moderación",
+      state: "hidden" as const,
+    };
+  }
+
+  if (report.falseReportedAt) {
+    return {
+      label: "Marcado como falso",
+      state: "false_report" as const,
+    };
+  }
+
+  if (report.status === "pending_review") {
+    return {
+      label: "En revisión",
+      state: "pending_review" as const,
+    };
+  }
+
+  if (report.status === "closed") {
+    return {
+      label: "Cerrado",
+      state: "closed" as const,
+    };
+  }
+
+  return {
+    label: "Activo",
+    state: "active" as const,
+  };
 }
 
 async function getPublishGateSettings(ctx: {
@@ -442,6 +510,17 @@ export const reportRouter = {
       }
 
       return result;
+    }),
+  mine: protectedProcedure
+    .input(ownedReportsInputSchema)
+    .query(async ({ ctx }) => {
+      const reports = await ctx.reportRepository.listByCaretaker(
+        ctx.session.user.id,
+      );
+
+      return reports.map((report) =>
+        toOwnedReportSummary(report, ctx.session.user.id),
+      );
     }),
   nearby: publicProcedure
     .input(nearbyReportsInputSchema)

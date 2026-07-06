@@ -1,25 +1,43 @@
+import * as React from "react";
+
 import {
-  ActivityScreen,
-  createApiActivityRepository,
-  createCachedActivityRepository,
-} from "~/features/activity";
-import { createInMemoryLastLoadedCache } from "~/features/resilience/last-loaded-cache";
+  createApiMyReportsRepository,
+  MyReportsScreen,
+} from "~/features/my-reports";
+import { useRastroShell } from "~/features/shell/shell-provider";
 import { trpcClient } from "~/utils/api";
 
-const activityRepository = createCachedActivityRepository({
-  cache: createInMemoryLastLoadedCache(),
-  cacheKey: (input) => `profile-report-activity:${input.limit ?? "default"}`,
-  source: createApiActivityRepository({
-    client: trpcClient,
-  }),
+const myReportsRepository = createApiMyReportsRepository({
+  client: trpcClient,
 });
 
 export default function MisReportesRoute() {
+  const { requestAuthPrompt, session } = useRastroShell();
+  const myReportsSession = React.useMemo(() => {
+    if (session.kind !== "member") {
+      return { kind: "visitor" } as const;
+    }
+
+    return {
+      kind: "member" as const,
+      memberId: session.id,
+    };
+  }, [session]);
+
   return (
-    <ActivityScreen
-      authReturnToPath="/mis-reportes"
-      focus="reports"
-      repository={activityRepository}
+    <MyReportsScreen
+      onRequestSignIn={() => {
+        const returnTo = "/(tabs)/(profile)/mis-reportes";
+
+        requestAuthPrompt({
+          returnTo,
+          sourceHref: `rastro://auth/sign-in?returnTo=${encodeURIComponent(
+            returnTo,
+          )}`,
+        });
+      }}
+      repository={myReportsRepository}
+      session={myReportsSession}
     />
   );
 }

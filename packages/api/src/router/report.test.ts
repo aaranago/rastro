@@ -652,6 +652,64 @@ describe("report router", () => {
     });
   });
 
+  it("returns owner report summaries with moderation availability states", async () => {
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      session: {
+        user: {
+          id: "member-camila",
+        },
+      },
+      reportRepository: {
+        listByCaretaker: (caretakerId: string) => {
+          expect(caretakerId).toBe("member-camila");
+
+          return Promise.resolve([
+            persistedSightingReport({
+              id: "report-active",
+              status: "active",
+            }),
+            persistedSightingReport({
+              deletedAt: new Date("2026-06-26T17:30:00.000Z"),
+              id: "report-deleted",
+              status: "closed",
+            }),
+            persistedSightingReport({
+              hiddenAt: new Date("2026-06-26T17:10:00.000Z"),
+              hiddenByAdminId: "member-admin",
+              hiddenReason: "spam",
+              id: "report-hidden",
+            }),
+          ]);
+        },
+      },
+    });
+
+    const result = await caller.report.mine({});
+
+    expect(result.map((report) => report.id)).toEqual([
+      "report-active",
+      "report-deleted",
+      "report-hidden",
+    ]);
+    expect(result.map((report) => report.availability)).toEqual([
+      {
+        label: "Activo",
+        state: "active",
+      },
+      {
+        label: "Retirado",
+        state: "deleted",
+      },
+      {
+        label: "Oculto por moderación",
+        state: "hidden",
+      },
+    ]);
+    expect(result.every((report) => report.owner.isCurrentMember)).toBe(true);
+  });
+
   it("excludes hidden and false-marked reports from nearby public results", async () => {
     const caller = createCaller({
       authApi: {},

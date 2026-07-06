@@ -11,7 +11,17 @@ import type {
   ResolveReportInput,
   UpdateReportInput,
 } from "@acme/validators";
-import { and, asc, eq, inArray, isNull, notInArray, or, sql } from "@acme/db";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  notInArray,
+  or,
+  sql,
+} from "@acme/db";
 import {
   Report,
   ReportLifecycleEvent,
@@ -89,6 +99,7 @@ export interface ReportRepository {
     caretakerId: string;
     idempotencyKey: string;
   }): Promise<PersistedReport | null>;
+  listByCaretaker(caretakerId: string): Promise<PersistedReport[]>;
   create(input: {
     caretakerId: string;
     initialStatus?: ReportStatus;
@@ -601,6 +612,17 @@ export function createDrizzleReportRepository(
         throw new Error("Created report could not be reloaded.");
       }
       return persistedReport;
+    },
+    listByCaretaker: async (caretakerId) => {
+      const rows = await db.query.Report.findMany({
+        orderBy: desc(Report.updatedAt),
+        where: eq(Report.caretakerId, caretakerId),
+        with: {
+          location: true,
+        },
+      });
+
+      return Promise.all(rows.map(toPersistedReportWithMedia));
     },
     nearby: async (input) => {
       const filters = [
