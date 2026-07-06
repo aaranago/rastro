@@ -255,10 +255,15 @@ function createReportCreationIdSuffix() {
 
 export function createInitialLostReportDraft({
   petProfiles,
+  selectedPetProfileId,
 }: {
   petProfiles: readonly (LostReportPetProfileOption | PetProfileSummary)[];
+  selectedPetProfileId?: string;
 }): LostReportDraft {
-  const firstProfile = petProfiles[0];
+  const selectedProfile = selectedPetProfileId
+    ? petProfiles.find((profile) => profile.id === selectedPetProfileId)
+    : undefined;
+  const firstProfile = selectedProfile ?? petProfiles[0];
 
   return createLostReportDraft({
     petProfileId: firstProfile?.id,

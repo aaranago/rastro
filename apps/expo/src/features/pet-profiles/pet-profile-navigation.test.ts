@@ -4,14 +4,13 @@ import type { PetProfileRelatedRecord } from "./pet-profile-types";
 import {
   buildPetProfileRelatedRecordHref,
   buildPetProfileReportCreationHref,
+  petProfileReportCreationIntents,
 } from "./pet-profile-navigation";
 
 describe("pet profile navigation", () => {
   it.each([
-    ["lost", "/report-create/lost"],
-    ["found", "/report-create/found"],
-    ["sighting", "/report-create/sighting"],
-    ["adoption", "/report-create/adoption"],
+    ["lost", "/report-create/lost?petProfileId=pet-profile-kira"],
+    ["adoption", "/report-create/adoption?petProfileId=pet-profile-kira"],
   ] as const)("opens %s report creation from a pet profile", (intent, href) => {
     expect(
       buildPetProfileReportCreationHref({
@@ -19,6 +18,19 @@ describe("pet profile navigation", () => {
         profileId: "pet-profile-kira",
       }),
     ).toBe(href);
+  });
+
+  it("encodes profile ids before building report creation routes", () => {
+    expect(
+      buildPetProfileReportCreationHref({
+        intent: "lost",
+        profileId: " pet profile kira ",
+      }),
+    ).toBe("/report-create/lost?petProfileId=pet%20profile%20kira");
+  });
+
+  it("only exposes report creation intents that preserve the selected profile", () => {
+    expect(petProfileReportCreationIntents).toEqual(["lost", "adoption"]);
   });
 
   it.each([
@@ -48,4 +60,3 @@ describe("pet profile navigation", () => {
     ).toBe("/reportes/perdidos/report%20with%20spaces");
   });
 });
-

@@ -5,6 +5,7 @@ import type {
   PetProfileRelatedRecord,
   PetProfilesSessionState,
 } from "~/features/pet-profiles/pet-profile-types";
+import type { PetProfileReportCreationIntent } from "~/features/pet-profiles/pet-profile-navigation";
 import type { ShellSession } from "~/features/shell/shell-model";
 import { createApiPetProfileRepository } from "~/features/pet-profiles/api-pet-profile-repository";
 import { createNativePetProfilePhotoPicker } from "~/features/pet-profiles/native-pet-profile-photo-source";
@@ -37,10 +38,7 @@ export default function MisMascotasRoute() {
     [],
   );
   const startReportFromProfile = useCallback(
-    (
-      profileId: string,
-      intent: "lost" | "found" | "sighting" | "adoption",
-    ) => {
+    (profileId: string, intent: PetProfileReportCreationIntent) => {
       router.push(buildPetProfileReportCreationHref({ intent, profileId }));
     },
     [router],

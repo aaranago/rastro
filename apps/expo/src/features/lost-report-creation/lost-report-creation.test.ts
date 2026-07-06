@@ -19,6 +19,16 @@ const profiles: PetProfileSummary[] = [
     relatedRecords: [],
     type: "Perro",
   },
+  {
+    breed: "Criollo",
+    caretakerMemberId: "member-camila",
+    description: "Orejas grandes y collar azul.",
+    id: "pet-luna",
+    name: "Luna",
+    photos: [],
+    relatedRecords: [],
+    type: "Gato",
+  },
 ];
 
 const reportSuccessSponsorPlacement: LostReportSuccessLocalSponsorPlacement = {
@@ -75,6 +85,37 @@ describe("Lost Pet Report creation view model", () => {
       "WhatsApp",
       "Ambos",
     ]);
+  });
+
+  it("starts from the selected Pet Profile when profile creation launches report creation", () => {
+    const draft = createInitialLostReportDraft({
+      petProfiles: profiles,
+      selectedPetProfileId: "pet-luna",
+    });
+
+    const viewModel = buildLostReportCreationViewModel({
+      draft,
+      petProfiles: profiles,
+      session: { kind: "member", memberId: "member-camila" },
+    });
+
+    expect(draft).toMatchObject({
+      petProfileId: "pet-luna",
+      petSelectionMode: "existing",
+    });
+    expect(viewModel.petProfile.selectedLabel).toBe("Luna · Gato");
+  });
+
+  it("falls back to the first Pet Profile when a requested Pet Profile is unavailable", () => {
+    const draft = createInitialLostReportDraft({
+      petProfiles: profiles,
+      selectedPetProfileId: "pet-missing",
+    });
+
+    expect(draft).toMatchObject({
+      petProfileId: "pet-toby",
+      petSelectionMode: "existing",
+    });
   });
 
   it("exposes canonical journey data and shows missing-photo validation only after the photos step is attempted", () => {

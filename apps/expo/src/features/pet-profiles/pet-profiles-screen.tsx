@@ -27,6 +27,7 @@ import type {
   CreatePetProfileInput,
   PetProfileRepository,
 } from "./pet-profiles";
+import type { PetProfileReportCreationIntent } from "./pet-profile-navigation";
 import type {
   MisMascotasViewModel,
   PetProfileCardViewModel,
@@ -58,7 +59,7 @@ export interface MisMascotasScreenProps {
   ) => PetProfilePhoto | Promise<PetProfilePhoto | void> | void;
   onStartReportFromProfile?: (
     profileId: string,
-    intent: "lost" | "found" | "sighting" | "adoption",
+    intent: PetProfileReportCreationIntent,
   ) => void;
   repository?: PetProfileRepository;
   session: PetProfilesSessionState;
@@ -674,7 +675,7 @@ function MemberPetProfilesFooter({
   onRemovePhoto: (photoId: string) => void;
   onStartReportFromProfile?: (
     profileId: string,
-    intent: "lost" | "found" | "sighting" | "adoption",
+    intent: PetProfileReportCreationIntent,
   ) => void;
   onSubmit: () => void;
   photoPickerError?: string;
@@ -781,7 +782,7 @@ function PetProfileDetailSurface({
   onOpenRelatedRecord?: MisMascotasScreenProps["onOpenRelatedRecord"];
   onStartReportFromProfile?: (
     profileId: string,
-    intent: "lost" | "found" | "sighting" | "adoption",
+    intent: PetProfileReportCreationIntent,
   ) => void;
   profile: PetProfileDetailViewModel;
 }) {
@@ -832,16 +833,6 @@ function PetProfileDetailSurface({
             iconName="megaphone.fill"
             label="Perdida"
             onPress={() => onStartReportFromProfile?.(profile.id, "lost")}
-          />
-          <SmallActionButton
-            iconName="checkmark.seal.fill"
-            label="Encontrada"
-            onPress={() => onStartReportFromProfile?.(profile.id, "found")}
-          />
-          <SmallActionButton
-            iconName="eye.fill"
-            label="Vista"
-            onPress={() => onStartReportFromProfile?.(profile.id, "sighting")}
           />
           <SmallActionButton
             iconName="heart.fill"

@@ -1,7 +1,7 @@
 import type { Href, Router } from "expo-router";
 import * as React from "react";
 import { Share } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
 import type { ReportType } from "@acme/validators";
 
@@ -28,12 +28,16 @@ import type { SightingReportPublishConfirmation } from "../sighting-report-creat
 import type { ReportCreationSponsorDeliveryInput } from "./report-creation-success-sponsors";
 import { trpcClient } from "../../utils/api";
 import { AdoptionListingCreationScreen } from "../adoption-listing-creation/adoption-listing-creation-screen";
+import { createInitialAdoptionListingDraft } from "../adoption-listing-creation/adoption-listing-creation-view-model";
 import { createApiAdoptionListingPublishHandler } from "../adoption-listing-creation/adoption-listing-publish-adapter";
 import { AppStateScreen } from "../app-states";
 import { FoundReportCreationScreen } from "../found-report-creation/found-report-creation-screen";
 import { createApiFoundReportPublishHandler } from "../found-report-creation/found-report-publish-adapter";
 import { LostReportCreationScreen } from "../lost-report-creation/lost-report-creation-screen";
-import { toLostReportSuccessLocalSponsorPlacementFromProvider } from "../lost-report-creation/lost-report-creation-view-model";
+import {
+  createInitialLostReportDraft,
+  toLostReportSuccessLocalSponsorPlacementFromProvider,
+} from "../lost-report-creation/lost-report-creation-view-model";
 import { createApiLostReportPublishHandler } from "../lost-report-creation/lost-report-publish-adapter";
 import { expoNearbyLocationAdapter } from "../nearby/nearby-expo-location-adapter";
 import { buildNearbyReportRouteTarget } from "../nearby/nearby-navigation";
@@ -76,6 +80,13 @@ export function ReportCreationRouteScreen({
 }) {
   const { model, requestAuthPrompt, session } = useRastroShell();
   const router = useRouter();
+  const routeParams = useLocalSearchParams<{
+    petProfileId?: string | string[];
+    profileId?: string | string[];
+  }>();
+  const selectedPetProfileId =
+    normalizeRouteParam(routeParams.petProfileId) ??
+    normalizeRouteParam(routeParams.profileId);
   const reportMediaDraftCacheRef = React.useRef<ReportMediaDraftCache>(
     new Map(),
   );
@@ -207,13 +218,16 @@ export function ReportCreationRouteScreen({
     [reportMediaReportType],
   );
   const requestMemberSignIn = React.useCallback(() => {
-    const returnTo = buildReportCreationHref(intent) as string;
+    const returnTo = buildReportCreationReturnTo({
+      intent,
+      profileId: selectedPetProfileId,
+    });
 
     requestAuthPrompt({
       returnTo,
       sourceHref: `rastro://auth/sign-in?returnTo=${encodeURIComponent(returnTo)}`,
     });
-  }, [intent, requestAuthPrompt]);
+  }, [intent, requestAuthPrompt, selectedPetProfileId]);
   const markDraftPublished = clearReportMediaDraftCache;
   const handleOpenSponsorPlacement = React.useCallback(
     (sponsorProviderId: string) => {
@@ -323,22 +337,22 @@ export function ReportCreationRouteScreen({
     [],
   );
 
-  React.useEffect(() => {
-    if (model.session.kind === "loading") {
-      return;
-    }
-
-    if (session.kind === "visitor" && intent === "lost") {
-      dismissReportCreationRoute(router);
-    }
-  }, [intent, model.session.kind, router, session.kind]);
-
   if (model.session.kind === "loading") {
     return <AppStateScreen descriptor={model.appStates.states.loading} />;
   }
 
-  if (session.kind === "visitor" && intent === "lost") {
-    return null;
+  if (session.kind === "visitor" && isMemberRequiredReportIntent(intent)) {
+    return (
+      <AppStateScreen
+        descriptor={createMemberRequiredReportState(intent)}
+        onActionPress={(action) => {
+          if (action.id === "sign-in") {
+            requestMemberSignIn();
+          }
+        }}
+        testID="report-creation-member-required"
+      />
+    );
   }
 
   if (petProfileLoadState.status === "loading") {
@@ -376,6 +390,18 @@ export function ReportCreationRouteScreen({
   }
 
   const petProfiles = petProfileLoadState.profiles;
+  const existingSelectedPetProfileId = getExistingPetProfileId({
+    petProfiles,
+    profileId: selectedPetProfileId,
+  });
+  const lostInitialDraft = createSelectedLostReportInitialDraft({
+    petProfiles,
+    profileId: existingSelectedPetProfileId,
+  });
+  const adoptionInitialDraft = createSelectedAdoptionListingInitialDraft({
+    petProfiles,
+    profileId: existingSelectedPetProfileId,
+  });
   let creationScreen: React.ReactNode;
 
   if (intent === "lost") {
@@ -392,6 +418,7 @@ export function ReportCreationRouteScreen({
         onRecordSponsorPlacementDelivery={handleRecordSponsorPlacementDelivery}
         onReportSponsorPlacement={handleReportSponsorPlacement}
         onSharePublishedReport={sharePublishedLostReport}
+        initialDraft={lostInitialDraft}
         petProfiles={petProfiles}
         renderReportMediaManager={renderReportMediaManager}
         successSponsorPlacements={successSponsorPlacements}
@@ -451,6 +478,7 @@ export function ReportCreationRouteScreen({
         onRecordSponsorPlacementDelivery={handleRecordSponsorPlacementDelivery}
         onReportSponsorPlacement={handleReportSponsorPlacement}
         onSharePublishedListing={sharePublishedAdoptionListing}
+        initialDraft={adoptionInitialDraft}
         petProfiles={petProfiles}
         renderReportMediaManager={renderReportMediaManager}
         session={creationSession}
@@ -460,6 +488,107 @@ export function ReportCreationRouteScreen({
   }
 
   return creationScreen;
+}
+
+function buildReportCreationReturnTo({
+  intent,
+  profileId,
+}: {
+  intent: ReportIntent;
+  profileId?: string;
+}) {
+  const href = buildReportCreationHref(intent) as string;
+
+  return profileId
+    ? `${href}?petProfileId=${encodeURIComponent(profileId)}`
+    : href;
+}
+
+function normalizeRouteParam(value: string | string[] | undefined) {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  const normalizedValue = rawValue?.trim();
+
+  if (!normalizedValue) {
+    return undefined;
+  }
+
+  return normalizedValue;
+}
+
+function getExistingPetProfileId({
+  petProfiles,
+  profileId,
+}: {
+  petProfiles: readonly { id: string }[];
+  profileId?: string;
+}) {
+  if (!profileId) {
+    return undefined;
+  }
+
+  return petProfiles.some((profile) => profile.id === profileId)
+    ? profileId
+    : undefined;
+}
+
+function createSelectedLostReportInitialDraft({
+  petProfiles,
+  profileId,
+}: {
+  petProfiles: Parameters<typeof createInitialLostReportDraft>[0]["petProfiles"];
+  profileId?: string;
+}) {
+  if (!profileId) {
+    return undefined;
+  }
+
+  return createInitialLostReportDraft({
+    petProfiles,
+    selectedPetProfileId: profileId,
+  });
+}
+
+function createSelectedAdoptionListingInitialDraft({
+  petProfiles,
+  profileId,
+}: {
+  petProfiles: Parameters<
+    typeof createInitialAdoptionListingDraft
+  >[0]["petProfiles"];
+  profileId?: string;
+}) {
+  if (!profileId) {
+    return undefined;
+  }
+
+  return createInitialAdoptionListingDraft({
+    petProfiles,
+    selectedPetProfileId: profileId,
+  });
+}
+
+function isMemberRequiredReportIntent(intent: ReportIntent) {
+  return intent === "lost" || intent === "adoption";
+}
+
+function createMemberRequiredReportState(intent: ReportIntent) {
+  const reportLabel =
+    intent === "adoption" ? "dar en adopción" : "reportar una pérdida";
+
+  return {
+    actions: [
+      {
+        iconName: "person.crop.circle.badge.plus",
+        id: "sign-in",
+        label: "Iniciar sesión",
+      },
+    ],
+    body: `Inicia sesión o crea una cuenta para ${reportLabel}. Así podemos guardar el borrador, reutilizar tus mascotas y mantener un contacto seguro.`,
+    iconName: "lock.fill",
+    kind: "empty" as const,
+    title: "Inicia sesión para continuar",
+    tone: "info" as const,
+  };
 }
 
 type ReportCreationPetProfilesState =

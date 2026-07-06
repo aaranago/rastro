@@ -229,10 +229,15 @@ export interface AdoptionListingCreationValidationDisplayInput {
 
 export function createInitialAdoptionListingDraft({
   petProfiles,
+  selectedPetProfileId,
 }: {
   petProfiles: readonly (AdoptionListingPetProfileOption | PetProfileSummary)[];
+  selectedPetProfileId?: string;
 }): AdoptionListingDraft {
-  const firstProfile = petProfiles[0];
+  const selectedProfile = selectedPetProfileId
+    ? petProfiles.find((profile) => profile.id === selectedPetProfileId)
+    : undefined;
+  const firstProfile = selectedProfile ?? petProfiles[0];
 
   return createAdoptionListingDraft({
     petProfileId: firstProfile?.id,

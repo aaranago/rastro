@@ -21,6 +21,16 @@ const profiles: PetProfileSummary[] = [
     relatedRecords: [],
     type: "Gato",
   },
+  {
+    breed: "Mestizo",
+    caretakerMemberId: "member-camila",
+    description: "Cariñoso y vacunado.",
+    id: "pet-max",
+    name: "Max",
+    photos: [],
+    relatedRecords: [],
+    type: "Perro",
+  },
 ];
 
 describe("Adoption Listing creation view model", () => {
@@ -51,6 +61,37 @@ describe("Adoption Listing creation view model", () => {
       "Ambos",
     ]);
     expect(JSON.stringify(viewModel)).not.toMatch(commerceTerms);
+  });
+
+  it("starts from the selected Pet Profile when profile creation launches adoption", () => {
+    const draft = createInitialAdoptionListingDraft({
+      petProfiles: profiles,
+      selectedPetProfileId: "pet-max",
+    });
+
+    const viewModel = buildAdoptionListingCreationViewModel({
+      draft,
+      petProfiles: profiles,
+      session: { kind: "member", memberId: "member-camila" },
+    });
+
+    expect(draft).toMatchObject({
+      petProfileId: "pet-max",
+      petSelectionMode: "existing",
+    });
+    expect(viewModel.petProfile.selectedLabel).toBe("Max · Perro");
+  });
+
+  it("falls back to the first Pet Profile when a requested Pet Profile is unavailable", () => {
+    const draft = createInitialAdoptionListingDraft({
+      petProfiles: profiles,
+      selectedPetProfileId: "pet-missing",
+    });
+
+    expect(draft).toMatchObject({
+      petProfileId: "pet-nala",
+      petSelectionMode: "existing",
+    });
   });
 
   it("exposes canonical journey data and suppresses adoption validation until the current step is attempted", () => {

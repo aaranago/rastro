@@ -10,6 +10,12 @@ const router = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
 }));
+const routeParams = vi.hoisted(() => ({
+  value: {} as {
+    petProfileId?: string | string[];
+    profileId?: string | string[];
+  },
+}));
 const navigation = vi.hoisted(() => {
   const value = {
     addListener: vi.fn((eventName: string, listener: BeforeRemoveListener) => {
@@ -197,6 +203,17 @@ const savedPetProfiles = [
     type: "Perro",
     updatedAtLabel: "Actualizada hoy",
   },
+  {
+    breed: "Criollo",
+    caretakerMemberId: "member-camila",
+    description: "Tiene una mancha blanca en el pecho.",
+    id: "pet-profile-bruno",
+    name: "Bruno",
+    photos: [],
+    relatedRecords: [],
+    type: "Gato",
+    updatedAtLabel: "Actualizada ayer",
+  },
 ];
 
 vi.mock("react", async () => {
@@ -253,6 +270,7 @@ vi.mock("react-native", () => ({
 
 vi.mock("expo-router", () => ({
   useNavigation: () => navigation,
+  useLocalSearchParams: () => routeParams.value,
   useRouter: () => router,
 }));
 
@@ -349,6 +367,7 @@ vi.mock("../../utils/api", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  routeParams.value = {};
   navigation.beforeRemoveListener = null;
   navigation.dispatch = vi.fn();
   router.canGoBack.mockReturnValue(true);
@@ -507,6 +526,45 @@ describe("ReportCreationRouteScreen", () => {
       expect(creationScreen?.props.petProfiles).toEqual(savedPetProfiles);
     },
   );
+
+  it.each([
+    ["lost", "LostReportCreationScreen"],
+    ["adoption", "AdoptionListingCreationScreen"],
+  ] as const)(
+    "prefills %s creation with the pet profile selected from Mis mascotas",
+    (intent, screenType) => {
+      routeParams.value = {
+        petProfileId: "pet-profile-bruno",
+      };
+
+      const screen = renderScreen(
+        <ReportCreationRouteScreen intent={intent} />,
+      );
+      const creationScreen = findElement(
+        screen,
+        (element) => element.type === screenType,
+      );
+
+      expect(creationScreen?.props.initialDraft).toMatchObject({
+        petProfileId: "pet-profile-bruno",
+        petSelectionMode: "existing",
+      });
+    },
+  );
+
+  it("falls back to the regular draft when the selected pet profile is not available", () => {
+    routeParams.value = {
+      petProfileId: "pet-profile-missing",
+    };
+
+    const screen = renderScreen(<ReportCreationRouteScreen intent="lost" />);
+    const lostScreen = findElement(
+      screen,
+      (element) => element.type === "LostReportCreationScreen",
+    );
+
+    expect(lostScreen?.props.initialDraft).toBeUndefined();
+  });
 
   it("gates member lost creation while saved pet profiles are loading", () => {
     const screen = renderScreen(<ReportCreationRouteScreen intent="lost" />, {
@@ -1048,6 +1106,74 @@ describe("ReportCreationRouteScreen", () => {
     });
   });
 
+  it.each([
+    ["lost", "LostReportCreationScreen", "/report-create/lost"],
+    ["adoption", "AdoptionListingCreationScreen", "/report-create/adoption"],
+  ] as const)(
+    "shows a member auth handoff before visitor %s creation",
+    (intent, blockedScreenType, returnTo) => {
+      shell.value = createShellValue({ session: { kind: "visitor" } });
+
+      const screen = renderScreen(<ReportCreationRouteScreen intent={intent} />);
+      const authState = findElement(
+        screen,
+        (element) =>
+          element.type === "AppStateScreen" &&
+          element.props.testID === "report-creation-member-required",
+      );
+
+      expect(authState?.props.descriptor).toMatchObject({
+        kind: "empty",
+        title: "Inicia sesión para continuar",
+      });
+      expect(
+        findElement(screen, (element) => element.type === blockedScreenType),
+      ).toBeUndefined();
+      expect(router.dismiss).not.toHaveBeenCalled();
+      expect(router.replace).not.toHaveBeenCalled();
+
+      const onActionPress = toAppStateActionHandler(
+        authState?.props.onActionPress,
+      );
+      onActionPress({ id: "sign-in" });
+
+      expect(shell.requestAuthPrompt).toHaveBeenCalledWith({
+        returnTo,
+        sourceHref: `rastro://auth/sign-in?returnTo=${encodeURIComponent(
+          returnTo,
+        )}`,
+      });
+    },
+  );
+
+  it("keeps the selected pet profile in the visitor member auth handoff", () => {
+    routeParams.value = {
+      petProfileId: "pet-profile-bruno",
+    };
+    shell.value = createShellValue({ session: { kind: "visitor" } });
+
+    const screen = renderScreen(<ReportCreationRouteScreen intent="lost" />);
+    const authState = findElement(
+      screen,
+      (element) =>
+        element.type === "AppStateScreen" &&
+        element.props.testID === "report-creation-member-required",
+    );
+    const onActionPress = toAppStateActionHandler(
+      authState?.props.onActionPress,
+    );
+    onActionPress({ id: "sign-in" });
+
+    const returnTo = "/report-create/lost?petProfileId=pet-profile-bruno";
+
+    expect(shell.requestAuthPrompt).toHaveBeenCalledWith({
+      returnTo,
+      sourceHref: `rastro://auth/sign-in?returnTo=${encodeURIComponent(
+        returnTo,
+      )}`,
+    });
+  });
+
   it("closes a visitor found handoff route immediately because no draft has been edited", () => {
     shell.value = createShellValue({ session: { kind: "visitor" } });
 
@@ -1147,6 +1273,8 @@ type VisitorHandoffCallback = (
   action: FoundReportCreationVisitorAction,
 ) => void;
 
+type AppStateActionHandler = (action: { id: string }) => void;
+
 type ReportMediaManagerRender = (props: {
   mediaDraftId: string;
   onControllerChange?: (controller: unknown) => void;
@@ -1167,6 +1295,14 @@ function isVisitorHandoffCallback(
   value: unknown,
 ): value is VisitorHandoffCallback {
   return typeof value === "function";
+}
+
+function toAppStateActionHandler(value: unknown): AppStateActionHandler {
+  if (typeof value !== "function") {
+    throw new Error("Expected app state action handler.");
+  }
+
+  return value as AppStateActionHandler;
 }
 
 function isReportMediaManagerRender(

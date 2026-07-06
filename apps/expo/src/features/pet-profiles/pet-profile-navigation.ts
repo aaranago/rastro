@@ -4,13 +4,27 @@ import type { ReportIntent } from "../../i18n";
 import type { PetProfileRelatedRecord } from "./pet-profile-types";
 import { buildReportCreationHref } from "../report-creation/report-creation-routes";
 
+export type PetProfileReportCreationIntent = Extract<
+  ReportIntent,
+  "adoption" | "lost"
+>;
+
+export const petProfileReportCreationIntents = [
+  "lost",
+  "adoption",
+] as const satisfies readonly PetProfileReportCreationIntent[];
+
 export function buildPetProfileReportCreationHref({
   intent,
+  profileId,
 }: {
-  intent: ReportIntent;
+  intent: PetProfileReportCreationIntent;
   profileId: string;
 }): Href {
-  return buildReportCreationHref(intent);
+  const href = buildReportCreationHref(intent) as string;
+  const encodedProfileId = encodeURIComponent(profileId.trim());
+
+  return `${href}?petProfileId=${encodedProfileId}` as Href;
 }
 
 export function buildPetProfileRelatedRecordHref(
@@ -29,4 +43,3 @@ export function buildPetProfileRelatedRecordHref(
       return `/reportes/avistamientos/${id}` as Href;
   }
 }
-
