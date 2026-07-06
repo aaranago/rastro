@@ -521,6 +521,59 @@ describe("resources router", () => {
     ).rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
   });
 
+  it("does not allow public sponsor delivery source rotation to bypass throttling", async () => {
+    const deliveryToken = createSponsorDeliveryToken({
+      placementId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      providerId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      surface: "resources_directory",
+    });
+    const caller = createCaller({
+      localSponsorPlacementDeliveryRepository: {
+        record: () =>
+          Promise.resolve({
+            event: {
+              eventType: "impression",
+              id: "33333333-3333-4333-8333-333333333333",
+              occurredAt: new Date("2026-07-01T12:00:00.000Z"),
+              placementId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+              providerId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+              surface: "resources_directory",
+            },
+            status: "recorded",
+          }),
+      },
+      requestHeaders: new Headers({
+        "x-forwarded-for": "198.51.100.3",
+        "user-agent": "Rastro test client",
+      }),
+      session: null,
+    });
+
+    await Promise.all(
+      Array.from({ length: 30 }, (_, index) =>
+        caller.resources.recordSponsorDelivery({
+          deliveryToken,
+          eventType: "impression",
+          idempotencyKey: `resources-directory-source-rotation-${index}`,
+          providerId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+          source: `rotated-source-${index}`,
+          surface: "resources_directory",
+        }),
+      ),
+    );
+
+    await expect(
+      caller.resources.recordSponsorDelivery({
+        deliveryToken,
+        eventType: "impression",
+        idempotencyKey: "resources-directory-source-rotation-over-limit",
+        providerId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        source: "rotated-source-over-limit",
+        surface: "resources_directory",
+      }),
+    ).rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
+  });
+
   it("throttles logged-in sponsor delivery events separately per member", async () => {
     const deliveryToken = createSponsorDeliveryToken({
       placementId: "77777777-7777-4777-8777-777777777777",

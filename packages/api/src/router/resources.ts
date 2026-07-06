@@ -542,7 +542,6 @@ function assertSponsorDeliveryThrottle(input: {
   eventType: LocalSponsorPlacementDeliveryEventType;
   placementId: string;
   providerId: string;
-  source?: string;
   surface: string;
 }) {
   if (!input.clientKey) {
@@ -555,7 +554,6 @@ function assertSponsorDeliveryThrottle(input: {
     input.placementId,
     input.providerId,
     input.surface,
-    input.source ?? "unknown-source",
     input.eventType,
   ].join(":");
   const bucket = sponsorDeliveryThrottleBuckets.get(key);
@@ -705,7 +703,6 @@ export const resourcesRouter = createTRPCRouter({
         eventType: input.eventType,
         placementId: sponsorDelivery.placementId,
         providerId: sponsorDelivery.providerId,
-        source: input.source,
         surface: sponsorDelivery.surface,
       });
 
