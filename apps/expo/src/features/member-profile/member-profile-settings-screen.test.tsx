@@ -291,6 +291,89 @@ describe("MemberProfileSettingsScreen", () => {
     ).toBe(true);
   });
 
+  it("lets members retry an initial backend load failure", async () => {
+    const repository = createScreenRepository({
+      getSequence: [
+        new Error("Network request failed"),
+        createSettings({
+          displayName: "Camila Recuperada",
+          phone: "+591 76543210",
+        }),
+      ],
+    });
+
+    let screen = renderSettingsScreen({ repository });
+    runPendingEffects();
+    await flushPromises();
+    screen = renderSettingsScreen({ repository });
+
+    expect(
+      findText(
+        screen,
+        "No pudimos cargar tus ajustes. Revisa tu conexión e intenta de nuevo.",
+      ),
+    ).toBe(true);
+    expect(
+      findElementByTestID(screen, "member-profile-display-name-input"),
+    ).toBeUndefined();
+
+    press(screen, "member-profile-load-retry-button");
+    screen = renderSettingsScreen({ repository });
+    runPendingEffects();
+    await flushPromises();
+    screen = renderSettingsScreen({ repository });
+
+    expect(repository.getSettings).toHaveBeenCalledTimes(2);
+    expect(
+      getElementByTestID(screen, "member-profile-display-name-input").props
+        .value,
+    ).toBe("Camila Recuperada");
+    expect(
+      getElementByTestID(screen, "member-profile-phone-input").props.value,
+    ).toBe("+591 76543210");
+  });
+
+  it("preserves the edited draft when a same-member refresh fails", async () => {
+    const repository = createScreenRepository({
+      get: createSettings({
+        displayName: "Camila Backend",
+        phone: "+591 70123456",
+      }),
+    });
+
+    let screen = renderSettingsScreen({ repository });
+    runPendingEffects();
+    await flushPromises();
+    screen = renderSettingsScreen({ repository });
+
+    changeText(screen, "member-profile-display-name-input", "Camila Borrador");
+    changeText(screen, "member-profile-phone-input", "+591 75555555");
+    screen = renderSettingsScreen({ repository });
+
+    const failingRefreshRepository = createScreenRepository({
+      getError: new Error("Network request failed"),
+    });
+
+    screen = renderSettingsScreen({ repository: failingRefreshRepository });
+    runPendingEffects();
+    await flushPromises();
+    screen = renderSettingsScreen({ repository: failingRefreshRepository });
+
+    expect(
+      findText(
+        screen,
+        "No pudimos cargar tus ajustes. Revisa tu conexión e intenta de nuevo.",
+      ),
+    ).toBe(true);
+    expect(
+      getElementByTestID(screen, "member-profile-display-name-input").props
+        .value,
+    ).toBe("Camila Borrador");
+    expect(
+      getElementByTestID(screen, "member-profile-phone-input").props.value,
+    ).toBe("+591 75555555");
+  });
+
   it("does not render a fallback form when initial backend loading fails", async () => {
     const repository = createScreenRepository({
       getError: new Error("Network request failed"),
@@ -356,17 +439,29 @@ function createScreenRepository(
   overrides: Partial<{
     get: MemberProfileSettings;
     getError: Error;
+    getSequence: (Error | MemberProfileSettings)[];
     update: MemberProfileSettings | Promise<MemberProfileSettings>;
   }> = {},
 ): MemberProfileRepository {
   const fallbackSettings = createSettings();
+  const getSequence = [...(overrides.getSequence ?? [])];
 
   return {
-    getSettings: vi.fn<MemberProfileRepository["getSettings"]>(() =>
-      overrides.getError
+    getSettings: vi.fn<MemberProfileRepository["getSettings"]>(() => {
+      const nextGetResult = getSequence.shift();
+
+      if (nextGetResult instanceof Error) {
+        return Promise.reject(nextGetResult);
+      }
+
+      if (nextGetResult) {
+        return Promise.resolve(nextGetResult);
+      }
+
+      return overrides.getError
         ? Promise.reject(overrides.getError)
-        : Promise.resolve(overrides.get ?? fallbackSettings),
-    ),
+        : Promise.resolve(overrides.get ?? fallbackSettings);
+    }),
     updateSettings: vi.fn<MemberProfileRepository["updateSettings"]>(() =>
       Promise.resolve(overrides.update ?? fallbackSettings),
     ),

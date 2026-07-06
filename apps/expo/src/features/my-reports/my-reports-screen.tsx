@@ -1,6 +1,5 @@
 import type { LegendListRenderItemProps } from "@legendapp/list";
 import type { Href } from "expo-router";
-import type { ReportOutcome } from "@acme/validators";
 import * as React from "react";
 import {
   ActivityIndicator,
@@ -13,6 +12,8 @@ import {
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { LegendList } from "@legendapp/list";
+
+import type { ReportOutcome } from "@acme/validators";
 
 import type {
   MyReportCardViewModel,
@@ -66,6 +67,16 @@ type ManagementConfirmation =
   | { kind: "delete" }
   | { kind: "resolve"; outcome: ReportOutcome };
 
+interface FeedbackState {
+  action?: {
+    accessibilityLabel: string;
+    id: "refresh";
+    label: string;
+  };
+  message: string;
+  tone: "error" | "success" | "warning";
+}
+
 export function MyReportsScreen({
   initialManageReportId,
   onOpenReport,
@@ -74,9 +85,10 @@ export function MyReportsScreen({
   session,
 }: MyReportsScreenProps) {
   const router = useRouter();
-  const [filter, setFilter] =
-    React.useState<MyReportsFilter>(myReportsDefaultFilter);
-  const [feedback, setFeedback] = React.useState<string | null>(null);
+  const [filter, setFilter] = React.useState<MyReportsFilter>(
+    myReportsDefaultFilter,
+  );
+  const [feedback, setFeedback] = React.useState<FeedbackState | null>(null);
   const [loadState, setLoadState] = React.useState<LoadState>({
     kind: "idle",
   });
@@ -100,6 +112,9 @@ export function MyReportsScreen({
       setLoadState({ kind: "error" });
     }
   }, [repository, session.kind]);
+  const refreshReports = React.useCallback(() => {
+    void loadReports();
+  }, [loadReports]);
 
   React.useEffect(() => {
     let isActive = true;
@@ -194,10 +209,16 @@ export function MyReportsScreen({
         id: management.report.id,
       });
       setManagement({ kind: "closed" });
-      setFeedback("Reporte confirmado como activo.");
+      setFeedback({
+        message: "Reporte confirmado como activo.",
+        tone: "success",
+      });
       await loadReports();
     } catch {
-      setFeedback("No pudimos confirmar el reporte. Intenta de nuevo.");
+      setFeedback({
+        message: "No pudimos confirmar el reporte. Intenta de nuevo.",
+        tone: "error",
+      });
       setManagement({ ...management, pendingAction: null });
     }
   }, [loadReports, management, repository]);
@@ -215,10 +236,16 @@ export function MyReportsScreen({
           outcome,
         });
         setManagement({ kind: "closed" });
-        setFeedback("Reporte cerrado y confirmado por Rastro.");
+        setFeedback({
+          message: "Reporte cerrado y confirmado por Rastro.",
+          tone: "success",
+        });
         await loadReports();
       } catch {
-        setFeedback("No pudimos cerrar el reporte. Intenta de nuevo.");
+        setFeedback({
+          message: "No pudimos cerrar el reporte. Intenta de nuevo.",
+          tone: "error",
+        });
         setManagement({ ...management, pendingAction: null });
       }
     },
@@ -234,10 +261,16 @@ export function MyReportsScreen({
     try {
       await repository.deleteReport({ id: management.report.id });
       setManagement({ kind: "closed" });
-      setFeedback("Reporte retirado y confirmado por Rastro.");
+      setFeedback({
+        message: "Reporte retirado y confirmado por Rastro.",
+        tone: "success",
+      });
       await loadReports();
     } catch {
-      setFeedback("No pudimos retirar el reporte. Intenta de nuevo.");
+      setFeedback({
+        message: "No pudimos retirar el reporte. Intenta de nuevo.",
+        tone: "error",
+      });
       setManagement({ ...management, pendingAction: null });
     }
   }, [loadReports, management, repository]);
@@ -279,12 +312,24 @@ export function MyReportsScreen({
     );
 
     if (!report) {
+      setFeedback({
+        action: {
+          accessibilityLabel:
+            "Actualizar Mis reportes para buscar el reporte solicitado",
+          id: "refresh",
+          label: "Actualizar",
+        },
+        message:
+          "No encontramos el reporte que querías gestionar. Actualiza la lista para volver a buscarlo.",
+        tone: "warning",
+      });
       return;
     }
 
     const reportViewModel = buildMyReportCardViewModel(report);
 
     initialManageKeyRef.current = initialManageKey;
+    setFeedback(null);
     setFilter(
       classifyMyReportFilter({
         availabilityState: reportViewModel.availabilityState,
@@ -443,12 +488,10 @@ export function MyReportsScreen({
       </View>
 
       {feedback ? (
-        <View style={styles.feedback}>
-          <ShellIcon color={shellColors.found} name="checkmark.seal.fill" size={18} />
-          <Text selectable style={styles.feedbackText}>
-            {feedback}
-          </Text>
-        </View>
+        <MyReportsFeedbackBanner
+          feedback={feedback}
+          onRefresh={refreshReports}
+        />
       ) : null}
     </View>
   );
@@ -501,6 +544,66 @@ export function MyReportsScreen({
   );
 }
 
+function MyReportsFeedbackBanner({
+  feedback,
+  onRefresh,
+}: {
+  feedback: FeedbackState;
+  onRefresh: () => void;
+}) {
+  const isError = feedback.tone === "error";
+  const isSuccess = feedback.tone === "success";
+  const iconColor = isSuccess
+    ? shellColors.found
+    : isError
+      ? shellColors.lost
+      : "#6F5500";
+  const iconName = isSuccess
+    ? "checkmark.seal.fill"
+    : "exclamationmark.triangle.fill";
+  const feedbackStyle = isSuccess
+    ? styles.feedbackSuccess
+    : isError
+      ? styles.feedbackError
+      : styles.feedbackWarning;
+  const feedbackTextStyle = isSuccess
+    ? styles.feedbackSuccessText
+    : isError
+      ? styles.feedbackErrorText
+      : styles.feedbackWarningText;
+  const feedbackActionStyle = isSuccess
+    ? styles.feedbackActionSuccess
+    : isError
+      ? styles.feedbackActionError
+      : styles.feedbackActionWarning;
+
+  return (
+    <View
+      accessibilityLiveRegion="polite"
+      accessibilityRole="alert"
+      style={[styles.feedback, feedbackStyle]}
+    >
+      <ShellIcon color={iconColor} name={iconName} size={18} />
+      <Text style={[styles.feedbackText, feedbackTextStyle]}>
+        {feedback.message}
+      </Text>
+      {feedback.action?.id === "refresh" ? (
+        <Pressable
+          accessibilityLabel={feedback.action.accessibilityLabel}
+          accessibilityRole="button"
+          onPress={onRefresh}
+          style={[styles.feedbackAction, feedbackActionStyle]}
+        >
+          <ShellIcon color={iconColor} name="arrow.clockwise" size={15} />
+          <Text style={[styles.feedbackActionText, feedbackTextStyle]}>
+            {feedback.action.label}
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 function myReportKeyExtractor(report: MyReportCardViewModel) {
   return report.id;
 }
@@ -533,14 +636,22 @@ function MyReportCard({
               transition={120}
             />
           ) : (
-            <ShellIcon color={shellColors.primary} name="pawprint.fill" size={24} />
+            <ShellIcon
+              color={shellColors.primary}
+              name="pawprint.fill"
+              size={24}
+            />
           )}
         </View>
         <View style={styles.cardCopy}>
           <View style={styles.cardMetaRow}>
             <Text style={styles.typeLabel}>{report.typeLabel}</Text>
-            <View style={[styles.statusPill, styles[`${report.statusTone}Pill`]]}>
-              <Text style={[styles.statusText, styles[`${report.statusTone}Text`]]}>
+            <View
+              style={[styles.statusPill, styles[`${report.statusTone}Pill`]]}
+            >
+              <Text
+                style={[styles.statusText, styles[`${report.statusTone}Text`]]}
+              >
                 {report.availabilityLabel}
               </Text>
             </View>
@@ -579,7 +690,9 @@ function MyReportCard({
             style={[styles.secondaryAction, styles.secondaryUnavailableAction]}
           >
             <ShellIcon color={shellColors.muted} name="lock.fill" size={16} />
-            <Text style={styles.secondaryUnavailableActionText}>No público</Text>
+            <Text style={styles.secondaryUnavailableActionText}>
+              No público
+            </Text>
           </View>
         )}
         <Pressable
@@ -588,8 +701,14 @@ function MyReportCard({
           onPress={onManage}
           style={styles.primaryAction}
         >
-          <ShellIcon color={shellColors.white} name="checkmark.seal.fill" size={16} />
-          <Text style={styles.primaryActionText}>{report.primaryActionLabel}</Text>
+          <ShellIcon
+            color={shellColors.white}
+            name="checkmark.seal.fill"
+            size={16}
+          />
+          <Text style={styles.primaryActionText}>
+            {report.primaryActionLabel}
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -619,23 +738,36 @@ function MyReportManagementSheet({
 }) {
   const isBusy = pendingAction !== null;
   const resolveOptions = getMyReportResolveOptions(report.type);
+  const modalLabel = `Gestionar reporte ${report.title}`;
+  const sheetLabel = `Panel para gestionar ${report.title}`;
 
   return (
-    <Modal animationType="fade" onRequestClose={onClose} transparent visible>
+    <Modal
+      accessibilityLabel={modalLabel}
+      accessibilityViewIsModal
+      animationType="fade"
+      onRequestClose={onClose}
+      transparent
+      visible
+    >
       <View style={styles.modalBackdrop}>
-        <View style={styles.sheet}>
+        <View
+          accessibilityLabel={sheetLabel}
+          accessibilityViewIsModal
+          style={styles.sheet}
+        >
           <View style={styles.sheetHeader}>
             <View style={styles.sheetTitleGroup}>
-              <Text selectable style={styles.sheetTitle}>
-                Gestionar reporte
-              </Text>
-              <Text selectable style={styles.sheetBody}>
-                El cambio se guardará en Rastro y luego actualizaremos esta lista.
+              <Text style={styles.sheetTitle}>Gestionar reporte</Text>
+              <Text style={styles.sheetBody}>
+                El cambio se guardará en Rastro y luego actualizaremos esta
+                lista.
               </Text>
             </View>
             <Pressable
-              accessibilityLabel="Cerrar"
+              accessibilityLabel={`Cerrar gestión de ${report.title}`}
               accessibilityRole="button"
+              accessibilityState={{ disabled: isBusy }}
               disabled={isBusy}
               onPress={onClose}
               style={styles.sheetClose}
@@ -644,9 +776,7 @@ function MyReportManagementSheet({
             </Pressable>
           </View>
 
-          <Text selectable style={styles.sheetReportTitle}>
-            {report.title}
-          </Text>
+          <Text style={styles.sheetReportTitle}>{report.title}</Text>
 
           {confirmation ? (
             <ManagementConfirmationPanel
@@ -654,12 +784,15 @@ function MyReportManagementSheet({
               isBusy={isBusy}
               onCancel={onCancelConfirmation}
               onConfirm={onConfirmAction}
+              reportTitle={report.title}
             />
           ) : null}
 
           {!confirmation && report.canConfirmActive ? (
             <Pressable
+              accessibilityLabel={`Confirmar que ${report.title} sigue activa`}
               accessibilityRole="button"
+              accessibilityState={{ disabled: isBusy }}
               disabled={isBusy}
               onPress={onConfirmActive}
               style={styles.confirmActiveButton}
@@ -670,7 +803,11 @@ function MyReportManagementSheet({
                   Mantener visible y actualizar la fecha de revisión.
                 </Text>
               </View>
-              <ShellIcon color={shellColors.primary} name="checkmark.seal.fill" size={16} />
+              <ShellIcon
+                color={shellColors.primary}
+                name="checkmark.seal.fill"
+                size={16}
+              />
             </Pressable>
           ) : null}
 
@@ -678,7 +815,12 @@ function MyReportManagementSheet({
             <View style={styles.outcomeList}>
               {resolveOptions.map((option) => (
                 <Pressable
+                  accessibilityLabel={`Cerrar ${report.title} como ${option.label}`}
                   accessibilityRole="button"
+                  accessibilityState={{
+                    busy: pendingAction === option.value,
+                    disabled: isBusy,
+                  }}
                   disabled={isBusy}
                   key={option.value}
                   onPress={() => {
@@ -711,7 +853,7 @@ function MyReportManagementSheet({
                 name="lock.fill"
                 size={18}
               />
-              <Text selectable style={styles.lockedNoticeText}>
+              <Text style={styles.lockedNoticeText}>
                 Este reporte ya fue retirado. Puedes conservarlo como historial,
                 pero no se puede volver a publicar desde aquí.
               </Text>
@@ -720,7 +862,12 @@ function MyReportManagementSheet({
 
           {report.canDelete ? (
             <Pressable
+              accessibilityLabel={`Retirar reporte ${report.title}`}
               accessibilityRole="button"
+              accessibilityState={{
+                busy: pendingAction === "delete",
+                disabled: isBusy,
+              }}
               disabled={isBusy}
               onPress={onDelete}
               style={styles.deleteButton}
@@ -748,25 +895,25 @@ function ManagementConfirmationPanel({
   isBusy,
   onCancel,
   onConfirm,
+  reportTitle,
 }: {
   confirmation: ManagementConfirmation;
   isBusy: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  reportTitle: string;
 }) {
-  const copy = getManagementConfirmationCopy(confirmation);
+  const copy = getManagementConfirmationCopy(confirmation, reportTitle);
 
   return (
     <View style={styles.confirmationPanel}>
-      <Text selectable style={styles.confirmationTitle}>
-        {copy.title}
-      </Text>
-      <Text selectable style={styles.confirmationBody}>
-        {copy.body}
-      </Text>
+      <Text style={styles.confirmationTitle}>{copy.title}</Text>
+      <Text style={styles.confirmationBody}>{copy.body}</Text>
       <View style={styles.confirmationActions}>
         <Pressable
+          accessibilityLabel={copy.cancelAccessibilityLabel}
           accessibilityRole="button"
+          accessibilityState={{ disabled: isBusy }}
           disabled={isBusy}
           onPress={onCancel}
           style={styles.confirmationSecondary}
@@ -774,7 +921,9 @@ function ManagementConfirmationPanel({
           <Text style={styles.confirmationSecondaryText}>Cancelar</Text>
         </Pressable>
         <Pressable
+          accessibilityLabel={copy.actionAccessibilityLabel}
           accessibilityRole="button"
+          accessibilityState={{ busy: isBusy, disabled: isBusy }}
           disabled={isBusy}
           onPress={onConfirm}
           style={styles.confirmationPrimary}
@@ -782,7 +931,9 @@ function ManagementConfirmationPanel({
           {isBusy ? (
             <ActivityIndicator color={shellColors.white} />
           ) : (
-            <Text style={styles.confirmationPrimaryText}>{copy.actionLabel}</Text>
+            <Text style={styles.confirmationPrimaryText}>
+              {copy.actionLabel}
+            </Text>
           )}
         </Pressable>
       </View>
@@ -790,11 +941,16 @@ function ManagementConfirmationPanel({
   );
 }
 
-function getManagementConfirmationCopy(confirmation: ManagementConfirmation) {
+function getManagementConfirmationCopy(
+  confirmation: ManagementConfirmation,
+  reportTitle: string,
+) {
   if (confirmation.kind === "confirm-active") {
     return {
       actionLabel: "Confirmar",
+      actionAccessibilityLabel: `Confirmar que ${reportTitle} sigue activa`,
       body: "Actualizaremos la fecha de revisión sin cerrar el reporte.",
+      cancelAccessibilityLabel: `Cancelar confirmación de actividad de ${reportTitle}`,
       title: "¿Confirmar que sigue activa?",
     };
   }
@@ -802,7 +958,9 @@ function getManagementConfirmationCopy(confirmation: ManagementConfirmation) {
   if (confirmation.kind === "delete") {
     return {
       actionLabel: "Retirar",
+      actionAccessibilityLabel: `Retirar ${reportTitle}`,
       body: "El reporte dejará de aparecer en búsquedas públicas. Puedes conservarlo como historial.",
+      cancelAccessibilityLabel: `Cancelar retiro de ${reportTitle}`,
       title: "¿Retirar este reporte?",
     };
   }
@@ -813,9 +971,13 @@ function getManagementConfirmationCopy(confirmation: ManagementConfirmation) {
 
   return {
     actionLabel: "Cerrar",
+    actionAccessibilityLabel: `Cerrar ${reportTitle} como ${
+      option?.label ?? "resultado"
+    }`,
     body:
       option?.body ??
       "El reporte se cerrará con este resultado y dejaremos de mostrarlo como activo.",
+    cancelAccessibilityLabel: `Cancelar cierre de ${reportTitle}`,
     title: `¿Cerrar como ${option?.label ?? "resultado"}?`,
   };
 }
@@ -1002,21 +1164,63 @@ const styles = StyleSheet.create({
   },
   feedback: {
     alignItems: "center",
-    backgroundColor: "#E4F4EB",
-    borderColor: "#A9D9BE",
     borderCurve: "continuous",
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
     padding: 12,
   },
-  feedbackText: {
+  feedbackAction: {
+    alignItems: "center",
+    borderCurve: "continuous",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 5,
+    minHeight: 34,
+    paddingHorizontal: 10,
+  },
+  feedbackActionError: {
+    borderColor: shellColors.lost,
+  },
+  feedbackActionSuccess: {
+    borderColor: shellColors.found,
+  },
+  feedbackActionText: {
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  feedbackActionWarning: {
+    borderColor: "#6F5500",
+  },
+  feedbackError: {
+    backgroundColor: "#FDEAE7",
+    borderColor: "#F2B8B2",
+  },
+  feedbackErrorText: {
+    color: shellColors.lost,
+  },
+  feedbackSuccess: {
+    backgroundColor: "#E4F4EB",
+    borderColor: "#A9D9BE",
+  },
+  feedbackSuccessText: {
     color: shellColors.found,
+  },
+  feedbackText: {
     flex: 1,
     fontSize: 14,
     fontWeight: "800",
     lineHeight: 19,
+  },
+  feedbackWarning: {
+    backgroundColor: "#FFF4CC",
+    borderColor: "#E5C24A",
+  },
+  feedbackWarningText: {
+    color: "#6F5500",
   },
   filterButton: {
     alignItems: "center",

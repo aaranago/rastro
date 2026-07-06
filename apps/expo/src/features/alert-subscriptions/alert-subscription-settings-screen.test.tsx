@@ -206,6 +206,179 @@ describe("AlertSubscriptionSettingsScreen backend behavior", () => {
     );
   });
 
+  it("keeps subscription mutations disabled while backend state is loading", async () => {
+    const repository = createScreenRepository();
+    repository.getAlertSubscription.mockReturnValue(
+      new Promise<AlertSubscription | null>(() => undefined),
+    );
+    const nativeAdapter = createNativeAdapter();
+
+    let screen = renderSettingsScreen({ nativeAdapter, repository });
+    runEffects();
+    screen = renderSettingsScreen({ nativeAdapter, repository });
+
+    const subscriptionSwitch = findSwitchByTestId(
+      screen,
+      "alert-subscription-switch",
+    );
+
+    expect(subscriptionSwitch?.props.accessibilityLabel).toBe(
+      "Suscripción a alertas cercanas",
+    );
+    expect(subscriptionSwitch?.props.accessibilityState).toEqual({
+      checked: false,
+      disabled: true,
+    });
+
+    await getSwitchOnValueChange(subscriptionSwitch)(true);
+    await getPressableOnPress(
+      findPressableByText(screen, "Cargando alertas"),
+    )();
+
+    expect(repository.enableAlertSubscription).not.toHaveBeenCalled();
+    expect(repository.pauseAlertSubscription).not.toHaveBeenCalled();
+  });
+
+  it("offers a retry action after alert subscription load failure", async () => {
+    const repository = createScreenRepository({
+      getSequence: [new Error("Network request failed"), createSubscription()],
+    });
+    const nativeAdapter = createNativeAdapter();
+
+    let screen = renderSettingsScreen({ nativeAdapter, repository });
+    runEffects();
+    await flushPromises();
+    screen = renderSettingsScreen({ nativeAdapter, repository });
+
+    expect(findText(screen, "Reintentar carga")).toBe(true);
+    expect(
+      findText(
+        screen,
+        "No pudimos cargar tus alertas. Reintenta antes de cambiar la suscripción.",
+      ),
+    ).toBe(true);
+
+    discardPendingEffects();
+    await getPressableOnPress(
+      findPressableByText(screen, "Reintentar carga"),
+    )();
+    screen = renderSettingsScreen({ nativeAdapter, repository });
+    runEffects();
+    await flushPromises();
+    screen = renderSettingsScreen({ nativeAdapter, repository });
+
+    expect(repository.getAlertSubscription).toHaveBeenCalledTimes(2);
+    expect(findText(screen, "Alertas activas")).toBe(true);
+  });
+
+  it("keeps member controls inert until backend subscription state is ready", async () => {
+    const repository = createScreenRepository();
+    const nativeAdapter = createNativeAdapter();
+    const screen = renderSettingsScreen({ nativeAdapter, repository });
+
+    expect(findText(screen, "Cargando alertas")).toBe(true);
+
+    const subscriptionSwitch = findSwitchByTestId(
+      screen,
+      "alert-subscription-switch",
+    );
+    const enableButton = findPressableByTestId(
+      screen,
+      "alert-subscription-enable-button",
+    );
+
+    expect(subscriptionSwitch?.props.disabled).toBe(true);
+    expect(subscriptionSwitch?.props.accessibilityState).toMatchObject({
+      checked: false,
+      disabled: true,
+    });
+    expect(enableButton?.props.disabled).toBe(true);
+
+    await getSwitchOnValueChange(subscriptionSwitch)(true);
+    await getPressableOnPress(enableButton)();
+    await flushPromises();
+
+    expect(repository.enableAlertSubscription).not.toHaveBeenCalled();
+  });
+
+  it("shows retry and keeps subscription mutations inert after load failure", async () => {
+    const repository = createScreenRepository();
+    repository.getAlertSubscription.mockRejectedValueOnce(new Error("offline"));
+    const nativeAdapter = createNativeAdapter();
+
+    let screen = renderSettingsScreen({ nativeAdapter, repository });
+    runEffects();
+    await flushPromises();
+    screen = renderSettingsScreen({ nativeAdapter, repository });
+
+    expect(
+      findText(
+        screen,
+        "No pudimos cargar tus alertas. Reintenta antes de cambiar la suscripción.",
+      ),
+    ).toBe(true);
+    expect(findText(screen, "Reintentar carga")).toBe(true);
+
+    const retryButton = findPressableByTestId(
+      screen,
+      "alert-subscription-load-retry-button",
+    );
+    const subscriptionSwitch = findSwitchByTestId(
+      screen,
+      "alert-subscription-switch",
+    );
+
+    expect(retryButton?.props.disabled).not.toBe(true);
+    expect(subscriptionSwitch?.props.disabled).toBe(true);
+    expect(subscriptionSwitch?.props.accessibilityState).toMatchObject({
+      checked: false,
+      disabled: true,
+    });
+
+    await getSwitchOnValueChange(subscriptionSwitch)(true);
+    await flushPromises();
+
+    expect(repository.enableAlertSubscription).not.toHaveBeenCalled();
+  });
+
+  it("names subscription and moving-alert switches with accessibility state", async () => {
+    const repository = createScreenRepository({
+      get: createSubscription({ enabled: true }),
+    });
+    const nativeAdapter = createNativeAdapter();
+
+    let screen = renderSettingsScreen({ nativeAdapter, repository });
+    runEffects();
+    await flushPromises();
+    screen = renderSettingsScreen({ nativeAdapter, repository });
+
+    expect(
+      findSwitchByTestId(screen, "alert-subscription-switch")?.props,
+    ).toMatchObject({
+      accessibilityLabel: "Suscripción a alertas cercanas",
+      accessibilityRole: "switch",
+      accessibilityState: {
+        checked: true,
+        disabled: false,
+      },
+      disabled: false,
+      value: true,
+    });
+    expect(
+      findSwitchByTestId(screen, "alert-subscription-moving-alerts-switch")
+        ?.props,
+    ).toMatchObject({
+      accessibilityLabel: "Alertas mientras me muevo",
+      accessibilityRole: "switch",
+      accessibilityState: {
+        checked: false,
+        disabled: false,
+      },
+      disabled: false,
+      value: false,
+    });
+  });
+
   it("keeps alerts active when native push registration is unavailable", async () => {
     const repository = createScreenRepository();
     const nativeAdapter = createNativeAdapter({
@@ -218,6 +391,19 @@ describe("AlertSubscriptionSettingsScreen backend behavior", () => {
     runEffects();
     await flushPromises();
     screen = renderSettingsScreen({ nativeAdapter, repository });
+
+    const subscriptionSwitch = findSwitchByTestId(
+      screen,
+      "alert-subscription-switch",
+    );
+
+    expect(subscriptionSwitch?.props.accessibilityLabel).toBe(
+      "Suscripción a alertas cercanas",
+    );
+    expect(subscriptionSwitch?.props.accessibilityState).toEqual({
+      checked: false,
+      disabled: false,
+    });
 
     await getPressableOnPress(findPressableByText(screen, "Activar alertas"))();
     await flushPromises();
@@ -309,18 +495,15 @@ describe("AlertSubscriptionSettingsScreen backend behavior", () => {
       throw new Error("Expected paused subscription to include a saved area.");
     }
 
-    expect(repository.enableAlertSubscription).toHaveBeenCalledWith(
-      member,
-      {
-        lastDetectedLocation: {
-          ...savedLocation,
-          label: "Ultima ubicacion detectada en Sopocachi",
-          source: "last",
-        },
-        radiusKm: 5,
-        reason: "manual-refresh",
+    expect(repository.enableAlertSubscription).toHaveBeenCalledWith(member, {
+      lastDetectedLocation: {
+        ...savedLocation,
+        label: "Ultima ubicacion detectada en Sopocachi",
+        source: "last",
       },
-    );
+      radiusKm: 5,
+      reason: "manual-refresh",
+    });
   });
 
   it("persists moving-alert interest as pending background permission", async () => {
@@ -344,9 +527,20 @@ describe("AlertSubscriptionSettingsScreen backend behavior", () => {
     await flushPromises();
     screen = renderSettingsScreen({ nativeAdapter, repository });
 
-    await getSwitchOnValueChange(
-      findSwitchByTestId(screen, "alert-subscription-moving-alerts-switch"),
-    )(true);
+    const movingAlertsSwitch = findSwitchByTestId(
+      screen,
+      "alert-subscription-moving-alerts-switch",
+    );
+
+    expect(movingAlertsSwitch?.props.accessibilityLabel).toBe(
+      "Alertas mientras me muevo",
+    );
+    expect(movingAlertsSwitch?.props.accessibilityState).toEqual({
+      checked: false,
+      disabled: false,
+    });
+
+    await getSwitchOnValueChange(movingAlertsSwitch)(true);
     await flushPromises();
     screen = renderSettingsScreen({ nativeAdapter, repository });
 
@@ -426,6 +620,10 @@ function runEffects() {
   }
 }
 
+function discardPendingEffects() {
+  reactState.effects = [];
+}
+
 async function flushPromises() {
   await Promise.resolve();
   await Promise.resolve();
@@ -434,12 +632,14 @@ async function flushPromises() {
 function createScreenRepository(
   overrides: Partial<{
     get: AlertSubscription | null;
+    getSequence: (AlertSubscription | Error | null)[];
     movingAlerts: AlertSubscription;
     pause: AlertSubscription;
     unsubscribe: AlertSubscription | null;
   }> = {},
 ) {
   const fallbackSubscription = createSubscription();
+  const getSequence = [...(overrides.getSequence ?? [])];
 
   return {
     disableAlertSubscription: vi.fn<
@@ -450,9 +650,21 @@ function createScreenRepository(
     >(() => Promise.resolve(fallbackSubscription)),
     getAlertSubscription: vi.fn<
       AlertSubscriptionRepository["getAlertSubscription"]
-    >(() =>
-      Promise.resolve(overrides.get === undefined ? null : overrides.get),
-    ),
+    >(() => {
+      const nextGetResult = getSequence.shift();
+
+      if (nextGetResult instanceof Error) {
+        return Promise.reject(nextGetResult);
+      }
+
+      if (nextGetResult !== undefined) {
+        return Promise.resolve(nextGetResult);
+      }
+
+      return Promise.resolve(
+        overrides.get === undefined ? null : overrides.get,
+      );
+    }),
     matchNewLostPetReportAlerts: vi.fn<
       AlertSubscriptionRepository["matchNewLostPetReportAlerts"]
     >(() => Promise.resolve([])),
@@ -589,6 +801,17 @@ function findPressableByText(
   );
 }
 
+function findPressableByTestId(
+  node: React.ReactNode,
+  testID: string,
+): TestElement | undefined {
+  return findElement(
+    node,
+    (element) =>
+      element.type === "Pressable" && element.props.testID === testID,
+  );
+}
+
 function findSwitchByTestId(
   node: React.ReactNode,
   testID: string,
@@ -662,8 +885,12 @@ function getSwitchOnValueChange(element: TestElement | undefined) {
   }
 
   if (typeof element.props.onValueChange !== "function") {
-    throw new Error("Expected switch element to have an onValueChange handler.");
+    throw new Error(
+      "Expected switch element to have an onValueChange handler.",
+    );
   }
 
-  return element.props.onValueChange as (enabled: boolean) => Promise<void> | void;
+  return element.props.onValueChange as (
+    enabled: boolean,
+  ) => Promise<void> | void;
 }

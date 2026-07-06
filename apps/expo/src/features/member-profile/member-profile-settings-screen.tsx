@@ -71,11 +71,17 @@ interface Feedback {
   tone: "error" | "success";
 }
 
+interface MemberProfileSettingsDraftState {
+  draft: MemberProfileSettingsDraft;
+  memberSessionKey: string;
+}
+
 interface MemberProfileSettingsController {
   draft: MemberProfileSettingsDraft | null;
   feedback: Feedback | null;
   loadState: LoadState;
   pendingSave: boolean;
+  retryLoadSettings: () => void;
   saveSettings: () => Promise<void>;
   selectContactPreference: (
     preference: MemberProfileDefaultContactPreference,
@@ -125,23 +131,30 @@ function useMemberProfileSettingsController({
   "onSaved" | "repository" | "session"
 >): MemberProfileSettingsController {
   const [loadState, setLoadState] = React.useState<LoadState>({ kind: "idle" });
-  const [draft, setDraft] = React.useState<MemberProfileSettingsDraft | null>(
-    null,
-  );
+  const [draftState, setDraftState] =
+    React.useState<MemberProfileSettingsDraftState | null>(null);
   const [feedback, setFeedback] = React.useState<Feedback | null>(null);
   const [pendingSave, setPendingSave] = React.useState(false);
+  const [loadAttempt, setLoadAttempt] = React.useState(0);
   const memberSessionKey =
     session.kind === "member" ? session.memberId : "visitor";
+  const draft =
+    session.kind === "member" &&
+    draftState?.memberSessionKey === memberSessionKey
+      ? draftState.draft
+      : null;
 
   React.useEffect(() => {
     let isActive = true;
 
     if (session.kind === "visitor") {
       setLoadState({ kind: "idle" });
-      setDraft(null);
+      setDraftState(null);
       setFeedback(null);
       return;
     }
+
+    const loadMemberSessionKey = memberSessionKey;
 
     setLoadState({ kind: "loading" });
     setFeedback(null);
@@ -152,7 +165,10 @@ function useMemberProfileSettingsController({
           return;
         }
 
-        setDraft(createMemberProfileSettingsDraft(settings));
+        setDraftState({
+          draft: createMemberProfileSettingsDraft(settings),
+          memberSessionKey: loadMemberSessionKey,
+        });
         setLoadState({ kind: "ready" });
       })
       .catch((error) => {
@@ -160,7 +176,6 @@ function useMemberProfileSettingsController({
           return;
         }
 
-        setDraft(null);
         setLoadState({
           kind: "error",
           message: getMemberProfileLoadFailureMessage(error),
@@ -170,14 +185,27 @@ function useMemberProfileSettingsController({
     return () => {
       isActive = false;
     };
-  }, [memberSessionKey, repository, session]);
+  }, [loadAttempt, memberSessionKey, repository, session]);
 
   const updateDraft = React.useCallback(
     (patch: Partial<MemberProfileSettingsDraft>) => {
-      setDraft((current) => (current ? { ...current, ...patch } : current));
+      setDraftState((current) => {
+        if (current?.memberSessionKey !== memberSessionKey) {
+          return current;
+        }
+
+        return {
+          ...current,
+          draft: { ...current.draft, ...patch },
+        };
+      });
     },
-    [],
+    [memberSessionKey],
   );
+
+  const retryLoadSettings = React.useCallback(() => {
+    setLoadAttempt((current) => current + 1);
+  }, []);
 
   const saveSettings = React.useCallback(async () => {
     if (session.kind === "visitor" || !draft) {
@@ -200,7 +228,10 @@ function useMemberProfileSettingsController({
     try {
       const saved = await repository.updateSettings(session, validation.input);
 
-      setDraft(createMemberProfileSettingsDraft(saved));
+      setDraftState({
+        draft: createMemberProfileSettingsDraft(saved),
+        memberSessionKey,
+      });
       setLoadState({ kind: "ready" });
       setFeedback({
         message: "Ajustes guardados en Rastro.",
@@ -215,13 +246,14 @@ function useMemberProfileSettingsController({
     } finally {
       setPendingSave(false);
     }
-  }, [draft, onSaved, repository, session]);
+  }, [draft, memberSessionKey, onSaved, repository, session]);
 
   return {
     draft,
     feedback,
     loadState,
     pendingSave,
+    retryLoadSettings,
     saveSettings,
     selectContactPreference: (preference) => {
       updateDraft({ defaultContactPreference: preference });
@@ -296,20 +328,67 @@ function MemberSettingsContent({
     return <LoadingPanel />;
   }
 
+  if (!controller.draft && controller.loadState.kind === "error") {
+    return (
+      <>
+        <LoadErrorNotice
+          isBlocking
+          message={controller.loadState.message}
+          onRetry={controller.retryLoadSettings}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       {controller.loadState.kind === "loading" ? <LoadingBanner /> : null}
       {controller.loadState.kind === "error" ? (
-        <FeedbackMessage
-          feedback={{
-            message: controller.loadState.message,
-            tone: "error",
-          }}
+        <LoadErrorNotice
+          message={controller.loadState.message}
+          onRetry={controller.retryLoadSettings}
         />
       ) : null}
       {controller.draft ? <ProfileForm controller={controller} /> : null}
       <FeedbackMessage feedback={controller.feedback} />
     </>
+  );
+}
+
+function LoadErrorNotice({
+  isBlocking = false,
+  message,
+  onRetry,
+}: {
+  isBlocking?: boolean;
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <View
+      style={isBlocking ? styles.panel : styles.loadErrorBanner}
+      testID="member-profile-load-error-state"
+    >
+      <View style={styles.loadErrorCopy}>
+        {isBlocking ? (
+          <Text selectable style={styles.sectionTitle}>
+            No pudimos cargar tus ajustes
+          </Text>
+        ) : null}
+        <Text
+          selectable
+          style={isBlocking ? styles.mutedText : styles.loadErrorText}
+        >
+          {message}
+        </Text>
+      </View>
+      <ActionButton
+        icon="arrow.clockwise"
+        label="Reintentar"
+        onPress={onRetry}
+        testID="member-profile-load-retry-button"
+      />
+    </View>
   );
 }
 
@@ -686,6 +765,22 @@ const styles = StyleSheet.create({
     color: shellColors.primaryDark,
     fontSize: 14,
     fontWeight: "700",
+  },
+  loadErrorBanner: {
+    backgroundColor: "#FDECEC",
+    borderColor: "#F4B8B4",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 12,
+    padding: 12,
+  },
+  loadErrorCopy: {
+    gap: 6,
+  },
+  loadErrorText: {
+    color: "#8A1F19",
+    fontSize: 14,
+    lineHeight: 20,
   },
   methodBody: {
     color: shellColors.muted,

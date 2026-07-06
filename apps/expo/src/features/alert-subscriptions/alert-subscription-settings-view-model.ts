@@ -10,7 +10,10 @@ import { alertSubscriptionRadiusOptionsKm } from "./alert-subscriptions";
 export type AlertSubscriptionSettingsAction =
   | "enable-alerts"
   | "pause-alerts"
+  | "retry-load"
   | "sign-in";
+
+export type AlertSubscriptionSettingsLoadState = "error" | "loading" | "ready";
 
 export interface AlertSubscriptionSettingsRadiusOption {
   isSelected: boolean;
@@ -31,6 +34,7 @@ export interface AlertSubscriptionSettingsViewModel {
   body: string;
   canManage: boolean;
   enabled: boolean;
+  loadState: AlertSubscriptionSettingsLoadState;
   locationPolicyRows: string[];
   movingAlerts: {
     body: string;
@@ -45,10 +49,12 @@ export interface AlertSubscriptionSettingsViewModel {
 }
 
 export function buildAlertSubscriptionSettingsViewModel({
+  loadState = "ready",
   radiusKm,
   session,
   subscription,
 }: {
+  loadState?: AlertSubscriptionSettingsLoadState;
   radiusKm?: AlertSubscriptionRadiusKm;
   session: AlertSubscriptionsSessionState;
   subscription: AlertSubscription | null;
@@ -62,6 +68,7 @@ export function buildAlertSubscriptionSettingsViewModel({
       body: "Inicia sesión para recibir alertas de nuevas mascotas perdidas cerca de tu zona.",
       canManage: false,
       enabled: false,
+      loadState: "ready",
       locationPolicyRows: [
         "No usamos GPS continuo.",
         "Puedes explorar Cerca sin activar alertas.",
@@ -75,6 +82,60 @@ export function buildAlertSubscriptionSettingsViewModel({
       radiusOptions: buildRadiusOptions(radiusKm ?? 5),
       refreshActionLabel: "Actualizar área",
       statusLabel: "Sesión requerida",
+      title: "Alertas cercanas",
+    };
+  }
+
+  if (loadState === "loading") {
+    return {
+      action: {
+        id: "enable-alerts",
+        label: "Cargando alertas",
+      },
+      body: "Estamos cargando tu suscripción antes de permitir cambios.",
+      canManage: false,
+      enabled: false,
+      loadState,
+      locationPolicyRows: [
+        "No usamos GPS continuo.",
+        "Puedes cambiar estos ajustes cuando termine la carga.",
+      ],
+      movingAlerts: {
+        body: "Disponible cuando cargue tu suscripción de alertas cercanas.",
+        enabled: false,
+        statusLabel: "Cargando",
+        title: "Alertas mientras me muevo",
+      },
+      radiusOptions: buildRadiusOptions(radiusKm ?? 5),
+      refreshActionLabel: "Actualizar área",
+      statusLabel: "Cargando alertas",
+      title: "Alertas cercanas",
+    };
+  }
+
+  if (loadState === "error") {
+    return {
+      action: {
+        id: "retry-load",
+        label: "Reintentar carga",
+      },
+      body: "No pudimos cargar tu suscripción. Reintenta antes de cambiar alertas.",
+      canManage: false,
+      enabled: false,
+      loadState,
+      locationPolicyRows: [
+        "No cambiaremos tu suscripción hasta recuperar el estado actual.",
+        "Puedes volver a intentar desde esta pantalla.",
+      ],
+      movingAlerts: {
+        body: "Primero necesitamos cargar tu suscripción actual.",
+        enabled: false,
+        statusLabel: "Sin cargar",
+        title: "Alertas mientras me muevo",
+      },
+      radiusOptions: buildRadiusOptions(radiusKm ?? 5),
+      refreshActionLabel: "Actualizar área",
+      statusLabel: "No pudimos cargar alertas",
       title: "Alertas cercanas",
     };
   }
@@ -95,6 +156,7 @@ export function buildAlertSubscriptionSettingsViewModel({
       : "Activa alertas para enterarte de nuevas mascotas perdidas cerca de tu área dinámica.",
     canManage: true,
     enabled,
+    loadState,
     locationPolicyRows: [
       "Actualizamos al abrir la app, volver a primer plano o tocar actualizar.",
       "No usamos GPS continuo ni sockets siempre activos.",

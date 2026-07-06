@@ -13,7 +13,10 @@ import type {
   AlertSubscriptionNativeAdapter,
   AlertSubscriptionPushRegistrationResult,
 } from "./alert-subscription-native-adapter";
-import type { AlertSubscriptionSettingsViewModel } from "./alert-subscription-settings-view-model";
+import type {
+  AlertSubscriptionSettingsLoadState,
+  AlertSubscriptionSettingsViewModel,
+} from "./alert-subscription-settings-view-model";
 import type {
   AlertSubscription,
   AlertSubscriptionLocationSnapshot,
@@ -60,16 +63,24 @@ export interface Feedback {
   tone: "error" | "success" | "warning";
 }
 
+interface SubscriptionLoadSnapshot {
+  memberId?: string;
+  state: AlertSubscriptionSettingsLoadState;
+}
+
 interface AlertSubscriptionSettingsController {
+  canMutateSubscription: boolean;
   enableAlerts: () => Promise<void>;
   feedback: Feedback | null;
   pauseAlerts: () => Promise<void>;
   pendingAction: PendingAction | null;
   refreshArea: () => Promise<void>;
   requestSignIn?: () => void;
+  retrySubscriptionLoad: () => void;
   retryNotifications: () => Promise<void>;
   selectRadius: (radiusKm: AlertSubscriptionRadiusKm) => Promise<void>;
   subscription: AlertSubscription | null;
+  subscriptionLoadState: AlertSubscriptionSettingsLoadState;
   toggleMovingAlerts: (enabled: boolean) => Promise<void>;
   unsubscribeAlerts: () => Promise<void>;
   viewModel: AlertSubscriptionSettingsViewModel;
@@ -129,24 +140,42 @@ function useAlertSubscriptionSettingsController({
   const [feedback, setFeedback] = React.useState<Feedback | null>(null);
   const [pendingAction, setPendingAction] =
     React.useState<PendingAction | null>(null);
+  const [loadAttempt, setLoadAttempt] = React.useState(0);
+  const [subscriptionLoad, setSubscriptionLoad] =
+    React.useState<SubscriptionLoadSnapshot>(() =>
+      session.kind === "member"
+        ? { memberId: session.memberId, state: "loading" }
+        : { state: "ready" },
+    );
+  const subscriptionLoadState = getSubscriptionLoadStateForSession(
+    subscriptionLoad,
+    session,
+  );
+  const canMutateSubscription =
+    session.kind === "member" && subscriptionLoadState === "ready";
   const viewModel = React.useMemo(
     () =>
       buildAlertSubscriptionSettingsViewModel({
+        loadState: subscriptionLoadState,
         radiusKm: selectedRadiusKm,
         session,
         subscription,
       }),
-    [selectedRadiusKm, session, subscription],
+    [selectedRadiusKm, session, subscription, subscriptionLoadState],
   );
 
   React.useEffect(() => {
     let isActive = true;
 
     if (session.kind === "visitor") {
+      setSubscriptionLoad({ state: "ready" });
       setSubscription(null);
       setLastDetectedLocation(undefined);
       return;
     }
+
+    setSubscriptionLoad({ memberId: session.memberId, state: "loading" });
+    setFeedback(null);
 
     repository
       .getAlertSubscription(session)
@@ -156,6 +185,8 @@ function useAlertSubscriptionSettingsController({
         }
 
         setSubscription(nextSubscription);
+        setSubscriptionLoad({ memberId: session.memberId, state: "ready" });
+        setFeedback(null);
 
         if (nextSubscription) {
           setSelectedRadiusKm(nextSubscription.radiusKm);
@@ -165,17 +196,17 @@ function useAlertSubscriptionSettingsController({
       })
       .catch(() => {
         if (isActive) {
-          setFeedback({
-            message: "No pudimos cargar tus alertas.",
-            tone: "error",
-          });
+          setSubscription(null);
+          setLastDetectedLocation(undefined);
+          setSubscriptionLoad({ memberId: session.memberId, state: "error" });
+          setFeedback(loadSubscriptionErrorFeedback);
         }
       });
 
     return () => {
       isActive = false;
     };
-  }, [repository, session]);
+  }, [loadAttempt, repository, session]);
 
   const enableAlerts = React.useCallback(async () => {
     const memberSession = getMemberSession(session);
@@ -185,6 +216,10 @@ function useAlertSubscriptionSettingsController({
         message: "Inicia sesión para activar alertas.",
         tone: "warning",
       });
+      return;
+    }
+
+    if (subscriptionLoadState !== "ready") {
       return;
     }
 
@@ -229,12 +264,13 @@ function useAlertSubscriptionSettingsController({
     repository,
     selectedRadiusKm,
     session,
+    subscriptionLoadState,
   ]);
 
   const pauseAlerts = React.useCallback(async () => {
     const memberSession = getMemberSession(session);
 
-    if (!memberSession) {
+    if (!memberSession || subscriptionLoadState !== "ready") {
       return;
     }
 
@@ -257,12 +293,16 @@ function useAlertSubscriptionSettingsController({
     } finally {
       setPendingAction(null);
     }
-  }, [repository, session]);
+  }, [repository, session, subscriptionLoadState]);
 
   const retryNotifications = React.useCallback(async () => {
     const memberSession = getMemberSession(session);
 
-    if (!memberSession || !subscription?.enabled) {
+    if (
+      !memberSession ||
+      subscriptionLoadState !== "ready" ||
+      !subscription?.enabled
+    ) {
       return;
     }
 
@@ -280,12 +320,18 @@ function useAlertSubscriptionSettingsController({
     } finally {
       setPendingAction(null);
     }
-  }, [nativeAdapter, repository, session, subscription?.enabled]);
+  }, [
+    nativeAdapter,
+    repository,
+    session,
+    subscription?.enabled,
+    subscriptionLoadState,
+  ]);
 
   const unsubscribeAlerts = React.useCallback(async () => {
     const memberSession = getMemberSession(session);
 
-    if (!memberSession) {
+    if (!memberSession || subscriptionLoadState !== "ready") {
       return;
     }
 
@@ -314,12 +360,12 @@ function useAlertSubscriptionSettingsController({
     } finally {
       setPendingAction(null);
     }
-  }, [repository, session]);
+  }, [repository, session, subscriptionLoadState]);
 
   const refreshArea = React.useCallback(async () => {
     const memberSession = getMemberSession(session);
 
-    if (!memberSession || !subscription) {
+    if (!memberSession || subscriptionLoadState !== "ready" || !subscription) {
       return;
     }
 
@@ -354,15 +400,26 @@ function useAlertSubscriptionSettingsController({
     } finally {
       setPendingAction(null);
     }
-  }, [lastDetectedLocation, nativeAdapter, repository, session, subscription]);
+  }, [
+    lastDetectedLocation,
+    nativeAdapter,
+    repository,
+    session,
+    subscription,
+    subscriptionLoadState,
+  ]);
 
   const selectRadius = React.useCallback(
     async (radiusKm: AlertSubscriptionRadiusKm) => {
       const memberSession = getMemberSession(session);
 
+      if (!memberSession || subscriptionLoadState !== "ready") {
+        return;
+      }
+
       setSelectedRadiusKm(radiusKm);
 
-      if (!memberSession || !subscription?.enabled) {
+      if (!subscription?.enabled) {
         return;
       }
 
@@ -397,14 +454,24 @@ function useAlertSubscriptionSettingsController({
         setPendingAction(null);
       }
     },
-    [lastDetectedLocation, repository, session, subscription],
+    [
+      lastDetectedLocation,
+      repository,
+      session,
+      subscription,
+      subscriptionLoadState,
+    ],
   );
 
   const toggleMovingAlerts = React.useCallback(
     async (enabled: boolean) => {
       const memberSession = getMemberSession(session);
 
-      if (!memberSession || !subscription) {
+      if (
+        !memberSession ||
+        subscriptionLoadState !== "ready" ||
+        !subscription
+      ) {
         return;
       }
 
@@ -435,19 +502,34 @@ function useAlertSubscriptionSettingsController({
         setPendingAction(null);
       }
     },
-    [repository, session, subscription],
+    [repository, session, subscription, subscriptionLoadState],
   );
 
+  const retrySubscriptionLoad = React.useCallback(() => {
+    const memberSession = getMemberSession(session);
+
+    if (!memberSession || subscriptionLoadState === "loading") {
+      return;
+    }
+
+    setFeedback(null);
+    setSubscriptionLoad({ memberId: memberSession.memberId, state: "loading" });
+    setLoadAttempt((current) => current + 1);
+  }, [session, subscriptionLoadState]);
+
   return {
+    canMutateSubscription,
     enableAlerts,
     feedback,
     pauseAlerts,
     pendingAction,
     refreshArea,
     requestSignIn: onRequestSignIn,
+    retrySubscriptionLoad,
     retryNotifications,
     selectRadius,
     subscription,
+    subscriptionLoadState,
     toggleMovingAlerts,
     unsubscribeAlerts,
     viewModel,
@@ -485,6 +567,8 @@ function SubscriptionPanel({
   controller: AlertSubscriptionSettingsController;
 }) {
   const { pendingAction, viewModel } = controller;
+  const switchDisabled =
+    !controller.canMutateSubscription || pendingAction !== null;
   const updateEnabled = React.useCallback(
     (enabled: boolean) => {
       void (enabled ? controller.enableAlerts() : controller.pauseAlerts());
@@ -504,8 +588,16 @@ function SubscriptionPanel({
           </Text>
         </View>
         <Switch
-          disabled={!viewModel.canManage || pendingAction !== null}
+          accessibilityHint="Activa o pausa las alertas de mascotas perdidas cerca de tu área."
+          accessibilityLabel="Suscripción a alertas cercanas"
+          accessibilityRole="switch"
+          accessibilityState={{
+            checked: viewModel.enabled,
+            disabled: switchDisabled,
+          }}
+          disabled={switchDisabled}
           onValueChange={updateEnabled}
+          testID="alert-subscription-switch"
           value={viewModel.enabled}
         />
       </View>
@@ -519,56 +611,136 @@ function SubscriptionActionStack({
 }: {
   controller: AlertSubscriptionSettingsController;
 }) {
+  if (controller.viewModel.action.id === "sign-in") {
+    return <SignInSubscriptionAction controller={controller} />;
+  }
+
+  if (controller.viewModel.action.id === "retry-load") {
+    return <RetryLoadSubscriptionAction controller={controller} />;
+  }
+
+  return <ManageSubscriptionActions controller={controller} />;
+}
+
+function SignInSubscriptionAction({
+  controller,
+}: {
+  controller: AlertSubscriptionSettingsController;
+}) {
   const { pendingAction, viewModel } = controller;
 
-  if (viewModel.action.id === "sign-in") {
-    return (
-      <ActionButton
-        disabled={!controller.requestSignIn || pendingAction !== null}
-        icon="bell.badge.fill"
-        label={getSubscriptionActionLabel(viewModel, pendingAction)}
-        onPress={controller.requestSignIn ?? noop}
-        testID="alert-subscription-enable-button"
-      />
-    );
+  return (
+    <ActionButton
+      disabled={!controller.requestSignIn || pendingAction !== null}
+      icon="bell.badge.fill"
+      label={getSubscriptionActionLabel(viewModel, pendingAction)}
+      onPress={controller.requestSignIn ?? noop}
+      testID="alert-subscription-enable-button"
+    />
+  );
+}
+
+function RetryLoadSubscriptionAction({
+  controller,
+}: {
+  controller: AlertSubscriptionSettingsController;
+}) {
+  return (
+    <ActionButton
+      disabled={
+        controller.pendingAction !== null ||
+        controller.subscriptionLoadState === "loading"
+      }
+      icon="arrow.clockwise"
+      label={controller.viewModel.action.label}
+      onPress={controller.retrySubscriptionLoad}
+      testID="alert-subscription-load-retry-button"
+      variant="secondary"
+    />
+  );
+}
+
+function ManageSubscriptionActions({
+  controller,
+}: {
+  controller: AlertSubscriptionSettingsController;
+}) {
+  return (
+    <>
+      <PrimarySubscriptionAction controller={controller} />
+      <NotificationRetryAction controller={controller} />
+      <UnsubscribeAction controller={controller} />
+    </>
+  );
+}
+
+function PrimarySubscriptionAction({
+  controller,
+}: {
+  controller: AlertSubscriptionSettingsController;
+}) {
+  const { pendingAction, viewModel } = controller;
+  const disabled =
+    !controller.canMutateSubscription || controller.pendingAction !== null;
+
+  return (
+    <ActionButton
+      disabled={disabled}
+      icon={viewModel.enabled ? "bell.slash.fill" : "bell.badge.fill"}
+      label={getSubscriptionActionLabel(viewModel, pendingAction)}
+      onPress={
+        viewModel.enabled ? controller.pauseAlerts : controller.enableAlerts
+      }
+      testID={
+        viewModel.enabled
+          ? "alert-subscription-pause-button"
+          : "alert-subscription-enable-button"
+      }
+    />
+  );
+}
+
+function NotificationRetryAction({
+  controller,
+}: {
+  controller: AlertSubscriptionSettingsController;
+}) {
+  if (!controller.viewModel.enabled) {
+    return null;
   }
 
   return (
-    <>
-      <ActionButton
-        disabled={!viewModel.canManage || pendingAction !== null}
-        icon={viewModel.enabled ? "bell.slash.fill" : "bell.badge.fill"}
-        label={getSubscriptionActionLabel(viewModel, pendingAction)}
-        onPress={
-          viewModel.enabled ? controller.pauseAlerts : controller.enableAlerts
-        }
-        testID={
-          viewModel.enabled
-            ? "alert-subscription-pause-button"
-            : "alert-subscription-enable-button"
-        }
-      />
-      {viewModel.enabled ? (
-        <ActionButton
-          disabled={!viewModel.canManage || pendingAction !== null}
-          icon="bell.badge.fill"
-          label={getNotificationRetryActionLabel(pendingAction)}
-          onPress={controller.retryNotifications}
-          testID="alert-subscription-retry-notifications-button"
-          variant="secondary"
-        />
-      ) : null}
-      {controller.subscription ? (
-        <ActionButton
-          disabled={!viewModel.canManage || pendingAction !== null}
-          icon="xmark"
-          label={getUnsubscribeActionLabel(pendingAction)}
-          onPress={controller.unsubscribeAlerts}
-          testID="alert-subscription-unsubscribe-button"
-          variant="danger"
-        />
-      ) : null}
-    </>
+    <ActionButton
+      disabled={
+        !controller.canMutateSubscription || controller.pendingAction !== null
+      }
+      icon="bell.badge.fill"
+      label={getNotificationRetryActionLabel(controller.pendingAction)}
+      onPress={controller.retryNotifications}
+      testID="alert-subscription-retry-notifications-button"
+      variant="secondary"
+    />
+  );
+}
+
+function UnsubscribeAction({
+  controller,
+}: {
+  controller: AlertSubscriptionSettingsController;
+}) {
+  if (!controller.canMutateSubscription || !controller.subscription) {
+    return null;
+  }
+
+  return (
+    <ActionButton
+      disabled={controller.pendingAction !== null}
+      icon="xmark"
+      label={getUnsubscribeActionLabel(controller.pendingAction)}
+      onPress={controller.unsubscribeAlerts}
+      testID="alert-subscription-unsubscribe-button"
+      variant="danger"
+    />
   );
 }
 
@@ -577,40 +749,56 @@ function RadiusPanel({
 }: {
   controller: AlertSubscriptionSettingsController;
 }) {
-  const { pendingAction, viewModel } = controller;
-
   return (
     <View style={styles.panel}>
       <Text selectable style={styles.sectionTitle}>
         Radio de alerta
       </Text>
       <View style={styles.radiusRow}>
-        {viewModel.radiusOptions.map((option) => (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ selected: option.isSelected }}
-            disabled={!viewModel.canManage || pendingAction !== null}
+        {controller.viewModel.radiusOptions.map((option) => (
+          <RadiusOptionButton
+            controller={controller}
             key={option.value}
-            onPress={() => {
-              void controller.selectRadius(option.value);
-            }}
-            style={[
-              styles.radiusButton,
-              option.isSelected ? styles.radiusButtonActive : null,
-            ]}
-          >
-            <Text
-              style={[
-                styles.radiusText,
-                option.isSelected ? styles.radiusTextActive : null,
-              ]}
-            >
-              {option.label}
-            </Text>
-          </Pressable>
+            option={option}
+          />
         ))}
       </View>
     </View>
+  );
+}
+
+function RadiusOptionButton({
+  controller,
+  option,
+}: {
+  controller: AlertSubscriptionSettingsController;
+  option: AlertSubscriptionSettingsViewModel["radiusOptions"][number];
+}) {
+  const disabled =
+    !controller.canMutateSubscription || controller.pendingAction !== null;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled, selected: option.isSelected }}
+      disabled={disabled}
+      onPress={() => {
+        void controller.selectRadius(option.value);
+      }}
+      style={[
+        styles.radiusButton,
+        option.isSelected ? styles.radiusButtonActive : null,
+      ]}
+    >
+      <Text
+        style={[
+          styles.radiusText,
+          option.isSelected ? styles.radiusTextActive : null,
+        ]}
+      >
+        {option.label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -620,6 +808,10 @@ function DynamicAlertAreaPanel({
   controller: AlertSubscriptionSettingsController;
 }) {
   const { pendingAction, viewModel } = controller;
+  const disabled =
+    !viewModel.enabled ||
+    pendingAction !== null ||
+    !controller.canMutateSubscription;
 
   return (
     <View style={styles.panel}>
@@ -633,9 +825,7 @@ function DynamicAlertAreaPanel({
         <ShellIcon color={shellColors.primary} name="location.fill" />
       </View>
       <ActionButton
-        disabled={
-          !viewModel.enabled || pendingAction !== null || !viewModel.canManage
-        }
+        disabled={disabled}
         icon="arrow.clockwise"
         label={getRefreshActionLabel(viewModel, pendingAction)}
         onPress={controller.refreshArea}
@@ -680,6 +870,10 @@ function MovingAlertsPanel({
   controller: AlertSubscriptionSettingsController;
 }) {
   const { pendingAction, subscription, viewModel } = controller;
+  const switchDisabled =
+    !controller.canMutateSubscription ||
+    !subscription?.enabled ||
+    pendingAction !== null;
 
   return (
     <View style={styles.panel}>
@@ -696,7 +890,14 @@ function MovingAlertsPanel({
           </Text>
         </View>
         <Switch
-          disabled={!subscription?.enabled || pendingAction !== null}
+          accessibilityHint="Activa o desactiva la preferencia opcional de alertas cuando cambias de zona."
+          accessibilityLabel="Alertas mientras me muevo"
+          accessibilityRole="switch"
+          accessibilityState={{
+            checked: viewModel.movingAlerts.enabled,
+            disabled: switchDisabled,
+          }}
+          disabled={switchDisabled}
           onValueChange={(enabled) => {
             void controller.toggleMovingAlerts(enabled);
           }}
@@ -881,6 +1082,23 @@ const pushRegistrationUnavailableFeedback = {
   tone: "warning",
 } satisfies Feedback;
 
+const loadSubscriptionErrorFeedback = {
+  message:
+    "No pudimos cargar tus alertas. Reintenta antes de cambiar la suscripción.",
+  tone: "error",
+} satisfies Feedback;
+
+function getSubscriptionLoadStateForSession(
+  load: SubscriptionLoadSnapshot,
+  session: AlertSubscriptionsSessionState,
+): AlertSubscriptionSettingsLoadState {
+  if (session.kind === "visitor") {
+    return "ready";
+  }
+
+  return load.memberId === session.memberId ? load.state : "loading";
+}
+
 function getMemberSession(
   session: AlertSubscriptionsSessionState,
 ): AlertSubscriptionsMemberSession | null {
@@ -981,6 +1199,7 @@ function ActionButton({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
       testID={testID}
