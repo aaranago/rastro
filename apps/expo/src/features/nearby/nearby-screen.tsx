@@ -73,7 +73,7 @@ export interface NearbyScreenProps {
   onOpenSponsorProvider?: (providerId: string) => void;
   onOpenReport?: (target: NearbyReportRouteTarget) => void;
   onRecordSponsorDelivery?: (input: NearbySponsorDeliveryInput) => void;
-  onReport?: (reportId: string) => void;
+  onReport?: (target: NearbyReportRouteTarget) => void;
   onShareReport?: (reportId: string) => void;
   onEnableAlerts?: () => void;
   onManualLocationPress?: (selectedLocation?: NearbySearchLocation) => void;
@@ -318,9 +318,9 @@ function useNearbyScreenController({
   }, []);
 
   const handleReportPress = useCallback(
-    (reportId: string) => {
-      onReport?.(reportId);
-      setReportFeedback("Reporte enviado para revisión.");
+    (target: NearbyReportRouteTarget) => {
+      onReport?.(target);
+      setReportFeedback("Abriendo formulario para reportar.");
     },
     [onReport],
   );
@@ -1169,7 +1169,7 @@ const LostReportCard = memo(function LostReportCard({
   id: string;
   lastSeenAtLabel: string;
   onOpenReport?: (target: NearbyReportRouteTarget) => void;
-  onReport?: (reportId: string) => void;
+  onReport?: (target: NearbyReportRouteTarget) => void;
   onShareReport?: (reportId: string) => void;
   photoUrl?: string;
   priorityLabel: string;
@@ -1196,8 +1196,8 @@ const LostReportCard = memo(function LostReportCard({
   }, [id, onShareReport, reportKind, shareTarget]);
 
   const handleReport = useCallback(() => {
-    onReport?.(id);
-  }, [id, onReport]);
+    onReport?.(routeTarget);
+  }, [onReport, routeTarget]);
 
   return (
     <Pressable

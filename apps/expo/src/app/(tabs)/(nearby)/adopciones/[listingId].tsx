@@ -9,12 +9,16 @@ const reportDetailAdapter = createApiPublicReportDetailAdapter({
 });
 
 export default function PublicAdoptionListingDeepLinkRoute() {
-  const { listingId } = useLocalSearchParams<{ listingId: string }>();
+  const { listingId, reportar } = useLocalSearchParams<{
+    listingId: string;
+    reportar?: string;
+  }>();
 
   return (
     <PublicReportDetailScreen
       adapter={reportDetailAdapter}
       expectedType="adoption"
+      openReportAbuseOnLoad={reportar === "1"}
       reportId={listingId}
     />
   );

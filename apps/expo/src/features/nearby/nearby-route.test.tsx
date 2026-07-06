@@ -179,6 +179,38 @@ describe("Nearby production route", () => {
     });
     expect(nearby.capturedProps?.launchSponsorProviders).toEqual([]);
 
+    const onEnableAlerts = nearby.capturedProps?.onEnableAlerts;
+
+    if (typeof onEnableAlerts !== "function") {
+      throw new Error("Expected alert settings navigation callback.");
+    }
+
+    const enableAlerts = onEnableAlerts as () => void;
+
+    enableAlerts();
+    expect(router.push).toHaveBeenCalledWith("/(tabs)/(profile)/alertas");
+
+    const onReport = nearby.capturedProps?.onReport;
+
+    if (typeof onReport !== "function") {
+      throw new Error("Expected report abuse navigation callback.");
+    }
+
+    const report = onReport as (target: {
+      href: string;
+      id: string;
+      reportKind: "lost-pet-report";
+    }) => void;
+
+    report({
+      href: "/reportes/perdidos/lost-report-1",
+      id: "lost-report-1",
+      reportKind: "lost-pet-report",
+    });
+    expect(router.push).toHaveBeenCalledWith(
+      "/reportes/perdidos/lost-report-1?reportar=1",
+    );
+
     const onOpenSponsorProvider = nearby.capturedProps?.onOpenSponsorProvider;
 
     if (typeof onOpenSponsorProvider !== "function") {

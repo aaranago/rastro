@@ -1,5 +1,5 @@
 import * as React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import AdoptionRoute from "../../app/(tabs)/(nearby)/adopciones/[listingId]";
 import SightingRoute from "../../app/(tabs)/(nearby)/reportes/avistamientos/[reportId]";
@@ -12,6 +12,10 @@ const params = vi.hoisted(() => ({
   value: {
     listingId: "adoption-report-1",
     reportId: "lost-report-1",
+  } as {
+    listingId: string;
+    reportId: string;
+    reportar?: string;
   },
 }));
 
@@ -79,6 +83,14 @@ vi.mock("~/features/adoption-listings/public-adoption-listing-deep-link-screen",
 }));
 
 describe("public report detail routes", () => {
+  beforeEach(() => {
+    detail.capturedProps = [];
+    params.value = {
+      listingId: "adoption-report-1",
+      reportId: "lost-report-1",
+    };
+  });
+
   it("routes lost, found, sighting, and adoption links through the API detail screen", () => {
     void renderFunctionElements(<LostRoute />);
     void renderFunctionElements(<FoundRoute />);
@@ -107,6 +119,30 @@ describe("public report detail routes", () => {
       {
         adapter: detail.adapter,
         expectedType: "adoption",
+        reportId: "adoption-report-1",
+      },
+    ]);
+  });
+
+  it("opens the abuse report sheet when the public route receives reportar=1", () => {
+    params.value = {
+      listingId: "adoption-report-1",
+      reportId: "lost-report-1",
+      reportar: "1",
+    };
+
+    void renderFunctionElements(<LostRoute />);
+    void renderFunctionElements(<AdoptionRoute />);
+
+    expect(detail.capturedProps).toMatchObject([
+      {
+        expectedType: "lost_pet",
+        openReportAbuseOnLoad: true,
+        reportId: "lost-report-1",
+      },
+      {
+        expectedType: "adoption",
+        openReportAbuseOnLoad: true,
         reportId: "adoption-report-1",
       },
     ]);

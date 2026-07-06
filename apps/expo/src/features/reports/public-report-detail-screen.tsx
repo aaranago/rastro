@@ -49,10 +49,12 @@ type PublicReportDetailLoadState =
 export function PublicReportDetailScreen({
   adapter,
   expectedType,
+  openReportAbuseOnLoad = false,
   reportId,
 }: {
   adapter: PublicReportDetailAdapter;
   expectedType?: PublicReportDetailType;
+  openReportAbuseOnLoad?: boolean;
   reportId?: string | string[];
 }) {
   const { requestAuthPrompt, session } = useRastroShell();
@@ -119,6 +121,7 @@ export function PublicReportDetailScreen({
             )}`,
           });
         }}
+        openReportAbuseOnLoad={openReportAbuseOnLoad}
         viewModel={loadState.viewModel}
       />
     );
@@ -142,6 +145,7 @@ export function PublicReportDetailContent({
   onReportAbuse,
   onRequestMemberSignIn,
   onShare,
+  openReportAbuseOnLoad = false,
   isVisitor = false,
   viewModel,
 }: {
@@ -158,6 +162,7 @@ export function PublicReportDetailContent({
   ) => Promise<PublicReportAbuseReportResult>;
   onRequestMemberSignIn?: () => void;
   onShare?: () => void;
+  openReportAbuseOnLoad?: boolean;
   viewModel: PublicReportDetailViewModel;
 }) {
   const router = useRouter();
@@ -168,12 +173,12 @@ export function PublicReportDetailContent({
     isSubmitting: boolean;
     reason: TrustSafetyReportReason;
     success?: string;
-  }>({
+  }>(() => ({
     detail: "",
-    isOpen: false,
+    isOpen: Boolean(openReportAbuseOnLoad && viewModel.abuseReportAction),
     isSubmitting: false,
     reason: "other",
-  });
+  }));
   const openExternalUrl = React.useCallback((href: string) => {
     return Linking.openURL(href);
   }, []);

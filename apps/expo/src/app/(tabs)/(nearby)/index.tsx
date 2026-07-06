@@ -74,6 +74,12 @@ export default function NearbyRoute() {
           onOpenReport={(target) => {
             router.push(target.href as Href);
           }}
+          onEnableAlerts={() => {
+            router.push("/(tabs)/(profile)/alertas" as Href);
+          }}
+          onReport={(target) => {
+            router.push(`${target.href}?reportar=1` as Href);
+          }}
           onRecordSponsorDelivery={(input) => {
             void resourcesAdapter
               .recordSponsorDelivery?.(input)

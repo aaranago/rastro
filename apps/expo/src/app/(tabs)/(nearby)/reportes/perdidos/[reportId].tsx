@@ -9,12 +9,16 @@ const reportDetailAdapter = createApiPublicReportDetailAdapter({
 });
 
 export default function PublicLostReportDeepLinkRoute() {
-  const { reportId } = useLocalSearchParams<{ reportId: string }>();
+  const { reportId, reportar } = useLocalSearchParams<{
+    reportar?: string;
+    reportId: string;
+  }>();
 
   return (
     <PublicReportDetailScreen
       adapter={reportDetailAdapter}
       expectedType="lost_pet"
+      openReportAbuseOnLoad={reportar === "1"}
       reportId={reportId}
     />
   );

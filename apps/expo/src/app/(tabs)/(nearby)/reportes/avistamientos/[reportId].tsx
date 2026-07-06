@@ -9,12 +9,16 @@ const reportDetailAdapter = createApiPublicReportDetailAdapter({
 });
 
 export default function PublicSightingReportDeepLinkRoute() {
-  const { reportId } = useLocalSearchParams<{ reportId: string }>();
+  const { reportId, reportar } = useLocalSearchParams<{
+    reportar?: string;
+    reportId: string;
+  }>();
 
   return (
     <PublicReportDetailScreen
       adapter={reportDetailAdapter}
       expectedType="sighting"
+      openReportAbuseOnLoad={reportar === "1"}
       reportId={reportId}
     />
   );

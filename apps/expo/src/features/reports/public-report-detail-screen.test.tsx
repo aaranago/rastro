@@ -186,6 +186,26 @@ describe("PublicReportDetailContent", () => {
     });
   });
 
+  it("opens the abuse report sheet on load when requested from a nearby report action", () => {
+    const screen = renderFunctionElement(
+      <PublicReportDetailContent
+        isVisitor
+        openReportAbuseOnLoad
+        viewModel={createViewModel({
+          abuseReportAction: createAbuseReportAction(),
+          isCurrentMember: false,
+          ownerNotice: null,
+        })}
+      />,
+    );
+
+    expect(findText(screen, "Reportar este reporte")).toBe(true);
+    expect(findText(screen, "Describe el problema con al menos")).toBe(
+      true,
+    );
+    expect(findText(screen, "Inicia sesión para reportar")).toBe(true);
+  });
+
   it("renders multiple report images as a paged Galeria-backed carousel", () => {
     const photoUrls = Array.from(
       { length: 5 },
