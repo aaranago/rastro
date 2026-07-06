@@ -377,9 +377,22 @@ describe("Resource Provider profile screen", () => {
     const reportScreen = renderScreen(
       createProfileScreen(adapter, { initiallyReportProvider: true }),
     );
+    const submitButton = getElementByTestId(
+      reportScreen,
+      "resource-provider-report-submit",
+    );
+    const incorrectLocationButton = getElementByTestId(
+      reportScreen,
+      "resource-provider-report-reason-incorrect_location",
+    );
 
     expect(findText(reportScreen, "Reportar proveedor")).toBe(true);
     expect(findText(reportScreen, "Ubicación incorrecta")).toBe(true);
+    expect(findText(reportScreen, "Detalle requerido")).toBe(true);
+    expect(submitButton.props.disabled).toBe(true);
+    expect(incorrectLocationButton.props.accessibilityState).toEqual({
+      selected: false,
+    });
     expect(
       findElement(
         reportScreen,
@@ -451,8 +464,9 @@ describe("Resource Provider profile screen", () => {
     let resolveReport:
       | ((
           receipt: Awaited<ReturnType<ResourcesAdapter["reportProvider"]>>,
-        ) => void)
+      ) => void)
       | undefined;
+    const reportDetail = "La dirección publicada no coincide con el local.";
     const reportProvider = vi.fn(
       () =>
         new Promise<Awaited<ReturnType<ResourcesAdapter["reportProvider"]>>>(
@@ -472,12 +486,30 @@ describe("Resource Provider profile screen", () => {
     const confirmationScreen = renderScreen(createProfileScreen(adapter));
     expect(findText(confirmationScreen, "Reportar proveedor")).toBe(true);
     expect(findText(confirmationScreen, "Ubicación incorrecta")).toBe(true);
+    expect(
+      getElementByTestId(confirmationScreen, "resource-provider-report-submit")
+        .props.disabled,
+    ).toBe(true);
 
-    pressByText(confirmationScreen, "Enviar");
+    pressByText(confirmationScreen, "Ubicación incorrecta");
+    const reasonScreen = renderScreen(createProfileScreen(adapter));
+    changeTextByTestId(
+      reasonScreen,
+      "resource-provider-report-detail",
+      reportDetail,
+    );
+    const readyReportScreen = renderScreen(createProfileScreen(adapter));
+
+    expect(
+      getElementByTestId(readyReportScreen, "resource-provider-report-submit")
+        .props.disabled,
+    ).toBe(false);
+
+    pressByText(readyReportScreen, "Enviar");
 
     const pendingScreen = renderScreen(createProfileScreen(adapter));
     expect(reportProvider).toHaveBeenCalledWith({
-      detail: "Reporte de proveedor: ubicación incorrecta.",
+      detail: reportDetail,
       providerId: profile.id,
       reason: "incorrect_location",
     });
@@ -487,14 +519,14 @@ describe("Resource Provider profile screen", () => {
     resolveReport?.({
       status: "created",
       moderationItem: {
-        detail: "Reporte de proveedor: ubicación incorrecta.",
+        detail: reportDetail,
         id: "review-provider-1",
         providerId: profile.id,
         providerName: profile.name,
         reason: "incorrect_location",
         reviewItem: {
           createdAt: "2026-06-26T16:00:00.000Z",
-          detail: "Reporte de proveedor: ubicación incorrecta.",
+          detail: reportDetail,
           id: "review-provider-1",
           kind: "abuse_report",
           reason: "incorrect_location",
@@ -526,6 +558,7 @@ describe("Resource Provider profile screen", () => {
         .fn<ResourcesAdapter["reportProvider"]>()
         .mockRejectedValue(new Error("Backend moderation unavailable.")),
     });
+    const reportDetail = "El teléfono publicado no responde a este proveedor.";
 
     void renderScreen(createProfileScreen(adapter));
     await flushEffects();
@@ -533,7 +566,15 @@ describe("Resource Provider profile screen", () => {
 
     pressByText(readyScreen, "Reportar proveedor");
     const confirmationScreen = renderScreen(createProfileScreen(adapter));
-    pressByText(confirmationScreen, "Enviar");
+    pressByText(confirmationScreen, "Otro motivo");
+    const reasonScreen = renderScreen(createProfileScreen(adapter));
+    changeTextByTestId(
+      reasonScreen,
+      "resource-provider-report-detail",
+      reportDetail,
+    );
+    const readyReportScreen = renderScreen(createProfileScreen(adapter));
+    pressByText(readyReportScreen, "Enviar");
     await Promise.resolve();
     await Promise.resolve();
 
@@ -542,6 +583,64 @@ describe("Resource Provider profile screen", () => {
     expect(findText(errorScreen, "No pudimos reportar")).toBe(true);
     expect(findText(errorScreen, "Backend moderation unavailable.")).toBe(true);
     expect(findText(errorScreen, "Reporte enviado")).toBe(false);
+  });
+
+  it("shows a distinct receipt when the backend already has the provider report", async () => {
+    const reportDetail = "El horario publicado no coincide con la atención.";
+    const adapter = createAdapter({
+      reportProvider: vi
+        .fn<ResourcesAdapter["reportProvider"]>()
+        .mockResolvedValue({
+          status: "already_reported",
+          moderationItem: {
+            detail: reportDetail,
+            id: "review-provider-duplicate",
+            providerId: profile.id,
+            providerName: profile.name,
+            reason: "other",
+            reviewItem: {
+              createdAt: "2026-06-26T16:00:00.000Z",
+              detail: reportDetail,
+              id: "review-provider-duplicate",
+              kind: "abuse_report",
+              reason: "other",
+              reporterMemberId: "member-ana",
+              status: "pending",
+              targetId: profile.id,
+              targetType: "resource_provider",
+            },
+            targetType: "resource_provider",
+          },
+        }),
+    });
+
+    void renderScreen(createProfileScreen(adapter));
+    await flushEffects();
+    const readyScreen = renderScreen(createProfileScreen(adapter));
+
+    pressByText(readyScreen, "Reportar proveedor");
+    const confirmationScreen = renderScreen(createProfileScreen(adapter));
+    pressByText(confirmationScreen, "Otro motivo");
+    const reasonScreen = renderScreen(createProfileScreen(adapter));
+    changeTextByTestId(
+      reasonScreen,
+      "resource-provider-report-detail",
+      reportDetail,
+    );
+    const readyReportScreen = renderScreen(createProfileScreen(adapter));
+    pressByText(readyReportScreen, "Enviar");
+    await flushPromises();
+
+    const duplicateReceiptScreen = renderScreen(createProfileScreen(adapter));
+
+    expect(findText(duplicateReceiptScreen, "Reporte recibido")).toBe(true);
+    expect(
+      findText(
+        duplicateReceiptScreen,
+        "Ya recibimos este reporte. El equipo de Rastro lo revisará con el historial existente.",
+      ),
+    ).toBe(true);
+    expect(findText(duplicateReceiptScreen, "Reporte enviado")).toBe(false);
   });
 });
 
@@ -690,6 +789,30 @@ function pressByText(node: React.ReactNode, text: string) {
   }
 
   (onPress as () => void)();
+}
+
+function changeTextByTestId(node: React.ReactNode, testID: string, text: string) {
+  const input = getElementByTestId(node, testID);
+  const onChangeText = input.props.onChangeText;
+
+  if (typeof onChangeText !== "function") {
+    throw new Error(`Expected text input ${testID}`);
+  }
+
+  (onChangeText as (value: string) => void)(text);
+}
+
+function getElementByTestId(node: React.ReactNode, testID: string) {
+  const element = findElement(
+    node,
+    (candidate) => candidate.props.testID === testID,
+  );
+
+  if (!element) {
+    throw new Error(`Expected element ${testID}`);
+  }
+
+  return element;
 }
 
 function findText(node: React.ReactNode, text: string): boolean {

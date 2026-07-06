@@ -22,7 +22,10 @@ import type {
   ResourceProviderProfile as ResourceProviderProfileData,
   ResourceReportReason,
 } from "./resource-types";
-import type { ResourcesAdapter } from "./static-resources-adapter";
+import type {
+  ResourceProviderReportReceipt,
+  ResourcesAdapter,
+} from "./static-resources-adapter";
 import { SafeMaterialCommunityIcon } from "../icons/safe-material-community-icon";
 import { useRastroShell } from "../shell/shell-provider";
 import { trustSafetyReportReasonOptions } from "../trust-safety";
@@ -69,6 +72,7 @@ type ReportState =
     }
   | {
       kind: "reported";
+      status: ResourceProviderReportReceipt["status"];
     }
   | {
       kind: "error";
@@ -83,12 +87,13 @@ type RequestAuthPrompt = ReturnType<typeof useRastroShell>["requestAuthPrompt"];
 interface ProviderReportDraft {
   detail: string;
   providerId: string;
-  reason: ResourceReportReason;
+  reason: ResourceReportReason | null;
 }
 
 const providerReportReasonOptions = trustSafetyReportReasonOptions.filter(
   (option) => option.value !== "stolen_pet_concern",
 );
+const providerReportMinimumDetailLength = 10;
 
 export interface ResourceProviderProfileScreenProps {
   adapter?: ResourcesAdapter;
@@ -430,8 +435,9 @@ function useProviderReportWorkflow(adapter: ResourcesAdapter) {
       setReportDraft({
         detail: "",
         providerId,
-        reason: "incorrect_location",
+        reason: null,
       });
+      setReportState({ kind: "idle" });
     },
     [reportState.kind],
   );
@@ -444,10 +450,16 @@ function useProviderReportWorkflow(adapter: ResourcesAdapter) {
 
   const changeReportReason = useCallback((reason: ResourceReportReason) => {
     setReportDraft((current) => (current ? { ...current, reason } : current));
+    setReportState((current) =>
+      current.kind === "error" ? { kind: "idle" } : current,
+    );
   }, []);
 
   const changeReportDetail = useCallback((detail: string) => {
     setReportDraft((current) => (current ? { ...current, detail } : current));
+    setReportState((current) =>
+      current.kind === "error" ? { kind: "idle" } : current,
+    );
   }, []);
 
   const submitReportProvider = useCallback(() => {
@@ -455,10 +467,14 @@ function useProviderReportWorkflow(adapter: ResourcesAdapter) {
       return;
     }
 
-    const reasonLabel = getProviderReportReasonLabel(reportDraft.reason);
-    const detail =
-      reportDraft.detail.trim() ||
-      `Reporte de proveedor: ${reasonLabel.toLowerCase()}.`;
+    const detail = reportDraft.detail.trim();
+
+    if (
+      !reportDraft.reason ||
+      detail.length < providerReportMinimumDetailLength
+    ) {
+      return;
+    }
 
     setReportState({ kind: "reporting" });
     adapter
@@ -467,8 +483,8 @@ function useProviderReportWorkflow(adapter: ResourcesAdapter) {
         providerId: reportDraft.providerId,
         reason: reportDraft.reason,
       })
-      .then(() => {
-        setReportState({ kind: "reported" });
+      .then((receipt) => {
+        setReportState({ kind: "reported", status: receipt.status });
         setReportDraft(null);
       })
       .catch((error: unknown) => {
@@ -487,20 +503,27 @@ function useProviderReportWorkflow(adapter: ResourcesAdapter) {
     setReportDraft(null);
   }, []);
 
-  const selectedReason = reportDraft?.reason ?? "incorrect_location";
+  const selectedReason = reportDraft?.reason ?? null;
+  const detail = reportDraft?.detail ?? "";
 
   return useMemo(
     () => ({
-      canSubmit: reportDraft !== null && reportState.kind !== "reporting",
+      canSubmit:
+        reportDraft !== null &&
+        reportDraft.reason !== null &&
+        detail.trim().length >= providerReportMinimumDetailLength &&
+        reportState.kind !== "reporting",
       changeReportDetail,
       changeReportReason,
       closeReportProvider,
-      detail: reportDraft?.detail ?? "",
+      detail,
       errorMessage:
         reportState.kind === "error" ? reportState.message : undefined,
       isVisible: reportDraft !== null,
       openReportProvider,
-      reasonLabel: getProviderReportReasonLabel(selectedReason),
+      reasonLabel: selectedReason
+        ? getProviderReportReasonLabel(selectedReason)
+        : "el motivo",
       reportState,
       resetReportState,
       selectedReason,
@@ -512,6 +535,7 @@ function useProviderReportWorkflow(adapter: ResourcesAdapter) {
       closeReportProvider,
       openReportProvider,
       reportDraft,
+      detail,
       reportState,
       resetReportState,
       selectedReason,
@@ -673,7 +697,7 @@ function ProviderReportConfirmationModal({
   onSubmit: () => void;
   providerName: string;
   reasonLabel: string;
-  selectedReason: ResourceReportReason;
+  selectedReason: ResourceReportReason | null;
   visible: boolean;
 }) {
   const insets = useSafeAreaInsets();
@@ -725,7 +749,8 @@ function ProviderReportConfirmationModal({
                     Reportar proveedor
                   </Text>
                   <Text selectable style={styles.reportSheetBody}>
-                    Elige el motivo antes de enviarlo a moderación.
+                    Elige el motivo y agrega un detalle para que moderación
+                    pueda revisar el caso.
                   </Text>
                 </View>
                 <Pressable
@@ -777,7 +802,7 @@ function ProviderReportConfirmationModal({
 
               <View style={styles.reportDetailField}>
                 <Text selectable style={styles.reportDetailLabel}>
-                  Detalle opcional
+                  Detalle requerido
                 </Text>
                 <TextInput
                   accessibilityLabel="Detalle del reporte"
@@ -785,12 +810,20 @@ function ProviderReportConfirmationModal({
                   maxLength={500}
                   multiline
                   onChangeText={onChangeDetail}
-                  placeholder={`Ej. ${reasonLabel.toLowerCase()} en ${providerName}`}
+                  placeholder={
+                    selectedReason
+                      ? `Ej. ${reasonLabel.toLowerCase()} en ${providerName}`
+                      : "Describe el problema con este proveedor"
+                  }
                   placeholderTextColor={resourcesColors.muted}
                   style={styles.reportDetailInput}
                   testID="resource-provider-report-detail"
                   value={detail}
                 />
+                <Text selectable style={styles.reportDetailHelper}>
+                  Describe el problema con al menos 10 caracteres. Incluye lo
+                  que viste y cuándo ocurrió si aplica.
+                </Text>
               </View>
 
               {errorMessage ? (
@@ -862,6 +895,14 @@ function buildReportFeedback(
   }
 
   if (reportState.kind === "reported") {
+    if (reportState.status === "already_reported") {
+      return {
+        body: "Ya recibimos este reporte. El equipo de Rastro lo revisará con el historial existente.",
+        title: "Reporte recibido",
+        tone: "success" as const,
+      };
+    }
+
     return {
       body: "Gracias. El equipo de Rastro revisará este perfil.",
       title: "Reporte enviado",
@@ -1000,6 +1041,11 @@ const styles = StyleSheet.create({
     color: resourcesColors.primary,
     fontSize: 13,
     fontWeight: "900",
+    lineHeight: 17,
+  },
+  reportDetailHelper: {
+    color: resourcesColors.muted,
+    fontSize: 12,
     lineHeight: 17,
   },
   reportKeyboardAvoider: {
