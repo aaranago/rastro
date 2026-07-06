@@ -14,7 +14,7 @@ function publicReportDetail(
   overrides: Partial<PublicReportDetail> = {},
 ): PublicReportDetail {
   return {
-    id: "report-lost-bruno-db",
+    id: "11111111-1111-4111-8111-111111110001",
     type: "lost_pet",
     status: "active",
     outcome: null,
@@ -37,7 +37,7 @@ function publicReportDetail(
           kind: "whatsapp",
         },
         {
-          href: "rastro://reportes/perdidos/report-lost-bruno-db",
+          href: "rastro://reportes/perdidos/11111111-1111-4111-8111-111111110001",
           kind: "in_app_chat",
         },
       ],
@@ -92,24 +92,27 @@ describe("public Lost Pet Report page data", () => {
     const loadReportDetail = vi.fn().mockResolvedValue(publicReportDetail());
 
     const report = await getPublicLostReportViewModel(
-      "report-lost-bruno-db",
+      "11111111-1111-4111-8111-111111110001",
       loadReportDetail,
     );
 
-    expect(loadReportDetail).toHaveBeenCalledWith("report-lost-bruno-db");
+    expect(loadReportDetail).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111110001",
+    );
     expect(report?.sharePath).toBe(
-      publicLostReportPathForId("report-lost-bruno-db"),
+      publicLostReportPathForId("11111111-1111-4111-8111-111111110001"),
     );
     expect(report).toMatchObject({
       abuseReport: {
         isOwner: false,
-        reportId: "report-lost-bruno-db",
+        reportId: "11111111-1111-4111-8111-111111110001",
       },
       appPrompts: {
         downloadHref:
-          "https://rastro.bo/descargar?context=report&returnTo=%2Freportes%2Fperdidos%2Freport-lost-bruno-db&target=rastro%3A%2F%2Freportes%2Fperdidos%2Freport-lost-bruno-db",
+          "https://rastro.bo/descargar?context=report&returnTo=%2Freportes%2Fperdidos%2F11111111-1111-4111-8111-111111110001&target=rastro%3A%2F%2Freportes%2Fperdidos%2F11111111-1111-4111-8111-111111110001",
         downloadLabel: "Instalar o abrir Rastro",
-        openHref: "rastro://reportes/perdidos/report-lost-bruno-db",
+        openHref:
+          "rastro://reportes/perdidos/11111111-1111-4111-8111-111111110001",
         openLabel: "Abrir en la app",
       },
       contactOptions: [
@@ -119,7 +122,7 @@ describe("public Lost Pet Report page data", () => {
           label: "Escribir por WhatsApp",
         },
         {
-          href: "rastro://reportes/perdidos/report-lost-bruno-db",
+          href: "rastro://reportes/perdidos/11111111-1111-4111-8111-111111110001",
           kind: "app-chat",
           label: "Enviar mensaje en Rastro",
         },
@@ -156,13 +159,15 @@ describe("public Lost Pet Report page data", () => {
   });
 
   it("returns null for persisted reports with the wrong type", async () => {
-    const report = await getPublicLostReportViewModel("adoption-nala-db", () =>
-      Promise.resolve(
-        publicReportDetail({
-          id: "adoption-nala-db",
-          type: "adoption",
-        }),
-      ),
+    const report = await getPublicLostReportViewModel(
+      "22222222-2222-4222-8222-222222220001",
+      () =>
+        Promise.resolve(
+          publicReportDetail({
+            id: "22222222-2222-4222-8222-222222220001",
+            type: "adoption",
+          }),
+        ),
     );
 
     expect(report).toBeNull();
@@ -170,7 +175,7 @@ describe("public Lost Pet Report page data", () => {
 
   it("returns null when report.detail returns null for hidden, deleted, or unknown reports", async () => {
     const report = await getPublicLostReportViewModel(
-      "hidden-report",
+      "55555555-5555-4555-8555-555555550001",
       () => Promise.resolve(null),
     );
 
@@ -178,18 +183,20 @@ describe("public Lost Pet Report page data", () => {
   });
 
   it("does not expose coordinate strings from public labels or public coordinates", async () => {
-    const report = await getPublicLostReportViewModel("report-lost-bruno-db", () =>
-      Promise.resolve(
-        publicReportDetail({
-          location: {
-            latitude: -16.536229,
-            longitude: -68.073419,
-            precision: "approximate",
-            label: privateCoordinateLabel,
-            locationCell: "bo-lpb-achumani",
-          },
-        }),
-      ),
+    const report = await getPublicLostReportViewModel(
+      "11111111-1111-4111-8111-111111110001",
+      () =>
+        Promise.resolve(
+          publicReportDetail({
+            location: {
+              latitude: -16.536229,
+              longitude: -68.073419,
+              precision: "approximate",
+              label: privateCoordinateLabel,
+              locationCell: "bo-lpb-achumani",
+            },
+          }),
+        ),
     );
 
     const serializedReport = JSON.stringify(report);
@@ -205,14 +212,15 @@ describe("public Lost Pet Report page data", () => {
 
   it("builds Spanish social metadata for a persisted public report", async () => {
     const metadata = await buildPublicLostReportMetadata(
-      "report-lost-bruno-db",
+      "11111111-1111-4111-8111-111111110001",
       "https://rastro.bo/",
       () => Promise.resolve(publicReportDetail()),
     );
 
     expect(metadata).toMatchObject({
       alternates: {
-        canonical: "https://rastro.bo/reportes/perdidos/report-lost-bruno-db",
+        canonical:
+          "https://rastro.bo/reportes/perdidos/11111111-1111-4111-8111-111111110001",
       },
       description:
         "Ayuda a encontrar a Bruno, Perro Mestizo - miel - mediano. Ultima vez visto en zona aproximada: Achumani, La Paz.",
@@ -229,7 +237,7 @@ describe("public Lost Pet Report page data", () => {
         siteName: "Rastro",
         title: "Bruno esta perdido en Achumani, La Paz | Rastro",
         type: "article",
-        url: "https://rastro.bo/reportes/perdidos/report-lost-bruno-db",
+        url: "https://rastro.bo/reportes/perdidos/11111111-1111-4111-8111-111111110001",
       },
       title: "Bruno esta perdido en Achumani, La Paz | Rastro",
       twitter: {

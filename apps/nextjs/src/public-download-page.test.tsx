@@ -11,8 +11,8 @@ describe("public download page", () => {
       await DownloadPage({
         searchParams: Promise.resolve({
           context: "adoption",
-          returnTo: "/adopciones/adoption-nala-db",
-          target: "rastro://adopciones/adoption-nala-db",
+          returnTo: "/adopciones/22222222-2222-4222-8222-222222220001",
+          target: "rastro://adopciones/22222222-2222-4222-8222-222222220001",
         }),
       }),
     );
@@ -31,8 +31,12 @@ describe("public download page", () => {
       title: "Descargar Rastro | Rastro",
     });
     expect(html).toContain("Sigue esta adopcion en Rastro");
-    expect(html).toContain('href="rastro://adopciones/adoption-nala-db"');
-    expect(html).toContain('href="/adopciones/adoption-nala-db"');
+    expect(html).toContain(
+      'href="rastro://adopciones/22222222-2222-4222-8222-222222220001"',
+    );
+    expect(html).toContain(
+      'href="/adopciones/22222222-2222-4222-8222-222222220001"',
+    );
     expect(html).toContain("Reportes");
     expect(html).toContain("Adopciones");
     expect(html).toContain("Recursos");

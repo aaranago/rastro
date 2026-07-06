@@ -6,30 +6,30 @@ import {
 } from "./index";
 
 describe("public Sighting Report share target", () => {
+  const reportId = "44444444-4444-4444-8444-444444440001";
+
   it("builds one stable web URL, app deep link, and Spanish share copy for a public report", () => {
     const target = buildPublicSightingReportShareTarget({
       publicWebBaseUrl: "https://rastro.bo/",
-      reportId: "sighting-toby-miraflores",
+      reportId,
       title: "Toby",
     });
 
-    expect(publicSightingReportPathForId("sighting-toby-miraflores")).toBe(
-      "/reportes/avistamientos/sighting-toby-miraflores",
+    expect(publicSightingReportPathForId(reportId)).toBe(
+      `/reportes/avistamientos/${reportId}`,
     );
     expect(target).toEqual({
-      appDeepLink: "rastro://reportes/avistamientos/sighting-toby-miraflores",
-      message:
-        "Ayuda a ubicar este avistamiento de Toby en Rastro: https://rastro.bo/reportes/avistamientos/sighting-toby-miraflores",
-      path: "/reportes/avistamientos/sighting-toby-miraflores",
+      appDeepLink: `rastro://reportes/avistamientos/${reportId}`,
+      message: `Ayuda a ubicar este avistamiento de Toby en Rastro: https://rastro.bo/reportes/avistamientos/${reportId}`,
+      path: `/reportes/avistamientos/${reportId}`,
       title: "Avistamiento de mascota: Toby",
-      webUrl:
-        "https://rastro.bo/reportes/avistamientos/sighting-toby-miraflores",
+      webUrl: `https://rastro.bo/reportes/avistamientos/${reportId}`,
     });
   });
 
-  it("encodes ids safely without changing the public route shape", () => {
-    expect(publicSightingReportPathForId("sighting report/sur")).toBe(
-      "/reportes/avistamientos/sighting%20report%2Fsur",
+  it("rejects malformed ids that cannot exist in the public database route", () => {
+    expect(() => publicSightingReportPathForId("sighting report/sur")).toThrow(
+      "Public report detail IDs must be UUIDs.",
     );
   });
 });

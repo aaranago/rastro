@@ -4,9 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SocialAuthProvider } from "~/auth/server";
 
 const authServer = vi.hoisted(() => ({
-  getEnabledSocialAuthProviders: vi.fn<() => SocialAuthProvider[]>(
-    () => [],
-  ),
+  getEnabledSocialAuthProviders: vi.fn<() => SocialAuthProvider[]>(() => []),
   getSession: vi.fn(),
   socialAuthProviderLabels: {
     apple: "Continuar con Apple",
@@ -61,14 +59,14 @@ describe("AuthShowcase account settings", () => {
 
     const html = renderToStaticMarkup(
       await AuthShowcase({
-        returnTo: "/reportes/perdidos/report-lost-bruno-db",
+        returnTo: "/reportes/perdidos/11111111-1111-4111-8111-111111110001",
         status: "signin-required",
       }),
     );
 
     expect(html).toContain("Ingresa para continuar con esta accion en Rastro.");
     expect(html).toContain(
-      'name="returnTo" value="/reportes/perdidos/report-lost-bruno-db"',
+      'name="returnTo" value="/reportes/perdidos/11111111-1111-4111-8111-111111110001"',
     );
     expect(html).toContain("Continuar con Google");
   });

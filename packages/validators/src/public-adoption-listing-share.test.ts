@@ -20,26 +20,33 @@ const commerceTerms = [
 ];
 
 describe("public Adoption Listing share target", () => {
+  const listingId = "22222222-2222-4222-8222-222222220001";
+
   it("builds one stable web URL, app deep link, and Spanish non-monetary share copy for a public listing", () => {
     const target = buildPublicAdoptionListingShareTarget({
-      listingId: "adopt-nala-sopocachi",
+      listingId,
       publicWebBaseUrl: "https://rastro.bo/",
       title: "Nala",
     });
 
-    expect(publicAdoptionListingPathForId("adopt-nala-sopocachi")).toBe(
-      "/adopciones/adopt-nala-sopocachi",
+    expect(publicAdoptionListingPathForId(listingId)).toBe(
+      `/adopciones/${listingId}`,
     );
     expect(target).toEqual({
-      appDeepLink: "rastro://adopciones/adopt-nala-sopocachi",
-      message:
-        "Conoce a Nala en adopcion en Rastro: https://rastro.bo/adopciones/adopt-nala-sopocachi",
-      path: "/adopciones/adopt-nala-sopocachi",
+      appDeepLink: `rastro://adopciones/${listingId}`,
+      message: `Conoce a Nala en adopcion en Rastro: https://rastro.bo/adopciones/${listingId}`,
+      path: `/adopciones/${listingId}`,
       title: "Mascota en adopcion: Nala",
-      webUrl: "https://rastro.bo/adopciones/adopt-nala-sopocachi",
+      webUrl: `https://rastro.bo/adopciones/${listingId}`,
     });
     expect(JSON.stringify(target).toLowerCase()).not.toMatch(
       new RegExp(commerceTerms.join("|")),
     );
+  });
+
+  it("rejects malformed ids that cannot exist in the public database route", () => {
+    expect(() =>
+      publicAdoptionListingPathForId("adopt-nala-sopocachi"),
+    ).toThrow("Public report detail IDs must be UUIDs.");
   });
 });

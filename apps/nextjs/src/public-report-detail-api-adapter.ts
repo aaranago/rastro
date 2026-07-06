@@ -17,6 +17,10 @@ export interface PublicReportDetailCaller {
 export async function getPublicReportDetail(
   reportId: string,
 ): Promise<PublicReportDetail | null> {
+  if (!isUuid(reportId)) {
+    return null;
+  }
+
   const caller = await createPublicReportDetailCaller();
 
   return getPublicReportDetailWithCaller(caller, reportId);

@@ -21,7 +21,7 @@ describe("public home page", () => {
       await HomePage({
         searchParams: Promise.resolve({
           auth: "signin-required",
-          returnTo: "/reportes/perdidos/report-lost-bruno-db",
+          returnTo: "/reportes/perdidos/11111111-1111-4111-8111-111111110001",
         }),
       }),
     );
@@ -50,7 +50,7 @@ describe("public home page", () => {
     expect(html).toContain("rastro-app-resources.png");
     expect(html).toContain('data-status="signin-required"');
     expect(html).toContain(
-      'data-return-to="/reportes/perdidos/report-lost-bruno-db"',
+      'data-return-to="/reportes/perdidos/11111111-1111-4111-8111-111111110001"',
     );
     expect(html).not.toContain("Titulo del reporte");
     expect(html).not.toContain("Sin reportes aun");

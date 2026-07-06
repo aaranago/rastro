@@ -19,7 +19,7 @@ function publicReportDetail(
   overrides: Partial<PublicReportDetail> = {},
 ): PublicReportDetail {
   return {
-    id: "found-luna-db",
+    id: "33333333-3333-4333-8333-333333330001",
     type: "found_pet",
     status: "active",
     outcome: null,
@@ -38,7 +38,7 @@ function publicReportDetail(
     contact: {
       actions: [
         {
-          href: "rastro://chats/report/found-luna-db",
+          href: "rastro://chats/report/33333333-3333-4333-8333-333333330001",
           kind: "in_app_chat",
         },
         {
@@ -85,23 +85,28 @@ describe("public found and sighting report page data", () => {
     const loadReportDetail = vi.fn().mockResolvedValue(publicReportDetail());
 
     const report = await getPublicFoundReportViewModel(
-      "found-luna-db",
+      "33333333-3333-4333-8333-333333330001",
       loadReportDetail,
     );
 
-    expect(loadReportDetail).toHaveBeenCalledWith("found-luna-db");
-    expect(report?.sharePath).toBe(publicFoundReportPathForId("found-luna-db"));
+    expect(loadReportDetail).toHaveBeenCalledWith(
+      "33333333-3333-4333-8333-333333330001",
+    );
+    expect(report?.sharePath).toBe(
+      publicFoundReportPathForId("33333333-3333-4333-8333-333333330001"),
+    );
     expect(report).toMatchObject({
       appPrompts: {
         downloadHref:
-          "https://rastro.bo/descargar?context=report&returnTo=%2Freportes%2Fencontrados%2Ffound-luna-db&target=rastro%3A%2F%2Freportes%2Fencontrados%2Ffound-luna-db",
+          "https://rastro.bo/descargar?context=report&returnTo=%2Freportes%2Fencontrados%2F33333333-3333-4333-8333-333333330001&target=rastro%3A%2F%2Freportes%2Fencontrados%2F33333333-3333-4333-8333-333333330001",
         downloadLabel: "Instalar o abrir Rastro",
-        openHref: "rastro://reportes/encontrados/found-luna-db",
+        openHref:
+          "rastro://reportes/encontrados/33333333-3333-4333-8333-333333330001",
         openLabel: "Abrir en la app",
       },
       contactOptions: [
         {
-          href: "rastro://chats/report/found-luna-db",
+          href: "rastro://chats/report/33333333-3333-4333-8333-333333330001",
           kind: "app-chat",
           label: "Enviar mensaje en Rastro",
         },
@@ -135,11 +140,11 @@ describe("public found and sighting report page data", () => {
 
   it("maps a persisted sighting report to its stable public web route", async () => {
     const report = await getPublicSightingReportViewModel(
-      "sighting-toby-db",
+      "44444444-4444-4444-8444-444444440001",
       () =>
         Promise.resolve(
           publicReportDetail({
-            id: "sighting-toby-db",
+            id: "44444444-4444-4444-8444-444444440001",
             type: "sighting",
             title: "Toby fue visto en Miraflores DB",
             description:
@@ -157,11 +162,12 @@ describe("public found and sighting report page data", () => {
     );
 
     expect(report?.sharePath).toBe(
-      publicSightingReportPathForId("sighting-toby-db"),
+      publicSightingReportPathForId("44444444-4444-4444-8444-444444440001"),
     );
     expect(report).toMatchObject({
       appPrompts: {
-        openHref: "rastro://reportes/avistamientos/sighting-toby-db",
+        openHref:
+          "rastro://reportes/avistamientos/44444444-4444-4444-8444-444444440001",
       },
       description:
         "Caminaba hacia la plaza y parecía desorientado pero sin heridas visibles.",
@@ -182,26 +188,29 @@ describe("public found and sighting report page data", () => {
 
   it("returns null for wrong report types, hidden reports, and unknown reports", async () => {
     await expect(
-      getPublicFoundReportViewModel("sighting-toby-db", () =>
-        Promise.resolve(
-          publicReportDetail({
-            id: "sighting-toby-db",
-            type: "sighting",
-          }),
-        ),
+      getPublicFoundReportViewModel(
+        "44444444-4444-4444-8444-444444440001",
+        () =>
+          Promise.resolve(
+            publicReportDetail({
+              id: "44444444-4444-4444-8444-444444440001",
+              type: "sighting",
+            }),
+          ),
       ),
     ).resolves.toBeNull();
 
     await expect(
-      getPublicSightingReportViewModel("hidden-report", () =>
-        Promise.resolve(null),
+      getPublicSightingReportViewModel(
+        "55555555-5555-4555-8555-555555550001",
+        () => Promise.resolve(null),
       ),
     ).resolves.toBeNull();
   });
 
   it("builds Spanish social metadata without coordinate leakage", async () => {
     const metadata = await buildPublicFoundReportMetadata(
-      "found-luna-db",
+      "33333333-3333-4333-8333-333333330001",
       "https://rastro.bo/",
       () =>
         Promise.resolve(
@@ -219,7 +228,8 @@ describe("public found and sighting report page data", () => {
 
     expect(metadata).toMatchObject({
       alternates: {
-        canonical: "https://rastro.bo/reportes/encontrados/found-luna-db",
+        canonical:
+          "https://rastro.bo/reportes/encontrados/33333333-3333-4333-8333-333333330001",
       },
       openGraph: {
         locale: "es_BO",
@@ -236,8 +246,10 @@ describe("public found and sighting report page data", () => {
     expect(JSON.stringify(metadata)).not.toContain("-68.123456");
 
     await expect(
-      buildPublicSightingReportMetadata("unknown-sighting", "https://rastro.bo", () =>
-        Promise.resolve(null),
+      buildPublicSightingReportMetadata(
+        "77777777-7777-4777-8777-777777770001",
+        "https://rastro.bo",
+        () => Promise.resolve(null),
       ),
     ).resolves.toBeNull();
   });

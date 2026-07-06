@@ -27,7 +27,7 @@ function persistedLostReport(
   overrides: Partial<PublicReportDetail> = {},
 ): PublicReportDetail {
   return {
-    id: "report-lost-bruno-db",
+    id: "11111111-1111-4111-8111-111111110001",
     type: "lost_pet",
     status: "active",
     outcome: null,
@@ -50,7 +50,7 @@ function persistedLostReport(
           kind: "whatsapp",
         },
         {
-          href: "rastro://reportes/perdidos/report-lost-bruno-db",
+          href: "rastro://reportes/perdidos/11111111-1111-4111-8111-111111110001",
           kind: "in_app_chat",
         },
       ],
@@ -116,7 +116,7 @@ describe("public Lost Pet Report page", () => {
     const html = renderToStaticMarkup(
       await PublicLostReportPage({
         params: Promise.resolve({
-          reportId: "report-lost-bruno-db",
+          reportId: "11111111-1111-4111-8111-111111110001",
         }),
       }),
     );
@@ -127,14 +127,12 @@ describe("public Lost Pet Report page", () => {
     expect(html).toContain("bo lpb achumani - zona aproximada");
     expect(html).toContain("Escribir por WhatsApp");
     expect(html).toContain("Enviar mensaje en Rastro");
-    expect(html).toContain(
-      'href="https://rastro.bo/descargar?context=report',
-    );
+    expect(html).toContain('href="https://rastro.bo/descargar?context=report');
     expect(html).toContain("Instalar o abrir Rastro");
     expect(html).toContain("Reportar");
     expect(html).toContain("Inicia sesión para reportar");
     expect(html).toContain(
-      "/?auth=signin-required&amp;returnTo=%2Freportes%2Fperdidos%2Freport-lost-bruno-db#auth",
+      "/?auth=signin-required&amp;returnTo=%2Freportes%2Fperdidos%2F11111111-1111-4111-8111-111111110001#auth",
     );
     expect(html).toContain("Imagen no disponible");
     expect(html).not.toContain(privateCoordinateLabel);
@@ -159,7 +157,7 @@ describe("public Lost Pet Report page", () => {
     const html = renderToStaticMarkup(
       await PublicLostReportPage({
         params: Promise.resolve({
-          reportId: "report-lost-bruno-db",
+          reportId: "11111111-1111-4111-8111-111111110001",
         }),
         searchParams: Promise.resolve({
           reportAbuse: "created",
@@ -170,7 +168,9 @@ describe("public Lost Pet Report page", () => {
     expect(html).toContain(
       "Gracias. El equipo de Rastro revisará este reporte.",
     );
-    expect(html).toContain('name="reportId" value="report-lost-bruno-db"');
+    expect(html).toContain(
+      'name="reportId" value="11111111-1111-4111-8111-111111110001"',
+    );
     expect(html).toContain('name="reason"');
     expect(html).toContain("Enviar reporte");
     expect(html).not.toContain("Inicia sesión para reportar");
@@ -196,7 +196,7 @@ describe("public Lost Pet Report page", () => {
     const html = renderToStaticMarkup(
       await PublicLostReportPage({
         params: Promise.resolve({
-          reportId: "report-lost-bruno-db",
+          reportId: "11111111-1111-4111-8111-111111110001",
         }),
       }),
     );
@@ -215,13 +215,14 @@ describe("public Lost Pet Report page", () => {
 
     const metadata = await generateMetadata({
       params: Promise.resolve({
-        reportId: "report-lost-bruno-db",
+        reportId: "11111111-1111-4111-8111-111111110001",
       }),
     });
 
     expect(metadata).toMatchObject({
       alternates: {
-        canonical: "https://rastro.bo/reportes/perdidos/report-lost-bruno-db",
+        canonical:
+          "https://rastro.bo/reportes/perdidos/11111111-1111-4111-8111-111111110001",
       },
       openGraph: {
         locale: "es_BO",
@@ -244,7 +245,7 @@ describe("public Lost Pet Report page", () => {
     await expect(
       PublicLostReportPage({
         params: Promise.resolve({
-          reportId: "hidden-report",
+          reportId: "55555555-5555-4555-8555-555555550001",
         }),
       }),
     ).rejects.toThrow("NEXT_NOT_FOUND");
@@ -260,7 +261,7 @@ describe("public Lost Pet Report page", () => {
     await expect(
       generateMetadata({
         params: Promise.resolve({
-          reportId: "unknown-report",
+          reportId: "55555555-5555-4555-8555-555555550002",
         }),
       }),
     ).resolves.toEqual({

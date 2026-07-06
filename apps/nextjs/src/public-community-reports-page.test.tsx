@@ -27,7 +27,7 @@ function persistedReport(
   overrides: Partial<PublicReportDetail> = {},
 ): PublicReportDetail {
   return {
-    id: "found-luna-db",
+    id: "33333333-3333-4333-8333-333333330001",
     type: "found_pet",
     status: "active",
     outcome: null,
@@ -46,7 +46,7 @@ function persistedReport(
     contact: {
       actions: [
         {
-          href: "rastro://chats/report/found-luna-db",
+          href: "rastro://chats/report/33333333-3333-4333-8333-333333330001",
           kind: "in_app_chat",
         },
         {
@@ -116,7 +116,7 @@ describe("public found and sighting report pages", () => {
     const html = renderToStaticMarkup(
       await PublicFoundReportPage({
         params: Promise.resolve({
-          reportId: "found-luna-db",
+          reportId: "33333333-3333-4333-8333-333333330001",
         }),
       }),
     );
@@ -129,13 +129,11 @@ describe("public found and sighting report pages", () => {
     expect(html).toContain("Descripcion del encuentro");
     expect(html).toContain("Enviar mensaje en Rastro");
     expect(html).toContain("Escribir por WhatsApp");
-    expect(html).toContain(
-      'href="https://rastro.bo/descargar?context=report',
-    );
+    expect(html).toContain('href="https://rastro.bo/descargar?context=report');
     expect(html).toContain("Instalar o abrir Rastro");
     expect(html).toContain("Reportar");
     expect(html).toContain(
-      "/?auth=signin-required&amp;returnTo=%2Freportes%2Fencontrados%2Ffound-luna-db#auth",
+      "/?auth=signin-required&amp;returnTo=%2Freportes%2Fencontrados%2F33333333-3333-4333-8333-333333330001#auth",
     );
     expect(html).not.toContain(privateCoordinateLabel);
     expect(html).not.toContain("-16.506789");
@@ -150,7 +148,7 @@ describe("public found and sighting report pages", () => {
     });
     publicReportDetailApi.getPublicReportDetail.mockResolvedValue(
       persistedReport({
-        id: "sighting-toby-db",
+        id: "44444444-4444-4444-8444-444444440001",
         type: "sighting",
         title: "Toby fue visto en Miraflores DB",
         description:
@@ -172,7 +170,7 @@ describe("public found and sighting report pages", () => {
     const html = renderToStaticMarkup(
       await PublicSightingReportPage({
         params: Promise.resolve({
-          reportId: "sighting-toby-db",
+          reportId: "44444444-4444-4444-8444-444444440001",
         }),
         searchParams: Promise.resolve({
           reportAbuse: "created",
@@ -187,7 +185,9 @@ describe("public found and sighting report pages", () => {
     expect(html).toContain(
       "Gracias. El equipo de Rastro revisará este reporte.",
     );
-    expect(html).toContain('name="reportId" value="sighting-toby-db"');
+    expect(html).toContain(
+      'name="reportId" value="44444444-4444-4444-8444-444444440001"',
+    );
     expect(html).toContain('name="reason"');
     expect(html).toContain("Enviar reporte");
     expect(html).not.toContain("Inicia sesión para reportar");
@@ -202,7 +202,7 @@ describe("public found and sighting report pages", () => {
     await expect(
       PublicFoundReportPage({
         params: Promise.resolve({
-          reportId: "hidden-report",
+          reportId: "55555555-5555-4555-8555-555555550001",
         }),
       }),
     ).rejects.toThrow("NEXT_NOT_FOUND");
@@ -211,7 +211,7 @@ describe("public found and sighting report pages", () => {
     await expect(
       generateMetadata({
         params: Promise.resolve({
-          reportId: "unknown-report",
+          reportId: "55555555-5555-4555-8555-555555550002",
         }),
       }),
     ).resolves.toEqual({

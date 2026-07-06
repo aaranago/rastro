@@ -17,7 +17,7 @@ function publicReportDetail(
   overrides: Partial<PublicReportDetail> = {},
 ): PublicReportDetail {
   return {
-    id: "adoption-nala-db",
+    id: "22222222-2222-4222-8222-222222220001",
     type: "adoption",
     status: "active",
     outcome: null,
@@ -36,7 +36,7 @@ function publicReportDetail(
     contact: {
       actions: [
         {
-          href: "rastro://adopciones/adoption-nala-db",
+          href: "rastro://adopciones/22222222-2222-4222-8222-222222220001",
           kind: "in_app_chat",
         },
         {
@@ -83,29 +83,31 @@ describe("public Adoption Listing page data", () => {
     const loadReportDetail = vi.fn().mockResolvedValue(publicReportDetail());
 
     const listing = await getPublicAdoptionListingViewModel(
-      "adoption-nala-db",
+      "22222222-2222-4222-8222-222222220001",
       loadReportDetail,
     );
 
-    expect(loadReportDetail).toHaveBeenCalledWith("adoption-nala-db");
+    expect(loadReportDetail).toHaveBeenCalledWith(
+      "22222222-2222-4222-8222-222222220001",
+    );
     expect(listing?.sharePath).toBe(
-      publicAdoptionListingPathForId("adoption-nala-db"),
+      publicAdoptionListingPathForId("22222222-2222-4222-8222-222222220001"),
     );
     expect(listing).toMatchObject({
       abuseReport: {
         isOwner: false,
-        reportId: "adoption-nala-db",
+        reportId: "22222222-2222-4222-8222-222222220001",
       },
       appPrompts: {
         downloadHref:
-          "https://rastro.bo/descargar?context=adoption&returnTo=%2Fadopciones%2Fadoption-nala-db&target=rastro%3A%2F%2Fadopciones%2Fadoption-nala-db",
+          "https://rastro.bo/descargar?context=adoption&returnTo=%2Fadopciones%2F22222222-2222-4222-8222-222222220001&target=rastro%3A%2F%2Fadopciones%2F22222222-2222-4222-8222-222222220001",
         downloadLabel: "Instalar o abrir Rastro",
-        openHref: "rastro://adopciones/adoption-nala-db",
+        openHref: "rastro://adopciones/22222222-2222-4222-8222-222222220001",
         openLabel: "Abrir en la app",
       },
       contactOptions: [
         {
-          href: "rastro://adopciones/adoption-nala-db",
+          href: "rastro://adopciones/22222222-2222-4222-8222-222222220001",
           kind: "app-chat",
           label: "Enviar mensaje en Rastro",
         },
@@ -145,11 +147,11 @@ describe("public Adoption Listing page data", () => {
 
   it("returns null for persisted reports with the wrong type", async () => {
     const listing = await getPublicAdoptionListingViewModel(
-      "report-lost-bruno-db",
+      "11111111-1111-4111-8111-111111110001",
       () =>
         Promise.resolve(
           publicReportDetail({
-            id: "report-lost-bruno-db",
+            id: "11111111-1111-4111-8111-111111110001",
             type: "lost_pet",
           }),
         ),
@@ -160,7 +162,7 @@ describe("public Adoption Listing page data", () => {
 
   it("returns null when report.detail returns null for hidden, deleted, or unknown reports", async () => {
     const listing = await getPublicAdoptionListingViewModel(
-      "hidden-adoption",
+      "66666666-6666-4666-8666-666666660001",
       () => Promise.resolve(null),
     );
 
@@ -169,7 +171,7 @@ describe("public Adoption Listing page data", () => {
 
   it("does not expose coordinate strings from public labels or public coordinates", async () => {
     const listing = await getPublicAdoptionListingViewModel(
-      "adoption-nala-db",
+      "22222222-2222-4222-8222-222222220001",
       () =>
         Promise.resolve(
           publicReportDetail({
@@ -197,14 +199,15 @@ describe("public Adoption Listing page data", () => {
 
   it("builds Spanish social metadata for a persisted adoption report", async () => {
     const metadata = await buildPublicAdoptionListingMetadata(
-      "adoption-nala-db",
+      "22222222-2222-4222-8222-222222220001",
       "https://rastro.bo/",
       () => Promise.resolve(publicReportDetail()),
     );
 
     expect(metadata).toMatchObject({
       alternates: {
-        canonical: "https://rastro.bo/adopciones/adoption-nala-db",
+        canonical:
+          "https://rastro.bo/adopciones/22222222-2222-4222-8222-222222220001",
       },
       description:
         "Conoce a Nala, Gato Mestiza joven - gris - pequena, en adopcion. Ubicacion: Sopocachi, La Paz.",
@@ -221,7 +224,7 @@ describe("public Adoption Listing page data", () => {
         siteName: "Rastro",
         title: "Nala esta en adopcion en Sopocachi, La Paz | Rastro",
         type: "article",
-        url: "https://rastro.bo/adopciones/adoption-nala-db",
+        url: "https://rastro.bo/adopciones/22222222-2222-4222-8222-222222220001",
       },
       title: "Nala esta en adopcion en Sopocachi, La Paz | Rastro",
       twitter: {

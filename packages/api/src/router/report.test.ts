@@ -75,7 +75,7 @@ function persistedSightingReport(
   overrides: Partial<PersistedReport> = {},
 ): PersistedReport {
   return {
-    id: "report-sighting-sopocachi",
+    id: "44444444-4444-4444-8444-444444440001",
     caretakerId: "member-camila",
     idempotencyKey: validReportCreateInput.idempotencyKey,
     type: validReportCreateInput.type,
@@ -141,7 +141,7 @@ describe("report router", () => {
         findByCaretakerAndIdempotencyKey: () => Promise.resolve(null),
         create: () =>
           Promise.resolve({
-            id: "report-sighting-sopocachi",
+            id: "44444444-4444-4444-8444-444444440001",
             caretakerId: "member-camila",
             idempotencyKey: validReportCreateInput.idempotencyKey,
             type: validReportCreateInput.type,
@@ -179,7 +179,7 @@ describe("report router", () => {
     const report = await caller.report.create(validReportCreateInput);
 
     expect(report).toMatchObject({
-      id: "report-sighting-sopocachi",
+      id: "44444444-4444-4444-8444-444444440001",
       type: "sighting",
       status: "active",
       title: "Perro visto cerca de Sopocachi",
@@ -489,11 +489,11 @@ describe("report router", () => {
       reportId,
     };
 
-    await expect(suspendedCaller.report.reportAbuse(input)).rejects.toMatchObject(
-      {
-        code: "PRECONDITION_FAILED",
-      },
-    );
+    await expect(
+      suspendedCaller.report.reportAbuse(input),
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+    });
     await expect(hiddenCaller.report.reportAbuse(input)).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
@@ -532,7 +532,7 @@ describe("report router", () => {
 
           return Promise.resolve(
             persistedSightingReport({
-              id: "report-adoption-review",
+              id: "22222222-2222-4222-8222-222222220001",
               idempotencyKey: validAdoptionCreateInput.idempotencyKey,
               status: "pending_review",
               type: "adoption",
@@ -548,7 +548,7 @@ describe("report router", () => {
       initialStatus: "pending_review",
     });
     expect(report).toMatchObject({
-      id: "report-adoption-review",
+      id: "22222222-2222-4222-8222-222222220001",
       status: "pending_review",
       type: "adoption",
     });
@@ -576,7 +576,7 @@ describe("report router", () => {
     });
 
     await expect(
-      caller.report.detail({ id: "report-adoption-review" }),
+      caller.report.detail({ id: "22222222-2222-4222-8222-222222220001" }),
     ).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
@@ -601,7 +601,7 @@ describe("report router", () => {
     });
 
     await expect(
-      caller.report.detail({ id: "report-sighting-sopocachi" }),
+      caller.report.detail({ id: "44444444-4444-4444-8444-444444440001" }),
     ).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
@@ -624,7 +624,7 @@ describe("report router", () => {
     });
 
     await expect(
-      caller.report.detail({ id: "report-sighting-sopocachi" }),
+      caller.report.detail({ id: "44444444-4444-4444-8444-444444440001" }),
     ).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
@@ -646,7 +646,7 @@ describe("report router", () => {
     });
 
     await expect(
-      caller.report.detail({ id: "report-sighting-sopocachi" }),
+      caller.report.detail({ id: "44444444-4444-4444-8444-444444440001" }),
     ).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
@@ -1247,7 +1247,7 @@ describe("report router", () => {
 
     const report = await caller.report.create(validReportCreateInput);
 
-    expect(report.id).toBe("report-sighting-sopocachi");
+    expect(report.id).toBe("44444444-4444-4444-8444-444444440001");
     expect(createWasCalled).toBe(false);
     expect(alertWasCalled).toBe(false);
   });
@@ -1370,7 +1370,7 @@ describe("report router", () => {
       reportRepository: {
         findById: () =>
           Promise.resolve({
-            id: "report-sighting-sopocachi",
+            id: "44444444-4444-4444-8444-444444440001",
             caretakerId: "member-camila",
             idempotencyKey: validReportCreateInput.idempotencyKey,
             type: validReportCreateInput.type,
@@ -1406,11 +1406,11 @@ describe("report router", () => {
     });
 
     const report = await caller.report.detail({
-      id: "report-sighting-sopocachi",
+      id: "44444444-4444-4444-8444-444444440001",
     });
 
     expect(report).toMatchObject({
-      id: "report-sighting-sopocachi",
+      id: "44444444-4444-4444-8444-444444440001",
       owner: {
         isCurrentMember: false,
       },
@@ -1422,7 +1422,7 @@ describe("report router", () => {
       contact: {
         actions: [
           {
-            href: "rastro://chats/report/report-sighting-sopocachi",
+            href: "rastro://chats/report/44444444-4444-4444-8444-444444440001",
             kind: "in_app_chat",
           },
         ],
@@ -1433,6 +1433,29 @@ describe("report router", () => {
     expect(JSON.stringify(report)).not.toContain("-16.510231");
     expect(JSON.stringify(report)).not.toContain("-68.123881");
     expect(JSON.stringify(report)).not.toContain("member-camila");
+  });
+
+  it("rejects malformed public report detail ids before repository lookup", async () => {
+    let findWasCalled = false;
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      session: null,
+      reportRepository: {
+        findById: () => {
+          findWasCalled = true;
+
+          return Promise.resolve(persistedSightingReport());
+        },
+      },
+    });
+
+    await expect(
+      caller.report.detail({ id: "not-a-public-report-id" }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect(findWasCalled).toBe(false);
   });
 
   it("returns WhatsApp and in-app chat actions without exposing the raw phone", async () => {
@@ -1452,13 +1475,13 @@ describe("report router", () => {
     });
 
     const report = await caller.report.detail({
-      id: "report-sighting-sopocachi",
+      id: "44444444-4444-4444-8444-444444440001",
     });
 
     expect(report.contact).toEqual({
       actions: [
         {
-          href: "rastro://chats/report/report-sighting-sopocachi",
+          href: "rastro://chats/report/44444444-4444-4444-8444-444444440001",
           kind: "in_app_chat",
         },
         {
@@ -1491,13 +1514,13 @@ describe("report router", () => {
     });
 
     const report = await caller.report.detail({
-      id: "report-sighting-sopocachi",
+      id: "44444444-4444-4444-8444-444444440001",
     });
 
     expect(report.contact).toEqual({
       actions: [
         {
-          href: "rastro://chats/report/report-sighting-sopocachi",
+          href: "rastro://chats/report/44444444-4444-4444-8444-444444440001",
           kind: "in_app_chat",
         },
       ],
@@ -1517,7 +1540,7 @@ describe("report router", () => {
         nearby: () =>
           Promise.resolve([
             {
-              id: "report-sighting-sopocachi",
+              id: "44444444-4444-4444-8444-444444440001",
               caretakerId: "member-camila",
               idempotencyKey: validReportCreateInput.idempotencyKey,
               type: validReportCreateInput.type,
@@ -1568,11 +1591,11 @@ describe("report router", () => {
       },
       results: [
         {
-          id: "report-sighting-sopocachi",
+          id: "44444444-4444-4444-8444-444444440001",
           contact: {
             actions: [
               {
-                href: "rastro://chats/report/report-sighting-sopocachi",
+                href: "rastro://chats/report/44444444-4444-4444-8444-444444440001",
                 kind: "in_app_chat",
               },
             ],
@@ -1601,7 +1624,7 @@ describe("report router", () => {
       reportRepository: {
         findById: () =>
           Promise.resolve({
-            id: "report-sighting-sopocachi",
+            id: "44444444-4444-4444-8444-444444440001",
             caretakerId: "member-camila",
             idempotencyKey: validReportCreateInput.idempotencyKey,
             type: validReportCreateInput.type,
@@ -1643,7 +1666,7 @@ describe("report router", () => {
 
     await expect(
       caller.report.update({
-        id: "report-sighting-sopocachi",
+        id: "44444444-4444-4444-8444-444444440001",
         title: "Intento no autorizado",
       }),
     ).rejects.toMatchObject({
@@ -1685,15 +1708,15 @@ describe("report router", () => {
     });
 
     const report = await caller.report.update({
-      id: "report-sighting-sopocachi",
+      id: "44444444-4444-4444-8444-444444440001",
       title: "Perro visto cerca de la plaza",
     });
 
     expect(updateInput).toMatchObject({
       actorId: "member-camila",
-      reportId: "report-sighting-sopocachi",
+      reportId: "44444444-4444-4444-8444-444444440001",
       patch: {
-        id: "report-sighting-sopocachi",
+        id: "44444444-4444-4444-8444-444444440001",
         title: "Perro visto cerca de la plaza",
       },
     });
@@ -1723,7 +1746,7 @@ describe("report router", () => {
 
     await expect(
       caller.report.resolve({
-        id: "report-sighting-sopocachi",
+        id: "44444444-4444-4444-8444-444444440001",
         outcome: "reunited",
       }),
     ).rejects.toMatchObject({
@@ -1744,7 +1767,7 @@ describe("report router", () => {
       reportRepository: {
         findById: () =>
           Promise.resolve({
-            id: "report-sighting-sopocachi",
+            id: "44444444-4444-4444-8444-444444440001",
             caretakerId: "member-camila",
             idempotencyKey: validReportCreateInput.idempotencyKey,
             type: validReportCreateInput.type,
@@ -1778,7 +1801,7 @@ describe("report router", () => {
           }),
         resolve: () =>
           Promise.resolve({
-            id: "report-sighting-sopocachi",
+            id: "44444444-4444-4444-8444-444444440001",
             caretakerId: "member-camila",
             idempotencyKey: validReportCreateInput.idempotencyKey,
             type: validReportCreateInput.type,
@@ -1814,12 +1837,12 @@ describe("report router", () => {
     });
 
     const report = await caller.report.resolve({
-      id: "report-sighting-sopocachi",
+      id: "44444444-4444-4444-8444-444444440001",
       outcome: "reunited",
     });
 
     expect(report).toMatchObject({
-      id: "report-sighting-sopocachi",
+      id: "44444444-4444-4444-8444-444444440001",
       status: "closed",
       outcome: "reunited",
       owner: {
@@ -1851,7 +1874,7 @@ describe("report router", () => {
 
     await expect(
       caller.report.resolve({
-        id: "report-sighting-sopocachi",
+        id: "44444444-4444-4444-8444-444444440001",
         outcome: "adopted",
       }),
     ).rejects.toMatchObject({
@@ -1861,9 +1884,7 @@ describe("report router", () => {
   });
 
   it("allows the caretaker to confirm an active report without closing it", async () => {
-    let confirmActiveInput:
-      | { actorId: string; reportId: string }
-      | undefined;
+    let confirmActiveInput: { actorId: string; reportId: string } | undefined;
     const caller = createCaller({
       authApi: {},
       db: {},
@@ -1887,15 +1908,15 @@ describe("report router", () => {
     });
 
     const report = await caller.report.confirmActive({
-      id: "report-sighting-sopocachi",
+      id: "44444444-4444-4444-8444-444444440001",
     });
 
     expect(confirmActiveInput).toEqual({
       actorId: "member-camila",
-      reportId: "report-sighting-sopocachi",
+      reportId: "44444444-4444-4444-8444-444444440001",
     });
     expect(report).toMatchObject({
-      id: "report-sighting-sopocachi",
+      id: "44444444-4444-4444-8444-444444440001",
       outcome: null,
       owner: {
         isCurrentMember: true,
@@ -1927,7 +1948,7 @@ describe("report router", () => {
 
     await expect(
       caller.report.delete({
-        id: "report-sighting-sopocachi",
+        id: "44444444-4444-4444-8444-444444440001",
       }),
     ).rejects.toMatchObject({
       code: "FORBIDDEN",
@@ -1947,7 +1968,7 @@ describe("report router", () => {
       reportRepository: {
         findById: () =>
           Promise.resolve({
-            id: "report-sighting-sopocachi",
+            id: "44444444-4444-4444-8444-444444440001",
             caretakerId: "member-camila",
             idempotencyKey: validReportCreateInput.idempotencyKey,
             type: validReportCreateInput.type,
@@ -1981,7 +2002,7 @@ describe("report router", () => {
           }),
         delete: () =>
           Promise.resolve({
-            id: "report-sighting-sopocachi",
+            id: "44444444-4444-4444-8444-444444440001",
             deleted: true,
           }),
       },
@@ -1989,10 +2010,10 @@ describe("report router", () => {
 
     await expect(
       caller.report.delete({
-        id: "report-sighting-sopocachi",
+        id: "44444444-4444-4444-8444-444444440001",
       }),
     ).resolves.toEqual({
-      id: "report-sighting-sopocachi",
+      id: "44444444-4444-4444-8444-444444440001",
       deleted: true,
     });
   });

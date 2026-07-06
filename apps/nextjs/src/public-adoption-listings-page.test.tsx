@@ -30,7 +30,7 @@ function persistedAdoptionReport(
   overrides: Partial<PublicReportDetail> = {},
 ): PublicReportDetail {
   return {
-    id: "adoption-nala-db",
+    id: "22222222-2222-4222-8222-222222220001",
     type: "adoption",
     status: "active",
     outcome: null,
@@ -49,7 +49,7 @@ function persistedAdoptionReport(
     contact: {
       actions: [
         {
-          href: "rastro://adopciones/adoption-nala-db",
+          href: "rastro://adopciones/22222222-2222-4222-8222-222222220001",
           kind: "in_app_chat",
         },
         {
@@ -119,7 +119,7 @@ describe("public Adoption Listing page", () => {
     const html = renderToStaticMarkup(
       await PublicAdoptionListingPage({
         params: Promise.resolve({
-          listingId: "adoption-nala-db",
+          listingId: "22222222-2222-4222-8222-222222220001",
         }),
       }),
     );
@@ -139,7 +139,7 @@ describe("public Adoption Listing page", () => {
     expect(html).toContain("Reportar");
     expect(html).toContain("Inicia sesión para reportar");
     expect(html).toContain(
-      "/?auth=signin-required&amp;returnTo=%2Fadopciones%2Fadoption-nala-db#auth",
+      "/?auth=signin-required&amp;returnTo=%2Fadopciones%2F22222222-2222-4222-8222-222222220001#auth",
     );
     expect(html).toContain("Imagen no disponible");
     expect(html).not.toMatch(commerceTerms);
@@ -165,7 +165,7 @@ describe("public Adoption Listing page", () => {
     const html = renderToStaticMarkup(
       await PublicAdoptionListingPage({
         params: Promise.resolve({
-          listingId: "adoption-nala-db",
+          listingId: "22222222-2222-4222-8222-222222220001",
         }),
         searchParams: Promise.resolve({
           reportAbuse: "already_reported",
@@ -174,7 +174,9 @@ describe("public Adoption Listing page", () => {
     );
 
     expect(html).toContain("Ya recibimos tu reporte sobre este motivo.");
-    expect(html).toContain('name="reportId" value="adoption-nala-db"');
+    expect(html).toContain(
+      'name="reportId" value="22222222-2222-4222-8222-222222220001"',
+    );
     expect(html).toContain('name="reason"');
     expect(html).toContain("Enviar reporte");
     expect(html).not.toContain("Inicia sesión para reportar");
@@ -200,7 +202,7 @@ describe("public Adoption Listing page", () => {
     const html = renderToStaticMarkup(
       await PublicAdoptionListingPage({
         params: Promise.resolve({
-          listingId: "adoption-nala-db",
+          listingId: "22222222-2222-4222-8222-222222220001",
         }),
       }),
     );
@@ -219,13 +221,14 @@ describe("public Adoption Listing page", () => {
 
     const metadata = await generateMetadata({
       params: Promise.resolve({
-        listingId: "adoption-nala-db",
+        listingId: "22222222-2222-4222-8222-222222220001",
       }),
     });
 
     expect(metadata).toMatchObject({
       alternates: {
-        canonical: "https://rastro.bo/adopciones/adoption-nala-db",
+        canonical:
+          "https://rastro.bo/adopciones/22222222-2222-4222-8222-222222220001",
       },
       openGraph: {
         locale: "es_BO",
@@ -249,7 +252,7 @@ describe("public Adoption Listing page", () => {
     await expect(
       PublicAdoptionListingPage({
         params: Promise.resolve({
-          listingId: "hidden-adoption",
+          listingId: "66666666-6666-4666-8666-666666660001",
         }),
       }),
     ).rejects.toThrow("NEXT_NOT_FOUND");

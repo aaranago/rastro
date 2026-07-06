@@ -390,7 +390,7 @@ export const createReportInputSchema = z
   });
 
 export const reportDetailInputSchema = z.object({
-  id: z.string().min(1).max(128),
+  id: z.uuid(),
 });
 
 export const ownedReportsInputSchema = z.object({}).strict();
@@ -1629,21 +1629,32 @@ const publicAdoptionListingPathPrefix = "/adopciones";
 const publicFoundReportPathPrefix = "/reportes/encontrados";
 const publicLostReportPathPrefix = "/reportes/perdidos";
 const publicSightingReportPathPrefix = "/reportes/avistamientos";
+const publicReportIdSchema = z.uuid();
+
+function encodePublicReportId(id: string) {
+  const result = publicReportIdSchema.safeParse(id);
+
+  if (!result.success) {
+    throw new Error("Public report detail IDs must be UUIDs.");
+  }
+
+  return encodeURIComponent(result.data);
+}
 
 export function publicAdoptionListingPathForId(listingId: string) {
-  return `${publicAdoptionListingPathPrefix}/${encodeURIComponent(listingId)}`;
+  return `${publicAdoptionListingPathPrefix}/${encodePublicReportId(listingId)}`;
 }
 
 export function publicLostReportPathForId(reportId: string) {
-  return `${publicLostReportPathPrefix}/${encodeURIComponent(reportId)}`;
+  return `${publicLostReportPathPrefix}/${encodePublicReportId(reportId)}`;
 }
 
 export function publicFoundReportPathForId(reportId: string) {
-  return `${publicFoundReportPathPrefix}/${encodeURIComponent(reportId)}`;
+  return `${publicFoundReportPathPrefix}/${encodePublicReportId(reportId)}`;
 }
 
 export function publicSightingReportPathForId(reportId: string) {
-  return `${publicSightingReportPathPrefix}/${encodeURIComponent(reportId)}`;
+  return `${publicSightingReportPathPrefix}/${encodePublicReportId(reportId)}`;
 }
 
 export function buildPublicAdoptionListingShareTarget({
