@@ -43,13 +43,13 @@ import {
   prepareShellAuthCredentialsForAction,
   prepareShellPasswordResetEmail,
 } from "./shell-auth";
+import { ShellIcon } from "./shell-icon";
 import { shouldShowGlobalFabForSegments } from "./shell-model";
 import {
   createShellFirstRunTourModel,
   createShellFirstRunTourStore,
   loadShellFirstRunTourModel,
 } from "./shell-onboarding";
-import { ShellIcon } from "./shell-icon";
 import { useRastroShell } from "./shell-provider";
 import { reportIntentColors, shellColors } from "./shell-theme";
 
@@ -362,7 +362,7 @@ export function shouldRouteHomeAfterFirstRunTour(pathname: string | null) {
   return pathname === "/actividad" || pathname.endsWith("/actividad");
 }
 
-function ShellFirstRunTourModal({
+export function ShellFirstRunTourModal({
   model,
   onComplete,
   onSkip,
@@ -419,7 +419,12 @@ function ShellFirstRunTourModal({
   }, [currentStep, isLastStep, onComplete, pageWidth, stepCount]);
 
   return (
-    <Modal animationType="fade" transparent visible={visible}>
+    <Modal
+      animationType="fade"
+      onRequestClose={onSkip}
+      transparent
+      visible={visible}
+    >
       <View style={styles.tourBackdrop}>
         <View
           accessibilityViewIsModal
@@ -431,6 +436,7 @@ function ShellFirstRunTourModal({
               {model.stepLabel(currentStep + 1, stepCount)}
             </Text>
             <Pressable
+              accessibilityLabel={model.skipLabel}
               accessibilityRole="button"
               onPress={onSkip}
               style={styles.tourSkipButton}
@@ -473,7 +479,11 @@ function ShellFirstRunTourModal({
           </ScrollView>
 
           <View style={styles.tourFooter}>
-            <View style={styles.tourDots}>
+            <View
+              accessibilityLabel={model.stepLabel(currentStep + 1, stepCount)}
+              accessibilityRole="text"
+              style={styles.tourDots}
+            >
               {model.steps.map((step, index) => (
                 <View
                   key={step.title}
@@ -485,6 +495,9 @@ function ShellFirstRunTourModal({
               ))}
             </View>
             <Pressable
+              accessibilityLabel={
+                isLastStep ? model.completeLabel : model.nextLabel
+              }
               accessibilityRole="button"
               onPress={moveNext}
               style={styles.tourPrimaryButton}

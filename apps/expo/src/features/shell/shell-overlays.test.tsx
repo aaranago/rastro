@@ -2,12 +2,14 @@ import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ShellReportAction } from "./shell-model";
+import { createShellFirstRunTourModel } from "./shell-onboarding";
 import {
   ReportActionSheet,
   ShellFabHost,
-  shouldRouteHomeAfterFirstRunTour,
+  ShellFirstRunTourModal,
   shouldDisplayGlobalReportFab,
   shouldDisplayShellFirstRunTour,
+  shouldRouteHomeAfterFirstRunTour,
   SignInPrompt,
 } from "./shell-overlays";
 import { useRastroShell } from "./shell-provider";
@@ -456,12 +458,48 @@ describe("ShellFirstRunTourHost", () => {
   it("routes first-run shell starts to Cerca without stealing deep links", () => {
     expect(shouldRouteHomeAfterFirstRunTour("/")).toBe(true);
     expect(shouldRouteHomeAfterFirstRunTour("/actividad")).toBe(true);
-    expect(shouldRouteHomeAfterFirstRunTour("/reportes/perdidos/report-1")).toBe(
-      false,
-    );
+    expect(
+      shouldRouteHomeAfterFirstRunTour("/reportes/perdidos/report-1"),
+    ).toBe(false);
     expect(shouldRouteHomeAfterFirstRunTour("/proveedores/provider-1")).toBe(
       false,
     );
+  });
+
+  it("wires native close and labels first-run tour actions", () => {
+    const onSkip = vi.fn();
+    const screen = renderFunctionElement(
+      <ShellFirstRunTourModal
+        model={createShellFirstRunTourModel({ shouldShow: true })}
+        onComplete={vi.fn()}
+        onSkip={onSkip}
+        visible
+      />,
+    );
+    const modal = findElement(screen, (element) => element.type === "Modal");
+    const skipButton = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel === "Omitir",
+    );
+    const nextButton = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel === "Siguiente",
+    );
+    const stepIndicator = findElement(
+      screen,
+      (element) => element.props.accessibilityLabel === "Paso 1 de 3",
+    );
+
+    getRequiredHandler(modal, "onRequestClose")();
+
+    expect(skipButton?.props.accessibilityRole).toBe("button");
+    expect(nextButton?.props.accessibilityRole).toBe("button");
+    expect(stepIndicator?.props.accessibilityRole).toBe("text");
+    expect(onSkip).toHaveBeenCalledOnce();
   });
 });
 
