@@ -186,10 +186,7 @@ function useNearbyScreenController({
         if (isActive) {
           setLoadState({
             kind: "error",
-            message:
-              error instanceof Error
-                ? error.message
-                : "No pudimos cargar los reportes.",
+            message: formatNearbyLoadFailureMessage(error),
           });
         }
       });
@@ -1638,6 +1635,17 @@ function formatMapSearchOriginLabel(location: NearbySearchLocation) {
   }
 
   return `Centro de búsqueda: ${location.locationCellLabel}`;
+}
+
+function formatNearbyLoadFailureMessage(error: unknown) {
+  if (
+    error instanceof Error &&
+    /network|fetch|offline|internet|conex/i.test(error.message)
+  ) {
+    return "No pudimos cargar los reportes. Revisa tu conexión e inténtalo de nuevo.";
+  }
+
+  return "No pudimos cargar los reportes. Intenta nuevamente.";
 }
 
 function LocationFallbackState({

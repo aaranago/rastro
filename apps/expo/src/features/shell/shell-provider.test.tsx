@@ -46,6 +46,17 @@ vi.mock("react", async () => {
 });
 
 vi.mock("../../utils/auth", () => ({
+  getLocalizedAuthErrorMessage: (message: string | undefined) => {
+    if (!message) {
+      return undefined;
+    }
+
+    if (message === "OAuth Backend unavailable") {
+      return "No pudimos completar el acceso. Intenta de nuevo.";
+    }
+
+    return message;
+  },
   shellAuthAdapter: {},
 }));
 
@@ -185,6 +196,52 @@ describe("RastroShellProvider social auth handoff", () => {
       selectedIntentLabel: "Reportar pérdida",
     });
     expect(shell.state.pendingReportRouteIntent).toBeNull();
+  });
+
+  it("sanitizes raw provider auth errors before exposing prompt feedback", async () => {
+    const authAdapter: ShellAuthAdapter = {
+      availableSocialAuthProviders: ["google"],
+      createAccountWithEmail: () => Promise.resolve({ ok: true }),
+      initiateAccountDeletion: () => Promise.resolve({ ok: true }),
+      requestPasswordResetForEmail: () => Promise.resolve({ ok: true }),
+      signInWithEmail: () => Promise.resolve({ ok: true }),
+      signInWithSocialProvider: () =>
+        Promise.resolve({
+          message: "OAuth Backend unavailable",
+          ok: false,
+          reason: "failed",
+        }),
+      signOut: () => Promise.resolve({ ok: true }),
+      useSession: () => ({
+        data: null,
+        error: null,
+        isPending: false,
+        refetch: vi.fn(),
+      }),
+    };
+
+    let shell = renderProvider(authAdapter);
+
+    shell.chooseReportIntent("lost");
+    shell = renderProvider(authAdapter);
+
+    await expect(
+      shell.signInWithSocialProviderFromPrompt("google"),
+    ).resolves.toEqual({
+      message: "No pudimos completar el acceso. Intenta de nuevo.",
+      ok: false,
+      reason: "failed",
+    });
+
+    shell = renderProvider(authAdapter);
+
+    expect(shell.state.authPrompt).toMatchObject({
+      error: "No pudimos completar el acceso. Intenta de nuevo.",
+      intent: "lost",
+      selectedIntentLabel: "Reportar pérdida",
+    });
+    expect(shell.state.authPrompt?.error).not.toContain("OAuth");
+    expect(shell.state.authPrompt?.error).not.toContain("Backend");
   });
 
   it("requests a password reset from a logged-out auth prompt email", async () => {

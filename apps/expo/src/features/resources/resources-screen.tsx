@@ -178,11 +178,7 @@ export function ResourcesScreen({
           setStatus("error");
           setIsOfflineContent(false);
           setIsStaleContent(false);
-          setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : "No pudimos cargar recursos.",
-          );
+          setErrorMessage(formatResourcesDirectoryLoadError(error));
         }
       });
 
@@ -1700,6 +1696,17 @@ function toTestIdSegment(value: string) {
 
 function getInitialManualSearchText(location: ResourceSearchLocation) {
   return location.kind === "manual" ? location.label : "";
+}
+
+function formatResourcesDirectoryLoadError(error: unknown) {
+  if (
+    error instanceof Error &&
+    /network|fetch|offline|internet|conex/i.test(error.message)
+  ) {
+    return "Revisa tu conexión e inténtalo de nuevo.";
+  }
+
+  return "Intenta nuevamente en unos segundos.";
 }
 
 function toResourceSearchLocationFromForeground(

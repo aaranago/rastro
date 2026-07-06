@@ -171,8 +171,7 @@ export function createNativeReportMediaSourceAdapter({
       };
     } catch (error) {
       return {
-        message:
-          error instanceof Error ? error.message : "Media is unavailable.",
+        message: formatNativeReportMediaUnavailableMessage(error),
         status: "unavailable",
       };
     }
@@ -267,6 +266,17 @@ function loadExpoFileSystem(): NativeReportMediaSourceFileSystem {
   }
 
   return require("expo-file-system/legacy") as ExpoFileSystemModule;
+}
+
+function formatNativeReportMediaUnavailableMessage(error: unknown) {
+  if (
+    error instanceof Error &&
+    /network|fetch|offline|internet|conex/i.test(error.message)
+  ) {
+    return "No pudimos abrir tus fotos. Revisa tu conexión e inténtalo de nuevo.";
+  }
+
+  return "No pudimos abrir tus fotos o cámara. Intenta nuevamente.";
 }
 
 function toSupportedImageMimeType(

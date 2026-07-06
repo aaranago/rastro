@@ -16,7 +16,7 @@ import type {
   ShellState,
 } from "./shell-model";
 import { getShellCopy } from "../../i18n";
-import { shellAuthAdapter } from "../../utils/auth";
+import { getLocalizedAuthErrorMessage, shellAuthAdapter } from "../../utils/auth";
 import {
   deriveShellSessionFromAuthState,
   shellSocialAuthProviders,
@@ -236,27 +236,35 @@ export function RastroShellProvider({
   const signInFromPrompt = React.useCallback(
     async (credentials: ShellAuthCredentials) => {
       const result = await authAdapter.signInWithEmail(credentials);
+      const normalizedResult = normalizeShellAuthPromptResult(
+        result,
+        copy.authPrompt.authFailed,
+      );
 
-      if (result.ok) {
+      if (normalizedResult.ok) {
         completeAuthPrompt();
       }
 
-      return result;
+      return normalizedResult;
     },
-    [authAdapter, completeAuthPrompt],
+    [authAdapter, completeAuthPrompt, copy.authPrompt.authFailed],
   );
 
   const createAccountFromPrompt = React.useCallback(
     async (credentials: ShellAuthCredentials) => {
       const result = await authAdapter.createAccountWithEmail(credentials);
+      const normalizedResult = normalizeShellAuthPromptResult(
+        result,
+        copy.authPrompt.authFailed,
+      );
 
-      if (result.ok) {
+      if (normalizedResult.ok) {
         completeAuthPrompt();
       }
 
-      return result;
+      return normalizedResult;
     },
-    [authAdapter, completeAuthPrompt],
+    [authAdapter, completeAuthPrompt, copy.authPrompt.authFailed],
   );
 
   const signInWithSocialProviderFromPrompt = React.useCallback(
@@ -277,7 +285,10 @@ export function RastroShellProvider({
         return result;
       }
 
-      const result = await authAdapter.signInWithSocialProvider(provider);
+      const result = normalizeShellAuthPromptResult(
+        await authAdapter.signInWithSocialProvider(provider),
+        copy.authPrompt.authFailed,
+      );
 
       if (result.ok) {
         completeAuthPrompt();
@@ -433,4 +444,18 @@ export function useRastroShell() {
   }
 
   return value;
+}
+
+function normalizeShellAuthPromptResult(
+  result: ShellAuthActionResult,
+  fallbackMessage: string,
+): ShellAuthActionResult {
+  if (result.ok) {
+    return result;
+  }
+
+  return {
+    ...result,
+    message: getLocalizedAuthErrorMessage(result.message) ?? fallbackMessage,
+  };
 }

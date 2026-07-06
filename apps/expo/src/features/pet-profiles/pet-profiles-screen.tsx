@@ -1768,8 +1768,11 @@ function toPetProfilePhotoSources(photos: readonly PetProfilePhoto[]) {
 }
 
 function formatPhotoPickerError(error: unknown) {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
+  if (
+    error instanceof Error &&
+    /network|fetch|offline|internet|conex/i.test(error.message)
+  ) {
+    return "No pudimos abrir tus fotos. Revisa tu conexión e inténtalo de nuevo.";
   }
 
   return "No pudimos abrir tus fotos. Intenta de nuevo.";

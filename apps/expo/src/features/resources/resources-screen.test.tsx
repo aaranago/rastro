@@ -246,6 +246,31 @@ describe("ResourceMapSelectedProvider", () => {
 });
 
 describe("ResourcesScreen", () => {
+  it("shows stable search failure copy instead of raw API details", async () => {
+    const adapter = {
+      ...createResourcesAdapter(),
+      searchProviders: vi
+        .fn()
+        .mockRejectedValue(new Error("PostGIS Backend unavailable")),
+    } satisfies ResourcesAdapter;
+    const props = {
+      adapter,
+      initialLocation: testManualLocationOptions[0]?.location,
+      manualLocationOptions: testManualLocationOptions,
+    };
+
+    void renderResourcesScreen(props);
+    await runPendingEffects();
+    const errorScreen = renderResourcesScreen(props);
+
+    expect(findText(errorScreen, "No pudimos cargar recursos")).toBe(true);
+    expect(
+      findText(errorScreen, "Intenta nuevamente en unos segundos."),
+    ).toBe(true);
+    expect(findText(errorScreen, "PostGIS")).toBe(false);
+    expect(findText(errorScreen, "Backend")).toBe(false);
+  });
+
   it("records directory sponsor impressions only after a sponsored card is viewable", async () => {
     const recordSponsorDelivery = vi
       .fn<NonNullable<ResourcesAdapter["recordSponsorDelivery"]>>()

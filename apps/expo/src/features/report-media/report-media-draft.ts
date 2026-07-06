@@ -448,11 +448,25 @@ function cloneItem(item: ReportMediaDraftItem): ReportMediaDraftItem {
 }
 
 function errorMessage(error: unknown) {
-  if (error instanceof Error && error.message) {
-    return error.message;
+  if (error instanceof ReportMediaUploadFailure) {
+    switch (error.reason) {
+      case "authorization-expired":
+        return "La autorización para subir la foto venció. Reintenta la foto.";
+      case "authorization-failed":
+        return "No pudimos preparar la subida. Reintenta la foto.";
+      case "upload-failed":
+        return "No pudimos subir la foto. Revisa tu conexión e inténtalo de nuevo.";
+    }
   }
 
-  return "No pudimos subir la foto.";
+  if (
+    error instanceof Error &&
+    /network|fetch|offline|internet|conex/i.test(error.message)
+  ) {
+    return "No pudimos subir la foto. Revisa tu conexión e inténtalo de nuevo.";
+  }
+
+  return "No pudimos subir la foto. Intenta nuevamente.";
 }
 
 function failureReason(

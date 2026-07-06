@@ -143,7 +143,31 @@ export function getLocalizedAuthErrorMessage(
     return "Ese proveedor de acceso no está disponible en este momento.";
   }
 
-  return message;
+  if (
+    normalizedMessage === "correo o contraseña inválidos." ||
+    normalizedMessage ===
+      "ese proveedor de acceso no está disponible en este momento." ||
+    normalizedMessage ===
+      "no pudimos completar el acceso. intenta de nuevo." ||
+    normalizedMessage ===
+      "no pudimos conectar con rastro. revisa tu conexión e intenta de nuevo." ||
+    normalizedMessage ===
+      "cancelaste el ingreso con proveedor. puedes intentar otra vez o usar correo y contraseña." ||
+    normalizedMessage ===
+      "no pudimos completar el ingreso. revisa tus datos e intenta de nuevo."
+  ) {
+    return message;
+  }
+
+  if (
+    /network|fetch|offline|internet|conex|timeout|failed to fetch/i.test(
+      normalizedMessage,
+    )
+  ) {
+    return "No pudimos conectar con Rastro. Revisa tu conexión e intenta de nuevo.";
+  }
+
+  return "No pudimos completar el acceso. Intenta de nuevo.";
 }
 
 export function getLocalizedPasswordResetErrorMessage(

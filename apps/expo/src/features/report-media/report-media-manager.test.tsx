@@ -415,6 +415,47 @@ describe("ReportMediaManager", () => {
     expect(onSnapshotChange).not.toHaveBeenCalled();
   });
 
+  it("renders stable source feedback instead of raw native errors", async () => {
+    const draft = createDraft();
+    const onSnapshotChange = vi.fn();
+    const sourceAdapter = {
+      captureWithCamera: vi.fn(() =>
+        Promise.resolve({
+          message: "expo-file-system/legacy is unavailable.",
+          status: "unavailable" as const,
+        }),
+      ),
+      selectFromLibrary: vi.fn(() => Promise.resolve([])),
+    };
+    const screen = renderFunctionElement(
+      <ReportMediaManager
+        draft={draft}
+        onSnapshotChange={onSnapshotChange}
+        snapshot={draft.getSnapshot()}
+        sourceAdapter={sourceAdapter}
+      />,
+    );
+
+    await pressByLabel(screen, "Agregar con cámara");
+
+    const feedbackScreen = renderFunctionElement(
+      <ReportMediaManager
+        draft={draft}
+        onSnapshotChange={onSnapshotChange}
+        snapshot={draft.getSnapshot()}
+        sourceAdapter={sourceAdapter}
+      />,
+    );
+
+    expect(
+      findText(
+        feedbackScreen,
+        "No pudimos abrir tus fotos o cámara. Intenta nuevamente.",
+      ),
+    ).toBe(true);
+    expect(findText(feedbackScreen, "expo-file-system")).toBe(false);
+  });
+
   it("opens the native cropper from the edit action and preserves the original local URI", async () => {
     const draft = createDraft();
     const onSnapshotChange = vi.fn();
@@ -741,6 +782,13 @@ describe("ReportMediaManager", () => {
     );
 
     expect(findText(failedScreen, "Error al subir")).toBe(true);
+    expect(
+      findText(
+        failedScreen,
+        "La autorización para subir la foto venció. Reintenta la foto.",
+      ),
+    ).toBe(true);
+    expect(findText(failedScreen, "Autorizacion vencida")).toBe(false);
 
     await pressByLabel(failedScreen, "Reintentar foto 2");
 

@@ -154,7 +154,8 @@ describe("report media draft", () => {
     });
 
     await expect(draft.uploadImage("local-photo-1")).resolves.toMatchObject({
-      errorMessage: "Sin conexion",
+      errorMessage:
+        "No pudimos subir la foto. Revisa tu conexión e inténtalo de nuevo.",
       failureReason: "upload-failed",
       mediaId: "11111111-1111-4111-8111-111111111111",
       originalUri: "file:///photo-1.webp",

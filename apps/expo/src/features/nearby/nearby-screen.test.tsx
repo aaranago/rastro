@@ -304,6 +304,24 @@ describe("NearbyScreen report actions", () => {
     reactNativeMocks.share.mockReset();
   });
 
+  it("shows stable load failure copy instead of raw adapter details", async () => {
+    const adapter = {
+      searchLostPetReports: vi
+        .fn()
+        .mockRejectedValue(new Error("PostGIS Backend unavailable")),
+    };
+
+    void renderNearbyScreen({ adapter });
+    await runPendingEffects();
+    const screen = renderNearbyScreen({ adapter });
+
+    expect(
+      findText(screen, "No pudimos cargar los reportes. Intenta nuevamente."),
+    ).toBe(true);
+    expect(findText(screen, "PostGIS")).toBe(false);
+    expect(findText(screen, "Backend")).toBe(false);
+  });
+
   it("surfaces list-card share failures in the header feedback", async () => {
     reactNativeMocks.share.mockRejectedValue(new Error("share blocked"));
     const adapter = createNearbyLostReportsAdapter(

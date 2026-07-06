@@ -536,6 +536,12 @@ describe("mobile auth configuration helpers", () => {
     expect(getLocalizedAuthErrorMessage("Provider not found")).toBe(
       "Ese proveedor de acceso no está disponible en este momento.",
     );
+    expect(getLocalizedAuthErrorMessage("OAuth Backend unavailable")).toBe(
+      "No pudimos completar el acceso. Intenta de nuevo.",
+    );
+    expect(getLocalizedAuthErrorMessage("Failed to fetch")).toBe(
+      "No pudimos conectar con Rastro. Revisa tu conexión e intenta de nuevo.",
+    );
   });
 
   it("keeps signup display names from falling back to the account email", () => {

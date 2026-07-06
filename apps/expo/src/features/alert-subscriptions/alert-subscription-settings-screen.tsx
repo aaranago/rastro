@@ -252,10 +252,7 @@ function useAlertSubscriptionSettingsController({
       );
     } catch (error) {
       setFeedback({
-        message:
-          error instanceof Error
-            ? error.message
-            : "No pudimos activar alertas.",
+        message: formatAlertSubscriptionActivationFailureMessage(error),
         tone: "error",
       });
     } finally {
@@ -1232,6 +1229,21 @@ function getFeedbackStyle(tone: Feedback["tone"]) {
   }
 
   return styles.feedbackSuccess;
+}
+
+function formatAlertSubscriptionActivationFailureMessage(error: unknown) {
+  if (error instanceof Error && error.message === unavailableLocationMessage) {
+    return unavailableLocationMessage;
+  }
+
+  if (
+    error instanceof Error &&
+    /network|fetch|offline|internet|conex/i.test(error.message)
+  ) {
+    return "No pudimos activar alertas. Revisa tu conexión e inténtalo de nuevo.";
+  }
+
+  return "No pudimos activar alertas. Intenta nuevamente.";
 }
 
 const styles = StyleSheet.create({

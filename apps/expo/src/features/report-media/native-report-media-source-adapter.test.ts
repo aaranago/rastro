@@ -29,7 +29,7 @@ describe("native report media source adapter", () => {
     });
 
     await expect(adapter.pickImagesFromLibrary()).resolves.toEqual({
-      message: "Image picker native module unavailable",
+      message: "No pudimos abrir tus fotos o cámara. Intenta nuevamente.",
       status: "unavailable",
     });
   });
@@ -240,7 +240,7 @@ describe("native report media source adapter", () => {
     });
 
     await expect(unavailableAdapter.launchCamera()).resolves.toEqual({
-      message: "Camera unavailable",
+      message: "No pudimos abrir tus fotos o cámara. Intenta nuevamente.",
       status: "unavailable",
     });
     expect(launchCameraAsync).toHaveBeenCalledWith({
@@ -265,7 +265,7 @@ describe("native report media source adapter", () => {
     });
 
     await expect(permissionUnavailableAdapter.launchCamera()).resolves.toEqual({
-      message: "Permission API unavailable",
+      message: "No pudimos abrir tus fotos o cámara. Intenta nuevamente.",
       status: "unavailable",
     });
   });
@@ -311,7 +311,7 @@ describe("native report media source adapter", () => {
     });
 
     await expect(adapter.pickImagesFromLibrary()).resolves.toEqual({
-      message: "Selected image dimensions are unavailable.",
+      message: "No pudimos abrir tus fotos o cámara. Intenta nuevamente.",
       status: "unavailable",
     });
   });

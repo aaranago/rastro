@@ -285,11 +285,7 @@ function isReportMediaSourceFeedback(
 }
 
 function renderReportMediaSourceFeedback(feedback: ReportMediaSourceFeedback) {
-  const message =
-    feedback.message ??
-    ("canAskAgain" in feedback && feedback.canAskAgain === false
-      ? "Activa el permiso de fotos o cámara desde Ajustes para adjuntar imágenes."
-      : "Necesitamos permiso para abrir tus fotos o cámara.");
+  const message = getReportMediaSourceFeedbackMessage(feedback);
 
   return (
     <View
@@ -302,6 +298,16 @@ function renderReportMediaSourceFeedback(feedback: ReportMediaSourceFeedback) {
       </Text>
     </View>
   );
+}
+
+function getReportMediaSourceFeedbackMessage(feedback: ReportMediaSourceFeedback) {
+  if (feedback.status === "unavailable") {
+    return "No pudimos abrir tus fotos o cámara. Intenta nuevamente.";
+  }
+
+  return feedback.canAskAgain === false
+    ? "Activa el permiso de fotos o cámara desde Ajustes para adjuntar imágenes."
+    : "Necesitamos permiso para abrir tus fotos o cámara.";
 }
 
 function ReportMediaTile({

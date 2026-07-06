@@ -637,6 +637,28 @@ describe("AlertSubscriptionSettingsScreen backend behavior", () => {
     ).toBe(true);
   });
 
+  it("shows stable activation failure copy instead of raw repository errors", async () => {
+    const repository = createScreenRepository();
+    repository.enableAlertSubscription.mockRejectedValueOnce(
+      new Error("Backend alert subscription failed."),
+    );
+    const nativeAdapter = createNativeAdapter();
+
+    let screen = renderSettingsScreen({ nativeAdapter, repository });
+    runEffects();
+    await flushPromises();
+    screen = renderSettingsScreen({ nativeAdapter, repository });
+
+    await getPressableOnPress(findPressableByText(screen, "Activar alertas"))();
+    await flushPromises();
+    screen = renderSettingsScreen({ nativeAdapter, repository });
+
+    expect(
+      findText(screen, "No pudimos activar alertas. Intenta nuevamente."),
+    ).toBe(true);
+    expect(findText(screen, "Backend alert subscription failed")).toBe(false);
+  });
+
   it("keeps the visitor sign-in CTA enabled instead of disabling the advertised action", () => {
     const onRequestSignIn = vi.fn();
     const repository = createScreenRepository();

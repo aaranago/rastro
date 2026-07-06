@@ -239,6 +239,59 @@ describe("MisMascotasScreen visitor actions", () => {
     expect(containsText(clearedForm, "Ingresa el nombre.")).toBe(true);
   });
 
+  it("shows stable photo picker failure copy instead of native error details", async () => {
+    const onRequestAddPhoto = vi.fn(() =>
+      Promise.reject(new Error("expo-image-picker Backend unavailable.")),
+    );
+    const props = {
+      initialProfiles: [],
+      onRequestAddPhoto,
+      session: { kind: "member", memberId: "member-camila" } as const,
+    } satisfies React.ComponentProps<typeof MisMascotasScreen>;
+    const screen = renderFunctionElement(<MisMascotasScreen {...props} />);
+    const initialListProps = getLegendListProps<{
+      ListEmptyComponent: React.ReactNode;
+    }>(screen);
+    const initialEmptyState = renderFunctionElement(
+      initialListProps.ListEmptyComponent,
+    );
+
+    getPressableOnPress(
+      findPressableByText(initialEmptyState, "Crear ahora"),
+    )();
+    resetRenderCursor();
+
+    const formScreen = renderFunctionElement(<MisMascotasScreen {...props} />);
+    const formListProps = getLegendListProps<{
+      ListEmptyComponent: React.ReactNode;
+    }>(formScreen);
+    const form = renderFunctionElement(formListProps.ListEmptyComponent);
+
+    getPressableOnPress(findPressableByText(form, "Agregar foto"))();
+    await Promise.resolve();
+    await Promise.resolve();
+    resetRenderCursor();
+
+    const failedPickerScreen = renderFunctionElement(
+      <MisMascotasScreen {...props} />,
+    );
+    const failedPickerListProps = getLegendListProps<{
+      ListEmptyComponent: React.ReactNode;
+    }>(failedPickerScreen);
+    const failedPickerForm = renderFunctionElement(
+      failedPickerListProps.ListEmptyComponent,
+    );
+
+    expect(
+      containsText(
+        failedPickerForm,
+        "No pudimos abrir tus fotos. Intenta de nuevo.",
+      ),
+    ).toBe(true);
+    expect(containsText(failedPickerForm, "expo-image-picker")).toBe(false);
+    expect(containsText(failedPickerForm, "Backend")).toBe(false);
+  });
+
   it("shows name validation when saving an untouched empty create form", () => {
     const screen = renderFunctionElement(
       <MisMascotasScreen
