@@ -689,6 +689,12 @@ describe("Activity screen links", () => {
     }>(screen);
 
     expect(findText(listProps.ListHeaderComponent, "Mis reportes")).toBe(true);
+    expect(
+      findElement(
+        listProps.ListHeaderComponent,
+        (element) => element.type === "ShellIcon",
+      )?.props.name,
+    ).toBe("doc.text.image.fill");
     expect(repository.getInbox).toHaveBeenCalledWith({
       cacheScope: "member_ana",
       focus: "reports",
@@ -719,6 +725,12 @@ describe("Activity screen links", () => {
     expect(findText(listProps.ListHeaderComponent, "Mis conversaciones")).toBe(
       true,
     );
+    expect(
+      findElement(
+        listProps.ListHeaderComponent,
+        (element) => element.type === "ShellIcon",
+      )?.props.name,
+    ).toBe("message.fill");
     expect(repository.getInbox).toHaveBeenCalledWith({
       cacheScope: "member_ana",
       focus: "conversations",

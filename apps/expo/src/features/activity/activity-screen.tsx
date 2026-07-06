@@ -81,6 +81,7 @@ type ActivityScreenViewModel =
         body?: string;
         title: string;
       };
+      headerIconName: string;
       kind: "member";
       offlineLabel?: string;
       sections: readonly ActivitySectionForScreen[];
@@ -152,6 +153,7 @@ interface ActivityScreenFocusConfig {
     body: string;
     title: string;
   };
+  headerIconName?: string;
   sectionIds: readonly ActivitySectionId[];
   subtitle?: string;
   title?: string;
@@ -173,6 +175,7 @@ const activityScreenFocusConfig: Record<
       body: "Tus chats sobre reportes aparecerán aquí cuando tengas conversaciones activas.",
       title: "Sin conversaciones todavía",
     },
+    headerIconName: "message.fill",
     sectionIds: ["chats"],
     subtitle: "Chats sobre reportes y recuperaciones",
     title: "Mis conversaciones",
@@ -186,6 +189,7 @@ const activityScreenFocusConfig: Record<
       body: "Los cambios y recordatorios de tus reportes aparecerán aquí.",
       title: "Sin actualizaciones de reportes",
     },
+    headerIconName: "doc.text.image.fill",
     sectionIds: ["report-updates"],
     subtitle: "Actualizaciones y recordatorios de tus reportes",
     title: "Mis reportes",
@@ -361,6 +365,7 @@ export function ActivityScreen({
   const header =
     viewModel.kind === "member" ? (
       <ActivityHeader
+        iconName={viewModel.headerIconName}
         offlineLabel={viewModel.offlineLabel}
         subtitle={viewModel.subtitle}
         title={viewModel.title}
@@ -419,10 +424,12 @@ export function ActivityScreen({
 }
 
 const ActivityHeader = React.memo(function ActivityHeader({
+  iconName,
   offlineLabel,
   subtitle,
   title,
 }: {
+  iconName: string;
   offlineLabel?: string;
   subtitle?: string;
   title: string;
@@ -430,7 +437,7 @@ const ActivityHeader = React.memo(function ActivityHeader({
   return (
     <View style={styles.header}>
       <View style={styles.headerIcon}>
-        <ShellIcon color={shellColors.primary} name="bell.fill" size={24} />
+        <ShellIcon color={shellColors.primary} name={iconName} size={24} />
       </View>
       <View style={styles.headerCopy}>
         <Text maxFontSizeMultiplier={1.2} style={styles.headerTitle}>
@@ -822,6 +829,7 @@ function normalizeMemberViewModel(
 
   return {
     empty: focusConfig.empty ?? viewModel.emptyState,
+    headerIconName: focusConfig.headerIconName ?? "bell.fill",
     kind: "member",
     offlineLabel: viewModel.offlineLabel,
     sections,
