@@ -273,13 +273,62 @@ describe("RastroShellProvider social auth handoff", () => {
 
     expect(resetEmails).toEqual(["ana@example.com"]);
   });
+
+  it("sanitizes raw account action errors before profile feedback can render them", async () => {
+    const authAdapter: ShellAuthAdapter = {
+      availableSocialAuthProviders: [],
+      createAccountWithEmail: () => Promise.resolve({ ok: true }),
+      initiateAccountDeletion: () =>
+        Promise.resolve({
+          message: "Better Auth Backend account deletion failed.",
+          ok: false,
+          reason: "failed",
+        }),
+      requestPasswordResetForEmail: () => Promise.resolve({ ok: true }),
+      signInWithEmail: () => Promise.resolve({ ok: true }),
+      signInWithSocialProvider: () => Promise.resolve({ ok: true }),
+      signOut: () =>
+        Promise.resolve({
+          message: "Better Auth session revoke failed.",
+          ok: false,
+          reason: "failed",
+        }),
+      useSession: () => ({
+        data: {
+          session: { id: "session_123" },
+          user: {
+            email: "ana@example.com",
+            id: "member_123",
+            name: "Ana",
+          },
+        },
+        error: null,
+        isPending: false,
+        refetch: vi.fn(),
+      }),
+    };
+    const shell = renderProvider(authAdapter);
+
+    await expect(shell.initiateAccountDeletion()).resolves.toEqual({
+      message: "No pudimos completar esta acción. Intenta de nuevo.",
+      ok: false,
+      reason: "failed",
+    });
+    await expect(shell.signOutMember()).resolves.toEqual({
+      message: "No pudimos completar esta acción. Intenta de nuevo.",
+      ok: false,
+      reason: "failed",
+    });
+  });
 });
 
 interface ShellProviderValue {
   chooseReportIntent: (intent: "lost") => void;
+  initiateAccountDeletion: () => Promise<ShellAuthActionResult>;
   requestPasswordResetFromPrompt: (
     email: string,
   ) => Promise<ShellAuthActionResult>;
+  signOutMember: () => Promise<ShellAuthActionResult>;
   signInWithSocialProviderFromPrompt: (
     provider: ShellSocialAuthProvider,
   ) => Promise<ShellAuthActionResult>;

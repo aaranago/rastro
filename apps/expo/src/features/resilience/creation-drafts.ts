@@ -79,6 +79,8 @@ export type SaveCreationDraftInput<K extends CreationDraftKind> =
 
 const schemaVersion = 2;
 const legacySchemaVersion = 1;
+const incompatibleStoredDraftMessage =
+  "El borrador guardado usa una versión anterior de Rastro. Puedes descartarlo y crear uno nuevo.";
 const defaultNamespace = "rastro:creation-draft";
 const defaultScope = "default";
 
@@ -136,7 +138,7 @@ export function createCreationDraftStore({
 
         return migrated === null
           ? {
-              reason: "Stored draft is not compatible with this app version.",
+              reason: incompatibleStoredDraftMessage,
               status: "incompatible",
             }
           : {
@@ -149,7 +151,7 @@ export function createCreationDraftStore({
 
       if (!parsed) {
         return {
-          reason: "Stored draft is not compatible with this app version.",
+          reason: incompatibleStoredDraftMessage,
           status: "incompatible",
         };
       }
@@ -160,7 +162,7 @@ export function createCreationDraftStore({
         typeof parsed.savedAt !== "string"
       ) {
         return {
-          reason: "Stored draft is not compatible with this app version.",
+          reason: incompatibleStoredDraftMessage,
           status: "incompatible",
         };
       }

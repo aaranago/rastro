@@ -176,6 +176,26 @@ export function getLocalizedPasswordResetErrorMessage(
   return "No pudimos enviar el enlace. Revisa el correo e intenta de nuevo.";
 }
 
+export function getLocalizedAccountActionErrorMessage(
+  message: string | undefined,
+) {
+  if (!message) {
+    return undefined;
+  }
+
+  const normalizedMessage = message.trim().toLowerCase();
+
+  if (
+    /network|fetch|offline|internet|conex|timeout|failed to fetch/i.test(
+      normalizedMessage,
+    )
+  ) {
+    return "No pudimos conectar con Rastro. Revisa tu conexión e intenta de nuevo.";
+  }
+
+  return "No pudimos completar esta acción. Intenta de nuevo.";
+}
+
 export function getShellCreateAccountDisplayName(
   _email: string,
   name: string | undefined,
@@ -825,9 +845,11 @@ export const shellAuthAdapter: ShellAuthAdapter = {
       }),
     ),
   initiateAccountDeletion: () =>
-    accountClientAdapter.initiateAccountDeletion({
-      callbackURL: "/",
-    }),
+    normalizeAccountActionResult(
+      accountClientAdapter.initiateAccountDeletion({
+        callbackURL: "/",
+      }),
+    ),
   requestPasswordResetForEmail: async (email: string) => {
     const result = await accountClientAdapter.requestPasswordResetForEmail(
       email,
@@ -862,6 +884,21 @@ export const shellAuthAdapter: ShellAuthAdapter = {
       persistCookie: persistMobileAuthCookie,
       signInSocial: (request) => authClient.signIn.social(request),
     }),
-  signOut: () => accountClientAdapter.signOut(),
+  signOut: () => normalizeAccountActionResult(accountClientAdapter.signOut()),
   useSession: useMobileAuthSession,
 };
+
+async function normalizeAccountActionResult(
+  resultPromise: Promise<ShellAuthActionResult>,
+): Promise<ShellAuthActionResult> {
+  const result = await resultPromise;
+
+  if (result.ok) {
+    return result;
+  }
+
+  return {
+    ...result,
+    message: getLocalizedAccountActionErrorMessage(result.message),
+  };
+}

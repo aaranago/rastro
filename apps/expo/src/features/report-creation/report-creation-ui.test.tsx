@@ -328,7 +328,8 @@ describe("ReportCreationDraftRecoveryPrompt", () => {
     const screen = renderFunctionElement(
       <ReportCreationDraftRecoveryPrompt
         draftRecovery={{
-          reason: "Stored draft is not compatible with this app version.",
+          reason:
+            "El borrador guardado usa una versión anterior de Rastro. Puedes descartarlo y crear uno nuevo.",
           status: "incompatible",
         }}
         onDiscardDraft={onDiscardDraft}
@@ -345,8 +346,12 @@ describe("ReportCreationDraftRecoveryPrompt", () => {
       true,
     );
     expect(
-      findText(screen, "Stored draft is not compatible with this app version."),
+      findText(
+        screen,
+        "El borrador guardado usa una versión anterior de Rastro. Puedes descartarlo y crear uno nuevo.",
+      ),
     ).toBe(true);
+    expect(findText(screen, "Stored draft")).toBe(false);
 
     void getPressableOnPress(discardButton)();
 

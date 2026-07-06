@@ -154,7 +154,8 @@ describe("durable creation drafts", () => {
         scopeId: "member-camila",
       }),
     ).resolves.toEqual({
-      reason: "Stored draft is not compatible with this app version.",
+      reason:
+        "El borrador guardado usa una versión anterior de Rastro. Puedes descartarlo y crear uno nuevo.",
       status: "incompatible",
     });
     await expect(
@@ -176,7 +177,8 @@ describe("durable creation drafts", () => {
         scopeId: "member-camila",
       }),
     ).resolves.toEqual({
-      reason: "Stored draft is not compatible with this app version.",
+      reason:
+        "El borrador guardado usa una versión anterior de Rastro. Puedes descartarlo y crear uno nuevo.",
       status: "incompatible",
     });
   });

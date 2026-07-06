@@ -349,12 +349,16 @@ export function RastroShellProvider({
       }
 
       const result = await authAdapter.initiateAccountDeletion();
+      const normalizedResult = normalizeShellAccountActionResult(
+        result,
+        copy.screens.profile.account.actionFailed,
+      );
 
-      if (result.ok) {
+      if (normalizedResult.ok) {
         refetchAuthSession?.();
       }
 
-      return result;
+      return normalizedResult;
     }, [authAdapter, copy, refetchAuthSession, session.kind]);
 
   const signOutMember =
@@ -367,8 +371,12 @@ export function RastroShellProvider({
       }
 
       const result = await authAdapter.signOut();
+      const normalizedResult = normalizeShellAccountActionResult(
+        result,
+        copy.screens.profile.account.actionFailed,
+      );
 
-      if (result.ok) {
+      if (normalizedResult.ok) {
         refetchAuthSession?.();
         setState((current) => ({
           ...current,
@@ -377,7 +385,7 @@ export function RastroShellProvider({
         }));
       }
 
-      return result;
+      return normalizedResult;
     }, [authAdapter, copy, refetchAuthSession, session.kind]);
 
   const value = React.useMemo<RastroShellContextValue>(
@@ -457,5 +465,31 @@ function normalizeShellAuthPromptResult(
   return {
     ...result,
     message: getLocalizedAuthErrorMessage(result.message) ?? fallbackMessage,
+  };
+}
+
+function normalizeShellAccountActionResult(
+  result: ShellAuthActionResult,
+  fallbackMessage: string,
+): ShellAuthActionResult {
+  if (result.ok) {
+    return result;
+  }
+
+  if (
+    result.message === "No pudimos completar el acceso. Intenta de nuevo." ||
+    /better auth|backend|server|stack|sql|http|oauth/i.test(
+      result.message ?? "",
+    )
+  ) {
+    return {
+      ...result,
+      message: fallbackMessage,
+    };
+  }
+
+  return {
+    ...result,
+    message: result.message ?? fallbackMessage,
   };
 }

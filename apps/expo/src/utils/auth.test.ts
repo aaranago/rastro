@@ -7,6 +7,7 @@ import {
   createMobileAuthProxyURL,
   fetchMobileAuthSessionWithCookie,
   getAvailableShellSocialAuthProviders,
+  getLocalizedAccountActionErrorMessage,
   getLocalizedAuthErrorMessage,
   getLocalizedPasswordResetErrorMessage,
   getShellCreateAccountDisplayName,
@@ -559,6 +560,17 @@ describe("mobile auth configuration helpers", () => {
     ).toBe("No pudimos enviar el enlace. Revisa el correo e intenta de nuevo.");
     expect(getLocalizedPasswordResetErrorMessage(undefined)).toBe(
       "No pudimos enviar el enlace. Revisa el correo e intenta de nuevo.",
+    );
+  });
+
+  it("maps account-action backend failures to stable profile copy", () => {
+    expect(
+      getLocalizedAccountActionErrorMessage(
+        "Better Auth Backend account deletion failed.",
+      ),
+    ).toBe("No pudimos completar esta acción. Intenta de nuevo.");
+    expect(getLocalizedAccountActionErrorMessage("Failed to fetch")).toBe(
+      "No pudimos conectar con Rastro. Revisa tu conexión e intenta de nuevo.",
     );
   });
 });
