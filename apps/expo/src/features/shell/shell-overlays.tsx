@@ -125,10 +125,7 @@ export function ShellFabHost() {
       return;
     }
 
-    if (
-      normalizeShellPathname(state.authReturnTo) !==
-      normalizeShellPathname(pathname)
-    ) {
+    if (shouldPushAuthReturnTo(state.authReturnTo, pathname)) {
       router.push(state.authReturnTo as Href);
     }
 
@@ -237,6 +234,20 @@ function normalizeShellPathname(pathname: string): string {
   }
 
   return pathWithoutQuery;
+}
+
+function shouldPushAuthReturnTo(authReturnTo: string, pathname: string | null) {
+  if (!pathname) {
+    return true;
+  }
+
+  if (authReturnTo.includes("?") || authReturnTo.includes("#")) {
+    return authReturnTo !== pathname;
+  }
+
+  return (
+    normalizeShellPathname(authReturnTo) !== normalizeShellPathname(pathname)
+  );
 }
 
 export function shouldDisplayShellFirstRunTour({
@@ -495,9 +506,11 @@ export function ShellFirstRunTourModal({
               ))}
             </View>
             <Pressable
-              accessibilityLabel={
-                isLastStep ? model.completeLabel : model.nextLabel
-              }
+              accessibilityLabel={getShellFirstRunTourPrimaryLabel({
+                currentStep,
+                model,
+                stepCount,
+              })}
               accessibilityRole="button"
               onPress={moveNext}
               style={styles.tourPrimaryButton}
@@ -506,7 +519,11 @@ export function ShellFirstRunTourModal({
                 maxFontSizeMultiplier={1.15}
                 style={styles.tourPrimaryButtonText}
               >
-                {isLastStep ? model.completeLabel : model.nextLabel}
+                {getShellFirstRunTourPrimaryLabel({
+                  currentStep,
+                  model,
+                  stepCount,
+                })}
               </Text>
             </Pressable>
           </View>
@@ -514,6 +531,18 @@ export function ShellFirstRunTourModal({
       </View>
     </Modal>
   );
+}
+
+export function getShellFirstRunTourPrimaryLabel({
+  currentStep,
+  model,
+  stepCount,
+}: {
+  currentStep: number;
+  model: Pick<ShellFirstRunTourModel, "completeLabel" | "nextLabel">;
+  stepCount: number;
+}) {
+  return currentStep >= stepCount - 1 ? model.completeLabel : model.nextLabel;
 }
 
 export function ReportActionSheet({

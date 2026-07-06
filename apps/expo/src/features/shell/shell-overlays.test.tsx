@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ShellReportAction } from "./shell-model";
 import { createShellFirstRunTourModel } from "./shell-onboarding";
 import {
+  getShellFirstRunTourPrimaryLabel,
   ReportActionSheet,
   ShellFabHost,
   ShellFirstRunTourModal,
@@ -468,9 +469,10 @@ describe("ShellFirstRunTourHost", () => {
 
   it("wires native close and labels first-run tour actions", () => {
     const onSkip = vi.fn();
+    const model = createShellFirstRunTourModel({ shouldShow: true });
     const screen = renderFunctionElement(
       <ShellFirstRunTourModal
-        model={createShellFirstRunTourModel({ shouldShow: true })}
+        model={model}
         onComplete={vi.fn()}
         onSkip={onSkip}
         visible
@@ -499,6 +501,20 @@ describe("ShellFirstRunTourHost", () => {
     expect(skipButton?.props.accessibilityRole).toBe("button");
     expect(nextButton?.props.accessibilityRole).toBe("button");
     expect(stepIndicator?.props.accessibilityRole).toBe("text");
+    expect(
+      getShellFirstRunTourPrimaryLabel({
+        currentStep: 0,
+        model,
+        stepCount: model.steps.length,
+      }),
+    ).toBe("Siguiente");
+    expect(
+      getShellFirstRunTourPrimaryLabel({
+        currentStep: model.steps.length - 1,
+        model,
+        stepCount: model.steps.length,
+      }),
+    ).toBe("Empezar");
     expect(onSkip).toHaveBeenCalledOnce();
   });
 });
@@ -717,6 +733,27 @@ describe("ShellFabHost", () => {
 
     expect(router.push).toHaveBeenCalledTimes(1);
     expect(router.push).toHaveBeenCalledWith("/report-create/sighting");
+    expect(clearAuthReturnTo).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves auth return query params for report creation prefill", () => {
+    const clearAuthReturnTo = vi.fn();
+
+    routerLocation.pathname = "/report-create/lost";
+    vi.mocked(useRastroShell).mockReturnValue(
+      createMemberAuthReturnShell({
+        authReturnTo:
+          "/report-create/lost?petProfileId=pet-luna&source=mis-mascotas",
+        clearAuthReturnTo,
+      }),
+    );
+
+    void renderFunctionElement(<ShellFabHost />);
+
+    expect(router.push).toHaveBeenCalledTimes(1);
+    expect(router.push).toHaveBeenCalledWith(
+      "/report-create/lost?petProfileId=pet-luna&source=mis-mascotas",
+    );
     expect(clearAuthReturnTo).toHaveBeenCalledTimes(1);
   });
 });
