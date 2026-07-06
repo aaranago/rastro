@@ -1,6 +1,7 @@
 import type { LastLoadedCache } from "../resilience/last-loaded-cache";
 import type {
   ActivityAlertDelivery,
+  ActivityCandidateMatch,
   ActivityChatSummary,
   ActivityChatSummaryLastMessage,
   ActivityChatSummaryParticipant,
@@ -51,6 +52,27 @@ export interface ApiActivityChatConversationItem {
   id: string;
   occurredAt: ApiDateValue;
   type: "chat_conversation";
+}
+
+export interface ApiActivityCandidateMatch {
+  candidate: ApiActivityCandidateMatchCandidate;
+  confidence: ActivityCandidateMatch["confidence"];
+  createdAt: ApiDateValue;
+  id: string;
+  locationLabel: string | null;
+  ownedReport: ApiActivityReportSummary;
+}
+
+export interface ApiActivityCandidateMatchCandidate
+  extends ApiActivityReportSummary {
+  kind: ActivityCandidateMatch["candidate"]["kind"];
+}
+
+export interface ApiActivityCandidateMatchItem {
+  id: string;
+  match: ApiActivityCandidateMatch;
+  occurredAt: ApiDateValue;
+  type: "candidate_match";
 }
 
 export interface ApiActivityReportSummary {
@@ -123,6 +145,7 @@ export interface ApiActivityChatLastMessage {
 
 export type ApiActivityInboxItem =
   | ApiActivityAlertDeliveryItem
+  | ApiActivityCandidateMatchItem
   | ApiActivityChatConversationItem
   | ApiActivityReportUpdateItem
   | ApiActivityModerationEventItem;
@@ -200,6 +223,7 @@ function buildInboxQuery(input: ActivityInboxQuery): ActivityInboxQuery {
 
 function normalizeActivityInbox(output: ApiActivityInboxOutput): ActivityInbox {
   const alertDeliveries: ActivityAlertDelivery[] = [];
+  const candidateMatches: ActivityCandidateMatch[] = [];
   const chatSummaries: ActivityChatSummary[] = [];
   const moderationEvents: ActivityModerationEvent[] = [];
   const reportUpdates: ActivityReportUpdate[] = [];
@@ -207,6 +231,11 @@ function normalizeActivityInbox(output: ApiActivityInboxOutput): ActivityInbox {
   for (const item of output.items) {
     if (item.type === "alert_delivery") {
       alertDeliveries.push(normalizeAlertDeliveryItem(item));
+      continue;
+    }
+
+    if (item.type === "candidate_match") {
+      candidateMatches.push(normalizeCandidateMatchItem(item));
       continue;
     }
 
@@ -225,6 +254,7 @@ function normalizeActivityInbox(output: ApiActivityInboxOutput): ActivityInbox {
 
   return {
     alertDeliveries,
+    candidateMatches,
     chatSummaries,
     moderationEvents,
     reportUpdates,
@@ -245,6 +275,30 @@ function normalizeAlertDeliveryItem(
     reportId: delivery.reportId,
     status: delivery.status,
     title: delivery.title,
+  };
+}
+
+function normalizeCandidateMatchItem(
+  item: ApiActivityCandidateMatchItem,
+): ActivityCandidateMatch {
+  const match = item.match;
+
+  return {
+    candidate: {
+      href: match.candidate.href,
+      id: match.candidate.id,
+      kind: match.candidate.kind,
+      title: match.candidate.title,
+    },
+    confidence: match.confidence,
+    createdAt: normalizeDateValue(match.createdAt),
+    id: match.id,
+    ...(match.locationLabel ? { locationLabel: match.locationLabel } : {}),
+    ownedReport: {
+      href: match.ownedReport.href,
+      id: match.ownedReport.id,
+      title: match.ownedReport.title,
+    },
   };
 }
 

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type {
   ApiActivityAlertDeliveryItem,
+  ApiActivityCandidateMatchItem,
   ApiActivityChatConversationItem,
   ApiActivityInboxOutput,
   ApiActivityModerationEventItem,
@@ -15,11 +16,18 @@ import {
 describe("API Activity repository", () => {
   it("loads the member inbox with an empty query and normalizes backend items", async () => {
     const alertDelivery = createApiAlertDelivery();
+    const candidateMatch = createApiCandidateMatch();
     const chatConversation = createApiChatConversation();
     const reportUpdate = createApiReportUpdate();
     const moderationEvent = createApiModerationEvent();
     const client = createApiActivityClient({
-      items: [alertDelivery, chatConversation, reportUpdate, moderationEvent],
+      items: [
+        alertDelivery,
+        candidateMatch,
+        chatConversation,
+        reportUpdate,
+        moderationEvent,
+      ],
     });
     const repository = createApiActivityRepository({ client });
 
@@ -34,6 +42,25 @@ describe("API Activity repository", () => {
           reportId: "lost-report-1",
           status: "sent",
           title: "Mascota perdida cerca de ti",
+        },
+      ],
+      candidateMatches: [
+        {
+          candidate: {
+            href: "rastro://reportes/encontrados/found-report-1",
+            id: "found-report-1",
+            kind: "found-pet-report",
+            title: "Perro encontrado en Sopocachi",
+          },
+          confidence: "possible",
+          createdAt: "2026-06-30T13:02:00.000Z",
+          id: "match:lost-report-1:found-report-1",
+          locationLabel: "Sopocachi, La Paz",
+          ownedReport: {
+            href: "rastro://reportes/perdidos/lost-report-1",
+            id: "lost-report-1",
+            title: "Toby",
+          },
         },
       ],
       chatSummaries: [
@@ -150,6 +177,7 @@ describe("API Activity repository", () => {
   it("returns the last successful inbox as stale cache when a later fetch fails", async () => {
     const freshInbox = {
       alertDeliveries: [],
+      candidateMatches: [],
       chatSummaries: [],
       moderationEvents: [normalizeApiModerationEventForCache()],
       reportUpdates: [],
@@ -246,6 +274,40 @@ function createApiChatConversation(): ApiActivityChatConversationItem {
       },
       updatedAt: "2026-06-30T13:04:00.000Z",
     },
+  };
+}
+
+function createApiCandidateMatch(): ApiActivityCandidateMatchItem {
+  return {
+    id: "match:lost-report-1:found-report-1",
+    match: {
+      candidate: {
+        availability: "available",
+        href: "rastro://reportes/encontrados/found-report-1",
+        id: "found-report-1",
+        kind: "found-pet-report",
+        outcome: null,
+        status: "active",
+        title: "Perro encontrado en Sopocachi",
+        type: "found_pet",
+      },
+      confidence: "possible",
+      createdAt: new Date("2026-06-30T13:02:00.000Z"),
+      id: "match:lost-report-1:found-report-1",
+      locationLabel: "Sopocachi, La Paz",
+      ownedReport: {
+        availability: "available",
+        href: "rastro://reportes/perdidos/lost-report-1",
+        id: "lost-report-1",
+        kind: "lost-pet-report",
+        outcome: null,
+        status: "active",
+        title: "Toby",
+        type: "lost_pet",
+      },
+    },
+    occurredAt: new Date("2026-06-30T13:02:00.000Z"),
+    type: "candidate_match",
   };
 }
 

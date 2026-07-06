@@ -633,6 +633,24 @@ export const activityInboxChatConversationItemOutputSchema = z
   })
   .strict();
 
+export const activityInboxCandidateMatchItemOutputSchema = z
+  .object({
+    type: z.literal("candidate_match"),
+    id: z.string().min(1).max(160),
+    occurredAt: isoDateTimeOutputSchema,
+    match: z
+      .object({
+        candidate: activityReportSummaryOutputSchema,
+        confidence: z.literal("possible"),
+        createdAt: isoDateTimeOutputSchema,
+        id: z.string().min(1).max(160),
+        locationLabel: z.string().min(1).max(240).nullable(),
+        ownedReport: activityReportSummaryOutputSchema,
+      })
+      .strict(),
+  })
+  .strict();
+
 export const activityInboxReportUpdateItemOutputSchema = z
   .object({
     type: z.literal("report_update"),
@@ -673,6 +691,7 @@ export const activityInboxModerationEventItemOutputSchema = z
 
 export const activityInboxItemOutputSchema = z.discriminatedUnion("type", [
   activityInboxAlertDeliveryItemOutputSchema,
+  activityInboxCandidateMatchItemOutputSchema,
   activityInboxChatConversationItemOutputSchema,
   activityInboxReportUpdateItemOutputSchema,
   activityInboxModerationEventItemOutputSchema,
@@ -1446,6 +1465,9 @@ export type ActivityInboxAlertDeliveryItemOutput = z.infer<
 >;
 export type ActivityInboxChatConversationItemOutput = z.infer<
   typeof activityInboxChatConversationItemOutputSchema
+>;
+export type ActivityInboxCandidateMatchItemOutput = z.infer<
+  typeof activityInboxCandidateMatchItemOutputSchema
 >;
 export type ActivityInboxReportUpdateItemOutput = z.infer<
   typeof activityInboxReportUpdateItemOutputSchema

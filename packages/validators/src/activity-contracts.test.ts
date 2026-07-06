@@ -16,7 +16,7 @@ describe("activity validation contracts", () => {
     ).toBe(false);
   });
 
-  it("validates alert delivery, chat, report update, and moderation inbox items", () => {
+  it("validates alert delivery, candidate match, chat, report update, and moderation inbox items", () => {
     expect(
       activityInboxOutputSchema.safeParse({
         items: [
@@ -66,6 +66,37 @@ describe("activity validation contracts", () => {
                 title: "Toby",
               },
               updatedAt: "2026-07-01T12:05:00.000Z",
+            },
+          },
+          {
+            type: "candidate_match",
+            id: "match:44444444-4444-4444-8444-444444444444:99999999-9999-4999-8999-999999999999",
+            occurredAt: "2026-07-01T12:04:00.000Z",
+            match: {
+              candidate: {
+                availability: "available",
+                href: "rastro://reportes/encontrados/99999999-9999-4999-8999-999999999999",
+                id: "99999999-9999-4999-8999-999999999999",
+                kind: "found-pet-report",
+                outcome: null,
+                status: "active",
+                title: "Perro encontrado en Sopocachi",
+                type: "found_pet",
+              },
+              confidence: "possible",
+              createdAt: "2026-07-01T12:04:00.000Z",
+              id: "match:44444444-4444-4444-8444-444444444444:99999999-9999-4999-8999-999999999999",
+              locationLabel: "Sopocachi, La Paz",
+              ownedReport: {
+                availability: "available",
+                href: "rastro://reportes/perdidos/44444444-4444-4444-8444-444444444444",
+                id: "44444444-4444-4444-8444-444444444444",
+                kind: "lost-pet-report",
+                outcome: null,
+                status: "active",
+                title: "Toby",
+                type: "lost_pet",
+              },
             },
           },
           {

@@ -2,6 +2,7 @@ import type { TRPCRouterRecord } from "@trpc/server";
 
 import type { Database } from "@acme/db/client";
 import type {
+  ActivityInboxCandidateMatchItemOutput,
   ActivityInboxItemOutput,
   ActivityInboxModerationEventItemOutput,
   ActivityInboxOutput,
@@ -10,10 +11,22 @@ import type {
   ReportStatus,
   ReportType,
 } from "@acme/validators";
-import { desc, eq } from "@acme/db";
+import {
+  alias,
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  ne,
+  sql,
+} from "@acme/db";
 import {
   Report,
   ReportLifecycleEvent,
+  ReportLocation,
   ReportModerationAction,
 } from "@acme/db/schema";
 import {
@@ -27,6 +40,7 @@ import { buildReportSubjectHref } from "../chat-repository";
 import { protectedProcedure } from "../trpc";
 
 const defaultInboxLimit = 50;
+const candidateMatchRadiusMeters = 5000;
 
 export const activityRouter = {
   inbox: protectedProcedure
@@ -40,6 +54,7 @@ export const activityRouter = {
         chatConversations,
         reportUpdates,
         moderationEvents,
+        candidateMatches,
       ] = await Promise.all([
         ctx.alertRepository.listMemberDeliveryHistory({
           limit,
@@ -50,6 +65,7 @@ export const activityRouter = {
         }),
         listReportUpdateActivityRows(ctx.db, memberId, limit),
         listModerationEventActivityRows(ctx.db, memberId, limit),
+        listCandidateMatchActivityRows(ctx.db, memberId, limit),
       ]);
       const items = [
         ...alertDeliveries.map(toAlertDeliveryInboxItem),
@@ -58,6 +74,7 @@ export const activityRouter = {
         ),
         ...reportUpdates.map(toReportUpdateInboxItem),
         ...moderationEvents.map(toModerationEventInboxItem),
+        ...candidateMatches.map(toCandidateMatchInboxItem),
       ].sort(compareInboxItems);
 
       return {
@@ -104,6 +121,14 @@ interface ModerationEventActivityRow {
   note: string | null;
   reason: string;
   report: ActivityReportRow;
+}
+
+interface CandidateMatchActivityRow {
+  candidate: ActivityReportRow;
+  createdAt: Date;
+  distanceMeters: number;
+  locationLabel: string;
+  ownedReport: ActivityReportRow;
 }
 
 const activityReportKindByType = {
@@ -183,6 +208,89 @@ function listModerationEventActivityRows(
     .limit(limit);
 }
 
+function listCandidateMatchActivityRows(
+  db: Database,
+  memberId: string,
+  limit: number,
+) {
+  const ownedReport = alias(Report, "owned_report");
+  const ownedReportLocation = alias(ReportLocation, "owned_report_location");
+  const candidateReport = alias(Report, "candidate_report");
+  const candidateReportLocation = alias(
+    ReportLocation,
+    "candidate_report_location",
+  );
+  const distanceMeters = sql<number>`ST_Distance(${ownedReportLocation.exactPoint}::geography, ${candidateReportLocation.exactPoint}::geography)`;
+
+  return db
+    .select({
+      candidate: {
+        deletedAt: candidateReport.deletedAt,
+        falseReportedAt: candidateReport.falseReportedAt,
+        hiddenAt: candidateReport.hiddenAt,
+        id: candidateReport.id,
+        outcome: candidateReport.outcome,
+        status: candidateReport.status,
+        title: candidateReport.title,
+        type: candidateReport.type,
+      },
+      createdAt: candidateReport.createdAt,
+      distanceMeters,
+      locationLabel: candidateReportLocation.label,
+      ownedReport: {
+        deletedAt: ownedReport.deletedAt,
+        falseReportedAt: ownedReport.falseReportedAt,
+        hiddenAt: ownedReport.hiddenAt,
+        id: ownedReport.id,
+        outcome: ownedReport.outcome,
+        status: ownedReport.status,
+        title: ownedReport.title,
+        type: ownedReport.type,
+      },
+    })
+    .from(ownedReport)
+    .innerJoin(
+      ownedReportLocation,
+      eq(ownedReportLocation.reportId, ownedReport.id),
+    )
+    .innerJoin(
+      candidateReport,
+      and(
+        ne(candidateReport.caretakerId, memberId),
+        inArray(candidateReport.type, ["found_pet", "sighting"]),
+        eq(candidateReport.status, "active"),
+        eq(candidateReport.species, ownedReport.species),
+        gte(candidateReport.eventOccurredAt, ownedReport.eventOccurredAt),
+        isNull(candidateReport.deletedAt),
+        isNull(candidateReport.hiddenAt),
+        isNull(candidateReport.falseReportedAt),
+      ),
+    )
+    .innerJoin(
+      candidateReportLocation,
+      and(
+        eq(candidateReportLocation.reportId, candidateReport.id),
+        sql`ST_DWithin(${ownedReportLocation.exactPoint}::geography, ${candidateReportLocation.exactPoint}::geography, ${candidateMatchRadiusMeters})`,
+      ),
+    )
+    .where(
+      and(
+        eq(ownedReport.caretakerId, memberId),
+        eq(ownedReport.type, "lost_pet"),
+        eq(ownedReport.status, "active"),
+        isNull(ownedReport.deletedAt),
+        isNull(ownedReport.hiddenAt),
+        isNull(ownedReport.falseReportedAt),
+      ),
+    )
+    .orderBy(
+      desc(candidateReport.createdAt),
+      asc(distanceMeters),
+      desc(candidateReport.id),
+    )
+    .limit(limit) as Promise<CandidateMatchActivityRow[]>;
+}
+
 function toAlertDeliveryInboxItem(
   delivery: PersistedAlertNotificationDelivery,
 ): ActivityInboxItemOutput {
@@ -230,6 +338,31 @@ function toModerationEventInboxItem(
     occurredAt: toIsoDateTime(row.createdAt),
     type: "moderation_event",
   } satisfies ActivityInboxModerationEventItemOutput;
+}
+
+function toCandidateMatchInboxItem(
+  row: CandidateMatchActivityRow,
+): ActivityInboxItemOutput {
+  const id = buildCandidateMatchId(row);
+  const createdAt = toIsoDateTime(row.createdAt);
+
+  return {
+    id,
+    match: {
+      candidate: toActivityReportSummary(row.candidate),
+      confidence: "possible",
+      createdAt,
+      id,
+      locationLabel: row.locationLabel,
+      ownedReport: toActivityReportSummary(row.ownedReport),
+    },
+    occurredAt: createdAt,
+    type: "candidate_match",
+  } satisfies ActivityInboxCandidateMatchItemOutput;
+}
+
+function buildCandidateMatchId(row: CandidateMatchActivityRow) {
+  return `match:${row.ownedReport.id}:${row.candidate.id}`;
 }
 
 function toActivityReportSummary(

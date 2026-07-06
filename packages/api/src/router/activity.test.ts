@@ -18,6 +18,8 @@ const conversationId = "55555555-5555-4555-8555-555555555555";
 const messageId = "66666666-6666-4666-8666-666666666666";
 const reportUpdateId = "77777777-7777-4777-8777-777777777777";
 const moderationEventId = "88888888-8888-4888-8888-888888888888";
+const candidateReportId = "99999999-9999-4999-8999-999999999999";
+const candidateMatchId = `match:${reportId}:${candidateReportId}`;
 
 function createCaller(context: unknown) {
   return appRouter.createCaller(context as never);
@@ -75,10 +77,11 @@ describe("activity router", () => {
     expect(chatRepository.listInputs).toEqual([]);
   });
 
-  it("combines alerts, chats, report updates, and moderation newest first", async () => {
+  it("combines alerts, candidate matches, chats, report updates, and moderation newest first", async () => {
     const alertRepository = createFakeAlertRepository([createAlertDelivery()]);
     const chatRepository = createFakeChatRepository([createConversation()]);
     const db = createFakeActivityDb({
+      candidateMatches: [createCandidateMatchRow()],
       moderationEvents: [createModerationEventRow()],
       reportUpdates: [createReportUpdateRow()],
     });
@@ -94,11 +97,11 @@ describe("activity router", () => {
       },
     });
 
-    const inbox = await caller.activity.inbox({ limit: 4 });
+    const inbox = await caller.activity.inbox({ limit: 5 });
 
     expect(alertRepository.historyInputs).toEqual([
       {
-        limit: 4,
+        limit: 5,
         memberId: "member-camila",
       },
     ]);
@@ -107,8 +110,39 @@ describe("activity router", () => {
         viewerMemberId: "member-camila",
       },
     ]);
-    expect(db.limits).toEqual([4, 4]);
+    expect(db.limits).toEqual([5, 5, 5]);
     expect(inbox.items).toEqual([
+      {
+        id: candidateMatchId,
+        match: {
+          candidate: {
+            availability: "available",
+            href: `rastro://reportes/encontrados/${candidateReportId}`,
+            id: candidateReportId,
+            kind: "found-pet-report",
+            outcome: null,
+            status: "active",
+            title: "Perro encontrado en Sopocachi",
+            type: "found_pet",
+          },
+          confidence: "possible",
+          createdAt: "2026-07-01T12:08:00.000Z",
+          id: candidateMatchId,
+          locationLabel: "Sopocachi, La Paz",
+          ownedReport: {
+            availability: "available",
+            href: `rastro://reportes/perdidos/${reportId}`,
+            id: reportId,
+            kind: "lost-pet-report",
+            outcome: null,
+            status: "active",
+            title: "Toby",
+            type: "lost_pet",
+          },
+        },
+        occurredAt: "2026-07-01T12:08:00.000Z",
+        type: "candidate_match",
+      },
       {
         event: {
           action: "hide",
@@ -277,9 +311,11 @@ interface FakeActivityDb {
 }
 
 function createFakeActivityDb({
+  candidateMatches = [],
   moderationEvents = [],
   reportUpdates = [],
 }: {
+  candidateMatches?: unknown[];
   moderationEvents?: unknown[];
   reportUpdates?: unknown[];
 } = {}): FakeActivityDb {
@@ -289,23 +325,26 @@ function createFakeActivityDb({
   return {
     limits,
     select: () => {
-      const rows = selectCount === 0 ? reportUpdates : moderationEvents;
+      const rows =
+        selectCount === 0
+          ? reportUpdates
+          : selectCount === 1
+            ? moderationEvents
+            : candidateMatches;
       selectCount += 1;
 
-      return {
-        from: () => ({
-          innerJoin: () => ({
-            where: () => ({
-              orderBy: () => ({
-                limit: (limit: number) => {
-                  limits.push(limit);
-                  return Promise.resolve(rows.slice(0, limit));
-                },
-              }),
-            }),
-          }),
-        }),
+      const builder = {
+        from: () => builder,
+        innerJoin: () => builder,
+        limit: (limit: number) => {
+          limits.push(limit);
+          return Promise.resolve(rows.slice(0, limit));
+        },
+        orderBy: () => builder,
+        where: () => builder,
       };
+
+      return builder;
     },
   };
 }
@@ -345,6 +384,34 @@ function createModerationEventRow() {
       deletedAt: null,
       falseReportedAt: null,
       hiddenAt: new Date("2026-07-01T12:07:00.000Z"),
+      id: reportId,
+      outcome: null,
+      status: "active",
+      title: "Toby",
+      type: "lost_pet",
+    },
+  };
+}
+
+function createCandidateMatchRow() {
+  return {
+    candidate: {
+      deletedAt: null,
+      falseReportedAt: null,
+      hiddenAt: null,
+      id: candidateReportId,
+      outcome: null,
+      status: "active",
+      title: "Perro encontrado en Sopocachi",
+      type: "found_pet",
+    },
+    createdAt: new Date("2026-07-01T12:08:00.000Z"),
+    distanceMeters: 1200,
+    locationLabel: "Sopocachi, La Paz",
+    ownedReport: {
+      deletedAt: null,
+      falseReportedAt: null,
+      hiddenAt: null,
       id: reportId,
       outcome: null,
       status: "active",

@@ -26,6 +26,7 @@ export interface ActivityInboxQuery {
 
 export interface ActivityInbox {
   alertDeliveries: ActivityAlertDelivery[];
+  candidateMatches: ActivityCandidateMatch[];
   chatSummaries: ActivityChatSummary[];
   isOffline?: boolean;
   isStale?: boolean;

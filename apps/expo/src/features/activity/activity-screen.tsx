@@ -123,6 +123,13 @@ type ActivityInboxLoadState =
 
 const bottomInset = 156;
 const defaultEstimatedItemSize = 96;
+const emptyActivityInbox: ActivityInbox = {
+  alertDeliveries: [],
+  candidateMatches: [],
+  chatSummaries: [],
+  moderationEvents: [],
+  reportUpdates: [],
+};
 const activityDateFormatter = new Intl.DateTimeFormat("es-BO", {
   day: "2-digit",
   hour: "2-digit",
@@ -801,13 +808,16 @@ function getActivityModelInput(
     };
   }
 
+  const activityInbox = inbox ?? emptyActivityInbox;
+
   return {
-    alertDeliveries: inbox?.alertDeliveries ?? [],
-    chatSummaries: inbox?.chatSummaries ?? [],
-    isOffline: inbox?.isOffline,
-    isStale: inbox?.isStale,
-    moderationEvents: inbox?.moderationEvents ?? [],
-    reportUpdates: inbox?.reportUpdates ?? [],
+    alertDeliveries: activityInbox.alertDeliveries,
+    candidateMatches: activityInbox.candidateMatches,
+    chatSummaries: activityInbox.chatSummaries,
+    isOffline: activityInbox.isOffline,
+    isStale: activityInbox.isStale,
+    moderationEvents: activityInbox.moderationEvents,
+    reportUpdates: activityInbox.reportUpdates,
     session: modelSession,
   };
 }
@@ -878,6 +888,10 @@ function getActivityItemTestID(item: ActivityItemViewModel) {
 
   if (item.kind === "moderation-event") {
     return `activity-item-moderation-${getActivityIdWithoutPrefix(item, "moderation-event-")}`;
+  }
+
+  if (item.kind === "candidate-match") {
+    return `activity-item-match-${getActivityIdWithoutPrefix(item, "candidate-match-")}`;
   }
 
   return undefined;

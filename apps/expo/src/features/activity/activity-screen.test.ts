@@ -316,6 +316,7 @@ describe("Activity screen links", () => {
             title: "Mascota perdida cerca de ti",
           },
         ],
+        candidateMatches: [],
         chatSummaries: [
           {
             conversationId: "chat-conversation-1",
@@ -372,11 +373,63 @@ describe("Activity screen links", () => {
     ]);
   });
 
+  it("renders backend candidate match rows with candidate report actions", async () => {
+    shellContext.session = createMemberSession();
+    const repository = createScreenRepository(
+      Promise.resolve({
+        alertDeliveries: [],
+        candidateMatches: [
+          {
+            candidate: {
+              href: "rastro://reportes/encontrados/found-report-1",
+              id: "found-report-1",
+              kind: "found-pet-report",
+              title: "Perro encontrado en Sopocachi",
+            },
+            confidence: "possible",
+            createdAt: "2026-06-30T13:02:00.000Z",
+            id: "match:lost-report-1:found-report-1",
+            locationLabel: "Sopocachi, La Paz",
+            ownedReport: {
+              href: "rastro://reportes/perdidos/lost-report-1",
+              id: "lost-report-1",
+              title: "Toby",
+            },
+          },
+        ],
+        chatSummaries: [],
+        moderationEvents: [],
+        reportUpdates: [],
+      }),
+    );
+
+    void renderActivityScreen({ repository });
+    await runPendingEffects();
+    const screen = renderActivityScreen({ repository });
+    const listProps = getLegendListProps<{
+      data: Record<string, unknown>[];
+    }>(screen);
+
+    expect(listProps.data).toEqual([
+      expect.objectContaining({
+        testID: "activity-section-candidate-matches",
+        title: "Coincidencias",
+      }),
+      expect.objectContaining({
+        actionLabel: "Revisar coincidencia",
+        body: "Perro encontrado en Sopocachi podría coincidir con Toby.",
+        href: "rastro://reportes/encontrados/found-report-1",
+        testID: "activity-item-match-match:lost-report-1:found-report-1",
+      }),
+    ]);
+  });
+
   it("renders backend report update and moderation sections with report links", async () => {
     shellContext.session = createMemberSession();
     const repository = createScreenRepository(
       Promise.resolve({
         alertDeliveries: [],
+        candidateMatches: [],
         chatSummaries: [],
         moderationEvents: [
           {
@@ -504,6 +557,7 @@ describe("Activity screen links", () => {
     const repository = createScreenRepository(
       Promise.resolve({
         alertDeliveries: [],
+        candidateMatches: [],
         chatSummaries: [],
         isOffline: true,
         isStale: true,
@@ -606,6 +660,7 @@ function createMemberSession(): ShellSession {
 function createScreenRepository(
   result: Promise<ActivityInbox> = Promise.resolve({
     alertDeliveries: [],
+    candidateMatches: [],
     chatSummaries: [],
     moderationEvents: [],
     reportUpdates: [],
@@ -630,6 +685,7 @@ function createMixedActivityInbox(): ActivityInbox {
         title: "Mascota perdida cerca de ti",
       },
     ],
+    candidateMatches: [],
     chatSummaries: [
       {
         conversationId: "chat-conversation-1",
