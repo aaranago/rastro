@@ -235,7 +235,7 @@ export function ResourceProviderProfileScreen({
         source: `provider-details-contact-${action.kind}`,
       });
       void openProviderUrl({
-        label: action.label,
+        label: getContactActionFailureLabel(action),
         onFailure: setLinkFeedback,
         url,
       });
@@ -1014,7 +1014,40 @@ function buildContactUrl(action: {
 }
 
 function isWhatsAppLikeLabel(label: string) {
-  return /\bwhats\s*app\b|\bwhatsapp\b/i.test(label);
+  const normalized = label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/gi, "")
+    .toLowerCase();
+
+  return normalized.includes("whatsapp") || normalized === "wame";
+}
+
+function getContactActionFailureLabel(action: {
+  kind: ResourceContactOption["kind"];
+  label: string;
+}) {
+  if (action.kind === "whatsapp" || !isWhatsAppLikeLabel(action.label)) {
+    return action.label;
+  }
+
+  if (action.kind === "social") {
+    return "Social";
+  }
+
+  if (action.kind === "website") {
+    return "Web";
+  }
+
+  if (action.kind === "directions") {
+    return "Mapa";
+  }
+
+  if (action.kind === "email") {
+    return "Correo";
+  }
+
+  return "este enlace";
 }
 
 function normalizeContactPhoneForUrl(

@@ -400,7 +400,7 @@ describe("Resource Provider profile screen", () => {
         contactOptions: [
           {
             kind: "social",
-            label: "WhatsApp",
+            label: "Whats-App",
             value: "https://phishing.example/contact",
           },
         ],
@@ -411,7 +411,7 @@ describe("Resource Provider profile screen", () => {
     await flushEffects();
     const readyScreen = renderScreen(createProfileScreen(adapter));
 
-    expect(findText(readyScreen, "WhatsApp")).toBe(false);
+    expect(findText(readyScreen, "Whats-App")).toBe(false);
     expect(findText(readyScreen, "Social")).toBe(true);
 
     pressByText(readyScreen, "Social");
@@ -424,7 +424,7 @@ describe("Resource Provider profile screen", () => {
     expect(
       findText(
         feedbackScreen,
-        'No encontramos una app compatible para abrir "WhatsApp".',
+        'No encontramos una app compatible para abrir "Social".',
       ),
     ).toBe(true);
   });

@@ -630,7 +630,13 @@ function getCompactActionLabel(
 }
 
 function isWhatsAppLikeLabel(label: string) {
-  return /\bwhats\s*app\b|\bwhatsapp\b/i.test(label);
+  const normalized = label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/gi, "")
+    .toLowerCase();
+
+  return normalized.includes("whatsapp") || normalized === "wame";
 }
 
 function ProfileLink({
