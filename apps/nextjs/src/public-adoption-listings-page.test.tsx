@@ -132,6 +132,7 @@ describe("public Adoption Listing page", () => {
     expect(html).toContain("bo lpb sopocachi - zona aproximada");
     expect(html).toContain("Enviar mensaje en Rastro");
     expect(html).toContain("Escribir por WhatsApp");
+    expect(html).toContain('href="https://rastro.bo/descargar"');
     expect(html).toContain("Reportar");
     expect(html).toContain("Inicia sesión para reportar");
     expect(html).toContain(

@@ -129,6 +129,7 @@ describe("public found and sighting report pages", () => {
     expect(html).toContain("Descripcion del encuentro");
     expect(html).toContain("Enviar mensaje en Rastro");
     expect(html).toContain("Escribir por WhatsApp");
+    expect(html).toContain('href="https://rastro.bo/descargar"');
     expect(html).toContain("Reportar");
     expect(html).toContain(
       "/?auth=signin-required&amp;returnTo=%2Freportes%2Fencontrados%2Ffound-luna-db#auth",
@@ -180,7 +181,9 @@ describe("public found and sighting report pages", () => {
     expect(html).toContain("Toby fue visto en Miraflores DB");
     expect(html).toContain("Avistado");
     expect(html).toContain("Descripcion del avistamiento");
-    expect(html).toContain("Gracias. El equipo de Rastro revisará este reporte.");
+    expect(html).toContain(
+      "Gracias. El equipo de Rastro revisará este reporte.",
+    );
     expect(html).toContain('name="reportId" value="sighting-toby-db"');
     expect(html).toContain('name="reason"');
     expect(html).toContain("Enviar reporte");

@@ -32,7 +32,8 @@ export interface PublicReportPageLocation {
 }
 
 export const publicWebBaseUrl = "https://rastro.bo";
-export const appDownloadHref = `${publicWebBaseUrl}/descargar`;
+export const appDownloadPath = "/descargar";
+export const appDownloadHref = `${publicWebBaseUrl}${appDownloadPath}`;
 
 const speciesLabels = {
   bird: "Ave",
@@ -198,9 +199,7 @@ function buildBreedLabel(report: PublicReportDetail) {
   );
 }
 
-function formatReportLocationLabel(
-  location: PublicReportDetail["location"],
-) {
+function formatReportLocationLabel(location: PublicReportDetail["location"]) {
   const locationLabel = formatSafeLocationLabel(location.label);
 
   if (locationLabel !== "Zona elegida") {
@@ -223,8 +222,7 @@ function formatSafeLocationLabel(label: string) {
 }
 
 function isSafeLocationLabel(trimmed: string) {
-  const coordinateTextPattern =
-    /-?\d{1,2}\.\d{3,}\s*,\s*-?\d{1,3}\.\d{3,}/;
+  const coordinateTextPattern = /-?\d{1,2}\.\d{3,}\s*,\s*-?\d{1,3}\.\d{3,}/;
 
   return (
     trimmed.length > 0 &&
