@@ -1,8 +1,9 @@
 import * as React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PublicReportDetailViewModel } from "./public-report-detail";
 import {
+  buildPublicReportAbuseAuthReturnTo,
   PublicReportDetailContent,
   PublicReportDetailErrorState,
   PublicReportDetailUnavailableState,
@@ -10,18 +11,33 @@ import {
 
 (globalThis as { React?: typeof React }).React = React;
 
+const reactState = vi.hoisted(() => ({
+  setters: [] as ReturnType<typeof vi.fn>[],
+}));
+
+const reactNativeMocks = vi.hoisted(() => ({
+  openURL: vi.fn(),
+  share: vi.fn(),
+}));
+
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof React>("react");
 
   return {
     ...actual,
     useCallback: <TCallback,>(callback: TCallback) => callback,
-    useState: <TValue,>(initialValue: TValue | (() => TValue)) => [
-      typeof initialValue === "function"
-        ? (initialValue as () => TValue)()
-        : initialValue,
-      vi.fn(),
-    ],
+    useState: <TValue,>(initialValue: TValue | (() => TValue)) => {
+      const setter = vi.fn();
+
+      reactState.setters.push(setter);
+
+      return [
+        typeof initialValue === "function"
+          ? (initialValue as () => TValue)()
+          : initialValue,
+        setter,
+      ];
+    },
     useRef: <TValue,>(initialValue: TValue) => ({ current: initialValue }),
   };
 });
@@ -37,13 +53,13 @@ vi.mock("expo-router", () => ({
 vi.mock("react-native", () => ({
   ActivityIndicator: "ActivityIndicator",
   Linking: {
-    openURL: vi.fn(),
+    openURL: reactNativeMocks.openURL,
   },
   Modal: "Modal",
   Pressable: "Pressable",
   ScrollView: "ScrollView",
   Share: {
-    share: vi.fn(),
+    share: reactNativeMocks.share,
   },
   StyleSheet: {
     create: <TStyles extends Record<string, unknown>>(styles: TStyles) =>
@@ -100,6 +116,13 @@ vi.mock("../shell/shell-provider", () => ({
     },
   }),
 }));
+
+beforeEach(() => {
+  reactState.setters = [];
+  router.push.mockReset();
+  reactNativeMocks.openURL.mockReset();
+  reactNativeMocks.share.mockReset();
+});
 
 describe("PublicReportDetailContent", () => {
   it("renders the report detail without exposing raw ids and wires primary actions", () => {
@@ -184,6 +207,66 @@ describe("PublicReportDetailContent", () => {
       label: "Ver zona en mapa",
       url: "https://www.google.com/maps/search/?api=1&query=-16.5%2C-68.12",
     });
+  });
+
+  it("surfaces default contact action failures instead of swallowing them", async () => {
+    const screen = renderFunctionElement(
+      <PublicReportDetailContent
+        viewModel={createViewModel({
+          contactActions: [
+            {
+              href: "https://example.com/59170123456",
+              kind: "whatsapp",
+              label: "Escribir por WhatsApp",
+              phoneNumber: "",
+            },
+          ],
+          isCurrentMember: false,
+        })}
+      />,
+    );
+
+    pressByText(screen, "Escribir por WhatsApp");
+    await flushPromises();
+
+    expect(findStateSetterPayload("No se pudo abrir WhatsApp.")).toBe(true);
+  });
+
+  it("surfaces map and public-page open failures instead of swallowing them", async () => {
+    reactNativeMocks.openURL.mockRejectedValue(new Error("blocked"));
+    const screen = renderFunctionElement(
+      <PublicReportDetailContent viewModel={createViewModel()} />,
+    );
+
+    pressByText(screen, "Ver zona en mapa");
+    await flushPromises();
+    pressByText(screen, "Abrir página pública");
+    await flushPromises();
+
+    expect(
+      findStateSetterPayload("No pudimos abrir Mapas. Intenta de nuevo."),
+    ).toBe(true);
+    expect(
+      findStateSetterPayload(
+        "No pudimos abrir la página pública. Intenta de nuevo.",
+      ),
+    ).toBe(true);
+  });
+
+  it("surfaces share failures instead of swallowing them", async () => {
+    reactNativeMocks.share.mockRejectedValue(new Error("blocked"));
+    const screen = renderFunctionElement(
+      <PublicReportDetailContent viewModel={createViewModel()} />,
+    );
+
+    pressByText(screen, "Compartir");
+    await flushPromises();
+
+    expect(
+      findStateSetterPayload(
+        "No pudimos compartir el reporte. Intenta de nuevo.",
+      ),
+    ).toBe(true);
   });
 
   it("opens the abuse report sheet on load when requested from a nearby report action", () => {
@@ -296,6 +379,16 @@ describe("PublicReportDetailContent", () => {
   });
 });
 
+describe("public report abuse auth return target", () => {
+  it("keeps visitors inside the public report route and reopens the abuse sheet after sign-in", () => {
+    expect(
+      buildPublicReportAbuseAuthReturnTo(
+        createViewModel({ appPath: "/reportes/perdidos/report-lost-1" }),
+      ),
+    ).toBe("/reportes/perdidos/report-lost-1?reportar=1");
+  });
+});
+
 describe("PublicReportDetail load states", () => {
   it("shows unavailable moderation copy without a retry action", () => {
     const screen = renderFunctionElement(
@@ -329,6 +422,7 @@ function createViewModel(
     accentColor: "#D6453D",
     accentSoftColor: "#FBE8E6",
     abuseReportAction: null,
+    appPath: "/reportes/perdidos/report-lost-1",
     contactActions: [],
     contactLabel: "Chat en Rastro",
     description:
@@ -450,6 +544,23 @@ function pressByText(node: React.ReactNode, text: string) {
   handlePress();
 }
 
+async function flushPromises() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+function findStateSetterPayload(label: string): boolean {
+  return reactState.setters.some((setter) =>
+    setter.mock.calls.some(([payload]) => {
+      if (!isRecord(payload)) {
+        return false;
+      }
+
+      return payload.label === label;
+    }),
+  );
+}
+
 function getPressableTextLabels(node: React.ReactNode): string[] {
   return findElements(
     node,
@@ -531,4 +642,8 @@ function findText(node: React.ReactNode, text: string): boolean {
   return React.Children.toArray(node.props.children).some((child) =>
     findText(child, text),
   );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

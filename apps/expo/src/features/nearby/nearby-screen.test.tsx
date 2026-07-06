@@ -24,6 +24,10 @@ const reactState = vi.hoisted(() => ({
   values: [] as unknown[],
 }));
 
+const reactNativeMocks = vi.hoisted(() => ({
+  share: vi.fn(),
+}));
+
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof React>("react");
 
@@ -107,7 +111,7 @@ vi.mock("react-native", () => ({
   Pressable: "Pressable",
   ScrollView: "ScrollView",
   Share: {
-    share: vi.fn(),
+    share: reactNativeMocks.share,
   },
   StyleSheet: {
     absoluteFillObject: {},
@@ -281,6 +285,91 @@ describe("NearbyScreen launch sponsor banner", () => {
   });
 });
 
+describe("NearbyScreen report actions", () => {
+  beforeEach(() => {
+    resetReactHarness();
+    reactNativeMocks.share.mockReset();
+  });
+
+  it("surfaces list-card share failures in the header feedback", async () => {
+    reactNativeMocks.share.mockRejectedValue(new Error("share blocked"));
+    const adapter = createNearbyLostReportsAdapter(createNearbyResultWithReport());
+    const onShareReport = vi.fn<(reportId: string) => void>();
+
+    void renderNearbyScreen({
+      adapter,
+      onShareReport,
+    });
+    await runPendingEffects();
+    let screen = renderNearbyScreen({
+      adapter,
+      onShareReport,
+    });
+
+    pressByAccessibilityLabel(screen, "Compartir Bruno");
+    await flushPromises();
+    screen = renderNearbyScreen({
+      adapter,
+      onShareReport,
+    });
+
+    expect(onShareReport).toHaveBeenCalledWith("lost-bruno");
+    expect(
+      findText(screen, "No pudimos compartir el reporte. Intenta de nuevo."),
+    ).toBe(true);
+  });
+
+  it("keeps share and report actions available in map mode", async () => {
+    reactNativeMocks.share.mockRejectedValue(new Error("share blocked"));
+    const adapter = createNearbyLostReportsAdapter(createNearbyResultWithReport());
+    const onReport = vi.fn();
+    const onShareReport = vi.fn<(reportId: string) => void>();
+
+    void renderNearbyScreen({
+      adapter,
+      initialMode: "map",
+      onReport,
+      onShareReport,
+    });
+    await runPendingEffects();
+    let screen = renderNearbyScreen({
+      adapter,
+      initialMode: "map",
+      onReport,
+      onShareReport,
+    });
+
+    expect(
+      findElement(
+        screen,
+        (element) => element.props.testID === "nearby-map-report-actions",
+      ),
+    ).toBeDefined();
+
+    pressByAccessibilityLabel(screen, "Reportar Bruno");
+    pressByAccessibilityLabel(screen, "Compartir Bruno");
+    await flushPromises();
+    screen = renderNearbyScreen({
+      adapter,
+      initialMode: "map",
+      onReport,
+      onShareReport,
+    });
+
+    expect(onReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        href: "/reportes/perdidos/lost-bruno",
+        id: "lost-bruno",
+        reportKind: "lost-pet-report",
+      }),
+    );
+    expect(onShareReport).toHaveBeenCalledWith("lost-bruno");
+    expect(
+      findText(screen, "No pudimos compartir el reporte. Intenta de nuevo."),
+    ).toBe(true);
+  });
+});
+
 type NearbyScreenTestProps = React.ComponentProps<typeof NearbyScreen>;
 
 type ElementProps = Record<string, unknown> & {
@@ -307,6 +396,16 @@ function renderNearbyScreen(
   );
 }
 
+function resetReactHarness() {
+  reactState.cursor = 0;
+  reactState.effectCursor = 0;
+  reactState.effects = [];
+  reactState.pendingEffects = [];
+  reactState.refCursor = 0;
+  reactState.refs = [];
+  reactState.values = [];
+}
+
 async function runPendingEffects() {
   const effects = [...reactState.pendingEffects];
 
@@ -320,9 +419,48 @@ async function runPendingEffects() {
   await Promise.resolve();
 }
 
-function createNearbyLostReportsAdapter(): NearbyLostReportsAdapter {
+async function flushPromises() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+function createNearbyLostReportsAdapter(
+  result: NearbyLostReportsResult = emptyNearbyResult,
+): NearbyLostReportsAdapter {
   return {
-    searchLostPetReports: vi.fn().mockResolvedValue(emptyNearbyResult),
+    searchLostPetReports: vi.fn().mockResolvedValue(result),
+  };
+}
+
+function createNearbyResultWithReport(): NearbyLostReportsResult {
+  return {
+    ...emptyNearbyResult,
+    reports: [
+      {
+        alertPriority: "urgent",
+        coordinates: {
+          latitude: -16.501,
+          longitude: -68.121,
+        },
+        id: "lost-bruno",
+        lastSeenAtLabel: "Hoy, 09:00",
+        lastSeenSummary: "Visto cerca de la plaza.",
+        locationCellLabel: "Sopocachi",
+        petName: "Bruno",
+        publicLocation: {
+          kind: "approximate",
+        },
+        reportKind: "lost-pet-report",
+        shareTarget: {
+          appDeepLink: "rastro://reportes/perdidos/lost-bruno",
+          message: "Ayuda a encontrar a Bruno en Rastro.",
+          path: "/reportes/perdidos/lost-bruno",
+          title: "Mascota perdida: Bruno",
+          webUrl: "https://rastro.bo/reportes/perdidos/lost-bruno",
+        },
+        species: "Perro",
+      },
+    ],
   };
 }
 
@@ -510,6 +648,23 @@ function findText(node: React.ReactNode, text: string): boolean {
   return React.Children.toArray(node.props.children).some((child) =>
     findText(child, text),
   );
+}
+
+function pressByAccessibilityLabel(
+  node: React.ReactNode,
+  accessibilityLabel: string,
+) {
+  const target = findElement(
+    node,
+    (element) => element.props.accessibilityLabel === accessibilityLabel,
+  );
+  const onPress = target?.props.onPress;
+
+  if (typeof onPress !== "function") {
+    throw new Error(`Expected pressable ${accessibilityLabel}.`);
+  }
+
+  (onPress as () => void)();
 }
 
 function isReactNodeArray(node: React.ReactNode): node is React.ReactNode[] {

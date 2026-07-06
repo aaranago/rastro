@@ -210,15 +210,18 @@ export function buildNearbyLostReportsViewModel(
   );
 
   if (cards.length === 0) {
+    const isMaxRadius = isMaxNearbyRadius(input.radiusKm);
+
     return {
       ...base,
       kind: "empty",
       locationLabel: location.label,
       locationSourceLabel: formatLocationSource(location),
-      message:
-        "No hay reportes de mascotas perdidas en este radio. Prueba ampliando la búsqueda.",
+      message: isMaxRadius
+        ? "No hay reportes de mascotas perdidas en este radio. Prueba con otra zona de búsqueda."
+        : "No hay reportes de mascotas perdidas en este radio. Prueba ampliando la búsqueda.",
       offlineLabel: buildOfflineLabel(input.result.value),
-      radiusActionLabel: "Cambiar radio",
+      radiusActionLabel: isMaxRadius ? "Cambiar zona" : "Ampliar radio",
       searchBoundaryLabel,
       title: "No hay reportes cerca",
     };
@@ -237,6 +240,10 @@ export function buildNearbyLostReportsViewModel(
     title: "Reportes cerca de ti",
     urgentAlert: buildUrgentAlert(input.result.value.reports),
   };
+}
+
+function isMaxNearbyRadius(radiusKm: NearbyRadiusKm) {
+  return radiusKm === nearbyRadiusOptionsKm[nearbyRadiusOptionsKm.length - 1];
 }
 
 function resolveLocation(

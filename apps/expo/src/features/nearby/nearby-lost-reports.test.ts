@@ -1372,6 +1372,37 @@ describe("nearby Lost Pet Report discovery", () => {
     expect(viewModel.message).not.toContain("Lost Pet Reports");
   });
 
+  it("switches the empty-state action to changing zone at maximum radius", () => {
+    const viewModel = buildNearbyLostReportsViewModel({
+      locationState: { kind: "ready", location: resolvedManualLocation },
+      mode: "list",
+      radiusKm: 20,
+      result: {
+        kind: "success",
+        value: {
+          ...buildCachedNearbyResult({ reports: [] }),
+          query: {
+            categories: ["lost-pet-report"],
+            location: resolvedManualLocation,
+            radiusKm: 20,
+          },
+          searchBoundary: {
+            center: resolvedManualLocation,
+            engine: "rastro-postgis-radius",
+            owner: "rastro",
+            publicLocationPrecision: "location-cell",
+            radiusKm: 20,
+          },
+        },
+      },
+    });
+
+    assertNearbyViewModelKind(viewModel, "empty");
+    expect(viewModel.radiusActionLabel).toBe("Cambiar zona");
+    expect(viewModel.message).toContain("otra zona");
+    expect(viewModel.message).not.toContain("ampliando");
+  });
+
   it("marks stale cached results while preserving compact radius options", async () => {
     const adapter = createStaticNearbyLostReportsAdapter({
       isOffline: true,

@@ -46,6 +46,11 @@ type PublicReportDetailLoadState =
   | { kind: "ready"; viewModel: PublicReportDetailViewModel }
   | { kind: "unavailable" };
 
+interface PublicReportActionFeedback {
+  kind: "error";
+  label: string;
+}
+
 export function PublicReportDetailScreen({
   adapter,
   expectedType,
@@ -114,10 +119,14 @@ export function PublicReportDetailScreen({
         isVisitor={session.kind === "visitor"}
         onReportAbuse={adapter.reportAbuse}
         onRequestMemberSignIn={() => {
+          const returnTo = buildPublicReportAbuseAuthReturnTo(
+            loadState.viewModel,
+          );
+
           requestAuthPrompt({
-            returnTo: loadState.viewModel.shareUrl,
+            returnTo,
             sourceHref: `rastro://auth/sign-in?returnTo=${encodeURIComponent(
-              loadState.viewModel.shareUrl,
+              returnTo,
             )}`,
           });
         }}
@@ -179,6 +188,8 @@ export function PublicReportDetailContent({
     isSubmitting: false,
     reason: "other",
   }));
+  const [actionFeedback, setActionFeedback] =
+    React.useState<PublicReportActionFeedback | null>(null);
   const openExternalUrl = React.useCallback((href: string) => {
     return Linking.openURL(href);
   }, []);
@@ -195,53 +206,79 @@ export function PublicReportDetailContent({
     [openExternalUrl, router],
   );
   const handleOpenContactAction = React.useCallback(
-    (action: PublicReportDetailViewModel["contactActions"][number]) => {
+    async (action: PublicReportDetailViewModel["contactActions"][number]) => {
       if (onOpenContactAction) {
         onOpenContactAction(action);
         return;
       }
 
-      void runPublicContactAction(action, {
+      const result = await runPublicContactAction(action, {
         openChat: ({ href }) => {
           openInternalHref(href);
         },
         openURL: openExternalUrl,
       });
+
+      setActionFeedback(result.kind === "error" ? result : null);
     },
     [onOpenContactAction, openExternalUrl, openInternalHref],
   );
-  const handleOpenLocation = React.useCallback(() => {
+  const handleOpenLocation = React.useCallback(async () => {
     if (onOpenLocation) {
       onOpenLocation(viewModel.locationAction);
       return;
     }
 
-    void Linking.openURL(viewModel.locationAction.url).catch(() => undefined);
+    try {
+      await Linking.openURL(viewModel.locationAction.url);
+      setActionFeedback(null);
+    } catch {
+      setActionFeedback({
+        kind: "error",
+        label: "No pudimos abrir Mapas. Intenta de nuevo.",
+      });
+    }
   }, [onOpenLocation, viewModel.locationAction]);
-  const handleShare = React.useCallback(() => {
+  const handleShare = React.useCallback(async () => {
     if (onShare) {
       onShare();
       return;
     }
 
-    void Share.share({
-      message: viewModel.shareMessage,
-      title: viewModel.shareTitle,
-      url: viewModel.shareUrl,
-    }).catch(() => undefined);
+    try {
+      await Share.share({
+        message: viewModel.shareMessage,
+        title: viewModel.shareTitle,
+        url: viewModel.shareUrl,
+      });
+      setActionFeedback(null);
+    } catch {
+      setActionFeedback({
+        kind: "error",
+        label: "No pudimos compartir el reporte. Intenta de nuevo.",
+      });
+    }
   }, [
     onShare,
     viewModel.shareMessage,
     viewModel.shareTitle,
     viewModel.shareUrl,
   ]);
-  const handleOpenPublicPage = React.useCallback(() => {
+  const handleOpenPublicPage = React.useCallback(async () => {
     if (onOpenPublicPage) {
       onOpenPublicPage();
       return;
     }
 
-    void Linking.openURL(viewModel.shareUrl).catch(() => undefined);
+    try {
+      await Linking.openURL(viewModel.shareUrl);
+      setActionFeedback(null);
+    } catch {
+      setActionFeedback({
+        kind: "error",
+        label: "No pudimos abrir la página pública. Intenta de nuevo.",
+      });
+    }
   }, [onOpenPublicPage, viewModel.shareUrl]);
   const openReportSheet = React.useCallback(() => {
     if (!viewModel.abuseReportAction) {
@@ -374,7 +411,7 @@ export function PublicReportDetailContent({
                 accessibilityRole="button"
                 key={`${action.kind}:${action.href}`}
                 onPress={() => {
-                  handleOpenContactAction(action);
+                  void handleOpenContactAction(action);
                 }}
                 testID={`public-report-contact-${action.kind}-${index}`}
                 style={[
@@ -412,7 +449,9 @@ export function PublicReportDetailContent({
         <Pressable
           accessibilityLabel={viewModel.locationAction.label}
           accessibilityRole="button"
-          onPress={handleOpenLocation}
+          onPress={() => {
+            void handleOpenLocation();
+          }}
           testID="public-report-location-action"
           style={styles.secondaryAction}
         >
@@ -424,7 +463,9 @@ export function PublicReportDetailContent({
         <Pressable
           accessibilityLabel={`Compartir ${viewModel.title}`}
           accessibilityRole="button"
-          onPress={handleShare}
+          onPress={() => {
+            void handleShare();
+          }}
           testID="public-report-share-action"
           style={styles.secondaryAction}
         >
@@ -454,6 +495,24 @@ export function PublicReportDetailContent({
           </Pressable>
         ) : null}
       </View>
+
+      {actionFeedback ? (
+        <View
+          accessibilityLabel={actionFeedback.label}
+          accessibilityLiveRegion="polite"
+          style={styles.actionFeedbackNotice}
+          testID="public-report-action-feedback"
+        >
+          <ShellIcon
+            color={shellColors.lost}
+            name="exclamationmark.triangle.fill"
+            size={18}
+          />
+          <Text selectable style={styles.actionFeedbackText}>
+            {actionFeedback.label}
+          </Text>
+        </View>
+      ) : null}
 
       {reportSheet.success ? (
         <View style={styles.reportSuccessNotice}>
@@ -536,7 +595,9 @@ export function PublicReportDetailContent({
       <Pressable
         accessibilityLabel={viewModel.publicPageLabel}
         accessibilityRole="button"
-        onPress={handleOpenPublicPage}
+        onPress={() => {
+          void handleOpenPublicPage();
+        }}
         testID="public-report-public-page-action"
         style={styles.tertiaryAction}
       >
@@ -873,6 +934,14 @@ function normalizeReportId(reportId: string | string[] | undefined) {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+export function buildPublicReportAbuseAuthReturnTo(
+  viewModel: Pick<PublicReportDetailViewModel, "appPath">,
+) {
+  const separator = viewModel.appPath.includes("?") ? "&" : "?";
+
+  return `${viewModel.appPath}${separator}reportar=1`;
+}
+
 function getContactActionIconName(
   kind: PublicReportDetailViewModel["contactActions"][number]["kind"],
 ) {
@@ -1034,6 +1103,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 const styles = StyleSheet.create({
+  actionFeedbackNotice: {
+    alignItems: "flex-start",
+    backgroundColor: "#FBE8E6",
+    borderColor: "#F0B8B3",
+    borderCurve: "continuous",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    padding: 12,
+  },
+  actionFeedbackText: {
+    color: shellColors.lost,
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
   content: {
     gap: 14,
     padding: 18,

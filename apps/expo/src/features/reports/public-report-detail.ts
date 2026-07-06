@@ -41,6 +41,7 @@ export interface PublicReportDetailViewModel {
   accentColor: string;
   accentSoftColor: string;
   abuseReportAction: PublicReportDetailAbuseReportAction | null;
+  appPath: string;
   contactActions: PublicReportContactOption[];
   contactLabel: string;
   description: string;
@@ -236,6 +237,7 @@ export function buildPublicReportDetailViewModel(
     abuseReportAction: report.owner.isCurrentMember
       ? null
       : buildAbuseReportAction(report.id),
+    appPath: shareTarget.path,
     contactActions,
     contactLabel,
     description: report.description.trim(),

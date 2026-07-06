@@ -88,6 +88,12 @@ export interface NearbySponsorDeliveryInput {
   surface: "launch_home_banner";
 }
 
+interface NearbyShareReportRequest {
+  id: string;
+  reportKind: NearbyPublicReportKind;
+  shareTarget: NearbyLostReportCardViewModel["shareTarget"];
+}
+
 const defaultInitialLocationState: NearbyLocationState = {
   kind: "not-requested",
 };
@@ -211,12 +217,18 @@ function useNearbyScreenController({
 
   const handleExpandRadius = useCallback(() => {
     setRadiusKm((currentRadiusKm) => {
-      const currentIndex = nearbyRadiusOptionsKm.indexOf(currentRadiusKm);
-      const nextIndex = (currentIndex + 1) % nearbyRadiusOptionsKm.length;
-
-      return nearbyRadiusOptionsKm[nextIndex] ?? currentRadiusKm;
+      return getNextNearbyRadiusKm(currentRadiusKm);
     });
   }, []);
+
+  const handleEmptyStateAction = useCallback(() => {
+    if (isMaxNearbyRadiusKm(radiusKm)) {
+      setIsLocationChooserOpen(true);
+      return;
+    }
+
+    handleExpandRadius();
+  }, [handleExpandRadius, radiusKm]);
 
   const handleCategoryToggle = useCallback(
     (category: NearbyPublicReportKind) => {
@@ -325,6 +337,20 @@ function useNearbyScreenController({
     [onReport],
   );
 
+  const handleShareReport = useCallback(
+    async (report: NearbyShareReportRequest) => {
+      onShareReport?.(report.id);
+      setReportFeedback(undefined);
+
+      try {
+        await shareNearbyLostReport(report, Share);
+      } catch {
+        setReportFeedback("No pudimos compartir el reporte. Intenta de nuevo.");
+      }
+    },
+    [onShareReport],
+  );
+
   const handleMapRecenter = useCallback(() => {
     if (searchLocation?.coordinates) {
       setMapCameraCenter(searchLocation.coordinates);
@@ -339,7 +365,7 @@ function useNearbyScreenController({
         lastSeenAtLabel={item.lastSeenAtLabel}
         onOpenReport={onOpenReport}
         onReport={handleReportPress}
-        onShareReport={onShareReport}
+        onShareReport={handleShareReport}
         photoUrl={item.photoUrl}
         priorityLabel={item.priorityLabel}
         publicLocationLabel={item.publicLocationLabel}
@@ -354,17 +380,19 @@ function useNearbyScreenController({
         verificationBadge={item.verificationBadge}
       />
     ),
-    [handleReportPress, onOpenReport, onShareReport],
+    [handleReportPress, handleShareReport, onOpenReport],
   );
 
   return {
     handleCategoryToggle,
-    handleExpandRadius,
+    handleEmptyStateAction,
     handleManualLocationPress,
     handleManualMapPinCancel,
     handleManualMapPinConfirm,
     handleMapRecenter,
+    handleReportPress,
     handleRetry,
+    handleShareReport,
     handleUseCurrentLocationPress,
     handleToggleLocationChooser,
     isLocationChooserOpen,
@@ -396,12 +424,14 @@ function useNearbyScreenController({
 
 function NearbyScreenContent({
   handleCategoryToggle,
-  handleExpandRadius,
+  handleEmptyStateAction,
   handleManualLocationPress,
   handleManualMapPinCancel,
   handleManualMapPinConfirm,
   handleMapRecenter,
+  handleReportPress,
   handleRetry,
+  handleShareReport,
   handleToggleLocationChooser,
   handleUseCurrentLocationPress,
   isLocationChooserOpen,
@@ -499,8 +529,10 @@ function NearbyScreenContent({
           mapPins={viewModel.mapPins}
           onCameraCenterChange={setMapCameraCenter}
           onOpenReport={onOpenReport}
+          onReport={handleReportPress}
           onRecenter={handleMapRecenter}
           onSelectReport={setSelectedReportId}
+          onShareReport={handleShareReport}
           providerState={getNativeMapProviderState()}
           selectedReportId={selectedReportId}
         />
@@ -511,7 +543,7 @@ function NearbyScreenContent({
   const content = getListStateContent(
     viewModel,
     handleRetry,
-    handleExpandRadius,
+    handleEmptyStateAction,
   );
 
   return (
@@ -1170,7 +1202,7 @@ const LostReportCard = memo(function LostReportCard({
   lastSeenAtLabel: string;
   onOpenReport?: (target: NearbyReportRouteTarget) => void;
   onReport?: (target: NearbyReportRouteTarget) => void;
-  onShareReport?: (reportId: string) => void;
+  onShareReport?: (report: NearbyShareReportRequest) => void;
   photoUrl?: string;
   priorityLabel: string;
   publicLocationLabel: string;
@@ -1189,10 +1221,7 @@ const LostReportCard = memo(function LostReportCard({
   }, [onOpenReport, routeTarget]);
 
   const handleShareReport = useCallback(() => {
-    onShareReport?.(id);
-    void shareNearbyLostReport({ reportKind, shareTarget }, Share).catch(
-      () => undefined,
-    );
+    onShareReport?.({ id, reportKind, shareTarget });
   }, [id, onShareReport, reportKind, shareTarget]);
 
   const handleReport = useCallback(() => {
@@ -1411,8 +1440,10 @@ function MapBrowse({
   mapPins,
   onCameraCenterChange,
   onOpenReport,
+  onReport,
   onRecenter,
   onSelectReport,
+  onShareReport,
   providerState,
   selectedReportId,
 }: {
@@ -1422,14 +1453,17 @@ function MapBrowse({
   mapPins: NearbyLostReportMapPinViewModel[];
   onCameraCenterChange: (coordinate: NearbyCoordinates) => void;
   onOpenReport?: (target: NearbyReportRouteTarget) => void;
+  onReport?: (target: NearbyReportRouteTarget) => void;
   onRecenter: () => void;
   onSelectReport: (reportId: string | undefined) => void;
+  onShareReport: (report: NearbyShareReportRequest) => void;
   providerState: ReportMapProviderState;
   selectedReportId?: string;
 }) {
   const selectedMapReportId = cards.some((card) => card.id === selectedReportId)
     ? selectedReportId
     : cards[0]?.id;
+  const selectedCard = cards.find((card) => card.id === selectedMapReportId);
   const reportPins = mapPins.map(toReportMapPin);
   const previews = cards.map(toReportMapPreview);
   const currentMapLocation = currentLocation?.coordinates
@@ -1454,6 +1488,14 @@ function MapBrowse({
       <Text selectable style={styles.mapTitle}>
         Zonas aproximadas
       </Text>
+      {selectedCard ? (
+        <MapSelectedReportActions
+          onOpenReport={onOpenReport}
+          onReport={onReport}
+          onShareReport={onShareReport}
+          report={selectedCard}
+        />
+      ) : null}
       <ReportMap
         cameraCenter={cameraCenter}
         currentLocation={currentMapLocation}
@@ -1466,6 +1508,77 @@ function MapBrowse({
         providerState={providerState}
         selectedReportId={selectedMapReportId}
       />
+    </View>
+  );
+}
+
+function MapSelectedReportActions({
+  onOpenReport,
+  onReport,
+  onShareReport,
+  report,
+}: {
+  onOpenReport?: (target: NearbyReportRouteTarget) => void;
+  onReport?: (target: NearbyReportRouteTarget) => void;
+  onShareReport: (report: NearbyShareReportRequest) => void;
+  report: NearbyLostReportCardViewModel;
+}) {
+  return (
+    <View
+      accessibilityLabel={`Acciones para ${report.title}`}
+      style={styles.mapActionStrip}
+      testID="nearby-map-report-actions"
+    >
+      <View style={styles.mapActionCopy}>
+        <Text numberOfLines={1} selectable style={styles.mapActionTitle}>
+          {report.title}
+        </Text>
+        <Text numberOfLines={1} selectable style={styles.mapActionMeta}>
+          {report.publicLocationLabel}
+        </Text>
+      </View>
+      <View style={styles.mapActionButtons}>
+        <Pressable
+          accessibilityLabel={`Compartir ${report.title}`}
+          accessibilityRole="button"
+          onPress={() => {
+            onShareReport({
+              id: report.id,
+              reportKind: report.reportKind,
+              shareTarget: report.shareTarget,
+            });
+          }}
+          style={styles.cardFooterButton}
+        >
+          <Text style={styles.shareText}>Compartir</Text>
+        </Pressable>
+        {onReport ? (
+          <Pressable
+            accessibilityLabel={`Reportar ${report.title}`}
+            accessibilityRole="button"
+            onPress={() => {
+              onReport(report.routeTarget);
+            }}
+            style={[styles.cardFooterButton, styles.reportCardButton]}
+          >
+            <Text style={styles.reportCardButtonText}>
+              {report.reportActionLabel}
+            </Text>
+          </Pressable>
+        ) : null}
+        {onOpenReport ? (
+          <Pressable
+            accessibilityLabel={`Abrir ${report.title}`}
+            accessibilityRole="button"
+            onPress={() => {
+              onOpenReport(report.routeTarget);
+            }}
+            style={styles.mapOpenButton}
+          >
+            <Text style={styles.mapOpenButtonText}>Ver</Text>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -1740,6 +1853,20 @@ function StatusPanel({
 
 function ListSeparator() {
   return <View style={styles.listSeparator} />;
+}
+
+function getNextNearbyRadiusKm(radiusKm: NearbyRadiusKm): NearbyRadiusKm {
+  const currentIndex = nearbyRadiusOptionsKm.indexOf(radiusKm);
+  const nextIndex =
+    currentIndex === -1
+      ? 0
+      : Math.min(currentIndex + 1, nearbyRadiusOptionsKm.length - 1);
+
+  return nearbyRadiusOptionsKm[nextIndex] ?? radiusKm;
+}
+
+function isMaxNearbyRadiusKm(radiusKm: NearbyRadiusKm) {
+  return radiusKm === nearbyRadiusOptionsKm[nearbyRadiusOptionsKm.length - 1];
 }
 
 function getLocationQueryKey(location: NearbySearchLocation | undefined) {
@@ -2241,6 +2368,56 @@ const styles = StyleSheet.create({
   },
   mapPanel: {
     gap: 10,
+  },
+  mapActionButtons: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  mapActionCopy: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  mapActionMeta: {
+    color: colors.inkMuted,
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
+  mapActionStrip: {
+    alignItems: "flex-start",
+    backgroundColor: colors.card,
+    borderColor: colors.line,
+    borderCurve: "continuous",
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "space-between",
+    padding: 12,
+  },
+  mapActionTitle: {
+    color: colors.ink,
+    fontSize: 16,
+    fontWeight: "900",
+    lineHeight: 21,
+  },
+  mapOpenButton: {
+    alignItems: "center",
+    backgroundColor: colors.inkStrong,
+    borderRadius: 999,
+    minHeight: 36,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  mapOpenButtonText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: "900",
   },
   mapTitle: {
     color: colors.ink,
