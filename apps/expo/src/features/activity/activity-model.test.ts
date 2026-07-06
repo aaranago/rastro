@@ -202,26 +202,6 @@ describe("Activity view model", () => {
 
     expect(viewModel.sections).toEqual([
       {
-        id: "nearby-alerts",
-        items: [
-          {
-            action: {
-              href: "rastro://reportes/perdidos/lost-report-1",
-              label: "Ver reporte",
-            },
-            body: "Toby fue reportado cerca de Sopocachi.",
-            id: "alert-alert-delivery-1",
-            kind: "nearby-lost-pet-alert",
-            meta: "Entregada",
-            occurredAt: "2026-06-30T13:00:00.000Z",
-            targetId: "lost-report-1",
-            title: "Mascota perdida cerca de ti",
-            tone: "urgent",
-          },
-        ],
-        title: "Historial de alertas",
-      },
-      {
         id: "chats",
         items: [
           {
@@ -240,6 +220,26 @@ describe("Activity view model", () => {
           },
         ],
         title: "Mensajes",
+      },
+      {
+        id: "nearby-alerts",
+        items: [
+          {
+            action: {
+              href: "rastro://reportes/perdidos/lost-report-1",
+              label: "Ver reporte",
+            },
+            body: "Toby fue reportado cerca de Sopocachi.",
+            id: "alert-alert-delivery-1",
+            kind: "nearby-lost-pet-alert",
+            meta: "Entregada",
+            occurredAt: "2026-06-30T13:00:00.000Z",
+            targetId: "lost-report-1",
+            title: "Mascota perdida cerca de ti",
+            tone: "urgent",
+          },
+        ],
+        title: "Historial de alertas",
       },
     ]);
   });
@@ -293,26 +293,6 @@ describe("Activity view model", () => {
 
     expect(viewModel.sections).toEqual([
       {
-        id: "report-updates",
-        items: [
-          {
-            action: {
-              href: "rastro://reportes/perdidos/lost-report-1",
-              label: "Ver reporte",
-            },
-            body: "Resultado registrado: Reunida.",
-            id: "report-update-report-update-1",
-            kind: "report-update",
-            meta: "Mascota perdida - Reunida",
-            occurredAt: "2026-06-30T13:05:00.000Z",
-            targetId: "lost-report-1",
-            title: "Toby",
-            tone: "info",
-          },
-        ],
-        title: "Actualizaciones",
-      },
-      {
         id: "moderation-events",
         items: [
           {
@@ -331,6 +311,26 @@ describe("Activity view model", () => {
           },
         ],
         title: "Moderación",
+      },
+      {
+        id: "report-updates",
+        items: [
+          {
+            action: {
+              href: "rastro://reportes/perdidos/lost-report-1",
+              label: "Ver reporte",
+            },
+            body: "Resultado registrado: Reunida.",
+            id: "report-update-report-update-1",
+            kind: "report-update",
+            meta: "Mascota perdida - Reunida",
+            occurredAt: "2026-06-30T13:05:00.000Z",
+            targetId: "lost-report-1",
+            title: "Toby",
+            tone: "info",
+          },
+        ],
+        title: "Actualizaciones",
       },
     ]);
   });

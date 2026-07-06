@@ -373,20 +373,20 @@ describe("Activity screen links", () => {
 
     expect(listProps.data).toEqual([
       expect.objectContaining({
-        testID: "activity-section-nearby-alerts",
-        title: "Historial de alertas",
-      }),
-      expect.objectContaining({
-        body: "Toby fue reportado cerca de Sopocachi.",
-        testID: "activity-item-alert-lost-report-1",
-      }),
-      expect.objectContaining({
         testID: "activity-section-chats",
         title: "Mensajes",
       }),
       expect.objectContaining({
         body: "Diego: Lo vi cerca de la plaza.",
         testID: "activity-item-chat-chat-conversation-1",
+      }),
+      expect.objectContaining({
+        testID: "activity-section-nearby-alerts",
+        title: "Historial de alertas",
+      }),
+      expect.objectContaining({
+        body: "Toby fue reportado cerca de Sopocachi.",
+        testID: "activity-item-alert-lost-report-1",
       }),
     ]);
   });
@@ -652,15 +652,6 @@ describe("Activity screen links", () => {
 
     expect(listProps.data).toEqual([
       expect.objectContaining({
-        testID: "activity-section-report-updates",
-        title: "Actualizaciones",
-      }),
-      expect.objectContaining({
-        body: "Resultado registrado: Reunida.",
-        href: "rastro://reportes/perdidos/lost-report-1",
-        testID: "activity-item-report-update-report-update-1",
-      }),
-      expect.objectContaining({
         testID: "activity-section-moderation-events",
         title: "Moderación",
       }),
@@ -668,6 +659,15 @@ describe("Activity screen links", () => {
         body: "El equipo retiró temporalmente este reporte: Ubicación exacta expuesta.",
         href: "/mis-reportes",
         testID: "activity-item-moderation-moderation-event-1",
+      }),
+      expect.objectContaining({
+        testID: "activity-section-report-updates",
+        title: "Actualizaciones",
+      }),
+      expect.objectContaining({
+        body: "Resultado registrado: Reunida.",
+        href: "rastro://reportes/perdidos/lost-report-1",
+        testID: "activity-item-report-update-report-update-1",
       }),
     ]);
   });

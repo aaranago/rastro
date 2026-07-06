@@ -372,7 +372,7 @@ function buildActivitySections({
   if (alertItems.length > 0) {
     sections.push({
       id: "nearby-alerts",
-      items: alertItems,
+      items: sortActivityItemsByRecency(alertItems),
       title: activityCopy.sections.nearbyAlerts,
     });
   }
@@ -387,7 +387,7 @@ function buildActivitySections({
   if (chatItems.length > 0) {
     sections.push({
       id: "chats",
-      items: chatItems,
+      items: sortActivityItemsByRecency(chatItems),
       title: activityCopy.sections.chats,
     });
   }
@@ -400,7 +400,7 @@ function buildActivitySections({
   if (reportUpdateItems.length > 0) {
     sections.push({
       id: "report-updates",
-      items: reportUpdateItems,
+      items: sortActivityItemsByRecency(reportUpdateItems),
       title: activityCopy.sections.reportUpdates,
     });
   }
@@ -408,7 +408,9 @@ function buildActivitySections({
   if (moderationEvents.length > 0) {
     sections.push({
       id: "moderation-events",
-      items: moderationEvents.map(toModerationEventActivityItem),
+      items: sortActivityItemsByRecency(
+        moderationEvents.map(toModerationEventActivityItem),
+      ),
       title: activityCopy.sections.moderationEvents,
     });
   }
@@ -416,12 +418,39 @@ function buildActivitySections({
   if (candidateMatches.length > 0) {
     sections.push({
       id: "candidate-matches",
-      items: candidateMatches.map(toCandidateMatchActivityItem),
+      items: sortActivityItemsByRecency(
+        candidateMatches.map(toCandidateMatchActivityItem),
+      ),
       title: activityCopy.sections.candidateMatches,
     });
   }
 
-  return sections;
+  return sortActivitySectionsByRecency(sections);
+}
+
+function sortActivitySectionsByRecency(
+  sections: ActivitySectionViewModel[],
+): ActivitySectionViewModel[] {
+  return [...sections].sort(
+    (left, right) =>
+      getLatestSectionOccurredAtMs(right) - getLatestSectionOccurredAtMs(left),
+  );
+}
+
+function getLatestSectionOccurredAtMs(section: ActivitySectionViewModel) {
+  return Math.max(
+    ...section.items.map((item) => Date.parse(item.occurredAt) || 0),
+  );
+}
+
+function sortActivityItemsByRecency(
+  items: readonly ActivityItemViewModel[],
+): ActivityItemViewModel[] {
+  return [...items].sort(
+    (left, right) =>
+      Date.parse(right.occurredAt) - Date.parse(left.occurredAt) ||
+      right.id.localeCompare(left.id),
+  );
 }
 
 function buildActivityOfflineLabel({
