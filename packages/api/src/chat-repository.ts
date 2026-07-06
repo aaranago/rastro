@@ -101,6 +101,7 @@ export interface ChatRepository {
     memberId: string;
   }): Promise<PersistedChatConversation>;
   listConversations(input: {
+    limit?: number;
     viewerMemberId: string;
   }): Promise<PersistedChatConversation[]>;
   openReportConversation(input: {
@@ -298,8 +299,9 @@ export function createDrizzleChatRepository(
 
       return reloadConversation(conversationId);
     },
-    listConversations: async ({ viewerMemberId }) => {
+    listConversations: async ({ limit, viewerMemberId }) => {
       const rows = await db.query.ChatConversation.findMany({
+        ...(typeof limit === "number" ? { limit } : {}),
         orderBy: [
           desc(ChatConversation.updatedAt),
           desc(ChatConversation.createdAt),

@@ -2,6 +2,7 @@ import type { TRPCRouterRecord } from "@trpc/server";
 import { TRPCError } from "@trpc/server";
 
 import {
+  confirmActiveReportInputSchema,
   createReportAbuseReportInputSchema,
   createReportInputSchema,
   createUploadSessionInputSchema,
@@ -10,6 +11,7 @@ import {
   ownedReportsInputSchema,
   reportDetailInputSchema,
   resolveReportInputSchema,
+  isCloseReportOutcomeForType,
   updateReportInputSchema,
   uploadSessionIdInputSchema,
 } from "@acme/validators";
@@ -558,15 +560,50 @@ export const reportRouter = {
   resolve: protectedProcedure
     .input(resolveReportInputSchema)
     .mutation(async ({ ctx, input }) => {
-      requireOwnedReport(
+      const currentReport = requireOwnedReport(
         await ctx.reportRepository.findById(input.id),
         ctx.session.user.id,
       );
+
+      if (
+        currentReport.status !== "active" ||
+        !isCloseReportOutcomeForType({
+          outcome: input.outcome,
+          type: currentReport.type,
+        })
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "El resultado no corresponde a este tipo de reporte.",
+        });
+      }
 
       const report = await ctx.reportRepository.resolve({
         reportId: input.id,
         outcome: input.outcome,
         actorId: ctx.session.user.id,
+      });
+
+      return toPublicReport(report, ctx.session.user.id);
+    }),
+  confirmActive: protectedProcedure
+    .input(confirmActiveReportInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const currentReport = requireOwnedReport(
+        await ctx.reportRepository.findById(input.id),
+        ctx.session.user.id,
+      );
+
+      if (currentReport.status !== "active") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Solo puedes confirmar reportes activos.",
+        });
+      }
+
+      const report = await ctx.reportRepository.confirmActive({
+        actorId: ctx.session.user.id,
+        reportId: input.id,
       });
 
       return toPublicReport(report, ctx.session.user.id);

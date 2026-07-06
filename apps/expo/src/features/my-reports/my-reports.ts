@@ -1,4 +1,5 @@
 import type { ReportOutcome } from "@acme/validators";
+import { closeReportOutcomesByType } from "@acme/validators";
 
 import type { RouterOutputs } from "../../utils/api";
 
@@ -6,6 +7,7 @@ export type MyReportSummary = RouterOutputs["report"]["mine"][number];
 export type MyReportsFilter = "active" | "closed" | "retired" | "review";
 
 export interface MyReportsRepository {
+  confirmActive(input: { id: string }): Promise<unknown>;
   deleteReport(input: { id: string }): Promise<{ deleted: true; id: string }>;
   listReports(): Promise<MyReportSummary[]>;
   resolveReport(input: {
@@ -18,6 +20,9 @@ export interface MyReportsApiClient {
   report: {
     delete: {
       mutate: (input: { id: string }) => Promise<{ deleted: true; id: string }>;
+    };
+    confirmActive: {
+      mutate: (input: { id: string }) => Promise<unknown>;
     };
     mine: {
       query: (input: Record<string, never>) => Promise<MyReportSummary[]>;
@@ -52,6 +57,7 @@ export interface MyReportsFilterOption {
 export interface MyReportCardViewModel {
   availabilityLabel: string;
   availabilityState: MyReportSummary["availability"]["state"];
+  canConfirmActive: boolean;
   canDelete: boolean;
   canResolve: boolean;
   eventLabel: string;
@@ -64,6 +70,7 @@ export interface MyReportCardViewModel {
   statusTone: "active" | "closed" | "danger" | "review";
   thumbnailUrl: string | null;
   title: string;
+  type: MyReportSummary["type"];
   typeLabel: string;
 }
 
@@ -161,6 +168,9 @@ export function createApiMyReportsRepository({
   client: MyReportsApiClient;
 }): MyReportsRepository {
   return {
+    confirmActive(input) {
+      return client.report.confirmActive.mutate(input);
+    },
     deleteReport(input) {
       return client.report.delete.mutate(input);
     },
@@ -180,7 +190,7 @@ export function buildMyReportsViewModel({
   filter: MyReportsFilter;
   reports: readonly MyReportSummary[];
 }): MyReportsViewModel {
-  const cards = reports.map(toMyReportCardViewModel);
+  const cards = reports.map(buildMyReportCardViewModel);
   const counts = cards.reduce<Record<MyReportsFilter, number>>(
     (accumulator, report) => {
       accumulator[classifyMyReportFilter(report)] += 1;
@@ -209,7 +219,7 @@ export function buildMyReportsViewModel({
   };
 }
 
-function toMyReportCardViewModel(
+export function buildMyReportCardViewModel(
   report: MyReportSummary,
 ): MyReportCardViewModel {
   const firstMedia = report.media[0];
@@ -220,6 +230,7 @@ function toMyReportCardViewModel(
         ? outcomeLabels[report.outcome]
         : report.availability.label,
     availabilityState: report.availability.state,
+    canConfirmActive: report.availability.state === "active",
     canDelete: report.availability.state !== "deleted",
     canResolve: report.availability.state === "active",
     eventLabel: formatDate(report.updatedAt),
@@ -237,11 +248,22 @@ function toMyReportCardViewModel(
     statusTone: getStatusTone(report),
     thumbnailUrl: firstMedia?.canonicalUrl ?? null,
     title: report.title.trim(),
+    type: report.type,
     typeLabel: typeLabels[report.type],
   };
 }
 
-function classifyMyReportFilter(report: {
+export function getMyReportResolveOptions(type: MyReportSummary["type"]) {
+  const validOutcomes = new Set<ReportOutcome>([
+    ...closeReportOutcomesByType[type],
+  ]);
+
+  return myReportResolveOptions.filter((option) =>
+    validOutcomes.has(option.value),
+  );
+}
+
+export function classifyMyReportFilter(report: {
   availabilityState: MyReportSummary["availability"]["state"];
 }) {
   if (report.availabilityState === "active") {

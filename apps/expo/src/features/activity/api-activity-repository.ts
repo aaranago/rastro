@@ -367,7 +367,7 @@ function normalizeOwnedReportPromptItem(
   const prompt = item.prompt;
 
   return {
-    href: prompt.report.href,
+    href: buildOwnedReportManagementHref(prompt.report.id),
     promptedAt: normalizeDateValue(item.occurredAt),
     prompt: {
       actionLabel: "Confirmar o actualizar",
@@ -379,6 +379,10 @@ function normalizeOwnedReportPromptItem(
       title: prompt.report.title,
     },
   };
+}
+
+function buildOwnedReportManagementHref(reportId: string) {
+  return `/(tabs)/(profile)/mis-reportes?reportId=${encodeURIComponent(reportId)}`;
 }
 
 function normalizeModerationEventItem(

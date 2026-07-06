@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseEnv } from "node:util";
 import type { ConfigContext, ExpoConfig } from "expo/config";
+import type { ConfigPlugin } from "@expo/config-plugins";
+import { AndroidConfig, withAndroidManifest } from "@expo/config-plugins";
 
 const defaultEasProjectId = "ba6b6ed0-beb7-429a-9410-19dc361607f3";
 const defaultLocationWhenInUsePermission =
@@ -45,7 +47,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     : {};
   const iosConfig = isRecord(config.ios?.config) ? config.ios.config : {};
 
-  return {
+  const expoConfig: ExpoConfig = {
     ...config,
     name: "Rastro",
     slug: "rastro",
@@ -158,7 +160,35 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ],
     ],
   };
+
+  return withRastroAndroidMainActivityConfigChanges(expoConfig);
 };
+
+const withRastroAndroidMainActivityConfigChanges: ConfigPlugin = (config) =>
+  withAndroidManifest(config, (modConfig) => {
+    const mainActivity = AndroidConfig.Manifest.getMainActivityOrThrow(
+      modConfig.modResults,
+    );
+    const configChanges =
+      mainActivity.$["android:configChanges"] ??
+      "keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode";
+    const configChangeValues = new Set(configChanges.split("|"));
+
+    configChangeValues.add("smallestScreenSize");
+    mainActivity.$["android:configChanges"] = [
+      "keyboard",
+      "keyboardHidden",
+      "orientation",
+      "screenSize",
+      "screenLayout",
+      "smallestScreenSize",
+      "uiMode",
+    ]
+      .filter((value) => configChangeValues.has(value))
+      .join("|");
+
+    return modConfig;
+  });
 
 export function loadExpoEnvFilesFromRepoRoot(
   repoRoot = join(__dirname, "..", ".."),

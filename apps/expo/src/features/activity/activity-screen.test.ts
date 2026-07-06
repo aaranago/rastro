@@ -298,7 +298,9 @@ describe("Activity screen links", () => {
       (element) => element.props.testID === "activity-empty-action",
     );
 
-    expect(repository.getInbox).toHaveBeenCalledWith({});
+    expect(repository.getInbox).toHaveBeenCalledWith({
+      cacheScope: "member_ana",
+    });
     expect(listProps.data).toEqual([]);
     expect(
       findText(listProps.ListEmptyComponent, "Sin actividad todavía"),
@@ -687,7 +689,10 @@ describe("Activity screen links", () => {
     }>(screen);
 
     expect(findText(listProps.ListHeaderComponent, "Mis reportes")).toBe(true);
-    expect(repository.getInbox).toHaveBeenCalledWith({ focus: "reports" });
+    expect(repository.getInbox).toHaveBeenCalledWith({
+      cacheScope: "member_ana",
+      focus: "reports",
+    });
     expect(listProps.data.map((item) => item.testID)).toEqual([
       "activity-section-report-updates",
       "activity-item-report-update-report-update-1",
@@ -715,6 +720,7 @@ describe("Activity screen links", () => {
       true,
     );
     expect(repository.getInbox).toHaveBeenCalledWith({
+      cacheScope: "member_ana",
       focus: "conversations",
     });
     expect(listProps.data.map((item) => item.testID)).toEqual([

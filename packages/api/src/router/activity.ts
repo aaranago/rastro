@@ -71,6 +71,7 @@ export const activityRouter = {
           : Promise.resolve([]),
         shouldLoadChatConversations(focus)
           ? ctx.chatRepository.listConversations({
+              limit,
               viewerMemberId: memberId,
             })
           : Promise.resolve([]),
@@ -91,7 +92,6 @@ export const activityRouter = {
             })
           : Promise.resolve([]),
       ]);
-      const nowIso = toIsoDateTime(now);
       const items = [
         ...alertDeliveries.map(toAlertDeliveryInboxItem),
         ...chatConversations.map((conversation) =>
@@ -100,9 +100,7 @@ export const activityRouter = {
         ...reportUpdates.map(toReportUpdateInboxItem),
         ...moderationEvents.map(toModerationEventInboxItem),
         ...candidateMatches.map(toCandidateMatchInboxItem),
-        ...ownedReportPrompts.map((prompt) =>
-          toOwnedReportPromptInboxItem(prompt, nowIso),
-        ),
+        ...ownedReportPrompts.map(toOwnedReportPromptInboxItem),
       ].sort(compareInboxItems);
 
       return {
@@ -383,7 +381,7 @@ function listOwnedReportPromptActivityRows(
         isNull(Report.falseReportedAt),
       ),
     )
-    .orderBy(asc(Report.updatedAt), desc(Report.id))
+    .orderBy(desc(Report.updatedAt), desc(Report.id))
     .limit(input.limit) as Promise<OwnedReportPromptActivityRow[]>;
 }
 
@@ -463,15 +461,15 @@ function buildCandidateMatchId(row: CandidateMatchActivityRow) {
 
 function toOwnedReportPromptInboxItem(
   row: OwnedReportPromptActivityRow,
-  occurredAt: string,
 ): ActivityInboxItemOutput {
   const id = `owned-report-prompt:${row.report.id}`;
+  const lastConfirmedAt = toIsoDateTime(row.report.updatedAt);
 
   return {
     id,
-    occurredAt,
+    occurredAt: lastConfirmedAt,
     prompt: {
-      lastConfirmedAt: toIsoDateTime(row.report.updatedAt),
+      lastConfirmedAt,
       report: toActivityReportSummary(row.report),
       staleAfterDays: staleActiveReportPromptAfterDays,
     },

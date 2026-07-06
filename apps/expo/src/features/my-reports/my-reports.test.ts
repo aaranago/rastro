@@ -4,6 +4,7 @@ import type { MyReportSummary } from "./my-reports";
 import {
   buildMyReportsViewModel,
   createApiMyReportsRepository,
+  getMyReportResolveOptions,
 } from "./my-reports";
 
 describe("my reports model", () => {
@@ -62,6 +63,7 @@ describe("my reports model", () => {
     expect(viewModel.reports).toEqual([
       expect.objectContaining({
         availabilityLabel: "Activo",
+        canConfirmActive: true,
         canDelete: true,
         canResolve: true,
         href: "/(tabs)/(nearby)/reportes/perdidos/report-active",
@@ -89,12 +91,27 @@ describe("my reports model", () => {
 
     expect(viewModel.reports[0]).toMatchObject({
       availabilityLabel: "Trasladada a refugio",
+      canConfirmActive: false,
       canDelete: true,
       canResolve: false,
       outcomeLabel: "Trasladada a refugio",
       primaryActionLabel: "Gestionar",
       statusTone: "closed",
     });
+  });
+
+  it("limits close outcomes to the report type", () => {
+    expect(
+      getMyReportResolveOptions("lost_pet").map((option) => option.value),
+    ).toEqual([
+      "reunited",
+      "transferred_to_shelter",
+      "unable_to_locate",
+      "inactive",
+    ]);
+    expect(
+      getMyReportResolveOptions("adoption").map((option) => option.value),
+    ).toEqual(["inactive", "adopted"]);
   });
 });
 
@@ -107,6 +124,12 @@ describe("my reports API repository", () => {
           mutate: vi.fn().mockResolvedValue({
             deleted: true,
             id: report.id,
+          }),
+        },
+        confirmActive: {
+          mutate: vi.fn().mockResolvedValue({
+            ...report,
+            updatedAt: new Date("2026-06-24T14:00:00.000Z"),
           }),
         },
         mine: {
@@ -128,6 +151,9 @@ describe("my reports API repository", () => {
       id: report.id,
       outcome: "reunited",
     });
+    await repository.confirmActive({
+      id: report.id,
+    });
     await repository.deleteReport({
       id: report.id,
     });
@@ -136,6 +162,9 @@ describe("my reports API repository", () => {
     expect(client.report.resolve.mutate).toHaveBeenCalledWith({
       id: report.id,
       outcome: "reunited",
+    });
+    expect(client.report.confirmActive.mutate).toHaveBeenCalledWith({
+      id: report.id,
     });
     expect(client.report.delete.mutate).toHaveBeenCalledWith({
       id: report.id,

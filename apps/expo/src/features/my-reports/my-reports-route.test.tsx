@@ -30,6 +30,10 @@ const myReports = vi.hoisted(() => ({
   },
 }));
 
+const routeParams = vi.hoisted(() => ({
+  value: {} as Record<string, unknown>,
+}));
+
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof React>("react");
 
@@ -41,6 +45,10 @@ vi.mock("react", async () => {
 
 vi.mock("~/utils/api", () => ({
   trpcClient: api.trpcClient,
+}));
+
+vi.mock("expo-router", () => ({
+  useLocalSearchParams: () => routeParams.value,
 }));
 
 vi.mock("~/features/shell/shell-provider", () => ({
@@ -63,6 +71,7 @@ vi.mock("~/features/my-reports", () => {
 describe("MisReportesRoute", () => {
   beforeEach(() => {
     myReports.capturedProps = null;
+    routeParams.value = {};
     shell.requestAuthPrompt.mockReset();
     shell.session = {
       email: "camila@example.com",
@@ -84,6 +93,16 @@ describe("MisReportesRoute", () => {
         kind: "member",
         memberId: "member-camila",
       },
+    });
+  });
+
+  it("passes a selected report id from route params into management", () => {
+    routeParams.value = { reportId: "report-active" };
+
+    void renderFunctionElement(<MisReportesRoute />);
+
+    expect(myReports.capturedProps).toMatchObject({
+      initialManageReportId: "report-active",
     });
   });
 

@@ -8,7 +8,13 @@ import { trpcClient } from "~/utils/api";
 
 const activityRepository = createCachedActivityRepository({
   cache: createInMemoryLastLoadedCache(),
-  cacheKey: (input) => `activity-inbox:${input.limit ?? "default"}`,
+  cacheKey: (input) =>
+    [
+      "activity-inbox",
+      input.cacheScope ?? "unknown-member",
+      input.focus ?? "all",
+      input.limit ?? "default",
+    ].join(":"),
   source: createApiActivityRepository({
     client: trpcClient,
   }),

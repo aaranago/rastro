@@ -111,6 +111,10 @@ export interface ReportRepository {
     reportId: string;
     patch: UpdateReportInput;
   }): Promise<PersistedReport>;
+  confirmActive(input: {
+    actorId: string;
+    reportId: DeleteReportInput["id"];
+  }): Promise<PersistedReport>;
   resolve(input: {
     reportId: string;
     outcome: ResolveReportInput["outcome"];
@@ -765,6 +769,32 @@ export function createDrizzleReportRepository(
         throw new Error("Updated report could not be reloaded.");
       }
       return updatedReport;
+    },
+    confirmActive: async ({ reportId, actorId }) => {
+      const confirmedAt = new Date();
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(Report)
+          .set({
+            updatedAt: confirmedAt,
+          })
+          .where(eq(Report.id, reportId));
+        await tx.insert(ReportLifecycleEvent).values({
+          actorId,
+          fromStatus: "active",
+          note: "confirmed_active",
+          reportId,
+          toStatus: "active",
+          type: "updated",
+        });
+      });
+
+      const confirmedReport = await repository.findById(reportId);
+      if (!confirmedReport) {
+        throw new Error("Confirmed report could not be reloaded.");
+      }
+      return confirmedReport;
     },
     resolve: async ({ reportId, outcome, actorId }) => {
       await db.transaction(async (tx) => {

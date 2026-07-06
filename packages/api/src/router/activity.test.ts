@@ -108,32 +108,12 @@ describe("activity router", () => {
     ]);
     expect(chatRepository.listInputs).toEqual([
       {
+        limit: 6,
         viewerMemberId: "member-camila",
       },
     ]);
     expect(db.limits).toEqual([6, 6, 6, 6]);
-    const [ownedPromptItem] = inbox.items;
-    expect(ownedPromptItem?.occurredAt).toEqual(expect.any(String));
     expect(inbox.items).toEqual([
-      {
-        id: `owned-report-prompt:${reportId}`,
-        occurredAt: ownedPromptItem?.occurredAt,
-        prompt: {
-          lastConfirmedAt: "2026-06-01T12:00:00.000Z",
-          report: {
-            availability: "available",
-            href: `rastro://reportes/perdidos/${reportId}`,
-            id: reportId,
-            kind: "lost-pet-report",
-            outcome: null,
-            status: "active",
-            title: "Toby",
-            type: "lost_pet",
-          },
-          staleAfterDays: 14,
-        },
-        type: "owned_report_prompt",
-      },
       {
         id: candidateMatchId,
         match: {
@@ -244,6 +224,25 @@ describe("activity router", () => {
         occurredAt: "2026-07-01T12:01:00.000Z",
         type: "alert_delivery",
       },
+      {
+        id: `owned-report-prompt:${reportId}`,
+        occurredAt: "2026-06-01T12:00:00.000Z",
+        prompt: {
+          lastConfirmedAt: "2026-06-01T12:00:00.000Z",
+          report: {
+            availability: "available",
+            href: `rastro://reportes/perdidos/${reportId}`,
+            id: reportId,
+            kind: "lost-pet-report",
+            outcome: null,
+            status: "active",
+            title: "Toby",
+            type: "lost_pet",
+          },
+          staleAfterDays: 14,
+        },
+        type: "owned_report_prompt",
+      },
     ]);
   });
 
@@ -276,6 +275,7 @@ describe("activity router", () => {
     expect(alertRepository.historyInputs).toEqual([]);
     expect(chatRepository.listInputs).toEqual([
       {
+        limit: 1,
         viewerMemberId: "member-camila",
       },
     ]);
@@ -351,6 +351,7 @@ function createFakeAlertRepository(
 
 type FakeChatRepository = ChatRepository & {
   listInputs: {
+    limit?: number;
     viewerMemberId: string;
   }[];
 };

@@ -29,6 +29,41 @@ export const reportOutcomeSchema = z.enum([
   "adopted",
 ]);
 
+export const closeReportOutcomesByType = {
+  adoption: ["adopted", "inactive"],
+  found_pet: [
+    "reunited",
+    "transferred_to_shelter",
+    "unable_to_locate",
+    "inactive",
+  ],
+  lost_pet: [
+    "reunited",
+    "transferred_to_shelter",
+    "unable_to_locate",
+    "inactive",
+  ],
+  sighting: [
+    "reunited",
+    "transferred_to_shelter",
+    "unable_to_locate",
+    "inactive",
+  ],
+} as const satisfies Record<
+  z.infer<typeof reportTypeSchema>,
+  readonly z.infer<typeof reportOutcomeSchema>[]
+>;
+
+export function isCloseReportOutcomeForType({
+  outcome,
+  type,
+}: {
+  outcome: z.infer<typeof reportOutcomeSchema>;
+  type: z.infer<typeof reportTypeSchema>;
+}) {
+  return closeReportOutcomesByType[type].includes(outcome as never);
+}
+
 export const petSpeciesSchema = z.enum([
   "dog",
   "cat",
@@ -1303,6 +1338,10 @@ export const resolveReportInputSchema = z.object({
   outcome: reportOutcomeSchema,
 });
 
+export const confirmActiveReportInputSchema = z.object({
+  id: z.string().min(1).max(128),
+});
+
 export const deleteReportInputSchema = z.object({
   id: z.string().min(1).max(128),
 });
@@ -1444,6 +1483,9 @@ export type OwnedReportsInput = z.infer<typeof ownedReportsInputSchema>;
 export type NearbyReportsInput = z.infer<typeof nearbyReportsInputSchema>;
 export type UpdateReportInput = z.infer<typeof updateReportInputSchema>;
 export type ResolveReportInput = z.infer<typeof resolveReportInputSchema>;
+export type ConfirmActiveReportInput = z.infer<
+  typeof confirmActiveReportInputSchema
+>;
 export type DeleteReportInput = z.infer<typeof deleteReportInputSchema>;
 export type OpenReportChatConversationInput = z.infer<
   typeof openReportChatConversationInputSchema

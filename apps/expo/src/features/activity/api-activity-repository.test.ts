@@ -114,7 +114,7 @@ describe("API Activity repository", () => {
       ],
       ownedReportPrompts: [
         {
-          href: "rastro://reportes/perdidos/lost-report-1",
+          href: "/(tabs)/(profile)/mis-reportes?reportId=lost-report-1",
           promptedAt: "2026-06-30T13:07:00.000Z",
           prompt: {
             actionLabel: "Confirmar o actualizar",

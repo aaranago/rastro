@@ -1828,6 +1828,82 @@ describe("report router", () => {
     });
   });
 
+  it("rejects close outcomes that do not match the report type", async () => {
+    let resolveWasCalled = false;
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      session: {
+        user: {
+          id: "member-camila",
+        },
+      },
+      reportRepository: {
+        findById: () => Promise.resolve(persistedSightingReport()),
+        resolve: () => {
+          resolveWasCalled = true;
+          return Promise.reject(
+            new Error("Invalid outcome should not reach persistence."),
+          );
+        },
+      },
+    });
+
+    await expect(
+      caller.report.resolve({
+        id: "report-sighting-sopocachi",
+        outcome: "adopted",
+      }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect(resolveWasCalled).toBe(false);
+  });
+
+  it("allows the caretaker to confirm an active report without closing it", async () => {
+    let confirmActiveInput:
+      | { actorId: string; reportId: string }
+      | undefined;
+    const caller = createCaller({
+      authApi: {},
+      db: {},
+      session: {
+        user: {
+          id: "member-camila",
+        },
+      },
+      reportRepository: {
+        confirmActive: (input: { actorId: string; reportId: string }) => {
+          confirmActiveInput = input;
+
+          return Promise.resolve(
+            persistedSightingReport({
+              updatedAt: new Date("2026-06-19T20:00:00.000Z"),
+            }),
+          );
+        },
+        findById: () => Promise.resolve(persistedSightingReport()),
+      },
+    });
+
+    const report = await caller.report.confirmActive({
+      id: "report-sighting-sopocachi",
+    });
+
+    expect(confirmActiveInput).toEqual({
+      actorId: "member-camila",
+      reportId: "report-sighting-sopocachi",
+    });
+    expect(report).toMatchObject({
+      id: "report-sighting-sopocachi",
+      outcome: null,
+      owner: {
+        isCurrentMember: true,
+      },
+      status: "active",
+    });
+  });
+
   it("rejects delete requests from members who are not the caretaker", async () => {
     let deleteWasCalled = false;
     const caller = createCaller({

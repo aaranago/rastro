@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useLocalSearchParams } from "expo-router";
 
 import {
   createApiMyReportsRepository,
@@ -12,7 +13,11 @@ const myReportsRepository = createApiMyReportsRepository({
 });
 
 export default function MisReportesRoute() {
+  const { reportId } = useLocalSearchParams<{
+    reportId?: string | string[];
+  }>();
   const { requestAuthPrompt, session } = useRastroShell();
+  const initialManageReportId = normalizeRouteParam(reportId);
   const myReportsSession = React.useMemo(() => {
     if (session.kind !== "member") {
       return { kind: "visitor" } as const;
@@ -26,6 +31,7 @@ export default function MisReportesRoute() {
 
   return (
     <MyReportsScreen
+      initialManageReportId={initialManageReportId}
       onRequestSignIn={() => {
         const returnTo = "/(tabs)/(profile)/mis-reportes";
 
@@ -40,4 +46,12 @@ export default function MisReportesRoute() {
       session={myReportsSession}
     />
   );
+}
+
+function normalizeRouteParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+
+  return value;
 }

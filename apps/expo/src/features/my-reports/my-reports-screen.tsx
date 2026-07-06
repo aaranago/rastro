@@ -23,7 +23,10 @@ import { AppStateScreen } from "../app-states";
 import { ShellIcon } from "../shell/shell-overlays";
 import { shellColors } from "../shell/shell-theme";
 import {
+  buildMyReportCardViewModel,
   buildMyReportsViewModel,
+  classifyMyReportFilter,
+  getMyReportResolveOptions,
   myReportResolveOptions,
   myReportsDefaultFilter,
 } from "./my-reports";
@@ -34,6 +37,7 @@ export type MyReportsSessionState =
   | { kind: "visitor" };
 
 export interface MyReportsScreenProps {
+  initialManageReportId?: string;
   onOpenReport?: (href: string) => void;
   onRequestSignIn?: () => void;
   repository: MyReportsRepository;
@@ -48,9 +52,21 @@ type LoadState =
 
 type ManagementState =
   | { kind: "closed" }
-  | { kind: "open"; pendingAction: ReportOutcome | "delete" | null; report: MyReportCardViewModel };
+  | {
+      confirmation: ManagementConfirmation | null;
+      kind: "open";
+      pendingAction: ManagementAction | null;
+      report: MyReportCardViewModel;
+    };
+
+type ManagementAction = "confirm-active" | "delete" | ReportOutcome;
+type ManagementConfirmation =
+  | { kind: "confirm-active" }
+  | { kind: "delete" }
+  | { kind: "resolve"; outcome: ReportOutcome };
 
 export function MyReportsScreen({
+  initialManageReportId,
   onOpenReport,
   onRequestSignIn,
   repository,
@@ -66,6 +82,7 @@ export function MyReportsScreen({
   const [management, setManagement] = React.useState<ManagementState>({
     kind: "closed",
   });
+  const initialManageKeyRef = React.useRef<string | null>(null);
   const memberKey = session.kind === "member" ? session.memberId : session.kind;
   const loadReports = React.useCallback(async () => {
     if (session.kind !== "member") {
@@ -121,6 +138,68 @@ export function MyReportsScreen({
     },
     [onOpenReport, router],
   );
+  const requestConfirmActive = React.useCallback(() => {
+    if (management.kind !== "open") {
+      return;
+    }
+
+    setManagement({
+      ...management,
+      confirmation: { kind: "confirm-active" },
+    });
+  }, [management]);
+  const requestResolveReport = React.useCallback(
+    (outcome: ReportOutcome) => {
+      if (management.kind !== "open") {
+        return;
+      }
+
+      setManagement({
+        ...management,
+        confirmation: { kind: "resolve", outcome },
+      });
+    },
+    [management],
+  );
+  const requestDeleteReport = React.useCallback(() => {
+    if (management.kind !== "open") {
+      return;
+    }
+
+    setManagement({
+      ...management,
+      confirmation: { kind: "delete" },
+    });
+  }, [management]);
+  const cancelManagementConfirmation = React.useCallback(() => {
+    if (management.kind !== "open" || management.pendingAction) {
+      return;
+    }
+
+    setManagement({
+      ...management,
+      confirmation: null,
+    });
+  }, [management]);
+  const confirmActiveReport = React.useCallback(async () => {
+    if (management.kind !== "open") {
+      return;
+    }
+
+    setManagement({ ...management, pendingAction: "confirm-active" });
+
+    try {
+      await repository.confirmActive({
+        id: management.report.id,
+      });
+      setManagement({ kind: "closed" });
+      setFeedback("Reporte confirmado como activo.");
+      await loadReports();
+    } catch {
+      setFeedback("No pudimos confirmar el reporte. Intenta de nuevo.");
+      setManagement({ ...management, pendingAction: null });
+    }
+  }, [loadReports, management, repository]);
   const resolveReport = React.useCallback(
     async (outcome: ReportOutcome) => {
       if (management.kind !== "open") {
@@ -161,6 +240,62 @@ export function MyReportsScreen({
       setManagement({ ...management, pendingAction: null });
     }
   }, [loadReports, management, repository]);
+  const confirmManagementAction = React.useCallback(() => {
+    if (management.kind !== "open" || !management.confirmation) {
+      return;
+    }
+
+    if (management.confirmation.kind === "confirm-active") {
+      void confirmActiveReport();
+      return;
+    }
+
+    if (management.confirmation.kind === "delete") {
+      void deleteReport();
+      return;
+    }
+
+    void resolveReport(management.confirmation.outcome);
+  }, [confirmActiveReport, deleteReport, management, resolveReport]);
+
+  React.useEffect(() => {
+    if (!initialManageReportId) {
+      return;
+    }
+
+    if (loadState.kind !== "ready") {
+      return;
+    }
+
+    const initialManageKey = `${memberKey}:${initialManageReportId}`;
+
+    if (initialManageKeyRef.current === initialManageKey) {
+      return;
+    }
+
+    const report = loadState.reports.find(
+      (candidate) => candidate.id === initialManageReportId,
+    );
+
+    if (!report) {
+      return;
+    }
+
+    const reportViewModel = buildMyReportCardViewModel(report);
+
+    initialManageKeyRef.current = initialManageKey;
+    setFilter(
+      classifyMyReportFilter({
+        availabilityState: reportViewModel.availabilityState,
+      }),
+    );
+    setManagement({
+      confirmation: null,
+      kind: "open",
+      pendingAction: null,
+      report: reportViewModel,
+    });
+  }, [initialManageReportId, loadState, memberKey]);
 
   if (session.kind === "loading") {
     return (
@@ -320,6 +455,7 @@ export function MyReportsScreen({
               key={report.id}
               onManage={() => {
                 setManagement({
+                  confirmation: null,
                   kind: "open",
                   pendingAction: null,
                   report,
@@ -336,13 +472,17 @@ export function MyReportsScreen({
 
       {management.kind === "open" ? (
         <MyReportManagementSheet
+          confirmation={management.confirmation}
+          onCancelConfirmation={cancelManagementConfirmation}
           onClose={() => {
             if (!management.pendingAction) {
               setManagement({ kind: "closed" });
             }
           }}
-          onDelete={deleteReport}
-          onResolve={resolveReport}
+          onConfirmAction={confirmManagementAction}
+          onConfirmActive={requestConfirmActive}
+          onDelete={requestDeleteReport}
+          onResolve={requestResolveReport}
           pendingAction={management.pendingAction}
           report={management.report}
         />
@@ -424,19 +564,28 @@ function MyReportCard({
 }
 
 function MyReportManagementSheet({
+  confirmation,
+  onCancelConfirmation,
   onClose,
+  onConfirmAction,
+  onConfirmActive,
   onDelete,
   onResolve,
   pendingAction,
   report,
 }: {
+  confirmation: ManagementConfirmation | null;
+  onCancelConfirmation: () => void;
   onClose: () => void;
+  onConfirmAction: () => void;
+  onConfirmActive: () => void;
   onDelete: () => void;
   onResolve: (outcome: ReportOutcome) => void;
-  pendingAction: ReportOutcome | "delete" | null;
+  pendingAction: ManagementAction | null;
   report: MyReportCardViewModel;
 }) {
   const isBusy = pendingAction !== null;
+  const resolveOptions = getMyReportResolveOptions(report.type);
 
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible>
@@ -466,9 +615,35 @@ function MyReportManagementSheet({
             {report.title}
           </Text>
 
+          {confirmation ? (
+            <ManagementConfirmationPanel
+              confirmation={confirmation}
+              isBusy={isBusy}
+              onCancel={onCancelConfirmation}
+              onConfirm={onConfirmAction}
+            />
+          ) : null}
+
+          {!confirmation && report.canConfirmActive ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={isBusy}
+              onPress={onConfirmActive}
+              style={styles.confirmActiveButton}
+            >
+              <View style={styles.outcomeCopy}>
+                <Text style={styles.outcomeLabel}>Sigue activa</Text>
+                <Text style={styles.outcomeBody}>
+                  Mantener visible y actualizar la fecha de revisión.
+                </Text>
+              </View>
+              <ShellIcon color={shellColors.primary} name="checkmark.seal.fill" size={16} />
+            </Pressable>
+          ) : null}
+
           {report.canResolve ? (
             <View style={styles.outcomeList}>
-              {myReportResolveOptions.map((option) => (
+              {resolveOptions.map((option) => (
                 <Pressable
                   accessibilityRole="button"
                   disabled={isBusy}
@@ -535,6 +710,83 @@ function MyReportManagementSheet({
   );
 }
 
+function ManagementConfirmationPanel({
+  confirmation,
+  isBusy,
+  onCancel,
+  onConfirm,
+}: {
+  confirmation: ManagementConfirmation;
+  isBusy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const copy = getManagementConfirmationCopy(confirmation);
+
+  return (
+    <View style={styles.confirmationPanel}>
+      <Text selectable style={styles.confirmationTitle}>
+        {copy.title}
+      </Text>
+      <Text selectable style={styles.confirmationBody}>
+        {copy.body}
+      </Text>
+      <View style={styles.confirmationActions}>
+        <Pressable
+          accessibilityRole="button"
+          disabled={isBusy}
+          onPress={onCancel}
+          style={styles.confirmationSecondary}
+        >
+          <Text style={styles.confirmationSecondaryText}>Cancelar</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          disabled={isBusy}
+          onPress={onConfirm}
+          style={styles.confirmationPrimary}
+        >
+          {isBusy ? (
+            <ActivityIndicator color={shellColors.white} />
+          ) : (
+            <Text style={styles.confirmationPrimaryText}>{copy.actionLabel}</Text>
+          )}
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function getManagementConfirmationCopy(confirmation: ManagementConfirmation) {
+  if (confirmation.kind === "confirm-active") {
+    return {
+      actionLabel: "Confirmar",
+      body: "Actualizaremos la fecha de revisión sin cerrar el reporte.",
+      title: "¿Confirmar que sigue activa?",
+    };
+  }
+
+  if (confirmation.kind === "delete") {
+    return {
+      actionLabel: "Retirar",
+      body: "El reporte dejará de aparecer en búsquedas públicas. Puedes conservarlo como historial.",
+      title: "¿Retirar este reporte?",
+    };
+  }
+
+  const option = myReportResolveOptions.find(
+    (candidate) => candidate.value === confirmation.outcome,
+  );
+
+  return {
+    actionLabel: "Cerrar",
+    body:
+      option?.body ??
+      "El reporte se cerrará con este resultado y dejaremos de mostrarlo como activo.",
+    title: `¿Cerrar como ${option?.label ?? "resultado"}?`,
+  };
+}
+
 const styles = StyleSheet.create({
   activePill: {
     backgroundColor: "#E4F4EB",
@@ -592,6 +844,72 @@ const styles = StyleSheet.create({
   },
   closedText: {
     color: shellColors.muted,
+  },
+  confirmActiveButton: {
+    alignItems: "center",
+    backgroundColor: shellColors.primarySoft,
+    borderColor: "#B7D6D0",
+    borderCurve: "continuous",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 58,
+    padding: 12,
+  },
+  confirmationActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  confirmationBody: {
+    color: shellColors.primaryDark,
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
+  confirmationPanel: {
+    backgroundColor: shellColors.primarySoft,
+    borderColor: "#B7D6D0",
+    borderCurve: "continuous",
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 10,
+    padding: 12,
+  },
+  confirmationPrimary: {
+    alignItems: "center",
+    backgroundColor: shellColors.primary,
+    borderRadius: 12,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 44,
+    paddingHorizontal: 12,
+  },
+  confirmationPrimaryText: {
+    color: shellColors.white,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  confirmationSecondary: {
+    alignItems: "center",
+    backgroundColor: shellColors.surface,
+    borderColor: shellColors.border,
+    borderRadius: 12,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 44,
+    paddingHorizontal: 12,
+  },
+  confirmationSecondaryText: {
+    color: shellColors.text,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  confirmationTitle: {
+    color: shellColors.text,
+    fontSize: 15,
+    fontWeight: "900",
   },
   content: {
     gap: 14,

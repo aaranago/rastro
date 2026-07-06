@@ -243,7 +243,7 @@ export function ActivityScreen({
       }
 
       repository
-        .getInbox(buildActivityInboxQuery(inboxLimit, focus))
+        .getInbox(buildActivityInboxQuery(inboxLimit, focus, memberSessionKey))
         .then((inbox) => {
           if (requestIdRef.current === requestId) {
             setLoadState({ inbox, kind: "ready" });
@@ -260,7 +260,7 @@ export function ActivityScreen({
           }
         });
     },
-    [focus, inboxLimit, repository, session.kind],
+    [focus, inboxLimit, memberSessionKey, repository, session.kind],
   );
 
   React.useEffect(() => {
@@ -916,8 +916,10 @@ function toActivityItemForScreen(
 function buildActivityInboxQuery(
   limit: number | undefined,
   focus: ActivityScreenFocus,
+  cacheScope: string,
 ): ActivityInboxQuery {
   return {
+    cacheScope,
     ...(focus === "all" ? {} : { focus }),
     ...(typeof limit === "number" ? { limit } : {}),
   };

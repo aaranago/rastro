@@ -18,6 +18,7 @@ vi.mock("react", async () => {
     useCallback: <TCallback,>(callback: TCallback) => callback,
     useEffect: vi.fn(),
     useMemo: <TValue,>(factory: () => TValue) => factory(),
+    useRef: <TValue,>(initialValue: TValue) => ({ current: initialValue }),
     useState: <TValue,>(initialValue: TValue | (() => TValue)) => {
       const value =
         typeof initialValue === "function"
@@ -133,6 +134,7 @@ describe("MyReportsScreen", () => {
 
 function createRepository() {
   return {
+    confirmActive: vi.fn(),
     deleteReport: vi.fn(),
     listReports: vi.fn().mockResolvedValue(forcedReports.value),
     resolveReport: vi.fn(),
