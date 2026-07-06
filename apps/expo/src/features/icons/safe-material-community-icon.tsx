@@ -83,6 +83,9 @@ const fallbackLabels: Partial<Record<MaterialCommunityIconName, string>> = {
 
 let materialCommunityIconFontStatus: IconFontStatus = "idle";
 let materialCommunityIconFontPromise: Promise<void> | undefined;
+const materialCommunityIconFontListeners = new Set<
+  (status: IconFontStatus) => void
+>();
 
 export function SafeMaterialCommunityIcon({
   color,
@@ -91,9 +94,9 @@ export function SafeMaterialCommunityIcon({
   size = 20,
   ...iconProps
 }: SafeMaterialCommunityIconProps) {
-  void loadMaterialCommunityIconFont();
+  const fontStatus = useMaterialCommunityIconFontStatus();
 
-  if (materialCommunityIconFontStatus === "loaded") {
+  if (fontStatus === "loaded") {
     return React.createElement(MaterialCommunityIcons, {
       color,
       name,
@@ -142,6 +145,43 @@ function TextIcon({
   );
 }
 
+function useMaterialCommunityIconFontStatus(): IconFontStatus {
+  const [fontStatus, setFontStatus] = React.useState(
+    materialCommunityIconFontStatus,
+  );
+
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const handleStatusChange = (nextStatus: IconFontStatus) => {
+      if (isMounted) {
+        setFontStatus(nextStatus);
+      }
+    };
+
+    materialCommunityIconFontListeners.add(handleStatusChange);
+    void loadMaterialCommunityIconFont().then(handleStatusChange);
+
+    return () => {
+      isMounted = false;
+      materialCommunityIconFontListeners.delete(handleStatusChange);
+    };
+  }, []);
+
+  return fontStatus;
+}
+
+function setMaterialCommunityIconFontStatus(nextStatus: IconFontStatus) {
+  if (materialCommunityIconFontStatus === nextStatus) {
+    return;
+  }
+
+  materialCommunityIconFontStatus = nextStatus;
+  for (const listener of materialCommunityIconFontListeners) {
+    listener(nextStatus);
+  }
+}
+
 async function loadMaterialCommunityIconFont(): Promise<IconFontStatus> {
   if (materialCommunityIconFontStatus === "loaded") {
     return "loaded";
@@ -152,18 +192,18 @@ async function loadMaterialCommunityIconFont(): Promise<IconFontStatus> {
   }
 
   if (!materialCommunityIconFontPromise) {
-    materialCommunityIconFontStatus = "loading";
+    setMaterialCommunityIconFontStatus("loading");
     materialCommunityIconFontPromise =
       typeof MaterialCommunityIcons.loadFont === "function"
         ? MaterialCommunityIcons.loadFont()
             .then(() => {
-              materialCommunityIconFontStatus = "loaded";
+              setMaterialCommunityIconFontStatus("loaded");
             })
             .catch(() => {
-              materialCommunityIconFontStatus = "failed";
+              setMaterialCommunityIconFontStatus("failed");
             })
         : Promise.resolve().then(() => {
-            materialCommunityIconFontStatus = "failed";
+            setMaterialCommunityIconFontStatus("failed");
           });
   }
 
