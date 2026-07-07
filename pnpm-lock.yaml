@@ -264,6 +264,9 @@ importers:
       expo-mcp:
         specifier: ~0.2.4
         version: 0.2.4(bufferutil@4.0.8)(utf-8-validate@6.0.4)
+      metro-cache:
+        specifier: 0.83.3
+        version: 0.83.3
       prettier:
         specifier: 'catalog:'
         version: 3.6.2
