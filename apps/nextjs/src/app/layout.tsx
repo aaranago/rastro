@@ -6,25 +6,21 @@ import { ThemeProvider } from "@acme/ui/theme";
 import { themeDetectorScript } from "@acme/ui/theme-script";
 import { Toaster } from "@acme/ui/toast";
 
-import { env } from "~/env";
+import { getPublicMetadataBaseUrl } from "~/public-web-url";
 import { TRPCReactProvider } from "~/trpc/react";
 
 import "~/app/styles.css";
 
+const publicMetadataBaseUrl = getPublicMetadataBaseUrl();
+
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    env.VERCEL_ENV === "production"
-      ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL ?? "rastro.bo"}`
-      : "http://localhost:3000",
-  ),
+  metadataBase: new URL(publicMetadataBaseUrl),
   title: "Rastro",
   description: "Red de recuperación de mascotas en Bolivia",
   openGraph: {
     title: "Rastro",
     description: "Red de recuperación de mascotas en Bolivia",
-    url: env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : "http://localhost:3000",
+    url: publicMetadataBaseUrl,
     siteName: "Rastro",
   },
   twitter: {

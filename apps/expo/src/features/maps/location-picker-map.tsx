@@ -104,6 +104,7 @@ export function ManualLocationPickerMap({
           accessibilityRole="button"
           onPress={() => onConfirm(selectedLocation)}
           style={styles.primaryButton}
+          testID="manual-location-map-confirm-button"
         >
           <Text style={styles.primaryButtonText}>Confirmar zona</Text>
         </Pressable>
@@ -155,11 +156,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mapFrame: {
-    aspectRatio: 0.9,
     backgroundColor: colors.bg,
     borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
+    height: 360,
     overflow: "hidden",
   },
   primaryButton: {

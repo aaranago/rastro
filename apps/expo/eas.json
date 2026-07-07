@@ -5,8 +5,8 @@
   },
   "build": {
     "base": {
-      "node": "22.12.0",
-      "pnpm": "9.15.4",
+      "node": "22.21.0",
+      "pnpm": "10.19.0",
       "ios": {
         "resourceClass": "m-medium"
       }
@@ -15,6 +15,7 @@
       "extends": "base",
       "developmentClient": true,
       "distribution": "internal",
+      "environment": "development",
       "env": {
         "EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS": "google,facebook"
       }
@@ -22,21 +23,58 @@
     "preview": {
       "extends": "base",
       "distribution": "internal",
+      "environment": "preview",
       "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://rastro.bo",
         "EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS": "google,facebook"
       },
       "ios": {
         "simulator": true
       }
     },
+    "internal": {
+      "extends": "base",
+      "distribution": "store",
+      "environment": "production",
+      "android": {
+        "autoIncrement": "versionCode",
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://rastro.bo",
+        "EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS": "google,facebook"
+      }
+    },
     "production": {
       "extends": "base",
+      "environment": "production",
+      "android": {
+        "autoIncrement": "versionCode",
+        "buildType": "app-bundle"
+      },
       "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://rastro.bo",
         "EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS": "google,facebook"
       }
     }
   },
   "submit": {
-    "production": {}
+    "internal": {
+      "android": {
+        "applicationId": "bo.rastro.app",
+        "releaseStatus": "draft",
+        "serviceAccountKeyPath": "./google-service-account.production.json",
+        "track": "internal"
+      }
+    },
+    "production": {
+      "android": {
+        "applicationId": "bo.rastro.app",
+        "changesNotSentForReview": true,
+        "releaseStatus": "draft",
+        "serviceAccountKeyPath": "./google-service-account.production.json",
+        "track": "production"
+      }
+    }
   }
 }

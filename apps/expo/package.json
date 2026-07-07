@@ -70,7 +70,6 @@
     "@acme/prettier-config": "workspace:*",
     "@acme/tailwind-config": "workspace:*",
     "@acme/tsconfig": "workspace:*",
-    "@expo/config-plugins": "54.0.4",
     "@types/react": "catalog:react19",
     "eslint": "catalog:",
     "expo-mcp": "~0.2.4",

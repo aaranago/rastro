@@ -244,6 +244,76 @@ describe("Activity view model", () => {
     ]);
   });
 
+  it("uses backend chat summary text even when the API omits an author label", () => {
+    const viewModel = buildActivityViewModel({
+      chatSummaries: [
+        {
+          conversationId: "chat-conversation-1",
+          href: "rastro://chats/chat-conversation-1",
+          id: "activity-chat-1",
+          lastMessage: {
+            id: "chat-message-1",
+            senderMemberId: member.memberId,
+            sentAt: "2026-06-30T13:03:00.000Z",
+            text: "Sigo cerca de la plaza con Kira.",
+          },
+          occurredAt: "2026-06-30T13:04:00.000Z",
+          otherParticipant: {
+            displayName: "Diego",
+            memberId: "member-diego",
+          },
+          subject: {
+            href: "rastro://reportes/perdidos/lost-report-1",
+            id: "lost-report-1",
+            kind: "lost-pet-report",
+            subtitle: "Sopocachi",
+            title: "Toby",
+          },
+        },
+      ],
+      session: member,
+    });
+
+    expect(viewModel.sections[0]?.items[0]).toMatchObject({
+      body: "Sigo cerca de la plaza con Kira.",
+      title: "Diego",
+    });
+  });
+
+  it("does not suppress user-authored chat text that resembles an internal token", () => {
+    const viewModel = buildActivityViewModel({
+      chatSummaries: [
+        {
+          conversationId: "chat-conversation-1",
+          href: "rastro://chats/chat-conversation-1",
+          id: "activity-chat-1",
+          lastMessage: {
+            id: "chat-message-1",
+            senderMemberId: member.memberId,
+            text: "RastroE2Echat1783394976955",
+          },
+          occurredAt: "2026-06-30T13:04:00.000Z",
+          otherParticipant: {
+            displayName: "Diego",
+            memberId: "member-diego",
+          },
+          subject: {
+            href: "rastro://reportes/perdidos/lost-report-1",
+            id: "lost-report-1",
+            kind: "lost-pet-report",
+            subtitle: "Sopocachi",
+            title: "Toby",
+          },
+        },
+      ],
+      session: member,
+    });
+
+    expect(viewModel.sections[0]?.items[0]?.body).toBe(
+      "RastroE2Echat1783394976955",
+    );
+  });
+
   it("shows backend report updates and moderation events as separate sections", () => {
     const viewModel = buildActivityViewModel({
       moderationEvents: [

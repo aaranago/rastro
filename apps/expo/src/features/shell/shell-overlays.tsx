@@ -871,6 +871,7 @@ export function SignInPrompt({
                 onChangeText={promptState.setEmail}
                 placeholder={copy.emailPlaceholder}
                 returnKeyType="next"
+                testID="auth-prompt-email-input"
                 textContentType="emailAddress"
                 value={promptState.email}
               />
@@ -885,6 +886,7 @@ export function SignInPrompt({
                   placeholder={copy.passwordPlaceholder}
                   returnKeyType="done"
                   secureTextEntry
+                  testID="auth-prompt-password-input"
                   textContentType="password"
                   value={promptState.password}
                 />
@@ -899,6 +901,7 @@ export function SignInPrompt({
                   onChangeText={promptState.setName}
                   placeholder={copy.namePlaceholder}
                   returnKeyType="done"
+                  testID="auth-prompt-name-input"
                   textContentType="name"
                   value={promptState.name}
                 />
@@ -1204,6 +1207,7 @@ function PromptTextField({
   placeholder,
   returnKeyType,
   secureTextEntry,
+  testID,
   textContentType,
   value,
 }: {
@@ -1217,6 +1221,7 @@ function PromptTextField({
   placeholder: string;
   returnKeyType?: TextInputProps["returnKeyType"];
   secureTextEntry?: boolean;
+  testID?: string;
   textContentType?: TextInputProps["textContentType"];
   value: string;
 }) {
@@ -1238,6 +1243,7 @@ function PromptTextField({
         returnKeyType={returnKeyType}
         secureTextEntry={secureTextEntry}
         style={styles.promptInput}
+        testID={testID}
         textContentType={textContentType}
         value={value}
       />
@@ -1369,6 +1375,7 @@ function PromptEmailAuthActions({
             isCreateAccountMode ? "create-account" : "sign-in",
           );
         }}
+        testID="auth-prompt-primary-button"
         variant="primary"
       />
       <PromptActionButton
@@ -1377,6 +1384,7 @@ function PromptEmailAuthActions({
         onPress={
           isCreateAccountMode ? onOpenSignInMode : onOpenCreateAccountMode
         }
+        testID="auth-prompt-secondary-button"
         variant="secondary"
       />
       <Pressable
@@ -1386,6 +1394,7 @@ function PromptEmailAuthActions({
         disabled={isSubmitting}
         onPress={onContinueAsVisitor}
         style={styles.visitorLinkButton}
+        testID="auth-prompt-continue-as-visitor-button"
       >
         <Text maxFontSizeMultiplier={1.2} style={styles.visitorLink}>
           {continueAsVisitorLabel}
@@ -1429,12 +1438,14 @@ function PromptPasswordResetActions({
         onPress={() => {
           void onSubmitPasswordReset();
         }}
+        testID="auth-prompt-password-reset-submit-button"
         variant="primary"
       />
       <PromptActionButton
         disabled={isSubmitting}
         label={passwordResetBackLabel}
         onPress={onOpenSignInMode}
+        testID="auth-prompt-password-reset-back-button"
         variant="secondary"
       />
       <Pressable
@@ -1444,6 +1455,7 @@ function PromptPasswordResetActions({
         disabled={isSubmitting}
         onPress={onContinueAsVisitor}
         style={styles.visitorLinkButton}
+        testID="auth-prompt-continue-as-visitor-button"
       >
         <Text maxFontSizeMultiplier={1.2} style={styles.visitorLink}>
           {continueAsVisitorLabel}
@@ -1539,6 +1551,7 @@ function PromptActionButton({
   iconName,
   label,
   onPress,
+  testID,
   variant,
 }: {
   disabled: boolean;
@@ -1546,6 +1559,7 @@ function PromptActionButton({
   iconName?: string;
   label: string;
   onPress: () => void;
+  testID?: string;
   variant: "primary" | "secondary";
 }) {
   const buttonStyle =
@@ -1567,6 +1581,7 @@ function PromptActionButton({
         buttonStyle,
         { opacity: disabled ? 0.58 : pressed ? 0.84 : 1 },
       ]}
+      testID={testID}
     >
       {iconName ? (
         <ShellIcon

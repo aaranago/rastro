@@ -48,12 +48,15 @@ describe("public home page", () => {
     expect(html).toContain("Ver recursos locales");
     expect(html).toContain("rastro-app-activity.png");
     expect(html).toContain("rastro-app-resources.png");
+    expect(html).toContain('href="/privacidad"');
+    expect(html).toContain('href="/terminos"');
+    expect(html).toContain('href="/eliminar-cuenta"');
     expect(html).toContain('data-status="signin-required"');
     expect(html).toContain(
       'data-return-to="/reportes/perdidos/11111111-1111-4111-8111-111111110001"',
     );
     expect(html).not.toContain("Titulo del reporte");
     expect(html).not.toContain("Sin reportes aún");
-    expect(html).not.toContain("Eliminar");
+    expect(html).not.toContain("Eliminar reporte");
   });
 });

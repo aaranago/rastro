@@ -23,11 +23,66 @@ describe("Expo app config", () => {
       build: Record<string, { env?: Record<string, string> }>;
     };
 
-    for (const profile of ["development", "preview", "production"]) {
+    for (const profile of ["development", "preview", "internal", "production"]) {
       expect(
         easConfig.build[profile]?.env?.EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS,
       ).toBe("google,facebook");
     }
+  });
+
+  it("keeps EAS Android release profiles aligned with Play Store requirements", () => {
+    const easConfig = JSON.parse(
+      readFileSync(join(__dirname, "eas.json"), "utf8"),
+    ) as {
+      build: Record<
+        string,
+        {
+          android?: Record<string, string>;
+          environment?: string;
+          env?: Record<string, string>;
+          node?: string;
+          pnpm?: string;
+        }
+      >;
+      submit: Record<
+        string,
+        {
+          android?: Record<string, string | boolean>;
+        }
+      >;
+    };
+
+    expect(easConfig.build.base?.node).toBe("22.21.0");
+    expect(easConfig.build.base?.pnpm).toBe("10.19.0");
+    expect(easConfig.build.internal?.environment).toBe("production");
+    expect(easConfig.build.internal?.env?.EXPO_PUBLIC_API_BASE_URL).toBe(
+      "https://rastro.bo",
+    );
+    expect(easConfig.build.internal?.android?.autoIncrement).toBe(
+      "versionCode",
+    );
+    expect(easConfig.build.internal?.android?.buildType).toBe("app-bundle");
+    expect(easConfig.build.production?.environment).toBe("production");
+    expect(easConfig.build.production?.env?.EXPO_PUBLIC_API_BASE_URL).toBe(
+      "https://rastro.bo",
+    );
+    expect(easConfig.build.production?.android?.autoIncrement).toBe(
+      "versionCode",
+    );
+    expect(easConfig.build.production?.android?.buildType).toBe("app-bundle");
+    expect(easConfig.submit.internal?.android).toMatchObject({
+      applicationId: "bo.rastro.app",
+      releaseStatus: "draft",
+      serviceAccountKeyPath: "./google-service-account.production.json",
+      track: "internal",
+    });
+    expect(easConfig.submit.production?.android).toMatchObject({
+      applicationId: "bo.rastro.app",
+      changesNotSentForReview: true,
+      releaseStatus: "draft",
+      serviceAccountKeyPath: "./google-service-account.production.json",
+      track: "production",
+    });
   });
 
   it("publishes the social auth provider allowlist for documented local dev-client launches", () => {

@@ -5,13 +5,16 @@ import { headers } from "next/headers";
 import { nextCookies } from "better-auth/next-js";
 
 import type {
-  AccountDeletionCleanupBoundary,
   AuthSocialProviders,
   OAuthProviderCredentials,
   SendDeleteAccountVerificationEmail,
   SendPasswordResetEmail,
 } from "@acme/auth";
-import { createDrizzleAuthDatabase, initAuth } from "@acme/auth";
+import {
+  createDrizzleAccountDeletionCleanup,
+  createDrizzleAuthDatabase,
+  initAuth,
+} from "@acme/auth";
 import { db } from "@acme/db/client";
 
 import { env } from "~/env";
@@ -146,20 +149,7 @@ const sendDeleteAccountVerificationEmail: SendDeleteAccountVerificationEmail =
     });
   };
 
-const accountDeletionCleanup: AccountDeletionCleanupBoundary = {
-  removeUnsafePublicContactData: ({ memberId, requirement }) => {
-    console.info("[Rastro auth] Account deletion cleanup boundary completed", {
-      memberId,
-      requirement: requirement.id,
-    });
-
-    return Promise.resolve({
-      id: "unsafePublicContactData",
-      removedRecords: 0,
-      status: "completed",
-    });
-  },
-};
+const accountDeletionCleanup = createDrizzleAccountDeletionCleanup(db);
 
 export const auth = initAuth({
   database: createDrizzleAuthDatabase(db),

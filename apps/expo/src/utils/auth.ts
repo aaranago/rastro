@@ -308,12 +308,44 @@ function getAuthorizationRedirectURL(authorizationURL: string) {
 function persistMobileAuthCookie(setCookieHeader: string) {
   const previousCookie =
     SecureStore.getItem(mobileAuthCookieStorageKey) ?? undefined;
+  const nextCookie = getSetCookie(setCookieHeader, previousCookie);
 
-  SecureStore.setItem(
-    mobileAuthCookieStorageKey,
-    getSetCookie(setCookieHeader, previousCookie),
-  );
+  SecureStore.setItem(mobileAuthCookieStorageKey, nextCookie);
   authClient.$store.notify("$sessionSignal");
+
+  return getRequestCookieHeaderFromStoredCookie(nextCookie);
+}
+
+function getRequestCookieHeaderFromStoredCookie(storedCookie: string) {
+  let parsedCookie: unknown;
+
+  try {
+    parsedCookie = JSON.parse(storedCookie);
+  } catch {
+    return "";
+  }
+
+  if (!isRecord(parsedCookie)) {
+    return "";
+  }
+
+  return Object.entries(parsedCookie)
+    .flatMap(([name, value]) => {
+      if (!isRecord(value) || typeof value.value !== "string") {
+        return [];
+      }
+
+      if (
+        typeof value.expires === "string" &&
+        Number.isFinite(Date.parse(value.expires)) &&
+        new Date(value.expires) < new Date()
+      ) {
+        return [];
+      }
+
+      return `${name}=${value.value}`;
+    })
+    .join("; ");
 }
 
 export async function fetchMobileAuthSessionWithCookie({
@@ -330,7 +362,7 @@ export async function fetchMobileAuthSessionWithCookie({
 
   const response = await fetchImpl(`${baseUrl}/api/auth/get-session`, {
     headers: {
-      Cookie: normalizedCookie,
+      cookie: normalizedCookie,
     },
     signal,
   });
@@ -340,6 +372,99 @@ export async function fetchMobileAuthSessionWithCookie({
   }
 
   return normalizeMobileAuthSession(await response.json());
+}
+
+export async function completeMobileE2ESessionHandoff(
+  params: Pick<MobileAuthCallbackSearchParams, "cookie">,
+  options: {
+    fetchImpl?: typeof fetch;
+    isDevelopmentRuntime?: boolean;
+  } = {},
+): Promise<ShellAuthActionResult & { email?: string | undefined }> {
+  if (options.isDevelopmentRuntime !== true && !isDevelopmentRuntime()) {
+    return {
+      message: "E2E session handoff is only available in development.",
+      ok: false,
+      reason: "failed",
+    };
+  }
+
+  const setCookieHeader = getFirstCallbackSearchParam(params.cookie);
+
+  if (!setCookieHeader) {
+    return {
+      message: "E2E session handoff did not receive a cookie.",
+      ok: false,
+      reason: "failed",
+    };
+  }
+
+  const cookie = persistMobileAuthCookie(setCookieHeader);
+  const baseUrl = getBaseUrl();
+  let response: Response;
+
+  try {
+    response = await (options.fetchImpl ?? fetch)(
+      `${baseUrl}/api/auth/get-session`,
+      {
+        headers: {
+          cookie,
+          "x-rastro-e2e-auth-debug": "1",
+        },
+      },
+    );
+  } catch (error) {
+    return {
+      message: `E2E session handoff could not reach ${baseUrl}: ${getErrorMessage(error) ?? "request failed"}`,
+      ok: false,
+      reason: "failed",
+    };
+  }
+
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    return {
+      message: `E2E session handoff failed with ${response.status} from ${baseUrl}: ${responseText.slice(0, 160)}`,
+      ok: false,
+      reason: "failed",
+    };
+  }
+
+  let responseJSON: unknown;
+
+  try {
+    responseJSON = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    return {
+      message: `E2E session handoff received invalid JSON from ${baseUrl}: ${responseText.slice(0, 160)}`,
+      ok: false,
+      reason: "failed",
+    };
+  }
+
+  const session = normalizeMobileAuthSession(responseJSON);
+
+  if (!session?.user) {
+    return {
+      message: `E2E session handoff could not verify the backend session from ${baseUrl}: ${responseText.slice(0, 160)}`,
+      ok: false,
+      reason: "failed",
+    };
+  }
+
+  return {
+    email: session.user.email,
+    ok: true,
+  };
+}
+
+function isDevelopmentRuntime() {
+  if (typeof __DEV__ !== "undefined") {
+    return Boolean(__DEV__);
+  }
+
+  return Boolean((globalThis as { __DEV__?: boolean }).__DEV__);
 }
 
 function normalizeMobileAuthSession(
@@ -881,7 +1006,9 @@ export const shellAuthAdapter: ShellAuthAdapter = {
       messages: socialAuthMessages,
       openAuthSession: (url, callbackURL) =>
         WebBrowser.openAuthSessionAsync(url, callbackURL),
-      persistCookie: persistMobileAuthCookie,
+      persistCookie: (setCookieHeader) => {
+        persistMobileAuthCookie(setCookieHeader);
+      },
       signInSocial: (request) => authClient.signIn.social(request),
     }),
   signOut: () => normalizeAccountActionResult(accountClientAdapter.signOut()),

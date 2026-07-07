@@ -825,42 +825,6 @@ function ProviderReportConfirmationModal({
                 })}
               </View>
 
-              <View style={styles.reportDetailField}>
-                <Text selectable style={styles.reportDetailLabel}>
-                  Detalle requerido
-                </Text>
-                <TextInput
-                  accessibilityLabel="Detalle del reporte"
-                  editable={!isSubmitting}
-                  maxLength={500}
-                  multiline
-                  onChangeText={onChangeDetail}
-                  placeholder={
-                    selectedReason
-                      ? `Ej. ${reasonLabel.toLowerCase()} en ${providerName}`
-                      : "Describe el problema con este proveedor"
-                  }
-                  placeholderTextColor={resourcesColors.muted}
-                  style={styles.reportDetailInput}
-                  testID="resource-provider-report-detail"
-                  value={detail}
-                />
-                <Text selectable style={styles.reportDetailHelper}>
-                  Describe el problema con al menos 10 caracteres. Incluye lo
-                  que viste y cuándo ocurrió si aplica.
-                </Text>
-              </View>
-
-              {errorMessage ? (
-                <Text
-                  accessibilityRole="alert"
-                  selectable
-                  style={styles.reportSheetError}
-                >
-                  {errorMessage}
-                </Text>
-              ) : null}
-
               <View style={styles.reportSheetActions}>
                 <Pressable
                   accessibilityRole="button"
@@ -899,6 +863,42 @@ function ProviderReportConfirmationModal({
                   )}
                 </Pressable>
               </View>
+
+              <View style={styles.reportDetailField}>
+                <Text selectable style={styles.reportDetailLabel}>
+                  Detalle requerido
+                </Text>
+                <TextInput
+                  accessibilityLabel="Detalle del reporte"
+                  editable={!isSubmitting}
+                  maxLength={500}
+                  multiline
+                  onChangeText={onChangeDetail}
+                  placeholder={
+                    selectedReason
+                      ? `Ej. ${reasonLabel.toLowerCase()} en ${providerName}`
+                      : "Describe el problema con este proveedor"
+                  }
+                  placeholderTextColor={resourcesColors.muted}
+                  style={styles.reportDetailInput}
+                  testID="resource-provider-report-detail"
+                  value={detail}
+                />
+                <Text selectable style={styles.reportDetailHelper}>
+                  Describe el problema con al menos 10 caracteres. Incluye lo
+                  que viste y cuándo ocurrió si aplica.
+                </Text>
+              </View>
+
+              {errorMessage ? (
+                <Text
+                  accessibilityRole="alert"
+                  selectable
+                  style={styles.reportSheetError}
+                >
+                  {errorMessage}
+                </Text>
+              ) : null}
             </ScrollView>
           </View>
         </View>

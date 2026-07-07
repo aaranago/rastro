@@ -95,6 +95,38 @@ describe("Nearby foreground location adapter", () => {
     expect(native.location.startLocationUpdatesAsync).not.toHaveBeenCalled();
   });
 
+  it("falls back to last-known location when current GPS is too slow", async () => {
+    const native = createNativeBoundary();
+    native.location.getCurrentPositionAsync.mockReturnValueOnce(
+      new Promise(() => undefined),
+    );
+    native.location.getLastKnownPositionAsync.mockResolvedValueOnce({
+      coords: {
+        accuracy: 35,
+        latitude: -16.5002,
+        longitude: -68.1195,
+      },
+      timestamp: Date.parse("2026-06-18T12:00:00.000Z"),
+    });
+    const adapter = createNearbyLocationAdapter(native);
+
+    const result = await adapter.resolveForegroundLocation({
+      currentLocationTimeoutMs: 1,
+      requestPermission: true,
+    });
+
+    expect(result).toMatchObject({
+      kind: "available",
+      location: {
+        label: "La Paz",
+        source: "last",
+      },
+    });
+    expect(native.location.getLastKnownPositionAsync).toHaveBeenCalledWith({
+      maxAge: 30 * 60 * 1000,
+    });
+  });
+
   it("turns an explicit foreground result into the Cerca search query state", async () => {
     const native = createNativeBoundary();
     native.location.getCurrentPositionAsync.mockResolvedValueOnce({

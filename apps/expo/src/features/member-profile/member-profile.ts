@@ -73,8 +73,8 @@ export function validateMemberProfileSettingsDraft(
 ): MemberProfileValidationResult {
   const errors: string[] = [];
   const displayName = draft.displayName.trim();
-  const phone = optionalTrimmed(draft.phone);
-  const whatsapp = optionalTrimmed(draft.whatsapp);
+  const phone = optionalNormalizedContactPhone(draft.phone);
+  const whatsapp = optionalNormalizedContactPhone(draft.whatsapp);
   const defaultContactPreference = draft.defaultContactPreference;
 
   if (!displayName) {
@@ -172,6 +172,23 @@ function optionalTrimmed(value: string) {
   const trimmed = value.trim();
 
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function optionalNormalizedContactPhone(value: string) {
+  const trimmed = optionalTrimmed(value);
+
+  return trimmed === null ? null : normalizeMemberProfileContactPhone(trimmed);
+}
+
+export function normalizeMemberProfileContactPhone(value: string) {
+  const trimmed = value.trim();
+  const digits = trimmed.replace(/\D/g, "");
+
+  if (digits.length === 11 && digits.startsWith("591")) {
+    return `+591 ${digits.slice(3)}`;
+  }
+
+  return trimmed;
 }
 
 function isValidContactPhone(value: string) {

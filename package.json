@@ -30,8 +30,8 @@
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "ui-add": "turbo run ui-add",
-    "android": "expo run:android",
-    "ios": "expo run:ios"
+    "android": "pnpm -F @acme/expo android",
+    "ios": "pnpm -F @acme/expo ios"
   },
   "devDependencies": {
     "@acme/prettier-config": "workspace:*",

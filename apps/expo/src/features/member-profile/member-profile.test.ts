@@ -11,7 +11,7 @@ describe("Member profile settings model", () => {
       validateMemberProfileSettingsDraft({
         defaultContactPreference: "both",
         displayName: " Camila R. ",
-        phone: " +591 70123456 ",
+        phone: " 59170123456 ",
         whatsapp: " +591 71234567 ",
       }),
     ).toEqual({

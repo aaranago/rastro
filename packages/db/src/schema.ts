@@ -1240,10 +1240,10 @@ export const LocalSponsorPlacement = pgTable(
   (table) => [
     index("local_sponsor_placement_provider_idx").on(table.providerId),
     index("local_sponsor_placement_surface_idx").on(table.surface),
-    index("local_sponsor_placement_active_window_idx").on(
-      table.startsAt,
-      table.endsAt,
-    ),
+    index("local_sponsor_placement_active_window_idx")
+      .on(table.startsAt, table.endsAt)
+      .where(sql`"local_sponsor_placement"."detached_at" IS NULL`),
+    index("local_sponsor_placement_detached_idx").on(table.detachedAt),
   ],
 );
 

@@ -608,7 +608,9 @@ function formatChatSummaryBody(
   }
 
   const text = formatMessagePreview(lastMessage.text);
-  const authorLabel = formatParticipantDisplayName(lastMessage.authorLabel);
+  const authorLabel = lastMessage.authorLabel
+    ? formatParticipantDisplayName(lastMessage.authorLabel)
+    : "";
 
   if (!text) {
     return authorLabel
@@ -632,7 +634,7 @@ function formatParticipantDisplayName(value: string | undefined) {
 function formatMessagePreview(value: string) {
   const trimmed = value.trim();
 
-  if (!trimmed || isLowValueIdentifier(trimmed)) {
+  if (!trimmed) {
     return "Mensaje reciente";
   }
 

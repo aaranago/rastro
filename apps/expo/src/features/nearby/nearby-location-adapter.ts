@@ -33,6 +33,7 @@ export type NearbyForegroundLocationResult =
     };
 
 export interface NearbyForegroundLocationOptions {
+  currentLocationTimeoutMs?: number;
   lastKnownMaxAgeMs?: number;
   requestPermission?: boolean;
 }
@@ -165,10 +166,16 @@ async function getCurrentOrLastKnownLocation(
   source: "current" | "last";
 } | null> {
   try {
+    const currentLocation = native.location.getCurrentPositionAsync({
+      accuracy: native.location.accuracy?.balanced,
+    });
+    currentLocation.catch(() => undefined);
+
     return {
-      location: await native.location.getCurrentPositionAsync({
-        accuracy: native.location.accuracy?.balanced,
-      }),
+      location: await withTimeout(
+        currentLocation,
+        options.currentLocationTimeoutMs ?? 8000,
+      ),
       source: "current",
     };
   } catch {
@@ -180,6 +187,18 @@ async function getCurrentOrLastKnownLocation(
       ? { location: lastKnownLocation, source: "last" }
       : null;
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      setTimeout(
+        () => reject(new Error(`Location request timed out after ${timeoutMs}ms`)),
+        timeoutMs,
+      );
+    }),
+  ]);
 }
 
 function toNearbySearchLocation({

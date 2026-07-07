@@ -22,6 +22,7 @@ import {
   createMemberProfileSettingsDraft,
   getMemberProfileLoadFailureMessage,
   getMemberProfileSaveFailureMessage,
+  normalizeMemberProfileContactPhone,
   validateMemberProfileSettingsDraft,
 } from "./member-profile";
 
@@ -262,10 +263,10 @@ function useMemberProfileSettingsController({
       updateDraft({ displayName });
     },
     updatePhone: (phone) => {
-      updateDraft({ phone });
+      updateDraft({ phone: normalizeMemberProfileContactPhone(phone) });
     },
     updateWhatsapp: (whatsapp) => {
-      updateDraft({ whatsapp });
+      updateDraft({ whatsapp: normalizeMemberProfileContactPhone(whatsapp) });
     },
   };
 }
@@ -567,6 +568,9 @@ function ContactInput({
         editable={editable}
         importantForAutofill="no"
         keyboardType="phone-pad"
+        onEndEditing={(event) => {
+          onChangeText(event.nativeEvent.text);
+        }}
         onChangeText={onChangeText}
         placeholder={placeholder}
         style={styles.input}

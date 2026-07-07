@@ -671,6 +671,7 @@ function MemberMisMascotasScreen({
       renderItem={renderPetProfileCard}
       scrollIndicatorInsets={{ bottom: bottomInset }}
       style={styles.screen}
+      testID="pet-profiles-screen"
     />
   );
 }
@@ -755,6 +756,7 @@ function PetProfilesLoadErrorState({
         iconName="arrow.clockwise"
         label="Reintentar"
         onPress={onRetry}
+        testID="pet-profile-retry-button"
       />
     </View>
   );
@@ -788,6 +790,7 @@ function MemberPetProfilesHeader({
             iconName="plus"
             label={createActionLabel}
             onPress={onCreate}
+            testID="pet-profile-create-button"
           />
         </View>
       ) : null}
@@ -847,8 +850,25 @@ function MemberPetProfilesFooter({
   photoPickerError?: string;
   selectedProfile?: PetProfileDetailViewModel;
 }) {
+  const shouldPrioritizeForm = formViewModel?.mode === "edit";
+
   return (
     <View style={styles.listFooter}>
+      {shouldPrioritizeForm && formViewModel ? (
+        <PetProfileFormSurface
+          draft={draft}
+          draftPersistence={draftPersistence}
+          form={formViewModel}
+          isSaving={isSavingProfile}
+          onAddPhoto={onAddPhoto}
+          onCancel={onCancelForm}
+          onDraftChange={onDraftChange}
+          onRemovePhoto={onRemovePhoto}
+          onSubmit={onSubmit}
+          photoPickerError={photoPickerError}
+        />
+      ) : null}
+
       {selectedProfile ? (
         <PetProfileDetailSurface
           onEdit={onEdit}
@@ -858,7 +878,7 @@ function MemberPetProfilesFooter({
         />
       ) : null}
 
-      {formViewModel ? (
+      {!shouldPrioritizeForm && formViewModel ? (
         <PetProfileFormSurface
           draft={draft}
           draftPersistence={draftPersistence}
@@ -911,6 +931,7 @@ function PetProfileCard({
         isSelected ? styles.petCardSelected : null,
         pressed ? styles.pressed : null,
       ]}
+      testID={`pet-profile-card-${id}`}
     >
       <PetProfileThumbnail
         label={profile.name}
@@ -973,6 +994,7 @@ function PetProfileDetailSurface({
           iconName="square.and.pencil"
           label={profile.editActionLabel}
           onPress={() => onEdit(profile.id)}
+          testID="pet-profile-edit-button"
         />
       </View>
 
@@ -1101,6 +1123,7 @@ function PetProfileFormSurface({
         label={form.fields.name.label}
         onChangeText={(name) => onDraftChange({ ...draft, name })}
         placeholder={form.fields.name.placeholder}
+        testID="pet-profile-name-input"
         value={draft.name}
       />
 
@@ -1123,6 +1146,7 @@ function PetProfileFormSurface({
         label={form.fields.breed.label}
         onChangeText={(breed) => onDraftChange({ ...draft, breed })}
         placeholder={form.fields.breed.placeholder}
+        testID="pet-profile-breed-input"
         value={draft.breed}
       />
 
@@ -1131,6 +1155,7 @@ function PetProfileFormSurface({
         multiline
         onChangeText={(description) => onDraftChange({ ...draft, description })}
         placeholder={form.fields.description.placeholder}
+        testID="pet-profile-description-input"
         value={draft.description}
       />
 
@@ -1150,11 +1175,16 @@ function PetProfileFormSurface({
       ) : null}
 
       <View style={styles.formActions}>
-        <SecondaryButton label="Cancelar" onPress={onCancel} />
+        <SecondaryButton
+          label="Cancelar"
+          onPress={onCancel}
+          testID="pet-profile-cancel-button"
+        />
         <PrimaryButton
           disabled={isSaving}
           label={isSaving ? "Guardando" : form.submitLabel}
           onPress={onSubmit}
+          testID="pet-profile-save-button"
         />
       </View>
     </View>
@@ -1199,7 +1229,12 @@ function EmptyPetProfilesState({
       <Text selectable style={styles.panelBody}>
         {body}
       </Text>
-      <PrimaryButton iconName="plus" label="Crear ahora" onPress={onCreate} />
+      <PrimaryButton
+        iconName="plus"
+        label="Crear ahora"
+        onPress={onCreate}
+        testID="pet-profile-create-button"
+      />
     </View>
   );
 }
@@ -1408,6 +1443,7 @@ function LabeledInput({
   multiline = false,
   onChangeText,
   placeholder,
+  testID,
   value,
 }: {
   error?: string;
@@ -1415,6 +1451,7 @@ function LabeledInput({
   multiline?: boolean;
   onChangeText: (value: string) => void;
   placeholder: string;
+  testID?: string;
   value: string;
 }) {
   return (
@@ -1428,6 +1465,7 @@ function LabeledInput({
         placeholder={placeholder}
         placeholderTextColor={shellColors.muted}
         style={[styles.input, multiline ? styles.multilineInput : null]}
+        testID={testID}
         textAlignVertical={multiline ? "top" : "center"}
         value={value}
       />
@@ -1445,11 +1483,13 @@ function PrimaryButton({
   iconName,
   label,
   onPress,
+  testID,
 }: {
   disabled?: boolean;
   iconName?: string;
   label: string;
   onPress?: () => void;
+  testID?: string;
 }) {
   return (
     <Pressable
@@ -1461,6 +1501,7 @@ function PrimaryButton({
         disabled ? styles.disabledButton : null,
         pressed ? styles.pressed : null,
       ]}
+      testID={testID}
     >
       {iconName ? (
         <ShellIcon
@@ -1485,10 +1526,12 @@ function SecondaryButton({
   iconName,
   label,
   onPress,
+  testID,
 }: {
   iconName?: string;
   label: string;
   onPress: () => void;
+  testID?: string;
 }) {
   return (
     <Pressable
@@ -1498,6 +1541,7 @@ function SecondaryButton({
         styles.secondaryButton,
         pressed ? styles.pressed : null,
       ]}
+      testID={testID}
     >
       {iconName ? (
         <ShellIcon color={shellColors.primary} name={iconName} size={17} />

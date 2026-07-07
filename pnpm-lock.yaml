@@ -255,9 +255,6 @@ importers:
       '@acme/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
-      '@expo/config-plugins':
-        specifier: 54.0.4
-        version: 54.0.4
       '@types/react':
         specifier: catalog:react19
         version: 19.1.12

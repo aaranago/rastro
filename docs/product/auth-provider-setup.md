@@ -70,7 +70,7 @@ Before production launch, replace the local logging boundary in `apps/nextjs/src
 
 Do not log reset or deletion URLs in production. The current production guard throws if a real email sender has not replaced the local boundary, so the UI shows an integration-needed message instead of pretending that an email was sent.
 
-Account deletion also runs an unsafe-public-contact cleanup boundary before deleting the Better Auth user. The current v1 boundary has no public contact tables to scrub yet and records zero removed rows. Future Pet Profile, report, Adoption Listing, chat, and WhatsApp-contact tables must implement that boundary before exposing public contact data.
+Account deletion also runs an unsafe-public-contact cleanup boundary before deleting the Better Auth user. The v1 boundary scrubs member profile phone/WhatsApp fields, removes report-level WhatsApp contact options, and retires member-owned public reports/listings before Better Auth deletes the member. Current member-owned tables still use auth-user cascade deletes, so retained/anonymized report and chat history requires a future FK/migration design before relying on post-deletion retention.
 
 Source: [Better Auth Email & Password](https://www.better-auth.com/docs/authentication/email-password)
 

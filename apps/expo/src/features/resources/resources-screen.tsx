@@ -1220,6 +1220,14 @@ function ResourcesMapPanel({
         </Text>
       </View>
 
+      {selectedProvider ? (
+        <ResourceMapSelectedProvider
+          onOpenProvider={onOpenProvider}
+          onSponsorPlacementVisible={onRecordSponsorImpression}
+          provider={selectedProvider}
+        />
+      ) : null}
+
       {providerState.kind === "error" ? (
         <ResourcesMapStatusPanel providerState={providerState} />
       ) : (
@@ -1262,14 +1270,6 @@ function ResourcesMapPanel({
           </MapView>
         </View>
       )}
-
-      {selectedProvider ? (
-        <ResourceMapSelectedProvider
-          onOpenProvider={onOpenProvider}
-          onSponsorPlacementVisible={onRecordSponsorImpression}
-          provider={selectedProvider}
-        />
-      ) : null}
 
       <ScrollView
         horizontal
@@ -2125,7 +2125,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   resourceMapFrame: {
-    height: 260,
+    height: 210,
     borderRadius: 16,
     borderCurve: "continuous",
     overflow: "hidden",

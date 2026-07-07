@@ -5,6 +5,7 @@ import { isPublicReportId } from "@acme/validators";
 
 import type { AppDownloadContext } from "~/public-report-detail-mapping";
 import { env } from "~/env";
+import { PublicLegalFooter } from "~/public-legal-links";
 import {
   appDownloadHref,
   appDownloadPath,
@@ -196,6 +197,7 @@ export default async function DownloadPage(props: DownloadPageProps) {
           </div>
         </section>
       </section>
+      <PublicLegalFooter />
     </main>
   );
 }

@@ -1,9 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseEnv } from "node:util";
-import type { ConfigPlugin } from "@expo/config-plugins";
 import type { ConfigContext, ExpoConfig } from "expo/config";
-import { AndroidConfig, withAndroidManifest } from "@expo/config-plugins";
+import type { ConfigPlugin } from "expo/config-plugins";
+import { AndroidConfig, withAndroidManifest } from "expo/config-plugins";
 
 const defaultEasProjectId = "ba6b6ed0-beb7-429a-9410-19dc361607f3";
 const defaultLocationWhenInUsePermission =

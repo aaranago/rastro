@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   beginMobileAuthCallbackTransaction,
   completeMobileAuthCallback,
+  completeMobileE2ESessionHandoff,
   createMobileAuthCallbackURL,
   createMobileAuthProxyURL,
   fetchMobileAuthSessionWithCookie,
@@ -42,12 +43,23 @@ vi.mock("expo-secure-store", () => secureStore);
 
 vi.mock("@better-auth/expo/client", () => ({
   expoClient: vi.fn(() => ({ id: "expo" })),
-  getSetCookie: vi.fn((setCookieHeader: string) => `stored:${setCookieHeader}`),
+  getSetCookie: vi.fn((setCookieHeader: string) => {
+    const [nameValue = ""] = setCookieHeader.split(";");
+    const [name = "", ...valueParts] = nameValue.split("=");
+
+    return JSON.stringify({
+      [name]: {
+        expires: null,
+        value: valueParts.join("="),
+      },
+    });
+  }),
 }));
 
 vi.mock("better-auth/react", () => ({
   createAuthClient: vi.fn(() => ({
     deleteUser: vi.fn(),
+    getCookie: vi.fn(() => "better-auth.session_token=e2e"),
     requestPasswordReset: vi.fn(),
     signIn: {
       email: vi.fn(),
@@ -436,7 +448,12 @@ describe("mobile auth configuration helpers", () => {
     );
     expect(secureStore.setItem).toHaveBeenCalledWith(
       "rastro_cookie",
-      "stored:__Secure-better-auth.session_token=abc; Path=/; HttpOnly",
+      JSON.stringify({
+        "__Secure-better-auth.session_token": {
+          expires: null,
+          value: "abc",
+        },
+      }),
     );
     expect(authStore.notify).toHaveBeenCalledWith("$sessionSignal");
   });
@@ -448,6 +465,77 @@ describe("mobile auth configuration helpers", () => {
       }),
     ).toEqual({
       message: "No pudimos completar el ingreso con ese proveedor.",
+      ok: false,
+      reason: "failed",
+    });
+
+    expect(secureStore.setItem).not.toHaveBeenCalledWith(
+      "rastro_cookie",
+      expect.any(String),
+    );
+    expect(authStore.notify).not.toHaveBeenCalled();
+  });
+
+  it("persists and verifies a development-only E2E session handoff cookie", async () => {
+    const fetchImpl = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            session: { id: "session_123" },
+            user: {
+              email: "rastro-e2e-viewer@example.invalid",
+              id: "member_123",
+              name: "Rastro E2E Vecina",
+            },
+          }),
+        ),
+      ),
+    );
+
+    await expect(
+      completeMobileE2ESessionHandoff(
+        {
+          cookie:
+            "__Secure-better-auth.session_token=e2e; Path=/; HttpOnly; Secure",
+        },
+        { fetchImpl, isDevelopmentRuntime: true },
+      ),
+    ).resolves.toEqual({
+      email: "rastro-e2e-viewer@example.invalid",
+      ok: true,
+    });
+
+    expect(secureStore.setItem).toHaveBeenCalledWith(
+      "rastro_cookie",
+      JSON.stringify({
+        "__Secure-better-auth.session_token": {
+          expires: null,
+          value: "e2e",
+        },
+      }),
+    );
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "http://localhost:3000/api/auth/get-session",
+      expect.objectContaining({
+        headers: {
+          cookie: "__Secure-better-auth.session_token=e2e",
+          "x-rastro-e2e-auth-debug": "1",
+        },
+      }),
+    );
+    expect(authStore.notify).toHaveBeenCalledWith("$sessionSignal");
+  });
+
+  it("rejects E2E session handoff cookies outside development", async () => {
+    await expect(
+      completeMobileE2ESessionHandoff(
+        {
+          cookie: "better-auth.session_token=attacker",
+        },
+        { isDevelopmentRuntime: false },
+      ),
+    ).resolves.toEqual({
+      message: "E2E session handoff is only available in development.",
       ok: false,
       reason: "failed",
     });
@@ -496,7 +584,7 @@ describe("mobile auth configuration helpers", () => {
       "http://localhost:3000/api/auth/get-session",
       {
         headers: {
-          Cookie: "better-auth.session_token=abc",
+          cookie: "better-auth.session_token=abc",
         },
         signal: undefined,
       },

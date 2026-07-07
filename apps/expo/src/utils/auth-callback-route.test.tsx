@@ -14,6 +14,7 @@ const router = vi.hoisted(() => ({
 }));
 
 const auth = vi.hoisted(() => ({
+  completeMobileE2ESessionHandoff: vi.fn(),
   completeMobileAuthCallback: vi.fn(),
   mobileAuthCallbackRedirectHref: "/(tabs)/(nearby)",
 }));
@@ -62,6 +63,8 @@ describe("MobileAuthCallbackRoute", () => {
     callbackParams.value = {};
     appState.capturedProps = [];
     router.replace.mockReset();
+    auth.completeMobileE2ESessionHandoff.mockReset();
+    auth.completeMobileE2ESessionHandoff.mockResolvedValue({ ok: true });
     auth.completeMobileAuthCallback.mockReset();
     auth.completeMobileAuthCallback.mockReturnValue({ ok: true });
   });
@@ -83,6 +86,25 @@ describe("MobileAuthCallbackRoute", () => {
     });
     expect(router.replace).toHaveBeenCalledWith("/(tabs)/(nearby)");
     expect(router.replace).not.toHaveBeenCalledWith("/");
+  });
+
+  it("uses lossless hex cookies for E2E session handoff", () => {
+    const setCookieHeader =
+      "__Secure-better-auth.session_token=abc%2Bdef%2Fghi%3D; Path=/; Secure";
+    callbackParams.value = {
+      e2eCookieHex: toHex(setCookieHeader),
+    };
+
+    void renderFunctionElements(<MobileAuthCallbackRoute />);
+
+    expect(auth.completeMobileE2ESessionHandoff).toHaveBeenCalledWith({
+      cookie: setCookieHeader,
+      error: undefined,
+      error_description: undefined,
+      message: undefined,
+      transaction: undefined,
+    });
+    expect(auth.completeMobileAuthCallback).not.toHaveBeenCalled();
   });
 
   it("replaces recovery actions to the concrete nearby tab route", () => {
@@ -138,4 +160,10 @@ function renderFunctionComponent(node: React.ReactElement<ElementProps>) {
   const Component = node.type as (props: ElementProps) => React.ReactNode;
 
   return Component(node.props);
+}
+
+function toHex(value: string) {
+  return Array.from(value, (character) =>
+    character.charCodeAt(0).toString(16).padStart(2, "0"),
+  ).join("");
 }

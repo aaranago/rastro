@@ -199,7 +199,11 @@ describe("resource provider schema", () => {
       ResourceProviderContactOption,
     ).indexes.map((index) => index.config.name);
     const sponsorIndexes = getTableConfig(LocalSponsorPlacement).indexes.map(
-      (index) => index.config.name,
+      (index) => index.config,
+    );
+    const sponsorIndexNames = sponsorIndexes.map((index) => index.name);
+    const sponsorActiveWindowIndex = sponsorIndexes.find(
+      (index) => index.name === "local_sponsor_placement_active_window_idx",
     );
 
     expect(locationIndexes).toEqual(
@@ -212,13 +216,18 @@ describe("resource provider schema", () => {
       ]),
     );
     expect(contactIndexes).toContain("resource_provider_contact_provider_idx");
-    expect(sponsorIndexes).toEqual(
+    expect(sponsorIndexNames).toEqual(
       expect.arrayContaining([
         "local_sponsor_placement_provider_idx",
         "local_sponsor_placement_surface_idx",
         "local_sponsor_placement_active_window_idx",
+        "local_sponsor_placement_detached_idx",
       ]),
     );
+    expect(
+      sponsorActiveWindowIndex?.where?.toQuery(postgresQueryConfig as never)
+        .sql,
+    ).toBe(`"local_sponsor_placement"."detached_at" IS NULL`);
   });
 
   it("adds database-level sponsor window validity and overlap protection", () => {

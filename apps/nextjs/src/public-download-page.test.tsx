@@ -49,6 +49,9 @@ describe("public download page", () => {
     expect(html).toContain("Acceso web");
     expect(html).toContain("Continuar en la web");
     expect(html).toContain("rastro-app-activity.png");
+    expect(html).toContain('href="/privacidad"');
+    expect(html).toContain('href="/terminos"');
+    expect(html).toContain('href="/eliminar-cuenta"');
     expect(html).not.toContain("Disponible pronto");
     expect(html).not.toContain("mailto:");
     expect(html).not.toContain("Solicitar acceso Android");

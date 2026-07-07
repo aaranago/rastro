@@ -1703,6 +1703,7 @@ function LocationFallbackState({
         disabled={isResolvingLocation}
         onPress={onUseCurrentLocationPress}
         style={styles.primaryButton}
+        testID="nearby-use-current-location"
       >
         <Text style={styles.primaryButtonText}>
           {isResolvingLocation
@@ -1720,6 +1721,7 @@ function LocationFallbackState({
             key={option.label}
             onPress={() => onManualLocationPress(option)}
             style={styles.manualOptionButton}
+            testID={`nearby-location-${toNearbyTestIdSegment(option.label)}`}
           >
             <Text selectable style={styles.manualOptionText}>
               {getNearbyManualLocationOptionLabel(option)}

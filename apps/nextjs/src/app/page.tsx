@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { BellIcon, MapIcon, UsersRoundIcon } from "lucide-react";
 
+import { PublicLegalFooter } from "~/public-legal-links";
 import { buildAppDownloadPath } from "~/public-report-detail-mapping";
 import { AuthShowcase } from "./_components/auth-showcase";
 
@@ -195,6 +196,7 @@ export default async function HomePage(props: { searchParams: SearchParams }) {
 
         <AuthShowcase returnTo={authReturnTo} status={authStatus} />
       </section>
+      <PublicLegalFooter />
     </main>
   );
 }

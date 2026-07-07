@@ -7,6 +7,8 @@ import { oAuthProxy } from "better-auth/plugins";
 import type { AccountDeletionCleanupBoundary } from "./account-deletion-policy";
 import { prepareAccountDeletion } from "./account-deletion-policy";
 
+export { createDrizzleAccountDeletionCleanup } from "./account-deletion-cleanup";
+export type { DrizzleAccountDeletionCleanupOptions } from "./account-deletion-cleanup";
 export {
   getAccountDeletionPolicy,
   prepareAccountDeletion,
