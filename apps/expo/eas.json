@@ -25,7 +25,7 @@
       "distribution": "internal",
       "environment": "preview",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://rastro.bo",
+        "EXPO_PUBLIC_API_BASE_URL": "https://app.rastro.dpdns.org",
         "EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS": "google,facebook"
       },
       "ios": {
@@ -41,7 +41,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://rastro.bo",
+        "EXPO_PUBLIC_API_BASE_URL": "https://app.rastro.dpdns.org",
         "EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS": "google,facebook"
       }
     },
@@ -53,7 +53,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://rastro.bo",
+        "EXPO_PUBLIC_API_BASE_URL": "https://app.rastro.dpdns.org",
         "EXPO_PUBLIC_AUTH_SOCIAL_PROVIDERS": "google,facebook"
       }
     }
