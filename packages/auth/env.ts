@@ -15,13 +15,15 @@ const booleanString = z
 const isProductionDeployment =
   process.env.VERCEL_ENV === "production" ||
   process.env.NODE_ENV === "production";
+const isProductionPlaceholder = (value: string) =>
+  /^(dev-only|change[_-]?me)/i.test(value);
 const authSecret = isProductionDeployment
   ? z
       .string()
       .min(32, "AUTH_SECRET must be at least 32 characters in production.")
       .refine(
-        (value) => !/^dev-only/i.test(value),
-        "AUTH_SECRET must not use the dev-only placeholder in production.",
+        (value) => !isProductionPlaceholder(value),
+        "AUTH_SECRET must not use a placeholder in production.",
       )
   : z.string().min(1).optional();
 const betterAuthUrl = isProductionDeployment

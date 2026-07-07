@@ -35,16 +35,15 @@ docker run --rm --env-file .env.production -p 3000:3000 rastro-nextjs
 
 ## Environment source
 
-Use `.env.example` as the variable-name source of truth. It is intentionally
-complete for the web/API, mobile build-time public config, auth, media storage,
-jobs, and app-store links.
+Use `.env.dokploy.example` as the Dokploy production checklist. Use
+`.env.example` only for local development; it intentionally contains blank and
+local-only values that fail production validation.
 
-For Dokploy production, copy it and replace:
+For Dokploy production, copy `.env.dokploy.example` and replace:
 
-- Every `localhost` and `10.0.2.2` value with the public or private production
-  endpoint.
-- Every `dev-only-*` value with a generated secret of at least 32 characters.
-- Every blank required production URL with the real URL.
+- Every `YOUR_*` value with the real production value.
+- Every `CHANGE_ME_*` value with a generated secret of at least 32 characters.
+- The placeholder install URLs with real store URLs once they exist.
 
 Minimum production web/API values:
 

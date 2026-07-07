@@ -12,14 +12,16 @@ const optionalString = z.preprocess(
     typeof value === "string" && value.trim() === "" ? undefined : value,
   z.string().min(1).optional(),
 );
+const isProductionPlaceholder = (value: string) =>
+  /^(dev-only|change[_-]?me)/i.test(value);
 const productionSecret = (name: string) =>
   isProductionDeployment
     ? z
         .string()
         .min(32, `${name} must be at least 32 characters in production.`)
         .refine(
-          (value) => !/^dev-only/i.test(value),
-          `${name} must not use the dev-only placeholder in production.`,
+          (value) => !isProductionPlaceholder(value),
+          `${name} must not use a placeholder in production.`,
         )
     : optionalString;
 const productionRequiredString = (name: string) =>
@@ -28,8 +30,8 @@ const productionRequiredString = (name: string) =>
         .string()
         .min(1, `${name} is required in production.`)
         .refine(
-          (value) => !/^dev-only/i.test(value),
-          `${name} must not use the dev-only placeholder in production.`,
+          (value) => !isProductionPlaceholder(value),
+          `${name} must not use a placeholder in production.`,
         )
     : optionalString;
 const productionRequiredUrl = (name: string) =>
@@ -37,8 +39,8 @@ const productionRequiredUrl = (name: string) =>
     ? z
         .url(`${name} must be a valid URL in production.`)
         .refine(
-          (value) => !/^dev-only/i.test(value),
-          `${name} must not use the dev-only placeholder in production.`,
+          (value) => !isProductionPlaceholder(value),
+          `${name} must not use a placeholder in production.`,
         )
     : optionalString;
 
