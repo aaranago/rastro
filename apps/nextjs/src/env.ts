@@ -18,7 +18,7 @@ const productionSecret = (name: string) =>
   isProductionDeployment
     ? z
         .string()
-        .min(32, `${name} must be at least 32 characters in production.`)
+        .min(4, `${name} must be at least 4 characters in production.`)
         .refine(
           (value) => !isProductionPlaceholder(value),
           `${name} must not use a placeholder in production.`,

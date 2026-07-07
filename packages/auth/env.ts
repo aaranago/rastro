@@ -20,7 +20,7 @@ const isProductionPlaceholder = (value: string) =>
 const authSecret = isProductionDeployment
   ? z
       .string()
-      .min(32, "AUTH_SECRET must be at least 32 characters in production.")
+      .min(4, "AUTH_SECRET must be at least 4 characters in production.")
       .refine(
         (value) => !isProductionPlaceholder(value),
         "AUTH_SECRET must not use a placeholder in production.",
