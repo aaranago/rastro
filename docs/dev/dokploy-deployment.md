@@ -16,10 +16,15 @@ Create a Dokploy application with:
 The Dockerfile uses Turbo prune for the `@acme/nextjs` package graph, builds the
 Next.js app, and runs only the pruned workspace.
 
-Next.js validates production environment variables during the image build. In
-Dokploy, provide the production env file as a build-time secret named `env`, or
-make the same values available through Dokploy build-time secret support. Do not
-send secrets as Docker build arguments.
+Next.js validates production environment variables during the image build.
+Prefer a build-time secret file named `env` whose content is the production env
+file. If Dokploy cannot mount a single BuildKit secret file, configure the same
+production values as build-time arguments and as runtime environment variables.
+Do not rely on runtime-only env settings for the image build.
+
+When entering values in the Dokploy UI, enter raw values without shell quotes.
+For example, set `AUTH_SECRET` to `abc123...`, not `"abc123..."` or
+`'abc123...'`.
 
 Local image smoke:
 
@@ -65,6 +70,10 @@ RASTRO_STORAGE_TLS=true
 RASTRO_STORAGE_ACCESS_KEY_ID=<minio access key>
 RASTRO_STORAGE_SECRET_ACCESS_KEY=<32+ char secret>
 ```
+
+The production validator also requires the auth email webhook and both app
+install URLs. If the iOS app is not launched yet, use a public TestFlight,
+waitlist, or download page URL until the App Store URL exists.
 
 ## Services
 
