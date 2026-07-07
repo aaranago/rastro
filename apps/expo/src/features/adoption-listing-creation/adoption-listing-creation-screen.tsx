@@ -1137,8 +1137,11 @@ function CreationHeader({
         <Pressable
           accessibilityLabel="Volver de adopción"
           accessibilityRole="button"
+          hitSlop={12}
           onPress={onClose}
+          pressRetentionOffset={18}
           style={styles.iconButton}
+          testID="report-creation-close-button"
         >
           <AdoptionListingCreationIcon
             color={shellColors.muted}
@@ -1172,6 +1175,7 @@ function PetProfileSection({
               petSelectionMode: "existing",
             }))
           }
+          testID="adoption-existing-pet-mode"
         />
         <SegmentButton
           isSelected={draft.petSelectionMode === "inline-create"}
@@ -1182,6 +1186,7 @@ function PetProfileSection({
               petSelectionMode: "inline-create",
             }))
           }
+          testID="adoption-inline-pet-mode"
         />
       </View>
       {draft.petSelectionMode === "existing" ? (
@@ -1428,18 +1433,23 @@ function SegmentButton({
   isSelected,
   label,
   onPress,
+  testID,
 }: {
   isSelected: boolean;
   label: string;
   onPress: () => void;
+  testID?: string;
 }) {
   return (
     <Pressable
       accessibilityLabel={label}
       accessibilityRole="button"
       accessibilityState={{ selected: isSelected }}
+      hitSlop={8}
       onPress={onPress}
+      pressRetentionOffset={14}
       style={[styles.segmentButton, isSelected ? styles.selectedPill : null]}
+      testID={testID}
     >
       <Text
         maxFontSizeMultiplier={1.1}
@@ -1593,10 +1603,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: shellColors.surfaceMuted,
     borderCurve: "continuous",
-    borderRadius: 18,
-    height: 38,
+    borderRadius: 24,
+    elevation: 4,
+    height: 48,
     justifyContent: "center",
-    width: 38,
+    minHeight: 48,
+    minWidth: 48,
+    position: "relative",
+    width: 48,
+    zIndex: 2,
   },
   infoLabel: {
     color: shellColors.muted,
@@ -1809,8 +1824,8 @@ const styles = StyleSheet.create({
     borderCurve: "continuous",
     borderRadius: 999,
     flex: 1,
-    minHeight: 42,
     justifyContent: "center",
+    minHeight: 48,
     paddingHorizontal: 12,
   },
   segmentText: {

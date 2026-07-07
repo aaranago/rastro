@@ -1062,8 +1062,11 @@ function CreationHeader({
         <Pressable
           accessibilityLabel="Volver del avistamiento"
           accessibilityRole="button"
+          hitSlop={12}
           onPress={onClose}
+          pressRetentionOffset={18}
           style={styles.iconButton}
+          testID="report-creation-close-button"
         >
           <SightingReportCreationIcon
             color={shellColors.muted}
@@ -1551,10 +1554,15 @@ const styles = StyleSheet.create({
   iconButton: {
     alignItems: "center",
     backgroundColor: shellColors.surfaceMuted,
-    borderRadius: 18,
-    height: 38,
+    borderRadius: 24,
+    elevation: 4,
+    height: 48,
     justifyContent: "center",
-    width: 38,
+    minHeight: 48,
+    minWidth: 48,
+    position: "relative",
+    width: 48,
+    zIndex: 2,
   },
   infoLabel: {
     color: shellColors.muted,

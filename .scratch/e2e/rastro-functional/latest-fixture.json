@@ -6,155 +6,157 @@
   },
   "artifacts": {
     "manifestPath": "/home/z/Personal/ai/rastro/.scratch/e2e/rastro-functional/latest-fixture.json",
-    "mediaBaseUrl": "http://127.0.0.1:3201/e2e-media"
+    "mediaBaseUrl": "http://10.0.2.2:3000/e2e-media"
   },
   "chat": {
-    "backendPersisted": false,
-    "sampleConversationId": "chat-conversation-1"
+    "backendPersisted": true,
+    "reportId": "ff659ddd-de5a-425d-9194-6394308e136e",
+    "sampleConversationId": "13a52bde-8d92-499c-8f25-bd55e3d72646",
+    "seedMessageText": "Chat E2E persistido desde fixture"
   },
   "providers": [
     {
       "category": "veterinary",
-      "id": "1ade708b-18d9-4737-9a98-ad16bc4e95d2",
-      "logoUrl": "http://127.0.0.1:3201/e2e-media/provider-logo.png?provider=veterinary&v=visible-2026-06-30",
-      "name": "Rastro E2E Veterinaria Clinica Dos Imagenes",
-      "photoUrl": "http://127.0.0.1:3201/e2e-media/provider-photo.png?provider=veterinary&v=visible-2026-06-30",
+      "id": "ede7bc92-492f-4693-a1db-0b7c0f8a1f7d",
+      "logoUrl": "http://10.0.2.2:3000/e2e-media/provider-logo.png?provider=veterinary&v=visible-2026-06-30",
+      "name": "Rastro E2E Veterinaria Clínica Dos Imagenes",
+      "photoUrl": "http://10.0.2.2:3000/e2e-media/provider-photo.png?provider=veterinary&v=visible-2026-06-30",
       "resourcesDirectoryPromotion": true
     },
     {
       "category": "shelter",
-      "id": "f2d7b564-e119-4679-8a15-5a3161f19c67",
-      "logoUrl": "http://127.0.0.1:3201/e2e-media/provider-logo.png?provider=shelter&v=visible-2026-06-30",
+      "id": "33063c14-ce0c-4680-a45f-887a12873eb3",
+      "logoUrl": "http://10.0.2.2:3000/e2e-media/provider-logo.png?provider=shelter&v=visible-2026-06-30",
       "name": "Rastro E2E Refugio",
-      "photoUrl": "http://127.0.0.1:3201/e2e-media/provider-photo.png?provider=shelter&v=visible-2026-06-30",
+      "photoUrl": "http://10.0.2.2:3000/e2e-media/provider-photo.png?provider=shelter&v=visible-2026-06-30",
       "providerDetailsPromotion": true
     },
     {
       "category": "groomer",
-      "id": "8f305849-aaa1-4846-8d76-5fb10f7b5023",
-      "logoUrl": "http://127.0.0.1:3201/e2e-media/provider-logo.png?provider=groomer&v=visible-2026-06-30",
-      "name": "Rastro E2E Peluqueria",
-      "photoUrl": "http://127.0.0.1:3201/e2e-media/provider-photo.png?provider=groomer&v=visible-2026-06-30"
+      "id": "23349d51-2df8-4a7b-ad78-609d0d23e903",
+      "logoUrl": "http://10.0.2.2:3000/e2e-media/provider-logo.png?provider=groomer&v=visible-2026-06-30",
+      "name": "Rastro E2E Peluquería",
+      "photoUrl": "http://10.0.2.2:3000/e2e-media/provider-photo.png?provider=groomer&v=visible-2026-06-30"
     },
     {
       "category": "pet_food",
-      "id": "c40c775e-0aa0-4374-866a-4ed9470a2703",
-      "logoUrl": "http://127.0.0.1:3201/e2e-media/provider-logo.png?provider=pet_food&v=visible-2026-06-30",
+      "id": "76f028b5-d20d-429e-888b-f19c360f2bd4",
+      "logoUrl": "http://10.0.2.2:3000/e2e-media/provider-logo.png?provider=pet_food&v=visible-2026-06-30",
       "name": "Rastro E2E Alimento",
-      "photoUrl": "http://127.0.0.1:3201/e2e-media/provider-photo.png?provider=pet_food&v=visible-2026-06-30"
+      "photoUrl": "http://10.0.2.2:3000/e2e-media/provider-photo.png?provider=pet_food&v=visible-2026-06-30"
     },
     {
       "category": "trainer",
-      "id": "f5e0527c-6ed8-4e04-b0a7-54ec8e3b445d",
-      "logoUrl": "http://127.0.0.1:3201/e2e-media/provider-logo.png?provider=trainer&v=visible-2026-06-30",
+      "id": "aec642b3-c3bb-4190-8ca6-e5e7b081b27c",
+      "logoUrl": "http://10.0.2.2:3000/e2e-media/provider-logo.png?provider=trainer&v=visible-2026-06-30",
       "name": "Rastro E2E Entrenamiento",
-      "photoUrl": "http://127.0.0.1:3201/e2e-media/provider-photo.png?provider=trainer&v=visible-2026-06-30"
+      "photoUrl": "http://10.0.2.2:3000/e2e-media/provider-photo.png?provider=trainer&v=visible-2026-06-30"
     },
     {
       "category": "pet_store",
-      "id": "37ed5e39-116a-4625-bd53-1c1b2e754e87",
-      "logoUrl": "http://127.0.0.1:3201/e2e-media/provider-logo.png?provider=pet_store&v=visible-2026-06-30",
+      "id": "bd63994d-cc1b-4d78-b347-480fd088163f",
+      "logoUrl": "http://10.0.2.2:3000/e2e-media/provider-logo.png?provider=pet_store&v=visible-2026-06-30",
       "name": "Rastro E2E Tienda",
-      "photoUrl": "http://127.0.0.1:3201/e2e-media/provider-photo.png?provider=pet_store&v=visible-2026-06-30"
+      "photoUrl": "http://10.0.2.2:3000/e2e-media/provider-photo.png?provider=pet_store&v=visible-2026-06-30"
     },
     {
       "category": "transport",
-      "id": "1ebabdfc-9e74-4ff7-84d5-dff90dde5b7c",
-      "logoUrl": "http://127.0.0.1:3201/e2e-media/provider-logo.png?provider=transport&v=visible-2026-06-30",
+      "id": "4c4d6e01-3aec-4ee3-8cdf-f13ad356f4e0",
+      "logoUrl": "http://10.0.2.2:3000/e2e-media/provider-logo.png?provider=transport&v=visible-2026-06-30",
       "name": "Rastro E2E Transporte",
-      "photoUrl": "http://127.0.0.1:3201/e2e-media/provider-photo.png?provider=transport&v=visible-2026-06-30"
+      "photoUrl": "http://10.0.2.2:3000/e2e-media/provider-photo.png?provider=transport&v=visible-2026-06-30"
     },
     {
       "category": "other",
-      "id": "7f73f77d-28c1-4575-b609-80967d0d4bbf",
-      "logoUrl": "http://127.0.0.1:3201/e2e-media/provider-logo.png?provider=other&v=visible-2026-06-30",
+      "id": "e713b337-7ee0-4ba9-a392-794ca54859d2",
+      "logoUrl": "http://10.0.2.2:3000/e2e-media/provider-logo.png?provider=other&v=visible-2026-06-30",
       "name": "Rastro E2E Servicio",
-      "photoUrl": "http://127.0.0.1:3201/e2e-media/provider-photo.png?provider=other&v=visible-2026-06-30"
+      "photoUrl": "http://10.0.2.2:3000/e2e-media/provider-photo.png?provider=other&v=visible-2026-06-30"
     }
   ],
   "promotions": [
     {
       "disclosure": "Patrocinado E2E: apoyo local visible sin cambiar prioridad de recuperación.",
-      "imageUrl": "http://127.0.0.1:3201/e2e-media/sponsor-banner.png?surface=resources_directory&v=visible-2026-06-30",
+      "imageUrl": "http://10.0.2.2:3000/e2e-media/sponsor-banner.png?surface=resources_directory&v=visible-2026-06-30",
       "label": "E2E Directorio",
-      "logoUrl": "http://127.0.0.1:3201/e2e-media/sponsor-logo.png?surface=resources_directory&v=visible-2026-06-30",
-      "placementId": "34077eba-0fd1-49ed-95ca-6b123cfd59fb",
-      "providerId": "1ade708b-18d9-4737-9a98-ad16bc4e95d2",
+      "logoUrl": "http://10.0.2.2:3000/e2e-media/sponsor-logo.png?surface=resources_directory&v=visible-2026-06-30",
+      "placementId": "91abd94f-4d6a-4fe0-ad6d-0f2bbfa14d83",
+      "providerId": "ede7bc92-492f-4693-a1db-0b7c0f8a1f7d",
       "surface": "resources_directory"
     },
     {
       "disclosure": "Patrocinado E2E: apoyo local visible sin cambiar prioridad de recuperación.",
-      "imageUrl": "http://127.0.0.1:3201/e2e-media/sponsor-banner.png?surface=provider_details&v=visible-2026-06-30",
+      "imageUrl": "http://10.0.2.2:3000/e2e-media/sponsor-banner.png?surface=provider_details&v=visible-2026-06-30",
       "label": "E2E Perfil",
-      "logoUrl": "http://127.0.0.1:3201/e2e-media/sponsor-logo.png?surface=provider_details&v=visible-2026-06-30",
-      "placementId": "0b9835a3-05eb-4dbb-8b6f-d64fd370aa34",
-      "providerId": "f2d7b564-e119-4679-8a15-5a3161f19c67",
+      "logoUrl": "http://10.0.2.2:3000/e2e-media/sponsor-logo.png?surface=provider_details&v=visible-2026-06-30",
+      "placementId": "f71d520e-a59f-441b-9350-3f96ab23e59c",
+      "providerId": "33063c14-ce0c-4680-a45f-887a12873eb3",
       "surface": "provider_details"
     },
     {
       "disclosure": "Patrocinado E2E: apoyo local visible sin cambiar prioridad de recuperación.",
-      "imageUrl": "http://127.0.0.1:3201/e2e-media/sponsor-banner.png?surface=launch_home_banner&v=visible-2026-06-30",
+      "imageUrl": "http://10.0.2.2:3000/e2e-media/sponsor-banner.png?surface=launch_home_banner&v=visible-2026-06-30",
       "label": "E2E Inicio",
-      "logoUrl": "http://127.0.0.1:3201/e2e-media/sponsor-logo.png?surface=launch_home_banner&v=visible-2026-06-30",
-      "placementId": "30990c4f-d287-417d-9d47-b69fcefe79c8",
-      "providerId": "8f305849-aaa1-4846-8d76-5fb10f7b5023",
+      "logoUrl": "http://10.0.2.2:3000/e2e-media/sponsor-logo.png?surface=launch_home_banner&v=visible-2026-06-30",
+      "placementId": "1e05d6d1-0a14-446b-91d2-9f30b08f45ef",
+      "providerId": "23349d51-2df8-4a7b-ad78-609d0d23e903",
       "surface": "launch_home_banner"
     },
     {
       "disclosure": "Patrocinado E2E: apoyo local visible sin cambiar prioridad de recuperación.",
-      "imageUrl": "http://127.0.0.1:3201/e2e-media/sponsor-banner.png?surface=report_success&v=visible-2026-06-30",
+      "imageUrl": "http://10.0.2.2:3000/e2e-media/sponsor-banner.png?surface=report_success&v=visible-2026-06-30",
       "label": "E2E Reporte",
-      "logoUrl": "http://127.0.0.1:3201/e2e-media/sponsor-logo.png?surface=report_success&v=visible-2026-06-30",
-      "placementId": "b262b66d-1413-4d88-85ca-1a7185c2e6cd",
-      "providerId": "c40c775e-0aa0-4374-866a-4ed9470a2703",
+      "logoUrl": "http://10.0.2.2:3000/e2e-media/sponsor-logo.png?surface=report_success&v=visible-2026-06-30",
+      "placementId": "c8906ded-4dd1-4f94-8a5c-9dc56962ea07",
+      "providerId": "76f028b5-d20d-429e-888b-f19c360f2bd4",
       "surface": "report_success"
     },
     {
       "disclosure": "Patrocinado E2E: apoyo local visible sin cambiar prioridad de recuperación.",
-      "imageUrl": "http://127.0.0.1:3201/e2e-media/sponsor-banner.png?surface=contextual_care_resources&v=visible-2026-06-30",
+      "imageUrl": "http://10.0.2.2:3000/e2e-media/sponsor-banner.png?surface=contextual_care_resources&v=visible-2026-06-30",
       "label": "E2E Cuidado",
-      "logoUrl": "http://127.0.0.1:3201/e2e-media/sponsor-logo.png?surface=contextual_care_resources&v=visible-2026-06-30",
-      "placementId": "629da7be-d94c-4689-aa51-b4132bb790d3",
-      "providerId": "f5e0527c-6ed8-4e04-b0a7-54ec8e3b445d",
+      "logoUrl": "http://10.0.2.2:3000/e2e-media/sponsor-logo.png?surface=contextual_care_resources&v=visible-2026-06-30",
+      "placementId": "6eb3a709-6f72-493b-89dc-34488cf34d35",
+      "providerId": "aec642b3-c3bb-4190-8ca6-e5e7b081b27c",
       "surface": "contextual_care_resources"
     }
   ],
   "reports": [
     {
       "contactPreference": "both",
-      "id": "f4158a64-7f8b-4172-a50a-ac2572b07fce",
+      "id": "ff659ddd-de5a-425d-9194-6394308e136e",
       "mediaUrls": [
-        "http://127.0.0.1:3201/e2e-media/report-photo.png?media=34fb2096-95e3-458c-83ed-6dc4d7aacc5e&v=visible-2026-06-30",
-        "http://127.0.0.1:3201/e2e-media/report-alt-photo.png?media=0fe9f0f9-c860-4f46-8892-2d2f9a5ea9fb&v=visible-2026-06-30"
+        "http://10.0.2.2:3000/e2e-media/report-photo.png?media=10bfd858-0ef1-4401-ac67-154c940c34ea&v=visible-2026-06-30",
+        "http://10.0.2.2:3000/e2e-media/report-alt-photo.png?media=3adf02ba-f251-484f-9260-7eb644742df5&v=visible-2026-06-30"
       ],
-      "title": "Rastro E2E Mascota Perdida Kira",
+      "title": "Rastro E2E Mascota perdida Kira",
       "type": "lost_pet"
     },
     {
       "contactPreference": "whatsapp",
-      "id": "8f268ef0-522b-45b6-9d0e-c7256e234f59",
+      "id": "aeb6c22d-509e-4ef0-bfe5-c185a1918859",
       "mediaUrls": [
-        "http://127.0.0.1:3201/e2e-media/report-photo.png?media=f442143a-31e5-4b9b-af8b-e3a0cf953ac1&v=visible-2026-06-30"
+        "http://10.0.2.2:3000/e2e-media/report-photo.png?media=f1bf8104-d770-4b01-8f11-bbddbd204cfc&v=visible-2026-06-30"
       ],
       "title": "Rastro E2E Mascota Encontrada Centro",
       "type": "found_pet"
     },
     {
       "contactPreference": "in_app_chat",
-      "id": "bb0ab675-c86c-4fcb-a0f3-4a483cc6bde5",
+      "id": "abcbf212-e578-40b8-8b4e-da53c9d06403",
       "mediaUrls": [
-        "http://127.0.0.1:3201/e2e-media/report-photo.png?media=36582a88-8a3a-4a7b-bd75-9a94ffd0229f&v=visible-2026-06-30"
+        "http://10.0.2.2:3000/e2e-media/report-photo.png?media=1fa72981-d14d-46b7-b444-cb08fc06b91d&v=visible-2026-06-30"
       ],
       "title": "Rastro E2E Avistamiento Can Zona Sur",
       "type": "sighting"
     },
     {
       "contactPreference": "both",
-      "id": "bfa5fc56-bf8c-4175-9b54-8d8439107d8e",
+      "id": "5e3fd404-0d24-4815-8590-82227ebb829a",
       "mediaUrls": [
-        "http://127.0.0.1:3201/e2e-media/report-photo.png?media=9752db6d-866a-4815-9d8a-aa7873f86677&v=visible-2026-06-30"
+        "http://10.0.2.2:3000/e2e-media/report-photo.png?media=299b0145-bf1d-434c-a29e-98d451ef4dfc&v=visible-2026-06-30"
       ],
-      "title": "Rastro E2E Adopcion Luna Tranquila",
+      "title": "Rastro E2E Adopción Luna Tranquila",
       "type": "adoption"
     }
   ],

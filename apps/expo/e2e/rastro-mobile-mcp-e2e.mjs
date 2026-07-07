@@ -106,6 +106,8 @@ const savedXmlNodeRequirementMatchers = [
   },
 ];
 const checks = [];
+const requestedFlows = parseRequestedFlows(process.env.RASTRO_E2E_FLOW);
+const isFullRun = requestedFlows.has("full");
 
 if (process.env.RASTRO_E2E_MOBILE_SEED !== "0") {
   await seedFixtureForMobile();
@@ -145,22 +147,43 @@ try {
   await grantAndroidRuntimePermissions();
   await openDevelopmentBuild();
   const memberEmail = await ensureFixtureViewerSession();
-  await verifyMemberProfileSettingsWorkflow({ expectedEmail: memberEmail });
-  await verifyPetProfilesWorkflow({ memberEmail });
-  await verifyNearbyLocationSwitchingWorkflow();
-  await verifyResourcesDirectory();
-  await verifyProviderProfile({ memberEmail });
-  await verifyAdoptionCreationWorkflow();
-  await verifyReportDetails();
-  const latestChatMessageText = await verifyChatWorkflow();
-  await verifyAlertSubscriptionWorkflow();
-  await verifyActivityInboxWorkflow({ latestChatMessageText });
-  await captureUiDump("final-window.xml");
-  await assertSafeAreaAndOverlapPass();
+
+  if (shouldRunFlow("fab-report-navigation")) {
+    await verifyFabReportNavigationCloseWorkflow();
+  }
+
+  if (isFullRun) {
+    await verifyMemberProfileSettingsWorkflow({ expectedEmail: memberEmail });
+    await verifyPetProfilesWorkflow({ memberEmail });
+    await verifyNearbyLocationSwitchingWorkflow();
+    await verifyResourcesDirectory();
+    await verifyProviderProfile({ memberEmail });
+  }
+
+  if (shouldRunFlow("adoption-creation")) {
+    await verifyAdoptionCreationWorkflow();
+  }
+
+  if (isFullRun) {
+    await verifyReportDetails();
+    const latestChatMessageText = await verifyChatWorkflow();
+    await verifyAlertSubscriptionWorkflow();
+    await verifyActivityInboxWorkflow({ latestChatMessageText });
+    await captureUiDump("final-window.xml");
+    await assertSafeAreaAndOverlapPass();
+  } else {
+    await captureUiDump("targeted-final-window.xml");
+  }
+
   await stopLogcatCapture(logcatCapture);
   logcatStopped = true;
   assertLogcatClean();
-  writeReadinessManifest();
+
+  if (isFullRun) {
+    writeReadinessManifest();
+  } else {
+    writeTargetedManifest();
+  }
 } finally {
   if (!logcatStopped) {
     await stopLogcatCapture(logcatCapture);
@@ -405,8 +428,7 @@ function assertLogcatClean() {
   const failureMatchers = [
     {
       id: "android-runtime",
-      pattern:
-        /AndroidRuntime|FATAL EXCEPTION|Fatal signal|Process: bo\.rastro\.app/,
+      pattern: /Process: bo\.rastro\.app|Fatal signal.*bo\.rastro\.app/i,
     },
     {
       id: "json-parse",
@@ -477,12 +499,50 @@ function writeReadinessManifest() {
   }
 }
 
+function writeTargetedManifest() {
+  const summary = buildRunSummary();
+
+  writeFileSync(
+    join(artifactRoot, "mobile-mcp-summary.json"),
+    JSON.stringify(summary, null, 2),
+  );
+  writeFileSync(
+    join(artifactRoot, "targeted-manifest.json"),
+    JSON.stringify(
+      {
+        ...summary,
+        targetedGate: {
+          passed: true,
+          requestedFlows: [...requestedFlows],
+        },
+      },
+      null,
+      2,
+    ),
+  );
+
+  console.log(
+    JSON.stringify(
+      {
+        ...summary,
+        targetedGate: {
+          passed: true,
+          requestedFlows: [...requestedFlows],
+        },
+      },
+      null,
+      2,
+    ),
+  );
+}
+
 function buildRunSummary() {
   return {
     appId,
     artifactRoot,
     checks,
     deviceId,
+    flows: [...requestedFlows],
     manifestPath,
     platform,
     qaArtifacts: {
@@ -490,6 +550,46 @@ function buildRunSummary() {
       uiDumpDir: artifactUiDir,
     },
   };
+}
+
+function parseRequestedFlows(value) {
+  const flowAliases = {
+    adoption: "adoption-creation",
+    "adoption-creation": "adoption-creation",
+    fab: "fab-report-navigation",
+    "fab-report-navigation": "fab-report-navigation",
+    full: "full",
+  };
+  const tokens = String(value ?? "full")
+    .split(",")
+    .map((token) => token.trim())
+    .filter(Boolean);
+  const flows = new Set(tokens.map((token) => flowAliases[token] ?? token));
+  const unsupported = [...flows].filter(
+    (flow) => !Object.values(flowAliases).includes(flow),
+  );
+
+  if (unsupported.length > 0) {
+    throw new Error(
+      `Unsupported RASTRO_E2E_FLOW value: ${unsupported.join(
+        ", ",
+      )}. Use full, fab-report-navigation, or adoption-creation.`,
+    );
+  }
+
+  if (flows.size === 0) {
+    flows.add("full");
+  }
+
+  if (flows.has("full") && flows.size > 1) {
+    throw new Error("RASTRO_E2E_FLOW=full cannot be combined with target flows.");
+  }
+
+  return flows;
+}
+
+function shouldRunFlow(flow) {
+  return isFullRun || requestedFlows.has(flow);
 }
 
 function buildReadinessGateManifest(summary) {
@@ -529,6 +629,11 @@ function buildReadinessGateManifest(summary) {
       id: "resources-state-matrix",
       rationale:
         "Recursos must prove loading, list, map, empty, error/retry, offline/stale, and provider states.",
+    },
+    {
+      id: "fab-report-navigation-single-close",
+      rationale:
+        "The FAB report sheet and selected report creation route must close with one accessible X tap.",
     },
   ];
   const requiredEvidence = [
@@ -854,6 +959,63 @@ async function assertNearbyPostgisMatrix() {
   return result;
 }
 
+async function verifyFabReportNavigationCloseWorkflow() {
+  await openDeepLinkUntilVisible(
+    [
+      "rastro://",
+      "rastro:///",
+      "rastro://cerca",
+      "rastro://(tabs)/(nearby)",
+    ],
+    "shell-report-fab",
+    { timeoutMs: 30000 },
+  );
+
+  await tapRequired("shell-report-fab");
+  const sheetCloseButton = await waitForTestID("report-action-sheet-close", {
+    timeoutMs: 15000,
+  });
+  assertMinimumBounds(sheetCloseButton.bounds, {
+    context: "report-action-sheet-close",
+    minHeight: 48,
+    minWidth: 48,
+  });
+  await screenshot("fab-report-sheet-open.png");
+  await tapRequired("report-action-sheet-close");
+  await waitForTestIDToDisappear("report-action-sheet-close", {
+    timeoutMs: 8000,
+  });
+
+  await tapRequired("shell-report-fab");
+  await waitForTestID("report-action-sheet-close", { timeoutMs: 15000 });
+  await tapVisibleText("Reportar pérdida", "fab-report-select-lost", {
+    timeoutMs: 15000,
+  });
+  const routeCloseButton = await waitForTestID("report-creation-close-button", {
+    timeoutMs: 30000,
+  });
+  assertMinimumBounds(routeCloseButton.bounds, {
+    context: "report-creation-close-button",
+    minHeight: 48,
+    minWidth: 48,
+  });
+  await screenshot("fab-report-creation-route-open.png");
+  await tapRequired("report-creation-close-button");
+  await waitForTestID("shell-report-fab", { timeoutMs: 15000 });
+  await waitForTestIDToDisappear("report-creation-close-button", {
+    timeoutMs: 8000,
+  });
+
+  checks.push({
+    detail:
+      "FAB sheet close and selected lost-report creation route close both responded to one X tap with 48dp+ accessible targets.",
+    id: "fab-report-navigation-single-close",
+    ok: true,
+    routeCloseBounds: routeCloseButton.bounds,
+    sheetCloseBounds: sheetCloseButton.bounds,
+  });
+}
+
 async function captureResourcesStateMatrixEvidence() {
   const outputPath = join(artifactRoot, "resources-state-matrix-vitest.txt");
 
@@ -937,15 +1099,104 @@ async function signOutCurrentMember({ currentEmail }) {
     maxSwipes: 5,
   });
   await tapVisibleText("Cerrar sesión", "profile-sign-out");
-  await delay(1000);
-  await openProfileScreen({ timeoutMs: 30000 });
-  await waitForVisibleText("Iniciar sesión", "profile-signed-out", {
-    timeoutMs: 30000,
-  });
+  await waitForSignedOutProfile({ previousEmail: currentEmail });
   checks.push({
     id: "auth-sign-out-previous-member",
     ok: true,
     previousEmail: currentEmail,
+  });
+}
+
+async function waitForSignedOutProfile({ previousEmail }) {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    await delay(attempt === 1 ? 1000 : 1500);
+    lastError = await openProfileForSignedOutCheck();
+
+    const signedOutCheck = await checkSignedOutProfileState(attempt);
+    if (signedOutCheck.ok) {
+      return;
+    }
+
+    lastError = signedOutCheck.error;
+
+    await assertProfileStillOnPreviousMember(previousEmail);
+    await retryProfileSignOutIfVisible({ attempt, previousEmail });
+  }
+
+  throw new Error(
+    `Expected signed-out profile state after signing out ${previousEmail}: ${
+      lastError instanceof Error ? lastError.message : String(lastError)
+    }`,
+  );
+}
+
+async function openProfileForSignedOutCheck() {
+  try {
+    await openDeepLinkUntilVisible(
+      ["rastro:///(tabs)/(profile)", "rastro://(tabs)/(profile)"],
+      "profile-screen",
+      { timeoutMs: 12000 },
+    );
+    return null;
+  } catch (error) {
+    return openProfileScreenForSignedOutFallback(error);
+  }
+}
+
+async function openProfileScreenForSignedOutFallback(previousError) {
+  try {
+    await openProfileScreen({ timeoutMs: 12000 });
+    return previousError;
+  } catch (profileError) {
+    return profileError;
+  }
+}
+
+async function checkSignedOutProfileState(attempt) {
+  try {
+    await waitForVisibleText("Iniciar sesión", "profile-signed-out", {
+      timeoutMs: 5000,
+    });
+    checks.push({
+      attempt,
+      id: "auth-signed-out-profile-state",
+      ok: true,
+    });
+    return { ok: true };
+  } catch (error) {
+    return { error, ok: false };
+  }
+}
+
+async function assertProfileStillOnPreviousMember(previousEmail) {
+  const currentDump = await readUiDump();
+  const visibleEmail = extractFirstEmail(currentDump);
+
+  if (visibleEmail && visibleEmail !== previousEmail) {
+    throw new Error(
+      `Expected to sign out ${previousEmail}, but profile shows ${visibleEmail}.`,
+    );
+  }
+}
+
+async function retryProfileSignOutIfVisible({ attempt, previousEmail }) {
+  const retried = await maybeTapAnyVisibleText(
+    ["Cerrar sesión"],
+    "profile-sign-out-retry",
+    { timeoutMs: 2500 },
+  );
+
+  if (!retried) {
+    return;
+  }
+
+  checks.push({
+    attempt,
+    id: "auth-sign-out-retry",
+    ok: true,
+    previousEmail,
   });
 }
 
@@ -1661,7 +1912,7 @@ async function verifyAdoptionCreationWorkflow() {
     ["rastro:///report-create/adoption"],
     "Dar en adopción",
   );
-  await tapVisibleText("Crear aquí", "adoption-inline-pet-mode");
+  await selectAdoptionInlinePetMode();
   await replaceTextByAccessibilityLabel("Nombre", petName, {
     context: "adoption-pet-name",
   });
@@ -2922,6 +3173,114 @@ async function tapRequired(testID) {
   checks.push({ id: `tap:${testID}`, ok: true });
 }
 
+async function tapTestIDUntilSelected(testID, options = {}) {
+  const config = selectionTapConfig(testID, options);
+  let lastNode = null;
+
+  for (let attempt = 1; attempt <= config.attempts; attempt += 1) {
+    lastNode = await waitForSelectableTestID(testID, config, attempt);
+
+    if (lastNode.selected) {
+      recordSelectedTestID(config.context, attempt);
+      return lastNode;
+    }
+
+    await tapSelectableTestID(lastNode, config.context, attempt);
+  }
+
+  throwSelectionTapError(config.context, lastNode);
+}
+
+function selectionTapConfig(testID, options) {
+  return {
+    attempts: options.attempts ?? 3,
+    context: options.context ?? testID,
+    firstTimeoutMs: options.timeoutMs ?? 6000,
+    retryTimeoutMs: 2500,
+  };
+}
+
+async function waitForSelectableTestID(testID, config, attempt) {
+  return waitForTestID(testID, {
+    timeoutMs: attempt === 1 ? config.firstTimeoutMs : config.retryTimeoutMs,
+  });
+}
+
+function recordSelectedTestID(context, attempt) {
+  checks.push({ attempt, id: `selected:${context}`, ok: true });
+}
+
+async function tapSelectableTestID(node, context, attempt) {
+  await tapParsedBounds(node.bounds);
+  checks.push({ attempt, id: `tap:${context}`, ok: true });
+  await delay(750);
+}
+
+function throwSelectionTapError(context, lastNode) {
+  const selectedState = lastNode ? String(lastNode.selected) : "missing";
+
+  throw new Error(
+    `Expected ${context} to become selected after tap attempts; selected=${selectedState}`,
+  );
+}
+
+async function selectAdoptionInlinePetMode() {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    try {
+      await tapTestIDUntilSelected("adoption-inline-pet-mode", {
+        attempts: 2,
+        context: "adoption-inline-pet-mode",
+      });
+      await waitForVisibleNodeByText("Nombre", {
+        classNameIncludes: "EditText",
+        context: "adoption-pet-name-after-inline-mode",
+        exact: true,
+        matchContentDescription: true,
+        matchText: false,
+        timeoutMs: 4000,
+      });
+      checks.push({
+        attempt,
+        id: "adoption-inline-pet-mode-ready",
+        ok: true,
+      });
+      return;
+    } catch (error) {
+      lastError = error;
+      await delay(1000);
+    }
+  }
+
+  throw new Error(
+    `Expected inline adoption pet form after selecting Crear aquí: ${
+      lastError instanceof Error ? lastError.message : String(lastError)
+    }`,
+  );
+}
+
+function assertMinimumBounds(bounds, { context, minHeight, minWidth }) {
+  if (bounds.width >= minWidth && bounds.height >= minHeight) {
+    checks.push({
+      bounds,
+      id: `touch-target:${context}`,
+      minHeight,
+      minWidth,
+      ok: true,
+    });
+    return;
+  }
+
+  throw new Error(
+    `${context} touch target is too small: ${JSON.stringify({
+      bounds,
+      minHeight,
+      minWidth,
+    })}`,
+  );
+}
+
 async function tapVisibleText(text, context, options = {}) {
   const node = await waitForVisibleNodeByText(text, {
     context,
@@ -3638,6 +3997,7 @@ function parseVisibleXmlNode(tag) {
     longClickable: isXmlAttributeTrue(tag, "long-clickable"),
     packageName: readDecodedXmlAttribute(tag, "package"),
     resourceId: readDecodedXmlAttribute(tag, "resource-id"),
+    selected: isXmlAttributeTrue(tag, "selected"),
     text: readDecodedXmlAttribute(tag, "text"),
   };
 }

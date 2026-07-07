@@ -5,10 +5,16 @@ const jiti = createJiti(import.meta.url);
 // Import env files to validate at build time. Use jiti so we can load .ts files in here.
 await jiti.import("./src/env");
 
+const deploymentOrigin =
+  process.env.BETTER_AUTH_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "");
+
 const isHttpsProductionDeployment =
   process.env.VERCEL_ENV === "production" ||
   (process.env.NODE_ENV === "production" &&
-    Boolean(process.env.VERCEL_PROJECT_PRODUCTION_URL));
+    deploymentOrigin.startsWith("https://"));
 
 const contentSecurityPolicy = [
   "base-uri 'self'",

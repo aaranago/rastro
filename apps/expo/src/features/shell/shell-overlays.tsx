@@ -152,6 +152,7 @@ export function ShellFabHost() {
               opacity: pressed ? 0.82 : 1,
             },
           ]}
+          testID="shell-report-fab"
         >
           <ShellIcon
             name="plus"
@@ -595,6 +596,7 @@ export function ReportActionSheet({
       onRequestClose={onClose}
       transparent
       visible={visible}
+      testID="report-action-sheet"
     >
       <View
         style={[
@@ -609,8 +611,11 @@ export function ReportActionSheet({
         <Pressable
           accessibilityLabel="Cerrar panel de reporte"
           accessibilityRole="button"
+          hitSlop={12}
           onPress={onClose}
-          style={StyleSheet.absoluteFill}
+          pressRetentionOffset={18}
+          style={[StyleSheet.absoluteFill, styles.modalBackdropPressTarget]}
+          testID="report-action-sheet-backdrop"
         />
         <View
           accessibilityViewIsModal
@@ -637,8 +642,11 @@ export function ReportActionSheet({
               <Pressable
                 accessibilityLabel={closeLabel}
                 accessibilityRole="button"
+                hitSlop={12}
                 onPress={onClose}
+                pressRetentionOffset={18}
                 style={styles.closeButton}
+                testID="report-action-sheet-close"
               >
                 <ShellIcon name="xmark" color={shellColors.muted} size={22} />
               </Pressable>
@@ -807,8 +815,11 @@ export function SignInPrompt({
           <Pressable
             accessibilityLabel={copy.closeLabel}
             accessibilityRole="button"
+            hitSlop={12}
             onPress={actions.onClose}
+            pressRetentionOffset={18}
             style={styles.promptNavigationButton}
+            testID="auth-prompt-close-button"
           >
             <PromptBackIcon />
           </Pressable>
@@ -1627,10 +1638,13 @@ const styles = StyleSheet.create({
     backgroundColor: shellColors.background,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
+    elevation: 4,
     gap: 18,
     maxHeight: "92%",
     paddingHorizontal: 16,
     paddingTop: 18,
+    position: "relative",
+    zIndex: 2,
   },
   actionSheetScrollContent: {
     gap: 18,
@@ -1639,11 +1653,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: shellColors.surfaceMuted,
     borderRadius: 24,
+    elevation: 6,
     height: 48,
     justifyContent: "center",
     minHeight: 48,
     minWidth: 48,
+    position: "relative",
     width: 48,
+    zIndex: 3,
   },
   fab: {
     alignItems: "center",
@@ -1668,6 +1685,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(23, 32, 28, 0.20)",
     flex: 1,
     justifyContent: "flex-end",
+  },
+  modalBackdropPressTarget: {
+    elevation: 0,
+    zIndex: 0,
   },
   primaryPromptButton: {
     alignItems: "center",

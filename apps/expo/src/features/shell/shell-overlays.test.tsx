@@ -219,14 +219,17 @@ describe("SignInPrompt", () => {
     expect(heroImage?.props.source).toBeTruthy();
     expect(findText(screen, "+")).toBe(false);
     expect(findText(screen, "Cerrar")).toBe(false);
-    expect(
-      findElement(
-        screen,
-        (element) =>
-          element.type === "Pressable" &&
-          element.props.accessibilityLabel === "Cerrar",
-      )?.props.accessibilityRole,
-    ).toBe("button");
+    const closeButton = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.accessibilityLabel === "Cerrar",
+    );
+
+    expect(closeButton?.props.accessibilityRole).toBe("button");
+    expect(closeButton?.props.hitSlop).toBe(12);
+    expect(closeButton?.props.pressRetentionOffset).toBe(18);
+    expect(closeButton?.props.testID).toBe("auth-prompt-close-button");
     expect(
       findElement(
         scrollView,
@@ -589,10 +592,19 @@ describe("ReportActionSheet", () => {
 
     expect(modal?.props.transparent).toBe(true);
     expect(closeButton?.props.accessibilityRole).toBe("button");
+    expect(closeButton?.props.hitSlop).toBe(12);
+    expect(closeButton?.props.pressRetentionOffset).toBe(18);
+    expect(closeButton?.props.testID).toBe("report-action-sheet-close");
     expect(
       styleHasMinimumDimension(closeButton?.props.style, "minWidth", 48),
     ).toBe(true);
+    expect(styleHasStyleValue(closeButton?.props.style, "zIndex", 3)).toBe(
+      true,
+    );
     expect(backdrop?.props.accessibilityRole).toBe("button");
+    expect(backdrop?.props.hitSlop).toBe(12);
+    expect(backdrop?.props.pressRetentionOffset).toBe(18);
+    expect(backdrop?.props.testID).toBe("report-action-sheet-backdrop");
     expect(onClose).toHaveBeenCalledTimes(3);
   });
 
@@ -1137,6 +1149,28 @@ function styleHasMaximumDimension(
   const value = (style as Record<string, unknown>)[key];
 
   return typeof value === "number" && value <= maximumValue;
+}
+
+function styleHasStyleValue(
+  style: unknown,
+  key: string,
+  expectedValue: unknown,
+): boolean {
+  const resolvedStyle = resolveStyle(style);
+
+  if (resolvedStyle !== style) {
+    return styleHasStyleValue(resolvedStyle, key, expectedValue);
+  }
+
+  if (Array.isArray(style)) {
+    return style.some((item) => styleHasStyleValue(item, key, expectedValue));
+  }
+
+  if (!style || typeof style !== "object") {
+    return false;
+  }
+
+  return Object.is((style as Record<string, unknown>)[key], expectedValue);
 }
 
 function resolveStyle(style: unknown): unknown {

@@ -438,6 +438,13 @@ describe("LostReportCreationScreen", () => {
     void getPressableOnPress(routeBackButton)();
 
     expect(routeBackButton).toBeTruthy();
+    expect(routeBackButton?.props.hitSlop).toBe(12);
+    expect(routeBackButton?.props.pressRetentionOffset).toBe(18);
+    expect(routeBackButton?.props.testID).toBe("report-creation-close-button");
+    expect(routeBackButton?.props.style).toMatchObject({
+      minHeight: 48,
+      minWidth: 48,
+    });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

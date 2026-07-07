@@ -7,6 +7,8 @@ node_modules
 
 # testing
 coverage
+test-results/
+**/test-results/
 
 # next.js
 .next/
@@ -55,5 +57,13 @@ dist/
 # tanstack
 .tanstack
 
+# local scratch QA artifacts; keep .scratch markdown/planning docs visible
+.scratch/*.jpeg
+.scratch/*.jpg
+.scratch/*.log
+.scratch/*.png
+.scratch/*.webp
+.scratch/*.xml
+.scratch/audit-screenshots/
 .scratch/mobile-qa/*
 .playwright-mcp/

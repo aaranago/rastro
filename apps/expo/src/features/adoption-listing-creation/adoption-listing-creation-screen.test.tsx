@@ -277,7 +277,49 @@ describe("AdoptionListingCreationScreen", () => {
     void getPressableOnPress(routeBackButton)();
 
     expect(routeBackButton).toBeTruthy();
+    expect(routeBackButton?.props.hitSlop).toBe(12);
+    expect(routeBackButton?.props.pressRetentionOffset).toBe(18);
+    expect(routeBackButton?.props.testID).toBe("report-creation-close-button");
+    expect(routeBackButton?.props.style).toMatchObject({
+      minHeight: 48,
+      minWidth: 48,
+    });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("exposes stable pet mode controls for native navigation tests", () => {
+    const screen = renderScreen(<AdoptionListingCreationScreen />);
+    const existingModeButton = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.testID === "adoption-existing-pet-mode",
+    );
+    const inlineModeButton = findElement(
+      screen,
+      (element) =>
+        element.type === "Pressable" &&
+        element.props.testID === "adoption-inline-pet-mode",
+    );
+
+    expect(existingModeButton?.props.accessibilityLabel).toBe("Usar perfil");
+    expect(existingModeButton?.props.accessibilityState).toHaveProperty(
+      "selected",
+    );
+    expect(existingModeButton?.props.hitSlop).toBe(8);
+    expect(existingModeButton?.props.pressRetentionOffset).toBe(14);
+    expect(
+      styleHasStyleValue(existingModeButton?.props.style, "minHeight", 48),
+    ).toBe(true);
+    expect(inlineModeButton?.props.accessibilityLabel).toBe("Crear aquí");
+    expect(inlineModeButton?.props.accessibilityState).toHaveProperty(
+      "selected",
+    );
+    expect(inlineModeButton?.props.hitSlop).toBe(8);
+    expect(inlineModeButton?.props.pressRetentionOffset).toBe(14);
+    expect(
+      styleHasStyleValue(inlineModeButton?.props.style, "minHeight", 48),
+    ).toBe(true);
   });
 
   it("renders the editor in a keyboard-aware safe-area frame with sticky step actions", () => {
@@ -898,6 +940,22 @@ function getPressableOnPress(element: TestElement | undefined) {
   }
 
   return onPress as () => Promise<void> | void;
+}
+
+function styleHasStyleValue(
+  style: unknown,
+  key: string,
+  value: unknown,
+): boolean {
+  if (Array.isArray(style)) {
+    return style.some((item) => styleHasStyleValue(item, key, value));
+  }
+
+  return (
+    typeof style === "object" &&
+    style !== null &&
+    (style as Record<string, unknown>)[key] === value
+  );
 }
 
 function elementContainsText(element: TestElement, text: string): boolean {
