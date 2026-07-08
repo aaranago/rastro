@@ -10,6 +10,7 @@
     "deps:check": "expo install --check",
     "deps:doctor": "pnpm dlx expo-doctor",
     "deps:fix": "expo install --fix --pnpm",
+    "eas:env:sync": "node ./scripts/sync-eas-env.mjs",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "format": "prettier --check . --ignore-path ../../.gitignore --ignore-path .prettierignore",

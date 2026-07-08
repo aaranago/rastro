@@ -298,6 +298,21 @@ If using EAS environment variables, create the values in each EAS environment us
 ```bash
 cd /home/z/Personal/ai/rastro/apps/expo
 
+pnpm eas:env:sync -- --environment preview
+pnpm eas:env:sync -- --environment production
+```
+
+The sync script reads the ignored repo `.env.local` and `.env`, pushes only the
+Expo mobile build allowlist, warns for missing values, and continues with the
+remaining variables. Use a dry run before changing EAS:
+
+```bash
+pnpm eas:env:sync -- --environment preview --dry-run
+```
+
+Manual equivalent for Android Maps:
+
+```bash
 eas env:create \
   --name EXPO_ANDROID_GOOGLE_MAPS_API_KEY \
   --value "YOUR_ANDROID_MAPS_KEY" \
